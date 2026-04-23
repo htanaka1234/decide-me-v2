@@ -8,7 +8,7 @@ rebuildable projections.
 
 ## Status
 
-This repository contains the first v3 implementation skeleton and core runtime:
+This repository contains the v2 implementation skeleton and core runtime:
 
 - skill authoring entrypoint in `SKILL.md`
 - protocol and architecture references in `references/`

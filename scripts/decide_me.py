@@ -20,7 +20,7 @@ from decide_me.store import bootstrap_runtime, rebuild_and_persist, validate_run
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="decide-me v3 runtime CLI")
+    parser = argparse.ArgumentParser(description="decide-me v2 runtime CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     bootstrap = subparsers.add_parser("bootstrap", help="initialize a runtime")

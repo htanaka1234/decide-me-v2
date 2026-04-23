@@ -1,4 +1,4 @@
-"""decide-me v3 runtime package."""
+"""decide-me v2 runtime package."""
 
 __all__ = ["__version__"]
 
