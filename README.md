@@ -1,10 +1,8 @@
 # decide-me-v2
 
-`decide-me-v2` is a destructive, event-sourced rewrite of the `decide-me` skill runtime.
-It keeps the single public `decide-me` entrypoint, one-question-at-a-time interviewing,
-parallel session continuity, taxonomy-aware search, and close-summary-to-plan handoff,
-while replacing the old shared-register-centric runtime with an append-only event log and
-rebuildable projections.
+`decide-me-v2` is an event-sourced decision runtime for structured interviewing,
+parallel session continuity, taxonomy-aware search, and close-summary-to-plan handoff.
+It uses an append-only event log and rebuildable projections as the runtime model.
 
 ## Status
 
@@ -138,8 +136,7 @@ python3 scripts/decide_me.py handle-reply \
 
 ## Notes
 
-- This repo intentionally breaks compatibility with the legacy YAML runtime.
-- The runtime remains under `.ai/decide-me/`; human-readable artifacts are exports, not state.
+- The runtime lives under `.ai/decide-me/`; human-readable artifacts are exports, not state.
 - Validation checks both event envelopes and projection consistency.
 - Closed-session compatibility tags are backfilled lazily and persisted as events.
 - `advance-session` resolves evidence conservatively. It only auto-resolves decisions when a

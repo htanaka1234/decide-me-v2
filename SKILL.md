@@ -5,7 +5,7 @@ description: Interview the user about a plan or design in a structured, low-fric
 
 Help me reach shared understanding on this project with minimal user fatigue.
 
-Use `decide-me` as the only public skill entrypoint. Keep the startup surface lean and load the
+Use this skill as the only public entrypoint. Keep the startup surface lean and load the
 bundled references only when they are needed for the current turn.
 
 Startup checklist:

@@ -1,6 +1,6 @@
 # Protocol Overview
 
-Use `decide-me` to turn an ambiguous project request into a decision-complete action plan with
+Use this skill to turn an ambiguous project request into a decision-complete action plan with
 minimal user fatigue.
 
 Core rules:
