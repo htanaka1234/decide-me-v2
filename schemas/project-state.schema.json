@@ -1,0 +1,221 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/decide-me/project-state.schema.json",
+  "title": "Decide Me Project State",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "project",
+    "state",
+    "protocol",
+    "counts",
+    "default_bundles",
+    "decisions"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 3
+    },
+    "project": {
+      "type": "object",
+      "required": [
+        "name",
+        "objective",
+        "current_milestone",
+        "stop_rule"
+      ],
+      "properties": {
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "objective": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "current_milestone": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "stop_rule": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "state": {
+      "type": "object",
+      "required": [
+        "project_version",
+        "updated_at",
+        "last_event_id"
+      ],
+      "properties": {
+        "project_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "updated_at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "last_event_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "protocol": {
+      "type": "object"
+    },
+    "counts": {
+      "type": "object"
+    },
+    "default_bundles": {
+      "type": "array"
+    },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "kind",
+          "domain",
+          "priority",
+          "frontier",
+          "status",
+          "resolvable_by",
+          "reversibility",
+          "depends_on",
+          "blocked_by",
+          "question",
+          "context",
+          "options",
+          "recommendation",
+          "accepted_answer",
+          "resolved_by_evidence",
+          "evidence_refs",
+          "revisit_triggers",
+          "notes",
+          "bundle_id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "type": "string"
+          },
+          "domain": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "P0",
+              "P1",
+              "P2"
+            ]
+          },
+          "frontier": {
+            "type": "string",
+            "enum": [
+              "now",
+              "later",
+              "discovered-later",
+              "deferred"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "unresolved",
+              "proposed",
+              "rejected",
+              "blocked",
+              "accepted",
+              "deferred",
+              "resolved-by-evidence"
+            ]
+          },
+          "resolvable_by": {
+            "type": "string"
+          },
+          "reversibility": {
+            "type": "string"
+          },
+          "depends_on": {
+            "type": "array"
+          },
+          "blocked_by": {
+            "type": "array"
+          },
+          "question": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "context": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "options": {
+            "type": "array"
+          },
+          "recommendation": {
+            "type": "object"
+          },
+          "accepted_answer": {
+            "type": "object"
+          },
+          "resolved_by_evidence": {
+            "type": "object"
+          },
+          "evidence_refs": {
+            "type": "array"
+          },
+          "revisit_triggers": {
+            "type": "array"
+          },
+          "notes": {
+            "type": "array"
+          },
+          "bundle_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": false
+}

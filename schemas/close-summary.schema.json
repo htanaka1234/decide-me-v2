@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/decide-me/close-summary.schema.json",
+  "title": "Decide Me Close Summary",
+  "type": "object",
+  "required": [
+    "work_item_title",
+    "work_item_statement",
+    "goal",
+    "readiness",
+    "accepted_decisions",
+    "deferred_decisions",
+    "unresolved_blockers",
+    "unresolved_risks",
+    "candidate_workstreams",
+    "candidate_action_slices",
+    "evidence_refs",
+    "generated_at"
+  ],
+  "properties": {
+    "work_item_title": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "work_item_statement": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "goal": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "readiness": {
+      "type": "string",
+      "enum": [
+        "ready",
+        "conditional",
+        "blocked"
+      ]
+    },
+    "accepted_decisions": {
+      "type": "array"
+    },
+    "deferred_decisions": {
+      "type": "array"
+    },
+    "unresolved_blockers": {
+      "type": "array"
+    },
+    "unresolved_risks": {
+      "type": "array"
+    },
+    "candidate_workstreams": {
+      "type": "array"
+    },
+    "candidate_action_slices": {
+      "type": "array"
+    },
+    "evidence_refs": {
+      "type": "array"
+    },
+    "generated_at": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

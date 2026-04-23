@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/decide-me/taxonomy-state.schema.json",
+  "title": "Decide Me Taxonomy State",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "state",
+    "required_axes",
+    "nodes"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 3
+    },
+    "state": {
+      "type": "object",
+      "required": [
+        "updated_at",
+        "last_event_id"
+      ],
+      "properties": {
+        "updated_at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "last_event_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "required_axes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "axis",
+          "label",
+          "aliases",
+          "parent_id",
+          "replaced_by",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "axis": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "aliases": {
+            "type": "array"
+          },
+          "parent_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "replaced_by": {
+            "type": "array"
+          },
+          "status": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/decide-me/event-envelope.schema.json",
+  "title": "Decide Me Event Envelope",
+  "type": "object",
+  "required": [
+    "event_id",
+    "ts",
+    "session_id",
+    "event_type",
+    "project_version_after",
+    "payload"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string"
+    },
+    "ts": {
+      "type": "string"
+    },
+    "session_id": {
+      "type": "string"
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "project_initialized",
+        "session_created",
+        "session_resumed",
+        "decision_discovered",
+        "question_asked",
+        "proposal_issued",
+        "proposal_accepted",
+        "proposal_rejected",
+        "decision_deferred",
+        "decision_resolved_by_evidence",
+        "classification_updated",
+        "close_summary_generated",
+        "session_closed",
+        "plan_generated",
+        "taxonomy_extended",
+        "compatibility_backfilled"
+      ]
+    },
+    "project_version_after": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "payload": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

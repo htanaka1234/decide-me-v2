@@ -1,0 +1,165 @@
+from __future__ import annotations
+
+import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
+from decide_me.exports import export_adr
+from decide_me.lifecycle import close_session, create_session
+from decide_me.planner import generate_plan
+from decide_me.protocol import (
+    accept_proposal,
+    discover_decision,
+    issue_proposal,
+    resolve_by_evidence,
+    update_classification,
+)
+from decide_me.store import bootstrap_runtime, rebuild_and_persist, validate_runtime
+
+
+class RuntimeFlowTests(unittest.TestCase):
+    def test_parallel_sessions_do_not_accept_stale_plain_ok(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Exercise stale proposal handling",
+                current_milestone="MVP",
+            )
+            s1 = create_session(ai_dir, context="Auth thread")["session"]["id"]
+            s2 = create_session(ai_dir, context="Audit thread")["session"]["id"]
+
+            discover_decision(
+                ai_dir,
+                s1,
+                {
+                    "id": "D-001",
+                    "title": "Auth mode",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "question": "How should auth work?",
+                },
+            )
+            discover_decision(
+                ai_dir,
+                s2,
+                {
+                    "id": "D-002",
+                    "title": "Audit sink",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "question": "How should audit logs work?",
+                },
+            )
+
+            proposal = issue_proposal(
+                ai_dir,
+                s1,
+                decision_id="D-001",
+                question="Use magic links?",
+                recommendation="Use magic links.",
+                why="Smaller MVP surface area.",
+                if_not="Passwords expand auth scope.",
+            )
+            issue_proposal(
+                ai_dir,
+                s2,
+                decision_id="D-002",
+                question="Use the product database?",
+                recommendation="Use the product database.",
+                why="Cheaper for the milestone.",
+                if_not="A separate sink becomes in scope now.",
+            )
+            accept_proposal(ai_dir, s2)
+
+            with self.assertRaisesRegex(ValueError, "stale"):
+                accept_proposal(ai_dir, s1)
+
+            accepted = accept_proposal(ai_dir, s1, proposal_id=proposal["proposal_id"])
+            self.assertEqual("accepted", accepted["status"])
+
+            rebuild_and_persist(ai_dir)
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_close_sessions_generate_plan_and_adr(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Generate an action plan",
+                current_milestone="MVP",
+            )
+
+            s1 = create_session(ai_dir, context="Auth decisions")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                s1,
+                {
+                    "id": "D-001",
+                    "title": "Auth mode",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "kind": "choice",
+                    "question": "How should auth work?",
+                },
+            )
+            update_classification(
+                ai_dir,
+                s1,
+                domain="technical",
+                abstraction_level="architecture",
+                search_terms=["auth"],
+            )
+            resolve_by_evidence(
+                ai_dir,
+                s1,
+                decision_id="D-001",
+                source="codebase",
+                summary="Use the existing magic-link flow.",
+                evidence_refs=["app/auth.py"],
+            )
+            close_session(ai_dir, s1)
+
+            s2 = create_session(ai_dir, context="Audit decisions")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                s2,
+                {
+                    "id": "D-002",
+                    "title": "Audit sink",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "ops",
+                    "kind": "choice",
+                    "question": "Where should audit logs land?",
+                },
+            )
+            issue_proposal(
+                ai_dir,
+                s2,
+                decision_id="D-002",
+                question="Use the product database?",
+                recommendation="Use the product database.",
+                why="Lowest operational overhead.",
+                if_not="A separate sink becomes in scope now.",
+            )
+            accept_proposal(ai_dir, s2)
+            close_session(ai_dir, s2)
+
+            plan = generate_plan(ai_dir, [s1, s2])
+            self.assertEqual("action-plan", plan["status"])
+            self.assertEqual("ready", plan["action_plan"]["readiness"])
+            self.assertTrue(Path(plan["export_path"]).exists())
+
+            adr_path = export_adr(ai_dir, "D-001")
+            self.assertTrue(adr_path.exists())
+            self.assertEqual([], validate_runtime(ai_dir))
+
+
+if __name__ == "__main__":
+    unittest.main()

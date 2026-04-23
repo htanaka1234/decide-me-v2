@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/decide-me/session-state.schema.json",
+  "title": "Decide Me Session State",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "session",
+    "summary",
+    "classification",
+    "close_summary",
+    "working_state"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 3
+    },
+    "session": {
+      "type": "object",
+      "required": [
+        "id",
+        "started_at",
+        "last_seen_at",
+        "bound_context_hint",
+        "decision_ids",
+        "lifecycle"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "started_at": {
+          "type": "string"
+        },
+        "last_seen_at": {
+          "type": "string"
+        },
+        "bound_context_hint": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "decision_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "lifecycle": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    "summary": {
+      "type": "object"
+    },
+    "classification": {
+      "type": "object"
+    },
+    "close_summary": {
+      "$ref": "./close-summary.schema.json"
+    },
+    "working_state": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

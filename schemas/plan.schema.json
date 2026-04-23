@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/decide-me/plan.schema.json",
+  "title": "Decide Me Plan Output",
+  "type": "object",
+  "required": [
+    "generated_at",
+    "source_session_ids",
+    "status",
+    "conflicts",
+    "action_plan"
+  ],
+  "properties": {
+    "generated_at": {
+      "type": "string"
+    },
+    "source_session_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "conflicts",
+        "action-plan"
+      ]
+    },
+    "conflicts": {
+      "type": "array"
+    },
+    "action_plan": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "export_path": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": true
+}
