@@ -79,6 +79,7 @@ def issue_proposal(
         if session["session"]["lifecycle"]["status"] == "closed":
             raise ValueError(f"session {session_id} is closed")
         decision = _lookup_decision(bundle, decision_id)
+        _require_not_invalidated(decision_id, decision)
         next_version = int(decision["recommendation"]["version"]) + 1
         return [
             {
@@ -134,6 +135,8 @@ def accept_proposal(
         session = _require_session(bundle, session_id)
         target = _resolve_proposal_target(bundle, session, proposal_id=proposal_id)
         target_id["value"] = target["target_id"]
+        decision = _lookup_decision(bundle, target["target_id"])
+        _require_not_invalidated(target["target_id"], decision)
         if proposal_id is None:
             stale, reason = proposal_is_stale(bundle["project_state"], session)
             if stale:
@@ -175,6 +178,8 @@ def reject_proposal(ai_dir: str, session_id: str, *, reason: str, proposal_id: s
         session = _require_session(bundle, session_id)
         target = _resolve_proposal_target(bundle, session, proposal_id=proposal_id)
         target_id["value"] = target["target_id"]
+        decision = _lookup_decision(bundle, target["target_id"])
+        _require_not_invalidated(target["target_id"], decision)
         return [
             {
                 "session_id": session_id,
@@ -208,6 +213,8 @@ def answer_proposal(
         session = _require_session(bundle, session_id)
         target = _resolve_proposal_target(bundle, session, proposal_id=proposal_id)
         target_id["value"] = target["target_id"]
+        decision = _lookup_decision(bundle, target["target_id"])
+        _require_not_invalidated(target["target_id"], decision)
         recommendation = target["recommendation"] or ""
         answer = answer_summary.strip()
         if not answer:
@@ -256,7 +263,8 @@ def answer_proposal(
 def defer_decision(ai_dir: str, session_id: str, *, decision_id: str, reason: str) -> dict[str, Any]:
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
         _require_session(bundle, session_id)
-        _lookup_decision(bundle, decision_id)
+        decision = _lookup_decision(bundle, decision_id)
+        _require_not_invalidated(decision_id, decision)
         return [
             {
                 "session_id": session_id,
@@ -280,7 +288,8 @@ def resolve_by_evidence(
 ) -> dict[str, Any]:
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
         _require_session(bundle, session_id)
-        _lookup_decision(bundle, decision_id)
+        decision = _lookup_decision(bundle, decision_id)
+        _require_not_invalidated(decision_id, decision)
         return [
             {
                 "session_id": session_id,
@@ -296,6 +305,53 @@ def resolve_by_evidence(
 
     _, bundle = transact(ai_dir, builder)
     return _lookup_decision(bundle, decision_id)
+
+
+def invalidate_decision(
+    ai_dir: str,
+    session_id: str,
+    *,
+    decision_id: str,
+    invalidated_by_decision_id: str,
+    reason: str,
+) -> dict[str, Any]:
+    reason = reason.strip()
+    if not reason:
+        raise ValueError("reason must not be empty")
+    if decision_id == invalidated_by_decision_id:
+        raise ValueError("decision cannot invalidate itself")
+
+    def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
+        _require_session(bundle, session_id)
+        target = _lookup_decision(bundle, decision_id)
+        invalidating = _lookup_decision(bundle, invalidated_by_decision_id)
+        _require_not_invalidated(decision_id, target)
+        _require_not_invalidated(invalidated_by_decision_id, invalidating)
+        if invalidating["status"] not in {"accepted", "resolved-by-evidence"}:
+            raise ValueError(
+                f"invalidating decision {invalidated_by_decision_id} must be accepted or resolved-by-evidence"
+            )
+        return [
+            {
+                "session_id": session_id,
+                "event_type": "decision_invalidated",
+                "payload": {
+                    "decision_id": decision_id,
+                    "invalidated_by_decision_id": invalidated_by_decision_id,
+                    "reason": reason,
+                },
+            }
+        ]
+
+    events, _ = transact(ai_dir, builder)
+    event = events[-1]
+    return {
+        "status": "ok",
+        "decision_id": decision_id,
+        "invalidated_by_decision_id": invalidated_by_decision_id,
+        "reason": reason,
+        "event_id": event["event_id"],
+    }
 
 
 def update_classification(
@@ -377,7 +433,7 @@ def _resolve_proposal_target(
             raise ValueError("no active proposal for this session")
         return deepcopy(active)
 
-    if active.get("proposal_id") == proposal_id:
+    if active.get("proposal_id") == proposal_id and active.get("target_id"):
         return deepcopy(active)
 
     for decision in bundle["project_state"]["decisions"]:
@@ -416,3 +472,8 @@ def _resolve_decision_id(bundle: dict[str, Any], session_id: str, proposal_id: s
 
 def _normalize(value: str) -> str:
     return " ".join(str(value).strip().casefold().split())
+
+
+def _require_not_invalidated(decision_id: str, decision: dict[str, Any]) -> None:
+    if decision.get("status") == "invalidated":
+        raise ValueError(f"decision {decision_id} is invalidated")

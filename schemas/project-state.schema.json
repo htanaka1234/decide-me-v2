@@ -15,7 +15,7 @@
   "properties": {
     "schema_version": {
       "type": "integer",
-      "const": 3
+      "const": 4
     },
     "project": {
       "type": "object",
@@ -114,7 +114,8 @@
           "evidence_refs",
           "revisit_triggers",
           "notes",
-          "bundle_id"
+          "bundle_id",
+          "invalidated_by"
         ],
         "properties": {
           "id": {
@@ -158,7 +159,8 @@
               "blocked",
               "accepted",
               "deferred",
-              "resolved-by-evidence"
+              "resolved-by-evidence",
+              "invalidated"
             ]
           },
           "resolvable_by": {
@@ -209,6 +211,12 @@
           "bundle_id": {
             "type": [
               "string",
+              "null"
+            ]
+          },
+          "invalidated_by": {
+            "type": [
+              "object",
               "null"
             ]
           }

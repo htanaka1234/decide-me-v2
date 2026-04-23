@@ -13,6 +13,7 @@ from decide_me.planner import generate_plan
 from decide_me.protocol import (
     accept_proposal,
     discover_decision,
+    invalidate_decision,
     issue_proposal,
     resolve_by_evidence,
     update_classification,
@@ -163,6 +164,188 @@ class RuntimeFlowTests(unittest.TestCase):
 
             adr_path = export_adr(ai_dir, "D-001")
             self.assertTrue(adr_path.exists())
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_project_wide_invalidation_hides_closed_decision_outputs(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Hide invalidated decisions from normal outputs",
+                current_milestone="MVP",
+            )
+
+            old_session_id = create_session(ai_dir, context="Legacy auth decision")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                old_session_id,
+                {
+                    "id": "D-100",
+                    "title": "Legacy auth mode",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "kind": "choice",
+                    "question": "Should the MVP use magic links?",
+                    "resolvable_by": "codebase",
+                },
+            )
+            resolve_by_evidence(
+                ai_dir,
+                old_session_id,
+                decision_id="D-100",
+                source="codebase",
+                summary="Use the existing magic-link flow.",
+                evidence_refs=["app/auth.py"],
+            )
+            close_session(ai_dir, old_session_id)
+
+            replacement_session_id = create_session(ai_dir, context="Replacement auth decision")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                replacement_session_id,
+                {
+                    "id": "D-101",
+                    "title": "Replacement auth mode",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "kind": "choice",
+                    "question": "Should the MVP use passwords?",
+                    "resolvable_by": "codebase",
+                },
+            )
+            resolve_by_evidence(
+                ai_dir,
+                replacement_session_id,
+                decision_id="D-101",
+                source="codebase",
+                summary="Use the password flow.",
+                evidence_refs=["app/password_auth.py"],
+            )
+            close_session(ai_dir, replacement_session_id)
+
+            invalidated = invalidate_decision(
+                ai_dir,
+                replacement_session_id,
+                decision_id="D-100",
+                invalidated_by_decision_id="D-101",
+                reason="Superseded by the later auth decision.",
+            )
+            self.assertEqual("ok", invalidated["status"])
+
+            rebuild_and_persist(ai_dir)
+
+            shown = show_session(ai_dir, old_session_id)
+            self.assertEqual([], shown["session"]["session"]["decision_ids"])
+            self.assertEqual([], shown["session"]["close_summary"]["accepted_decisions"])
+
+            plan = generate_plan(ai_dir, [old_session_id, replacement_session_id])
+            self.assertEqual("action-plan", plan["status"])
+            self.assertEqual(["D-101"], [item["decision_id"] for item in plan["action_plan"]["action_slices"]])
+            self.assertEqual(
+                ["D-101"],
+                [item["decision_id"] for item in plan["action_plan"]["implementation_ready_slices"]],
+            )
+
+            with self.assertRaisesRegex(ValueError, "not accepted"):
+                export_adr(ai_dir, "D-100")
+
+            event_log = (Path(ai_dir) / "event-log.jsonl").read_text(encoding="utf-8")
+            self.assertIn('"event_type": "decision_invalidated"', event_log)
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_advance_session_skips_invalidated_active_proposal(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Skip invalidated active proposals",
+                current_milestone="MVP",
+            )
+
+            questioned_session_id = create_session(ai_dir, context="Auth thread")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                questioned_session_id,
+                {
+                    "id": "D-110",
+                    "title": "Old auth mode",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "kind": "choice",
+                    "question": "Should the MVP use magic links?",
+                },
+            )
+            discover_decision(
+                ai_dir,
+                questioned_session_id,
+                {
+                    "id": "D-111",
+                    "title": "Audit sink",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "ops",
+                    "kind": "choice",
+                    "question": "Where should audit logs land?",
+                },
+            )
+            proposal = issue_proposal(
+                ai_dir,
+                questioned_session_id,
+                decision_id="D-110",
+                question="Use magic links?",
+                recommendation="Use magic links.",
+                why="Smaller MVP scope.",
+                if_not="Passwords expand scope now.",
+            )
+
+            replacement_session_id = create_session(ai_dir, context="Replacement auth thread")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                replacement_session_id,
+                {
+                    "id": "D-112",
+                    "title": "Replacement auth mode",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "kind": "choice",
+                    "question": "Should the MVP use passwords?",
+                    "resolvable_by": "codebase",
+                },
+            )
+            resolve_by_evidence(
+                ai_dir,
+                replacement_session_id,
+                decision_id="D-112",
+                source="codebase",
+                summary="Use the password flow.",
+                evidence_refs=["app/password_auth.py"],
+            )
+
+            invalidate_decision(
+                ai_dir,
+                replacement_session_id,
+                decision_id="D-110",
+                invalidated_by_decision_id="D-112",
+                reason="Superseded by the accepted password auth decision.",
+            )
+
+            turn = advance_session(ai_dir, questioned_session_id, repo_root=tmp)
+            self.assertEqual("question", turn["status"])
+            self.assertEqual("D-111", turn["decision_id"])
+
+            shown = show_session(ai_dir, questioned_session_id)
+            self.assertEqual(["D-111"], shown["session"]["session"]["decision_ids"])
+            self.assertEqual("D-111", shown["display"]["active_decision_id"])
+
+            with self.assertRaisesRegex(ValueError, "invalidated"):
+                accept_proposal(ai_dir, questioned_session_id, proposal_id=proposal["proposal_id"])
+
             self.assertEqual([], validate_runtime(ai_dir))
 
     def test_classification_search_and_lazy_compatibility_backfill(self) -> None:

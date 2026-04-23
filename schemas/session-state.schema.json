@@ -14,7 +14,7 @@
   "properties": {
     "schema_version": {
       "type": "integer",
-      "const": 3
+      "const": 4
     },
     "session": {
       "type": "object",

@@ -5,7 +5,7 @@ from typing import Any
 
 from decide_me.classification import ensure_compatibility_backfill
 from decide_me.events import new_entity_id, utc_now
-from decide_me.projections import OPEN_DECISION_STATUSES, effective_session_status
+from decide_me.projections import OPEN_DECISION_STATUSES, decision_is_invalidated, effective_session_status
 from decide_me.search import search_sessions, session_list_entry
 from decide_me.store import load_runtime, runtime_paths, transact
 from decide_me.taxonomy import resolved_tag_nodes, stable_unique
@@ -135,6 +135,7 @@ def build_close_summary(project_state: dict[str, Any], session_state: dict[str, 
         decision_index[decision_id]
         for decision_id in session_state["session"]["decision_ids"]
         if decision_id in decision_index
+        and not decision_is_invalidated(decision_index[decision_id])
     ]
     accepted = [
         _decision_snapshot(decision)

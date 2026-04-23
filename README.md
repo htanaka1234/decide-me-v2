@@ -96,6 +96,13 @@ python3 scripts/decide_me.py generate-plan \
   --ai-dir .ai/decide-me \
   --session-id S-... \
   --session-id S-...
+
+python3 scripts/decide_me.py invalidate-decision \
+  --ai-dir .ai/decide-me \
+  --session-id S-... \
+  --decision-id D-... \
+  --invalidated-by D-... \
+  --reason "Superseded by the later decision."
 ```
 
 Advance an interview turn:
@@ -146,3 +153,6 @@ python3 scripts/decide_me.py handle-reply \
   after `handle-reply`, so they can self-resolve before the next question is issued.
 - Close summaries now emit richer `candidate_action_slices`, and generated plans surface
   evidence-backed implementation-ready slices separately from the broader action list.
+- Decisions can be invalidated explicitly by later accepted decisions. Invalidated decisions remain
+  in `event-log.jsonl` but are hidden from normal session, interview, close-summary, plan, and ADR
+  output.

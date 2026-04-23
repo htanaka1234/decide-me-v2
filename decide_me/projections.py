@@ -14,7 +14,7 @@ STALE_AFTER = timedelta(days=7)
 
 def default_project_state() -> dict[str, Any]:
     return {
-        "schema_version": 3,
+        "schema_version": 4,
         "project": {
             "name": None,
             "objective": None,
@@ -28,6 +28,7 @@ def default_project_state() -> dict[str, Any]:
                 "project-version-changed",
                 "session-boundary",
                 "superseded-proposal",
+                "decision-invalidated",
                 "session-closed",
             ],
             "close_policy": "generate-close-summary-on-close",
@@ -59,7 +60,7 @@ def default_session_state(
     session_id: str, started_at: str, bound_context_hint: str | None = None
 ) -> dict[str, Any]:
     return {
-        "schema_version": 3,
+        "schema_version": 4,
         "session": {
             "id": session_id,
             "started_at": started_at,
@@ -151,6 +152,7 @@ def default_decision(decision_id: str, title: str | None = None) -> dict[str, An
         "revisit_triggers": [],
         "notes": [],
         "bundle_id": None,
+        "invalidated_by": None,
     }
 
 
@@ -171,6 +173,14 @@ def effective_session_status(session_state: dict[str, Any], now: datetime | None
     if age >= IDLE_AFTER:
         return "idle"
     return "active"
+
+
+def decision_is_invalidated(decision: dict[str, Any]) -> bool:
+    return decision.get("status") == "invalidated"
+
+
+def visible_decision_ids(project_state: dict[str, Any]) -> set[str]:
+    return {decision["id"] for decision in project_state["decisions"] if not decision_is_invalidated(decision)}
 
 
 def rebuild_projections(events: list[dict[str, Any]]) -> dict[str, Any]:
@@ -315,6 +325,37 @@ def apply_event(
         decision["evidence_refs"] = stable_unique([*decision["evidence_refs"], *payload["evidence_refs"]])
         _clear_question_state(sessions[session_id], payload["summary"])
         _touch_session(sessions, session_id, ts, payload["decision_id"], event["project_version_after"])
+    elif event_type == "decision_invalidated":
+        decision = _ensure_decision(project_state, payload["decision_id"])
+        decision["status"] = "invalidated"
+        decision["invalidated_by"] = {
+            "decision_id": payload["invalidated_by_decision_id"],
+            "reason": payload["reason"],
+            "invalidated_at": ts,
+        }
+        hidden_strings = _decision_hidden_strings(decision)
+        for candidate_session_id, candidate_session in sessions.items():
+            was_affected = _sanitize_session_after_invalidation(
+                candidate_session,
+                decision_id=decision["id"],
+                hidden_strings=hidden_strings,
+            )
+            if was_affected:
+                _touch_session(
+                    sessions,
+                    candidate_session_id,
+                    ts,
+                    None,
+                    event["project_version_after"],
+                    add_decision=False,
+                )
+        _touch_session(
+            sessions,
+            session_id,
+            ts,
+            payload["invalidated_by_decision_id"],
+            event["project_version_after"],
+        )
     elif event_type == "classification_updated":
         session = sessions[session_id]
         session["classification"] = deepcopy(payload["classification"])
@@ -395,6 +436,8 @@ def _touch_session(
     timestamp: str,
     decision_id: str | None,
     project_version: int,
+    *,
+    add_decision: bool = True,
 ) -> None:
     if session_id not in sessions:
         return
@@ -403,7 +446,7 @@ def _touch_session(
     if session["session"]["lifecycle"]["status"] != "closed":
         session["session"]["lifecycle"]["status"] = "active"
     session["working_state"]["last_seen_project_version"] = project_version
-    if decision_id:
+    if add_decision and decision_id:
         session["session"]["decision_ids"] = stable_unique([*session["session"]["decision_ids"], decision_id])
 
 
@@ -428,6 +471,21 @@ def _deactivate_proposal(session: dict[str, Any], reason: str) -> None:
     proposal["inactive_reason"] = reason
 
 
+def _invalidate_proposal(session: dict[str, Any], reason: str) -> None:
+    proposal = session["working_state"]["active_proposal"]
+    if not proposal.get("proposal_id"):
+        return
+    proposal["is_active"] = False
+    proposal["inactive_reason"] = reason
+    proposal["target_type"] = None
+    proposal["target_id"] = None
+    proposal["question_id"] = None
+    proposal["question"] = None
+    proposal["recommendation"] = None
+    proposal["why"] = None
+    proposal["if_not"] = None
+
+
 def _deep_update(target: dict[str, Any], patch: dict[str, Any]) -> None:
     for key, value in patch.items():
         if isinstance(value, dict) and isinstance(target.get(key), dict):
@@ -443,6 +501,127 @@ def _upsert_taxonomy_node(taxonomy_state: dict[str, Any], node_patch: dict[str, 
             return
     taxonomy_state["nodes"].append(deepcopy(node_patch))
     taxonomy_state["nodes"].sort(key=lambda item: item["id"])
+
+
+def _decision_hidden_strings(decision: dict[str, Any]) -> set[str]:
+    values = {
+        decision.get("title"),
+        decision.get("question"),
+        decision.get("context"),
+        decision.get("recommendation", {}).get("summary"),
+        decision.get("accepted_answer", {}).get("summary"),
+        decision.get("resolved_by_evidence", {}).get("summary"),
+    }
+    return {str(value).strip() for value in values if value and str(value).strip()}
+
+
+def _sanitize_session_after_invalidation(
+    session: dict[str, Any],
+    *,
+    decision_id: str,
+    hidden_strings: set[str],
+) -> bool:
+    affected = False
+    decision_ids = session["session"].get("decision_ids", [])
+    if decision_id in decision_ids:
+        session["session"]["decision_ids"] = [candidate for candidate in decision_ids if candidate != decision_id]
+        affected = True
+
+    if session["summary"].get("active_decision_id") == decision_id:
+        session["summary"]["active_decision_id"] = None
+        session["summary"]["current_question_preview"] = None
+        session["working_state"]["current_question_id"] = None
+        session["working_state"]["current_question"] = None
+        affected = True
+
+    proposal = session["working_state"]["active_proposal"]
+    if proposal.get("target_id") == decision_id:
+        _invalidate_proposal(session, "decision-invalidated")
+        session["summary"]["active_decision_id"] = None
+        session["summary"]["current_question_preview"] = None
+        session["working_state"]["current_question_id"] = None
+        session["working_state"]["current_question"] = None
+        affected = True
+
+    for section, key in (
+        (session["summary"], "latest_summary"),
+        (session["summary"], "current_question_preview"),
+        (session["working_state"], "current_question"),
+    ):
+        if section.get(key) in hidden_strings:
+            section[key] = None
+            affected = True
+
+    close_summary = session.get("close_summary")
+    if close_summary:
+        affected = _sanitize_close_summary(session, decision_id, hidden_strings) or affected
+    return affected
+
+
+def _sanitize_close_summary(
+    session: dict[str, Any], decision_id: str, hidden_strings: set[str]
+) -> bool:
+    close_summary = session["close_summary"]
+    changed = False
+    for key in ("accepted_decisions", "deferred_decisions", "unresolved_blockers", "unresolved_risks"):
+        before = close_summary[key]
+        filtered = [item for item in before if item.get("id") != decision_id]
+        if len(filtered) != len(before):
+            close_summary[key] = filtered
+            changed = True
+
+    before_slices = close_summary["candidate_action_slices"]
+    action_slices = [item for item in before_slices if item.get("decision_id") != decision_id]
+    if len(action_slices) != len(before_slices):
+        close_summary["candidate_action_slices"] = action_slices
+        changed = True
+
+    accepted_ids = {item["id"] for item in close_summary["accepted_decisions"]}
+    workstreams: list[dict[str, Any]] = []
+    for workstream in close_summary["candidate_workstreams"]:
+        scope = [candidate for candidate in workstream.get("scope", []) if candidate != decision_id]
+        if not scope:
+            changed = True
+            continue
+        implementation_ready_scope = [
+            candidate for candidate in workstream.get("implementation_ready_scope", []) if candidate != decision_id
+        ]
+        updated = deepcopy(workstream)
+        updated["scope"] = scope
+        updated["implementation_ready_scope"] = implementation_ready_scope
+        updated["accepted_count"] = len([candidate for candidate in scope if candidate in accepted_ids])
+        domain = updated["name"].removesuffix("-workstream")
+        if implementation_ready_scope:
+            updated["summary"] = (
+                f"Advance {domain} decisions for the current milestone. "
+                f"{len(implementation_ready_scope)} implementation-ready slice(s) are already grounded."
+            )
+        else:
+            updated["summary"] = f"Advance {domain} decisions for the current milestone."
+        if updated != workstream:
+            changed = True
+        workstreams.append(updated)
+    close_summary["candidate_workstreams"] = workstreams
+
+    visible_evidence_refs: list[str] = []
+    for item in close_summary["accepted_decisions"]:
+        visible_evidence_refs.extend(item.get("evidence_refs", []))
+    for item in close_summary["candidate_action_slices"]:
+        visible_evidence_refs.extend(item.get("evidence_refs", []))
+    filtered_evidence_refs = stable_unique(visible_evidence_refs)
+    if filtered_evidence_refs != close_summary.get("evidence_refs", []):
+        close_summary["evidence_refs"] = filtered_evidence_refs
+        changed = True
+
+    fallback_title = session["session"].get("bound_context_hint") or session["session"]["id"]
+    fallback_statement = session["session"].get("bound_context_hint") or close_summary.get("goal") or fallback_title
+    if close_summary.get("work_item_title") in hidden_strings:
+        close_summary["work_item_title"] = fallback_title
+        changed = True
+    if close_summary.get("work_item_statement") in hidden_strings:
+        close_summary["work_item_statement"] = fallback_statement
+        changed = True
+    return changed
 
 
 def _recompute_counts(project_state: dict[str, Any]) -> None:

@@ -18,6 +18,8 @@ Public operations:
 Lifecycle rules:
 
 - Resuming a session invalidates any previously active proposal.
+- Invalidating a decision deactivates any active proposal that still points at that decision and
+  removes the invalidated decision from normal session output.
 - Closing a session generates a `close_summary` first, then emits `session_closed`.
 - Closed sessions are read-only inputs for plan generation and search.
 - Plan generation only accepts closed sessions.

@@ -15,6 +15,7 @@ from decide_me.exports import export_adr
 from decide_me.interview import advance_session, handle_reply
 from decide_me.lifecycle import close_session, create_session, list_sessions, resume_session, show_session
 from decide_me.planner import generate_plan
+from decide_me.protocol import invalidate_decision
 from decide_me.store import bootstrap_runtime, rebuild_and_persist, validate_runtime
 
 
@@ -88,6 +89,13 @@ def main(argv: list[str] | None = None) -> int:
     reply.add_argument("--reply", required=True)
     reply.add_argument("--repo-root", default=".")
 
+    invalidate = subparsers.add_parser("invalidate-decision", help="invalidate a decision explicitly")
+    invalidate.add_argument("--ai-dir", required=True)
+    invalidate.add_argument("--session-id", required=True)
+    invalidate.add_argument("--decision-id", required=True)
+    invalidate.add_argument("--invalidated-by", required=True)
+    invalidate.add_argument("--reason", required=True)
+
     args = parser.parse_args(argv)
 
     try:
@@ -158,6 +166,16 @@ def main(argv: list[str] | None = None) -> int:
                     args.session_id,
                     args.reply,
                     repo_root=args.repo_root,
+                )
+            )
+        elif args.command == "invalidate-decision":
+            _print_json(
+                invalidate_decision(
+                    args.ai_dir,
+                    args.session_id,
+                    decision_id=args.decision_id,
+                    invalidated_by_decision_id=args.invalidated_by,
+                    reason=args.reason,
                 )
             )
     except Exception as exc:  # pragma: no cover - exercised via CLI integration in real use

@@ -116,6 +116,7 @@ def bootstrap_runtime(
                 "project-version-changed",
                 "session-boundary",
                 "superseded-proposal",
+                "decision-invalidated",
                 "session-closed",
             ],
             "close_policy": "generate-close-summary-on-close",

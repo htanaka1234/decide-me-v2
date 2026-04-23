@@ -21,3 +21,10 @@ Projection rules:
 - Never mutate a projection directly without emitting an event.
 - Persist writes as `load events -> append event(s) -> rebuild -> validate -> atomic replace`.
 - If validation fails, reject the write and keep the previous runtime files unchanged.
+
+Decision invalidation:
+
+- `decision_invalidated` records project-wide replacement of an older decision by a later one.
+- Invalidated decisions remain in the event log and project projection for auditability.
+- Normal outputs must hide invalidated decisions from session views, interview turns, close
+  summaries, plans, and ADR exports.

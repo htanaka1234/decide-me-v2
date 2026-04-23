@@ -20,6 +20,7 @@ EVENT_TYPES = {
     "proposal_rejected",
     "decision_deferred",
     "decision_resolved_by_evidence",
+    "decision_invalidated",
     "classification_updated",
     "close_summary_generated",
     "session_closed",
@@ -40,6 +41,7 @@ REQUIRED_PAYLOAD_KEYS: dict[str, tuple[str, ...]] = {
     "proposal_rejected": ("proposal_id", "target_type", "target_id", "reason"),
     "decision_deferred": ("decision_id", "reason"),
     "decision_resolved_by_evidence": ("decision_id", "source", "summary", "evidence_refs"),
+    "decision_invalidated": ("decision_id", "invalidated_by_decision_id", "reason"),
     "classification_updated": ("classification",),
     "close_summary_generated": ("close_summary",),
     "session_closed": ("closed_at",),
@@ -112,6 +114,9 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
             )
         if "context_append" in payload and not isinstance(payload["context_append"], str):
             raise EventValidationError("decision_enriched.payload.context_append must be a string")
+    elif event_type == "decision_invalidated":
+        if payload["decision_id"] == payload["invalidated_by_decision_id"]:
+            raise EventValidationError("decision_invalidated must not self-reference")
     elif event_type == "proposal_issued":
         proposal = _require_dict(payload["proposal"], "proposal_issued.payload.proposal")
         _require_keys(

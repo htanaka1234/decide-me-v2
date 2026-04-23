@@ -11,6 +11,7 @@ ALL_DECISION_STATUSES = OPEN_DECISION_STATUSES | {
     "accepted",
     "deferred",
     "resolved-by-evidence",
+    "invalidated",
 }
 
 
@@ -69,6 +70,7 @@ def validate_project_state(project_state: dict[str, Any]) -> None:
                 "revisit_triggers",
                 "notes",
                 "bundle_id",
+                "invalidated_by",
             ),
             f"decision[{decision.get('id', '?')}]",
         )

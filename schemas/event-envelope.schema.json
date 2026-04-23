@@ -35,6 +35,7 @@
         "proposal_rejected",
         "decision_deferred",
         "decision_resolved_by_evidence",
+        "decision_invalidated",
         "classification_updated",
         "close_summary_generated",
         "session_closed",
