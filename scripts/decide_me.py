@@ -12,6 +12,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from decide_me.classification import classify_session
 from decide_me.exports import export_adr
+from decide_me.interview import advance_session, handle_reply
 from decide_me.lifecycle import close_session, create_session, list_sessions, resume_session, show_session
 from decide_me.planner import generate_plan
 from decide_me.store import bootstrap_runtime, rebuild_and_persist, validate_runtime
@@ -75,6 +76,18 @@ def main(argv: list[str] | None = None) -> int:
     classify.add_argument("--source-ref", action="append", default=[])
     classify.add_argument("--reason", default="classification-updated")
 
+    advance = subparsers.add_parser("advance-session", help="advance a session by evidence scan and question selection")
+    advance.add_argument("--ai-dir", required=True)
+    advance.add_argument("--session-id", required=True)
+    advance.add_argument("--repo-root", default=".")
+    advance.add_argument("--max-auto-resolutions", type=int, default=20)
+
+    reply = subparsers.add_parser("handle-reply", help="process a user reply and advance the session")
+    reply.add_argument("--ai-dir", required=True)
+    reply.add_argument("--session-id", required=True)
+    reply.add_argument("--reply", required=True)
+    reply.add_argument("--repo-root", default=".")
+
     args = parser.parse_args(argv)
 
     try:
@@ -127,6 +140,24 @@ def main(argv: list[str] | None = None) -> int:
                     candidate_terms=args.candidate_term,
                     source_refs=args.source_ref,
                     reason=args.reason,
+                )
+            )
+        elif args.command == "advance-session":
+            _print_json(
+                advance_session(
+                    args.ai_dir,
+                    args.session_id,
+                    repo_root=args.repo_root,
+                    max_auto_resolutions=args.max_auto_resolutions,
+                )
+            )
+        elif args.command == "handle-reply":
+            _print_json(
+                handle_reply(
+                    args.ai_dir,
+                    args.session_id,
+                    args.reply,
+                    repo_root=args.repo_root,
                 )
             )
     except Exception as exc:  # pragma: no cover - exercised via CLI integration in real use

@@ -98,6 +98,27 @@ python3 scripts/decide_me.py generate-plan \
   --session-id S-...
 ```
 
+Advance an interview turn:
+
+```bash
+python3 scripts/decide_me.py advance-session \
+  --ai-dir .ai/decide-me \
+  --session-id S-... \
+  --repo-root .
+
+python3 scripts/decide_me.py handle-reply \
+  --ai-dir .ai/decide-me \
+  --session-id S-... \
+  --reply "OK" \
+  --repo-root .
+
+python3 scripts/decide_me.py handle-reply \
+  --ai-dir .ai/decide-me \
+  --session-id S-... \
+  --reply "Use 90 days because enterprise customers will expect it." \
+  --repo-root .
+```
+
 ## Project structure
 
 - `SKILL.md`: public skill entrypoint
@@ -114,3 +135,8 @@ python3 scripts/decide_me.py generate-plan \
 - The runtime remains under `.ai/decide-me/`; human-readable artifacts are exports, not state.
 - Validation checks both event envelopes and projection consistency.
 - Closed-session compatibility tags are backfilled lazily and persisted as events.
+- `advance-session` resolves evidence conservatively. It only auto-resolves decisions when a
+  recommendation is already recorded and matching evidence is found.
+- `handle-reply` supports command-style replies and free-form answers against the active proposal.
+- Free-form replies can also capture additional constraints on the accepted decision and discover
+  follow-up decisions in the same session.

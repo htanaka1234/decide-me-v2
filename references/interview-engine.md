@@ -25,3 +25,19 @@ Evidence-first resolution order:
 
 When evidence resolves a decision, record a `decision_resolved_by_evidence` event and avoid asking
 the user again unless the evidence later becomes stale.
+
+Deterministic runtime helpers:
+
+- `advance-session`:
+  - reuses a still-valid active proposal when one exists
+  - otherwise tries evidence-first auto-resolution
+  - otherwise issues the next question block
+- `handle-reply`:
+  - accepts `OK`
+  - accepts `Accept P-...`
+  - accepts `Reject P-...: reason`
+  - accepts `Defer D-...: reason`
+  - treats short affirmations such as `Sounds good` as explicit acceptance of the active proposal
+  - treats other free-form answers as explicit decision answers tied to the active proposal
+  - extracts follow-up constraints from clauses such as `only if ...` or `must stay ...`
+  - discovers follow-up decisions from clauses such as `we also need ...`

@@ -28,6 +28,7 @@
         "session_created",
         "session_resumed",
         "decision_discovered",
+        "decision_enriched",
         "question_asked",
         "proposal_issued",
         "proposal_accepted",

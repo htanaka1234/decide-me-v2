@@ -7,6 +7,7 @@ from tempfile import TemporaryDirectory
 from decide_me.classification import classify_session
 from decide_me.exports import export_adr
 from decide_me.events import utc_now
+from decide_me.interview import advance_session, handle_reply
 from decide_me.lifecycle import close_session, create_session, list_sessions, show_session
 from decide_me.planner import generate_plan
 from decide_me.protocol import (
@@ -241,6 +242,301 @@ class RuntimeFlowTests(unittest.TestCase):
             listing = list_sessions(ai_dir, tag_terms=["authentication"])
             self.assertEqual(1, listing["count"])
             self.assertGreaterEqual(len(listing["backfilled"]), 0)
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_advance_session_resolves_evidence_then_handles_ok_reply(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "app").mkdir()
+            (root / "app" / "auth.py").write_text(
+                "def login():\n    return 'magic link auth flow'\n",
+                encoding="utf-8",
+            )
+            ai_dir = str(root / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Advance interview turns",
+                current_milestone="MVP",
+            )
+
+            session_id = create_session(ai_dir, context="MVP decisions")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-001",
+                    "title": "Magic link auth",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "resolvable_by": "codebase",
+                    "question": "Should the MVP use the existing magic-link flow?",
+                    "context": "Use the current auth implementation if possible.",
+                    "recommendation": {
+                        "summary": "Use the existing magic-link flow.",
+                        "rationale_short": "The repo already has it.",
+                    },
+                },
+            )
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-002",
+                    "title": "Audit retention",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "ops",
+                    "resolvable_by": "human",
+                    "question": "How long should audit logs be retained?",
+                    "context": "Retention affects compliance scope.",
+                    "recommendation": {
+                        "summary": "Start with 30 days.",
+                        "rationale_short": "It keeps the MVP scope small.",
+                    },
+                },
+            )
+
+            turn = advance_session(ai_dir, session_id, repo_root=root)
+            self.assertEqual("question", turn["status"])
+            self.assertEqual("D-002", turn["decision_id"])
+            self.assertEqual(1, len(turn["auto_resolved"]))
+            self.assertEqual("D-001", turn["auto_resolved"][0]["decision_id"])
+            self.assertIn("app/auth.py", turn["auto_resolved"][0]["evidence_refs"])
+            self.assertIn("Resolved by evidence: D-001", turn["message"])
+
+            reply = handle_reply(ai_dir, session_id, "OK", repo_root=root)
+            self.assertEqual("accepted", reply["status"])
+            self.assertEqual("complete", reply["next_turn"]["status"])
+            self.assertIn("Accepted: D-002", reply["message"])
+            self.assertIn("Next recommended action:", reply["message"])
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_handle_reply_accepts_freeform_alternative_answer(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Capture free-form answers",
+                current_milestone="MVP",
+            )
+            session_id = create_session(ai_dir, context="Retention decision")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-010",
+                    "title": "Audit retention",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "ops",
+                    "resolvable_by": "human",
+                    "question": "How long should audit logs be retained?",
+                    "context": "Retention affects compliance scope.",
+                    "recommendation": {
+                        "summary": "Start with 30 days.",
+                        "rationale_short": "It keeps the MVP scope small.",
+                    },
+                },
+            )
+
+            turn = advance_session(ai_dir, session_id, repo_root=tmp)
+            self.assertEqual("question", turn["status"])
+
+            reply = handle_reply(
+                ai_dir,
+                session_id,
+                "Use 90 days because enterprise customers will expect it.",
+                repo_root=tmp,
+            )
+            self.assertEqual("accepted", reply["status"])
+            self.assertEqual(
+                "Use 90 days because enterprise customers will expect it.",
+                reply["decision"]["accepted_answer"]["summary"],
+            )
+            self.assertEqual("complete", reply["next_turn"]["status"])
+            self.assertIn(
+                "Accepted answer overrides the last recommendation.",
+                reply["decision"]["notes"],
+            )
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_handle_reply_rejects_negative_only_reply(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Reject proposal with free-form no",
+                current_milestone="MVP",
+            )
+            session_id = create_session(ai_dir, context="Retention decision")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-011",
+                    "title": "Audit retention",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "ops",
+                    "resolvable_by": "human",
+                    "question": "How long should audit logs be retained?",
+                    "context": "Retention affects compliance scope.",
+                    "recommendation": {
+                        "summary": "Start with 30 days.",
+                        "rationale_short": "It keeps the MVP scope small.",
+                    },
+                },
+            )
+
+            advance_session(ai_dir, session_id, repo_root=tmp)
+            reply = handle_reply(ai_dir, session_id, "No", repo_root=tmp)
+            self.assertEqual("rejected", reply["status"])
+            self.assertIn("Rejected: D-011", reply["message"])
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_handle_reply_accepts_affirming_freeform_phrase(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Accept affirming phrase",
+                current_milestone="MVP",
+            )
+            session_id = create_session(ai_dir, context="Retention decision")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-012",
+                    "title": "Audit retention",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "ops",
+                    "resolvable_by": "human",
+                    "question": "How long should audit logs be retained?",
+                    "context": "Retention affects compliance scope.",
+                    "recommendation": {
+                        "summary": "Start with 30 days.",
+                        "rationale_short": "It keeps the MVP scope small.",
+                    },
+                },
+            )
+
+            advance_session(ai_dir, session_id, repo_root=tmp)
+            reply = handle_reply(ai_dir, session_id, "Sounds good", repo_root=tmp)
+            self.assertEqual("accepted", reply["status"])
+            self.assertEqual("Start with 30 days.", reply["decision"]["accepted_answer"]["summary"])
+            self.assertEqual("explicit", reply["decision"]["accepted_answer"]["accepted_via"])
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_handle_reply_extracts_constraints_and_follow_up_decisions(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Extract constraints and follow-up decisions",
+                current_milestone="MVP",
+            )
+            session_id = create_session(ai_dir, context="Auth decision")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-020",
+                    "title": "Authentication mode",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "resolvable_by": "human",
+                    "question": "Should the MVP use magic links?",
+                    "context": "Choose the initial authentication mode.",
+                    "recommendation": {
+                        "summary": "Use magic links for the MVP.",
+                        "rationale_short": "It keeps auth scope down.",
+                    },
+                },
+            )
+
+            advance_session(ai_dir, session_id, repo_root=tmp)
+            reply = handle_reply(
+                ai_dir,
+                session_id,
+                "Sounds good, but only for enterprise tenants, and we also need password reset before launch.",
+                repo_root=tmp,
+            )
+            self.assertEqual("accepted", reply["status"])
+            self.assertEqual(
+                "Use magic links for the MVP.",
+                reply["decision"]["accepted_answer"]["summary"],
+            )
+            self.assertEqual(["only for enterprise tenants"], reply["captured_constraints"])
+            self.assertEqual(1, len(reply["discovered_decisions"]))
+            discovered = reply["discovered_decisions"][0]
+            self.assertEqual("P0", discovered["priority"])
+            self.assertEqual("now", discovered["frontier"])
+            self.assertIn("Constraint: only for enterprise tenants", reply["decision"]["notes"])
+            self.assertEqual("question", reply["next_turn"]["status"])
+            self.assertEqual(discovered["id"], reply["next_turn"]["decision_id"])
+            self.assertIn("Captured constraints:", reply["message"])
+            self.assertIn("Discovered decisions:", reply["message"])
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_handle_reply_extracts_multiple_constraints_and_decisions(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Extract multiple constraints and follow-up decisions",
+                current_milestone="MVP",
+            )
+            session_id = create_session(ai_dir, context="Retention decision")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-021",
+                    "title": "Audit retention",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "ops",
+                    "resolvable_by": "human",
+                    "question": "How long should audit logs be retained?",
+                    "context": "Retention affects compliance scope.",
+                    "recommendation": {
+                        "summary": "Start with 30 days.",
+                        "rationale_short": "It keeps the MVP scope small.",
+                    },
+                },
+            )
+
+            advance_session(ai_dir, session_id, repo_root=tmp)
+            reply = handle_reply(
+                ai_dir,
+                session_id,
+                (
+                    "Use 90 days, but only for enterprise tenants, and it must stay in the US, "
+                    "and we also need S3 export before launch, and we need retention to be configurable later."
+                ),
+                repo_root=tmp,
+            )
+            self.assertEqual("accepted", reply["status"])
+            self.assertEqual("Use 90 days", reply["decision"]["accepted_answer"]["summary"])
+            self.assertEqual(
+                ["only for enterprise tenants", "it must stay in the US"],
+                reply["captured_constraints"],
+            )
+            self.assertEqual(2, len(reply["discovered_decisions"]))
+            priorities = {(item["priority"], item["frontier"]) for item in reply["discovered_decisions"]}
+            self.assertIn(("P0", "now"), priorities)
+            self.assertIn(("P2", "later"), priorities)
+            self.assertEqual("question", reply["next_turn"]["status"])
             self.assertEqual([], validate_runtime(ai_dir))
 
 

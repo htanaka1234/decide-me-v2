@@ -49,9 +49,12 @@ User-facing commands:
 - `Close session S-...`
 - `Generate plan from sessions S-..., S-...`
 - `Classify session S-...`
+- `Advance session S-...`
+- `Handle reply for session S-...`
 
 Runtime invariants:
 
 - `event-log.jsonl` is the source of truth.
 - `project-state.json`, `taxonomy-state.json`, and `sessions/*.json` are rebuildable projections.
 - Human-readable plan and ADR files are exports, not runtime state.
+- Free-form answers apply only to the current active proposal in the current session.

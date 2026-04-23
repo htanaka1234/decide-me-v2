@@ -23,6 +23,43 @@ def discover_decision(ai_dir: str, session_id: str, decision: dict[str, Any]) ->
     return _lookup_decision(bundle, decision["id"])
 
 
+def enrich_decision(
+    ai_dir: str,
+    session_id: str,
+    *,
+    decision_id: str,
+    notes_append: list[str] | None = None,
+    revisit_triggers_append: list[str] | None = None,
+    context_append: str | None = None,
+) -> dict[str, Any]:
+    notes_append = [note.strip() for note in (notes_append or []) if note and note.strip()]
+    revisit_triggers_append = [
+        trigger.strip() for trigger in (revisit_triggers_append or []) if trigger and trigger.strip()
+    ]
+    context_append = context_append.strip() if context_append and context_append.strip() else None
+    if not notes_append and not revisit_triggers_append and not context_append:
+        return _lookup_decision(current_bundle(ai_dir), decision_id)
+
+    def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
+        _require_session(bundle, session_id)
+        _lookup_decision(bundle, decision_id)
+        return [
+            {
+                "session_id": session_id,
+                "event_type": "decision_enriched",
+                "payload": {
+                    "decision_id": decision_id,
+                    "notes_append": notes_append,
+                    "revisit_triggers_append": revisit_triggers_append,
+                    "context_append": context_append,
+                },
+            }
+        ]
+
+    _, bundle = transact(ai_dir, builder)
+    return _lookup_decision(bundle, decision_id)
+
+
 def issue_proposal(
     ai_dir: str,
     session_id: str,
@@ -91,10 +128,12 @@ def accept_proposal(
     acceptance_mode: str | None = None,
 ) -> dict[str, Any]:
     now = utc_now()
+    target_id: dict[str, str] = {}
 
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
         session = _require_session(bundle, session_id)
         target = _resolve_proposal_target(bundle, session, proposal_id=proposal_id)
+        target_id["value"] = target["target_id"]
         if proposal_id is None:
             stale, reason = proposal_is_stale(bundle["project_state"], session)
             if stale:
@@ -126,13 +165,16 @@ def accept_proposal(
         ]
 
     _, bundle = transact(ai_dir, builder)
-    return _lookup_decision(bundle, _resolve_decision_id(bundle, session_id, proposal_id))
+    return _lookup_decision(bundle, target_id["value"])
 
 
 def reject_proposal(ai_dir: str, session_id: str, *, reason: str, proposal_id: str | None = None) -> dict[str, Any]:
+    target_id: dict[str, str] = {}
+
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
         session = _require_session(bundle, session_id)
         target = _resolve_proposal_target(bundle, session, proposal_id=proposal_id)
+        target_id["value"] = target["target_id"]
         return [
             {
                 "session_id": session_id,
@@ -147,7 +189,68 @@ def reject_proposal(ai_dir: str, session_id: str, *, reason: str, proposal_id: s
         ]
 
     _, bundle = transact(ai_dir, builder)
-    return _lookup_decision(bundle, _resolve_decision_id(bundle, session_id, proposal_id))
+    return _lookup_decision(bundle, target_id["value"])
+
+
+def answer_proposal(
+    ai_dir: str,
+    session_id: str,
+    *,
+    answer_summary: str,
+    proposal_id: str | None = None,
+    reason: str | None = None,
+    acceptance_mode: str = "explicit",
+) -> dict[str, Any]:
+    now = utc_now()
+    target_id: dict[str, str] = {}
+
+    def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
+        session = _require_session(bundle, session_id)
+        target = _resolve_proposal_target(bundle, session, proposal_id=proposal_id)
+        target_id["value"] = target["target_id"]
+        recommendation = target["recommendation"] or ""
+        answer = answer_summary.strip()
+        if not answer:
+            raise ValueError("answer_summary must not be empty")
+
+        events: list[dict[str, Any]] = []
+        if _normalize(answer) != _normalize(recommendation):
+            events.append(
+                {
+                    "session_id": session_id,
+                    "event_type": "proposal_rejected",
+                    "payload": {
+                        "proposal_id": target["proposal_id"],
+                        "target_type": target["target_type"],
+                        "target_id": target["target_id"],
+                        "reason": reason or "User supplied an alternative answer.",
+                    },
+                }
+            )
+
+        accepted_answer = {
+            "summary": answer,
+            "accepted_at": now,
+            "accepted_via": acceptance_mode,
+            "proposal_id": target["proposal_id"],
+        }
+        events.append(
+            {
+                "session_id": session_id,
+                "event_type": "proposal_accepted",
+                "payload": {
+                    "proposal_id": target["proposal_id"],
+                    "target_type": target["target_type"],
+                    "target_id": target["target_id"],
+                    "accepted_answer": accepted_answer,
+                    "reason": answer,
+                },
+            }
+        )
+        return events
+
+    _, bundle = transact(ai_dir, builder)
+    return _lookup_decision(bundle, target_id["value"])
 
 
 def defer_decision(ai_dir: str, session_id: str, *, decision_id: str, reason: str) -> dict[str, Any]:
@@ -309,3 +412,7 @@ def _resolve_decision_id(bundle: dict[str, Any], session_id: str, proposal_id: s
             return decision["id"]
     active = session["working_state"]["active_proposal"]
     return active["target_id"]
+
+
+def _normalize(value: str) -> str:
+    return " ".join(str(value).strip().casefold().split())

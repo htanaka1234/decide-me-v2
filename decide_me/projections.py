@@ -174,8 +174,9 @@ def effective_session_status(session_state: dict[str, Any], now: datetime | None
 
 
 def rebuild_projections(events: list[dict[str, Any]]) -> dict[str, Any]:
+    initial_timestamp = events[0]["ts"] if events else None
     project_state = default_project_state()
-    taxonomy_state = default_taxonomy_state()
+    taxonomy_state = default_taxonomy_state(now=initial_timestamp)
     sessions: dict[str, dict[str, Any]] = {}
 
     for event in events:
@@ -223,6 +224,25 @@ def apply_event(
         decision = _ensure_decision(project_state, payload["decision"]["id"], payload["decision"].get("title"))
         _deep_update(decision, payload["decision"])
         _touch_session(sessions, session_id, ts, payload["decision"]["id"], event["project_version_after"])
+    elif event_type == "decision_enriched":
+        decision = _ensure_decision(project_state, payload["decision_id"])
+        if payload.get("notes_append"):
+            decision["notes"] = stable_unique([*decision["notes"], *payload["notes_append"]])
+        if payload.get("revisit_triggers_append"):
+            decision["revisit_triggers"] = stable_unique(
+                [*decision["revisit_triggers"], *payload["revisit_triggers_append"]]
+            )
+        context_append = payload.get("context_append")
+        if context_append:
+            existing_context = decision.get("context")
+            if existing_context:
+                fragments = [fragment for fragment in [existing_context, context_append] if fragment]
+                decision["context"] = "\n".join(
+                    stable_unique(fragment.strip() for fragment in fragments if fragment.strip())
+                )
+            else:
+                decision["context"] = context_append
+        _touch_session(sessions, session_id, ts, payload["decision_id"], event["project_version_after"])
     elif event_type == "question_asked":
         session = sessions[session_id]
         session["working_state"]["current_question_id"] = payload["question_id"]
@@ -256,6 +276,13 @@ def apply_event(
         decision = _ensure_decision(project_state, payload["target_id"])
         decision["status"] = "accepted"
         decision["accepted_answer"] = deepcopy(payload["accepted_answer"])
+        if (
+            decision["recommendation"].get("summary")
+            and decision["accepted_answer"]["summary"] != decision["recommendation"]["summary"]
+        ):
+            decision["notes"] = stable_unique(
+                [*decision["notes"], "Accepted answer overrides the last recommendation."]
+            )
         _clear_question_state(sessions[session_id], payload["reason"] if payload.get("reason") else None)
         _touch_session(sessions, session_id, ts, payload["target_id"], event["project_version_after"])
     elif event_type == "proposal_rejected":

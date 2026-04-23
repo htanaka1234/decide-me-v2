@@ -13,6 +13,7 @@ EVENT_TYPES = {
     "session_created",
     "session_resumed",
     "decision_discovered",
+    "decision_enriched",
     "question_asked",
     "proposal_issued",
     "proposal_accepted",
@@ -32,6 +33,7 @@ REQUIRED_PAYLOAD_KEYS: dict[str, tuple[str, ...]] = {
     "session_created": ("session",),
     "session_resumed": ("resumed_at",),
     "decision_discovered": ("decision",),
+    "decision_enriched": ("decision_id",),
     "question_asked": ("decision_id", "question_id", "question"),
     "proposal_issued": ("proposal",),
     "proposal_accepted": ("proposal_id", "target_type", "target_id", "accepted_answer"),
@@ -101,6 +103,15 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
     elif event_type == "decision_discovered":
         decision = _require_dict(payload["decision"], "decision_discovered.payload.decision")
         _require_keys(decision, ("id", "title"), "decision")
+    elif event_type == "decision_enriched":
+        if "notes_append" in payload and not isinstance(payload["notes_append"], list):
+            raise EventValidationError("decision_enriched.payload.notes_append must be a list")
+        if "revisit_triggers_append" in payload and not isinstance(payload["revisit_triggers_append"], list):
+            raise EventValidationError(
+                "decision_enriched.payload.revisit_triggers_append must be a list"
+            )
+        if "context_append" in payload and not isinstance(payload["context_append"], str):
+            raise EventValidationError("decision_enriched.payload.context_append must be a string")
     elif event_type == "proposal_issued":
         proposal = _require_dict(payload["proposal"], "proposal_issued.payload.proposal")
         _require_keys(
