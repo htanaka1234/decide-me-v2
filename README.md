@@ -140,3 +140,9 @@ python3 scripts/decide_me.py handle-reply \
 - `handle-reply` supports command-style replies and free-form answers against the active proposal.
 - Free-form replies can also capture additional constraints on the accepted decision and discover
   follow-up decisions in the same session.
+- Discovered follow-up decisions infer `domain`, `kind`, `priority`, `resolvable_by`,
+  `reversibility`, and a source-aware question from the reply clause.
+- Newly discovered `codebase` / `docs` / `tests` decisions are scanned for evidence immediately
+  after `handle-reply`, so they can self-resolve before the next question is issued.
+- Close summaries now emit richer `candidate_action_slices`, and generated plans surface
+  evidence-backed implementation-ready slices separately from the broader action list.

@@ -19,6 +19,10 @@ Readiness: {{readiness}}
 
 {{action_slices}}
 
+## Implementation-Ready Slices
+
+{{implementation_ready_slices}}
+
 ## Blockers
 
 {{blockers}}

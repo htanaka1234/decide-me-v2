@@ -157,6 +157,8 @@ class RuntimeFlowTests(unittest.TestCase):
             plan = generate_plan(ai_dir, [s1, s2])
             self.assertEqual("action-plan", plan["status"])
             self.assertEqual("ready", plan["action_plan"]["readiness"])
+            self.assertEqual("D-001", plan["action_plan"]["implementation_ready_slices"][0]["decision_id"])
+            self.assertEqual("codebase", plan["action_plan"]["implementation_ready_slices"][0]["evidence_source"])
             self.assertTrue(Path(plan["export_path"]).exists())
 
             adr_path = export_adr(ai_dir, "D-001")
@@ -478,13 +480,90 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertEqual(["only for enterprise tenants"], reply["captured_constraints"])
             self.assertEqual(1, len(reply["discovered_decisions"]))
             discovered = reply["discovered_decisions"][0]
+            self.assertEqual("technical", discovered["domain"])
+            self.assertEqual("choice", discovered["kind"])
             self.assertEqual("P0", discovered["priority"])
             self.assertEqual("now", discovered["frontier"])
+            self.assertEqual("codebase", discovered["resolvable_by"])
+            self.assertEqual("reversible", discovered["reversibility"])
+            self.assertEqual(
+                "How should we implement password reset before launch?",
+                discovered["question"],
+            )
             self.assertIn("Constraint: only for enterprise tenants", reply["decision"]["notes"])
             self.assertEqual("question", reply["next_turn"]["status"])
             self.assertEqual(discovered["id"], reply["next_turn"]["decision_id"])
             self.assertIn("Captured constraints:", reply["message"])
             self.assertIn("Discovered decisions:", reply["message"])
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_handle_reply_immediately_resolves_discovered_codebase_decision(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "app").mkdir()
+            (root / "app" / "auth.py").write_text(
+                "def send_password_reset(email):\n    return f'password reset sent to {email}'\n",
+                encoding="utf-8",
+            )
+            ai_dir = str(root / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Immediately resolve discovered codebase decisions",
+                current_milestone="MVP",
+            )
+            session_id = create_session(ai_dir, context="Auth decision")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-023",
+                    "title": "Authentication mode",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "resolvable_by": "human",
+                    "question": "Should the MVP use magic links?",
+                    "context": "Choose the initial authentication mode.",
+                    "recommendation": {
+                        "summary": "Use magic links for the MVP.",
+                        "rationale_short": "It keeps auth scope down.",
+                    },
+                },
+            )
+
+            advance_session(ai_dir, session_id, repo_root=root)
+            reply = handle_reply(
+                ai_dir,
+                session_id,
+                "Sounds good, and we also need password reset before launch.",
+                repo_root=root,
+            )
+            self.assertEqual("accepted", reply["status"])
+            self.assertEqual(1, len(reply["discovered_decisions"]))
+            discovered = reply["discovered_decisions"][0]
+            self.assertEqual("resolved-by-evidence", discovered["status"])
+            self.assertEqual("codebase", discovered["resolved_by_evidence"]["source"])
+            self.assertIn("app/auth.py", discovered["resolved_by_evidence"]["evidence_refs"])
+            self.assertEqual(1, len(reply["auto_resolved"]))
+            self.assertEqual(discovered["id"], reply["auto_resolved"][0]["decision_id"])
+            self.assertEqual("complete", reply["next_turn"]["status"])
+            self.assertEqual(discovered["id"], reply["next_turn"]["auto_resolved"][0]["decision_id"])
+            self.assertIn("Resolved by evidence:", reply["message"])
+            closed = close_session(ai_dir, session_id)
+            slices = closed["close_summary"]["candidate_action_slices"]
+            self.assertEqual(discovered["id"], slices[0]["decision_id"])
+            self.assertTrue(slices[0]["implementation_ready"])
+            self.assertTrue(slices[0]["evidence_backed"])
+            self.assertEqual("codebase", slices[0]["evidence_source"])
+            self.assertEqual("Implement Password reset before launch.", slices[0]["next_step"])
+            plan = generate_plan(ai_dir, [session_id])
+            self.assertEqual("action-plan", plan["status"])
+            self.assertEqual(discovered["id"], plan["action_plan"]["implementation_ready_slices"][0]["decision_id"])
+            self.assertEqual(discovered["id"], plan["action_plan"]["action_slices"][0]["decision_id"])
+            plan_body = Path(plan["export_path"]).read_text(encoding="utf-8")
+            self.assertIn("Implementation-Ready Slices", plan_body)
+            self.assertIn("via codebase", plan_body)
             self.assertEqual([], validate_runtime(ai_dir))
 
     def test_handle_reply_extracts_multiple_constraints_and_decisions(self) -> None:
@@ -533,10 +612,78 @@ class RuntimeFlowTests(unittest.TestCase):
                 reply["captured_constraints"],
             )
             self.assertEqual(2, len(reply["discovered_decisions"]))
+            by_title = {item["title"]: item for item in reply["discovered_decisions"]}
+            self.assertEqual("technical", by_title["S3 export before launch"]["domain"])
+            self.assertEqual("dependency", by_title["S3 export before launch"]["kind"])
+            self.assertEqual("codebase", by_title["S3 export before launch"]["resolvable_by"])
+            self.assertEqual("reversible", by_title["S3 export before launch"]["reversibility"])
+            self.assertEqual(
+                "What implementation do we need for S3 export before launch?",
+                by_title["S3 export before launch"]["question"],
+            )
+            self.assertEqual("ops", by_title["Retention to be configurable later"]["domain"])
+            self.assertEqual("choice", by_title["Retention to be configurable later"]["kind"])
+            self.assertEqual("human", by_title["Retention to be configurable later"]["resolvable_by"])
+            self.assertEqual("reversible", by_title["Retention to be configurable later"]["reversibility"])
+            self.assertEqual(
+                "How should we handle retention to be configurable later?",
+                by_title["Retention to be configurable later"]["question"],
+            )
             priorities = {(item["priority"], item["frontier"]) for item in reply["discovered_decisions"]}
             self.assertIn(("P0", "now"), priorities)
             self.assertIn(("P2", "later"), priorities)
             self.assertEqual("question", reply["next_turn"]["status"])
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_handle_reply_discovers_legal_constraint_from_follow_up_clause(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Infer legal follow-up decisions",
+                current_milestone="MVP",
+            )
+            session_id = create_session(ai_dir, context="Auth decision")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-022",
+                    "title": "Authentication mode",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "resolvable_by": "human",
+                    "question": "Should the MVP use magic links?",
+                    "context": "Choose the initial authentication mode.",
+                    "recommendation": {
+                        "summary": "Use magic links for the MVP.",
+                        "rationale_short": "It keeps auth scope down.",
+                    },
+                },
+            )
+
+            advance_session(ai_dir, session_id, repo_root=tmp)
+            reply = handle_reply(
+                ai_dir,
+                session_id,
+                "Use magic links, and we also need EU data residency before launch.",
+                repo_root=tmp,
+            )
+            self.assertEqual("accepted", reply["status"])
+            self.assertEqual(1, len(reply["discovered_decisions"]))
+            discovered = reply["discovered_decisions"][0]
+            self.assertEqual("legal", discovered["domain"])
+            self.assertEqual("constraint", discovered["kind"])
+            self.assertEqual("P0", discovered["priority"])
+            self.assertEqual("now", discovered["frontier"])
+            self.assertEqual("external", discovered["resolvable_by"])
+            self.assertEqual("hard-to-reverse", discovered["reversibility"])
+            self.assertEqual(
+                "What external requirement should apply to EU data residency before launch?",
+                discovered["question"],
+            )
             self.assertEqual([], validate_runtime(ai_dir))
 
 

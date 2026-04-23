@@ -55,7 +55,11 @@ def export_plan(ai_dir: str, plan: dict[str, Any]) -> Path:
             .replace("{{readiness}}", action_plan["readiness"])
             .replace("{{goals}}", _render_list(action_plan["goals"]))
             .replace("{{workstreams}}", _render_dict_list(action_plan["workstreams"]))
-            .replace("{{action_slices}}", _render_dict_list(action_plan["action_slices"]))
+            .replace(
+                "{{implementation_ready_slices}}",
+                _render_action_slices(action_plan.get("implementation_ready_slices", [])),
+            )
+            .replace("{{action_slices}}", _render_action_slices(action_plan["action_slices"]))
             .replace("{{blockers}}", _render_dict_list(action_plan["blockers"]))
             .replace("{{risks}}", _render_dict_list(action_plan["risks"]))
         )
@@ -91,6 +95,31 @@ def _render_dict_list(values: list[dict[str, Any]]) -> str:
         name = value.get("name") or value.get("id") or "item"
         detail = value.get("summary") or value.get("accepted_answer") or value.get("scope") or ""
         rendered.append(f"- {name}: {detail}".rstrip(": "))
+    return "\n".join(rendered)
+
+
+def _render_action_slices(values: list[dict[str, Any]]) -> str:
+    if not values:
+        return "- none"
+    rendered = []
+    for value in values:
+        labels = []
+        if value.get("decision_id"):
+            labels.append(value["decision_id"])
+        if value.get("priority"):
+            labels.append(value["priority"])
+        if value.get("implementation_ready"):
+            labels.append("implementation-ready")
+        if value.get("evidence_source"):
+            labels.append(f"via {value['evidence_source']}")
+        header = value.get("name") or value.get("decision_id") or "item"
+        if labels:
+            header = f"{header} [{'; '.join(labels)}]"
+        details = [value.get("summary") or ""]
+        next_step = value.get("next_step")
+        if next_step and next_step != details[0]:
+            details.append(f"Next: {next_step}")
+        rendered.append(f"- {header}: {' '.join(part for part in details if part).strip()}".rstrip(": "))
     return "\n".join(rendered)
 
 

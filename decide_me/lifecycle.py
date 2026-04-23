@@ -161,8 +161,8 @@ def build_close_summary(project_state: dict[str, Any], session_state: dict[str, 
     elif risks:
         readiness = "conditional"
 
-    workstreams = _candidate_workstreams(decisions)
     action_slices = _candidate_action_slices(decisions)
+    workstreams = _candidate_workstreams(decisions, action_slices)
 
     bound_context = session_state["session"].get("bound_context_hint")
     latest_summary = session_state["summary"].get("latest_summary")
@@ -204,24 +204,48 @@ def _decision_snapshot(decision: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": decision["id"],
         "title": decision["title"],
+        "kind": decision["kind"],
         "domain": decision["domain"],
         "priority": decision["priority"],
         "status": decision["status"],
+        "resolvable_by": decision["resolvable_by"],
+        "evidence_source": decision["resolved_by_evidence"]["source"],
+        "evidence_refs": deepcopy(decision.get("evidence_refs", [])),
         "accepted_answer": answer,
     }
 
 
-def _candidate_workstreams(decisions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _candidate_workstreams(
+    decisions: list[dict[str, Any]],
+    action_slices: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     by_domain: dict[str, list[dict[str, Any]]] = {}
     for decision in decisions:
         by_domain.setdefault(decision["domain"], []).append(decision)
+    ready_by_domain: dict[str, list[str]] = {}
+    for action_slice in action_slices:
+        ready_by_domain.setdefault(action_slice["responsibility"], [])
+        if action_slice.get("implementation_ready"):
+            ready_by_domain[action_slice["responsibility"]].append(action_slice["decision_id"])
     workstreams = []
     for domain, items in sorted(by_domain.items()):
+        implementation_ready_scope = stable_unique(ready_by_domain.get(domain, []))
+        accepted_count = len(
+            [decision for decision in items if decision["status"] in {"accepted", "resolved-by-evidence"}]
+        )
+        summary = f"Advance {domain} decisions for the current milestone."
+        if implementation_ready_scope:
+            summary = (
+                f"Advance {domain} decisions for the current milestone. "
+                f"{len(implementation_ready_scope)} implementation-ready slice(s) are already grounded."
+            )
         workstreams.append(
             {
                 "name": f"{domain}-workstream",
-                "summary": f"Advance {domain} decisions for the current milestone.",
+                "summary": summary,
                 "scope": [decision["id"] for decision in items],
+                "accepted_count": accepted_count,
+                "implementation_ready_scope": implementation_ready_scope,
             }
         )
     return workstreams
@@ -232,12 +256,57 @@ def _candidate_action_slices(decisions: list[dict[str, Any]]) -> list[dict[str, 
     for decision in decisions:
         if decision["status"] not in {"accepted", "resolved-by-evidence"}:
             continue
+        summary = decision["accepted_answer"]["summary"] or decision["resolved_by_evidence"]["summary"]
+        evidence_source = decision["resolved_by_evidence"]["source"]
+        evidence_refs = deepcopy(decision.get("evidence_refs", []))
         slices.append(
             {
+                "decision_id": decision["id"],
                 "name": decision["title"],
-                "summary": decision["accepted_answer"]["summary"]
-                or decision["resolved_by_evidence"]["summary"],
+                "summary": summary,
                 "responsibility": decision["domain"],
+                "priority": decision["priority"],
+                "status": decision["status"],
+                "kind": decision["kind"],
+                "resolvable_by": decision["resolvable_by"],
+                "reversibility": decision["reversibility"],
+                "implementation_ready": _implementation_ready(decision),
+                "evidence_backed": bool(evidence_source or evidence_refs),
+                "evidence_source": evidence_source,
+                "evidence_refs": evidence_refs,
+                "next_step": _action_slice_next_step(decision),
             }
         )
-    return slices
+    return sorted(slices, key=_action_slice_sort_key)
+
+
+def _implementation_ready(decision: dict[str, Any]) -> bool:
+    if decision["status"] == "resolved-by-evidence":
+        return True
+    if decision["resolvable_by"] in {"codebase", "docs", "tests"}:
+        return bool(decision["accepted_answer"]["summary"] or decision["recommendation"]["summary"])
+    return False
+
+
+def _action_slice_next_step(decision: dict[str, Any]) -> str:
+    subject = decision["title"] or decision["id"]
+    resolvable_by = decision["resolvable_by"]
+    if resolvable_by == "codebase":
+        return f"Implement {subject}."
+    if resolvable_by == "docs":
+        return f"Document {subject}."
+    if resolvable_by == "tests":
+        return f"Add tests for {subject}."
+    if resolvable_by == "external":
+        return f"Coordinate the external dependency for {subject}."
+    return f"Drive {subject} to completion."
+
+
+def _action_slice_sort_key(action_slice: dict[str, Any]) -> tuple[int, int, int, str]:
+    priority_rank = {"P0": 0, "P1": 1, "P2": 2}
+    return (
+        0 if action_slice.get("evidence_backed") else 1,
+        0 if action_slice.get("implementation_ready") else 1,
+        priority_rank.get(action_slice.get("priority"), 3),
+        action_slice.get("name") or "",
+    )

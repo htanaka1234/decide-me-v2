@@ -41,3 +41,7 @@ Deterministic runtime helpers:
   - treats other free-form answers as explicit decision answers tied to the active proposal
   - extracts follow-up constraints from clauses such as `only if ...` or `must stay ...`
   - discovers follow-up decisions from clauses such as `we also need ...`
+  - infers discovered decision `domain`, `kind`, `priority`, `resolvable_by`,
+    `reversibility`, and a source-aware question from each follow-up clause
+  - immediately scans newly discovered `codebase` / `docs` / `tests` decisions for evidence before
+    selecting the next question

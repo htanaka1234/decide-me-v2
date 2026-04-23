@@ -124,11 +124,13 @@ def assemble_action_plan(sessions: list[dict[str, Any]]) -> dict[str, Any]:
         if close_summary.get("goal"):
             goals.append(close_summary["goal"])
 
+    merged_action_slices = _merge_action_slices(action_slices)
     return {
         "readiness": readiness,
         "goals": stable_unique(goals),
         "workstreams": _merge_workstreams(workstreams),
-        "action_slices": _dedupe_by_name(action_slices),
+        "action_slices": merged_action_slices,
+        "implementation_ready_slices": [item for item in merged_action_slices if item.get("implementation_ready")],
         "blockers": _dedupe_by_id(blockers),
         "risks": _dedupe_by_id(risks),
         "evidence_refs": stable_unique(evidence_refs),
@@ -163,10 +165,61 @@ def _merge_workstreams(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "name": name,
                 "summary": item.get("summary"),
                 "scope": [],
+                "implementation_ready_scope": [],
+                "accepted_count": 0,
             },
         )
         current["scope"] = stable_unique([*current.get("scope", []), *item.get("scope", [])])
-    return [merged[name] for name in sorted(merged)]
+        current["implementation_ready_scope"] = stable_unique(
+            [*current.get("implementation_ready_scope", []), *item.get("implementation_ready_scope", [])]
+        )
+        current["accepted_count"] = max(current.get("accepted_count", 0), item.get("accepted_count", 0))
+        if len(current["implementation_ready_scope"]) > len(item.get("implementation_ready_scope", [])):
+            current["summary"] = (
+                f"{name.removesuffix('-workstream')} workstream with "
+                f"{len(current['implementation_ready_scope'])} implementation-ready slice(s)."
+            )
+        elif item.get("summary"):
+            current["summary"] = item["summary"]
+    return sorted(merged.values(), key=_workstream_sort_key)
+
+
+def _merge_action_slices(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    merged: dict[str, dict[str, Any]] = {}
+    for item in items:
+        key = item.get("decision_id") or item.get("name") or ""
+        if key not in merged:
+            merged[key] = deepcopy(item)
+            continue
+        current = merged[key]
+        preferred = current if _action_slice_sort_key(current) <= _action_slice_sort_key(item) else deepcopy(item)
+        preferred["evidence_refs"] = stable_unique([*current.get("evidence_refs", []), *item.get("evidence_refs", [])])
+        preferred["implementation_ready"] = bool(
+            current.get("implementation_ready") or item.get("implementation_ready")
+        )
+        preferred["evidence_backed"] = bool(current.get("evidence_backed") or item.get("evidence_backed"))
+        preferred["evidence_source"] = current.get("evidence_source") or item.get("evidence_source")
+        preferred["next_step"] = preferred.get("next_step") or current.get("next_step") or item.get("next_step")
+        merged[key] = preferred
+    return sorted(merged.values(), key=_action_slice_sort_key)
+
+
+def _action_slice_sort_key(item: dict[str, Any]) -> tuple[int, int, int, str]:
+    priority_rank = {"P0": 0, "P1": 1, "P2": 2}
+    return (
+        0 if item.get("evidence_backed") else 1,
+        0 if item.get("implementation_ready") else 1,
+        priority_rank.get(item.get("priority"), 3),
+        item.get("name") or "",
+    )
+
+
+def _workstream_sort_key(item: dict[str, Any]) -> tuple[int, int, str]:
+    return (
+        -len(item.get("implementation_ready_scope", [])),
+        -len(item.get("scope", [])),
+        item.get("name") or "",
+    )
 
 
 def _dedupe_by_id(items: list[dict[str, Any]]) -> list[dict[str, Any]]:

@@ -177,6 +177,269 @@ CONSTRAINT_PHRASES = (
     "after ",
 )
 TRIGGER_PREFIXES = ("if ", "when ", "unless ", "before ", "after ")
+DOMAIN_PRIORITY = ("legal", "ops", "data", "technical", "ux", "product", "other")
+DOMAIN_HINTS: dict[str, tuple[str, ...]] = {
+    "product": (
+        "pricing",
+        "billing",
+        "tier",
+        "plan",
+        "feature flag",
+        "rollout",
+        "roadmap",
+        "entitlement",
+        "signup",
+        "trial",
+        "tenant",
+        "enterprise plan",
+    ),
+    "technical": (
+        "auth",
+        "authentication",
+        "password",
+        "magic link",
+        "login",
+        "session",
+        "api",
+        "endpoint",
+        "service",
+        "backend",
+        "frontend",
+        "s3",
+        "bucket",
+        "smtp",
+        "oauth",
+        "token",
+        "encryption",
+        "reset",
+        "export",
+    ),
+    "data": (
+        "analytics",
+        "metric",
+        "metrics",
+        "dataset",
+        "warehouse",
+        "pipeline",
+        "report",
+        "reporting",
+        "csv",
+        "parquet",
+        "table",
+        "schema",
+        "retention",
+        "export",
+        "import",
+    ),
+    "ux": (
+        "ux",
+        "ui",
+        "screen",
+        "modal",
+        "form",
+        "copy",
+        "flow",
+        "journey",
+        "navigation",
+        "onboarding",
+        "accessibility",
+        "mobile",
+    ),
+    "ops": (
+        "deploy",
+        "deployment",
+        "monitoring",
+        "alert",
+        "incident",
+        "infra",
+        "infrastructure",
+        "hosting",
+        "region",
+        "backup",
+        "docker",
+        "ci",
+        "cd",
+        "runbook",
+        "logging",
+        "retention",
+    ),
+    "legal": (
+        "privacy",
+        "legal",
+        "compliance",
+        "gdpr",
+        "contract",
+        "terms",
+        "consent",
+        "policy",
+        "soc 2",
+        "soc2",
+        "residency",
+        "dpa",
+        "audit",
+        "eu",
+    ),
+}
+DEPENDENCY_PHRASES = (
+    "integration",
+    "provider",
+    "vendor",
+    "smtp",
+    "s3",
+    "bucket",
+    "webhook",
+    "credential",
+    "credentials",
+    "secret",
+    "secrets",
+    "host",
+    "hosting",
+    "region",
+    "export",
+    "import",
+    "sync",
+)
+RISK_PHRASES = (
+    "risk",
+    "fallback",
+    "mitigation",
+    "rollback",
+    "outage",
+    "failure",
+    "abuse",
+    "fraud",
+    "breach",
+    "recovery",
+)
+LEGAL_CONSTRAINT_PHRASES = (
+    "compliance",
+    "privacy",
+    "contract",
+    "residency",
+    "gdpr",
+    "soc 2",
+    "soc2",
+    "policy",
+    "consent",
+)
+NOW_PRIORITY_PHRASES = (
+    "before launch",
+    "before release",
+    "before ship",
+    "for the mvp",
+    "for mvp",
+    "required",
+    "blocking",
+    "blocker",
+    "must have",
+    "cannot ship",
+)
+LATER_PRIORITY_PHRASES = (
+    "later",
+    "post-mvp",
+    "eventually",
+    "future",
+    "after launch",
+    "after release",
+)
+NICE_TO_HAVE_PHRASES = ("nice to have", "optional", "could have")
+DOCS_PHRASES = (
+    "docs",
+    "documentation",
+    "document",
+    "readme",
+    "runbook",
+    "playbook",
+    "guide",
+    "manual",
+    "reference",
+    "adr",
+    "spec",
+)
+TESTS_PHRASES = (
+    "test",
+    "tests",
+    "unit test",
+    "integration test",
+    "regression test",
+    "e2e",
+    "end-to-end",
+    "coverage",
+    "fixture",
+)
+CODEBASE_PHRASES = (
+    "auth",
+    "authentication",
+    "password",
+    "reset",
+    "api",
+    "endpoint",
+    "service",
+    "backend",
+    "frontend",
+    "config",
+    "setting",
+    "schema",
+    "migration",
+    "database",
+    "s3",
+    "bucket",
+    "smtp",
+    "oauth",
+    "token",
+    "encryption",
+    "export",
+    "import",
+    "sync",
+    "webhook",
+)
+EXTERNAL_PHRASES = (
+    "legal",
+    "privacy",
+    "compliance",
+    "gdpr",
+    "soc 2",
+    "soc2",
+    "contract",
+    "dpa",
+    "vendor",
+    "procurement",
+    "approval",
+    "signoff",
+    "audit",
+    "residency",
+)
+IRREVERSIBLE_PHRASES = (
+    "irreversible",
+    "permanent",
+    "permanently",
+    "cannot undo",
+    "can't undo",
+    "one-way",
+    "destructive",
+    "delete all",
+    "delete existing",
+    "drop data",
+    "purge",
+)
+HARD_TO_REVERSE_PHRASES = (
+    "auth",
+    "authentication",
+    "oauth",
+    "encryption",
+    "migration",
+    "database",
+    "schema",
+    "residency",
+    "privacy",
+    "contract",
+    "billing",
+    "pricing",
+    "retention",
+    "region",
+    "vendor",
+    "provider",
+)
 
 
 def advance_session(
@@ -278,6 +541,7 @@ def handle_reply(
     *,
     repo_root: str | Path = ".",
 ) -> dict[str, Any]:
+    repo_root = Path(repo_root).resolve()
     text = reply.strip()
     if not text:
         raise ValueError("reply must not be empty")
@@ -411,7 +675,14 @@ def handle_reply(
             decision,
             parsed,
         )
+        discovered_decisions, immediate_auto_resolved = _resolve_discovered_decisions_by_evidence(
+            ai_dir,
+            session_id,
+            discovered_decisions,
+            repo_root,
+        )
         next_turn = advance_session(ai_dir, session_id, repo_root=repo_root)
+        next_turn = _prepend_auto_resolved(next_turn, immediate_auto_resolved)
         message = _accepted_reply_message(
             decision,
             next_turn,
@@ -424,6 +695,7 @@ def handle_reply(
             "decision": decision,
             "captured_constraints": captured_constraints,
             "discovered_decisions": discovered_decisions,
+            "auto_resolved": immediate_auto_resolved,
             "next_turn": next_turn,
             "message": message,
         }
@@ -580,6 +852,48 @@ def _decision_terms(decision: dict[str, Any]) -> list[str]:
     return seen
 
 
+def _resolve_discovered_decisions_by_evidence(
+    ai_dir: str,
+    session_id: str,
+    discovered_decisions: list[dict[str, Any]],
+    repo_root: Path,
+    *,
+    max_auto_resolutions: int = 20,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    if not discovered_decisions:
+        return [], []
+
+    auto_resolved: list[dict[str, Any]] = []
+    for discovered in discovered_decisions:
+        bundle = current_bundle(ai_dir)
+        current = _lookup_decision(bundle, discovered["id"])
+        if len(auto_resolved) >= max_auto_resolutions:
+            continue
+        evidence = find_evidence(bundle, session_id, current, repo_root)
+        if evidence is None:
+            continue
+        resolve_by_evidence(
+            ai_dir,
+            session_id,
+            decision_id=current["id"],
+            source=evidence["source"],
+            summary=evidence["summary"],
+            evidence_refs=evidence["evidence_refs"],
+        )
+        auto_resolved.append(
+            {
+                "decision_id": current["id"],
+                "source": evidence["source"],
+                "summary": evidence["summary"],
+                "evidence_refs": evidence["evidence_refs"],
+            }
+        )
+
+    bundle = current_bundle(ai_dir)
+    updated_discovered = [_lookup_decision(bundle, discovered["id"]) for discovered in discovered_decisions]
+    return updated_discovered, auto_resolved
+
+
 def _keywords(text: str) -> list[str]:
     tokens = re.findall(r"[A-Za-z0-9][A-Za-z0-9_-]{2,}", text)
     return [token for token in tokens if token.casefold() not in STOP_WORDS]
@@ -645,6 +959,20 @@ def _question_result(
         "auto_resolved": auto_resolved,
         "message": message,
     }
+
+
+def _prepend_auto_resolved(turn: dict[str, Any], auto_resolved: list[dict[str, Any]]) -> dict[str, Any]:
+    if not auto_resolved:
+        return turn
+    merged = dict(turn)
+    merged["auto_resolved"] = [*auto_resolved, *(turn.get("auto_resolved") or [])]
+    message = turn.get("message")
+    auto_message = _render_auto_resolved(auto_resolved)
+    if message:
+        merged["message"] = "\n".join([auto_message, message])
+    else:
+        merged["message"] = auto_message
+    return merged
 
 
 def _render_auto_resolved(auto_resolved: list[dict[str, Any]]) -> str:
@@ -898,21 +1226,35 @@ def _constraints_context_append(constraints: list[str]) -> str:
 def _build_discovered_decision(current_decision: dict[str, Any], clause: str) -> dict[str, Any]:
     normalized = _normalize(clause)
     title = _title_from_clause(clause)
-    priority, frontier = _priority_and_frontier_from_clause(normalized)
-    return {
+    priority, frontier = _priority_and_frontier_from_clause(current_decision, normalized)
+    kind = _kind_from_clause(current_decision, normalized)
+    domain = _domain_from_clause(current_decision, title, clause)
+    resolvable_by = _resolvable_by_from_clause(current_decision, normalized, domain, kind)
+    reversibility = _reversibility_from_clause(
+        current_decision,
+        normalized,
+        domain=domain,
+        kind=kind,
+        resolvable_by=resolvable_by,
+    )
+    recommendation = _recommendation_from_clause(title, kind=kind, resolvable_by=resolvable_by)
+    discovered = {
         "id": new_entity_id("D"),
         "title": title,
-        "kind": _kind_from_clause(normalized),
-        "domain": current_decision.get("domain") or "other",
+        "kind": kind,
+        "domain": domain,
         "priority": priority,
         "frontier": frontier,
         "status": "unresolved",
-        "resolvable_by": "human",
-        "reversibility": "reversible",
-        "question": _question_from_follow_up_clause(title, clause),
+        "resolvable_by": resolvable_by,
+        "reversibility": reversibility,
+        "question": _question_from_follow_up_clause(title, clause, kind=kind, resolvable_by=resolvable_by),
         "context": clause.strip(),
         "notes": [f"Discovered from reply while resolving {current_decision['id']}."],
     }
+    if recommendation is not None:
+        discovered["recommendation"] = recommendation
+    return discovered
 
 
 def _title_from_clause(clause: str) -> str:
@@ -933,34 +1275,193 @@ def _title_from_clause(clause: str) -> str:
     return shortened[0].upper() + shortened[1:]
 
 
-def _priority_and_frontier_from_clause(normalized_clause: str) -> tuple[str, str]:
-    if any(
-        marker in normalized_clause
-        for marker in ("before launch", "before release", "for the mvp", "for mvp", "blocking", "required")
-    ):
+def _priority_and_frontier_from_clause(
+    current_decision: dict[str, Any], normalized_clause: str
+) -> tuple[str, str]:
+    if any(marker in normalized_clause for marker in NOW_PRIORITY_PHRASES):
         return "P0", "now"
-    if any(marker in normalized_clause for marker in ("later", "post-mvp", "eventually", "after launch")):
+    if any(marker in normalized_clause for marker in LATER_PRIORITY_PHRASES):
+        return "P2", "later"
+    if any(marker in normalized_clause for marker in NICE_TO_HAVE_PHRASES):
         return "P2", "later"
     if any(marker in normalized_clause for marker in ("must ", "need ", "needs ", "have to ")):
         return "P0", "now"
+    if any(marker in normalized_clause for marker in ("should also", "we also need", "there needs to be")):
+        if current_decision.get("frontier") == "now":
+            return "P1", "now"
+        return "P1", "discovered-later"
+    inherited_priority = current_decision.get("priority")
+    if inherited_priority == "P0":
+        return "P1", current_decision.get("frontier") or "discovered-later"
     return "P1", "discovered-later"
 
 
-def _kind_from_clause(normalized_clause: str) -> str:
-    if any(marker in normalized_clause for marker in ("risk", "fallback", "mitigation")):
+def _kind_from_clause(current_decision: dict[str, Any], normalized_clause: str) -> str:
+    if any(marker in normalized_clause for marker in RISK_PHRASES):
         return "risk"
-    if any(marker in normalized_clause for marker in ("dependency", "depends on", "credential", "secret", "vendor", "integration")):
+    if any(marker in normalized_clause for marker in LEGAL_CONSTRAINT_PHRASES):
+        return "constraint"
+    if any(marker in normalized_clause for marker in ("dependency", "depends on", *DEPENDENCY_PHRASES)):
         return "dependency"
     if any(marker in normalized_clause for marker in ("must", "cannot", "can't", "only", "unless", "except")):
         return "constraint"
+    if current_decision.get("kind") in {"dependency", "constraint"} and any(
+        marker in normalized_clause for marker in ("also need", "need ", "needs ")
+    ):
+        return current_decision["kind"]
     return "choice"
 
 
-def _question_from_follow_up_clause(title: str, clause: str) -> str:
+def _domain_from_clause(current_decision: dict[str, Any], title: str, clause: str) -> str:
+    primary = _normalize(" ".join([title, clause]))
+    scores = _score_domains(primary)
+    current_domain = current_decision.get("domain") or "other"
+    if not scores:
+        context_scores = _score_domains(_normalize(current_decision.get("context")))
+        if not context_scores:
+            return current_domain
+        scores = context_scores
+
+    best_score = max(scores.values())
+    if current_domain in scores and scores[current_domain] == best_score:
+        return current_domain
+
+    tied = [domain for domain, score in scores.items() if score == best_score]
+    for domain in DOMAIN_PRIORITY:
+        if domain in tied:
+            return domain
+    return current_domain
+
+
+def _score_domains(normalized: str) -> dict[str, int]:
+    scores: dict[str, int] = {}
+    for domain, hints in DOMAIN_HINTS.items():
+        score = 0
+        for hint in hints:
+            if _contains_hint(normalized, hint):
+                score += 2 if " " in hint else 1
+        if score:
+            scores[domain] = score
+    return scores
+
+
+def _contains_hint(normalized: str, hint: str) -> bool:
+    escaped = re.escape(hint.casefold()).replace(r"\ ", r"\s+")
+    pattern = rf"(?<![a-z0-9]){escaped}(?![a-z0-9])"
+    return re.search(pattern, normalized) is not None
+
+
+def _resolvable_by_from_clause(
+    current_decision: dict[str, Any],
+    normalized_clause: str,
+    domain: str,
+    kind: str,
+) -> str:
+    if any(_contains_hint(normalized_clause, marker) for marker in TESTS_PHRASES):
+        return "tests"
+    if any(_contains_hint(normalized_clause, marker) for marker in DOCS_PHRASES):
+        return "docs"
+    if domain == "legal" or any(_contains_hint(normalized_clause, marker) for marker in EXTERNAL_PHRASES):
+        return "external"
+    if any(_contains_hint(normalized_clause, marker) for marker in CODEBASE_PHRASES):
+        return "codebase"
+
+    inherited = current_decision.get("resolvable_by")
+    if inherited in {"codebase", "docs", "tests"} and kind in {"choice", "dependency"}:
+        return inherited
+    if domain in {"technical", "data"} and kind in {"choice", "dependency"}:
+        return "codebase"
+    return "human"
+
+
+def _reversibility_from_clause(
+    current_decision: dict[str, Any],
+    normalized_clause: str,
+    *,
+    domain: str,
+    kind: str,
+    resolvable_by: str,
+) -> str:
+    if any(_contains_hint(normalized_clause, marker) for marker in IRREVERSIBLE_PHRASES):
+        return "irreversible"
+    if any(_contains_hint(normalized_clause, marker) for marker in ("configurable", "feature flag", "toggle")):
+        return "reversible"
+    if resolvable_by in {"docs", "tests"}:
+        return "reversible"
+    if domain == "legal" or resolvable_by == "external":
+        return "hard-to-reverse"
+    if any(_contains_hint(normalized_clause, marker) for marker in HARD_TO_REVERSE_PHRASES):
+        return "hard-to-reverse"
+    if domain in {"data", "ops"} and kind in {"constraint", "dependency"}:
+        return "hard-to-reverse"
+
+    inherited = current_decision.get("reversibility")
+    if inherited in {"hard-to-reverse", "irreversible"} and kind in {"constraint", "dependency"}:
+        return inherited
+    return "reversible"
+
+
+def _question_from_follow_up_clause(title: str, clause: str, *, kind: str, resolvable_by: str) -> str:
     normalized = _normalize(clause)
+    subject = _question_subject(title)
+    if kind == "constraint":
+        if resolvable_by == "external":
+            return f"What external requirement should apply to {subject}?"
+        return f"What constraint should apply to {subject}?"
+    if kind == "dependency":
+        if resolvable_by == "tests":
+            return f"What test coverage do we need for {subject}?"
+        if resolvable_by == "docs":
+            return f"What documentation do we need for {subject}?"
+        if resolvable_by == "external":
+            return f"What external dependency do we need for {subject}?"
+        if resolvable_by == "codebase":
+            return f"What implementation do we need for {subject}?"
+        return f"What dependency do we need to resolve for {subject}?"
+    if resolvable_by == "tests":
+        return f"What tests do we need for {subject}?"
+    if resolvable_by == "docs":
+        return f"What documentation do we need for {subject}?"
     if "decide" in normalized:
-        return f"What should we decide about {title.lower()}?"
-    return f"How should we handle {title.lower()}?"
+        return f"What should we decide about {subject}?"
+    if resolvable_by == "codebase":
+        return f"How should we implement {subject}?"
+    return f"How should we handle {subject}?"
+
+
+def _question_subject(title: str) -> str:
+    stripped = title.strip()
+    if not stripped:
+        return "this"
+    first_token = stripped.split(maxsplit=1)[0]
+    if first_token.isupper() or any(char.isdigit() for char in first_token):
+        return stripped
+    return stripped[0].lower() + stripped[1:]
+
+
+def _recommendation_from_clause(title: str, *, kind: str, resolvable_by: str) -> dict[str, Any] | None:
+    subject = _question_subject(title)
+    if resolvable_by == "docs":
+        return {
+            "summary": f"Document {subject}.",
+            "rationale_short": "The follow-up clause points to documentation work.",
+        }
+    if resolvable_by == "tests":
+        return {
+            "summary": f"Add tests for {subject}.",
+            "rationale_short": "The follow-up clause points to test coverage work.",
+        }
+    if resolvable_by == "codebase":
+        if kind == "dependency":
+            return {
+                "summary": f"Implement {subject}.",
+                "rationale_short": "The follow-up clause points to implementation work in the repo.",
+            }
+        return {
+            "summary": f"Implement {subject}.",
+            "rationale_short": "The follow-up clause points to implementation work in the repo.",
+        }
+    return None
 
 
 def _accepted_reply_message(
