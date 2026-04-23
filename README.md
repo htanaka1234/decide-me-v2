@@ -138,9 +138,12 @@ python3 scripts/decide_me.py handle-reply \
 
 - The runtime lives under `.ai/decide-me/`; human-readable artifacts are exports, not state.
 - Validation checks both event envelopes and projection consistency.
-- Closed-session compatibility tags are backfilled lazily and persisted as events.
+- `list-sessions` and `show-session` may lazily backfill closed-session compatibility tags and
+  persist those additions as events.
 - `advance-session` resolves evidence conservatively. It only auto-resolves decisions when a
   recommendation is already recorded and matching evidence is found.
+- `advance-session` is session-scoped. A new empty session does not claim open decisions from
+  other sessions; discover a decision in that session or resume the owning session.
 - `handle-reply` supports command-style replies and free-form answers against the active proposal.
 - Free-form replies can also capture additional constraints on the accepted decision and discover
   follow-up decisions in the same session.

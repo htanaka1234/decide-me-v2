@@ -96,6 +96,7 @@ def default_session_state(
 def empty_active_proposal() -> dict[str, Any]:
     return {
         "proposal_id": None,
+        "origin_session_id": None,
         "target_type": None,
         "target_id": None,
         "recommendation_version": None,
@@ -262,6 +263,7 @@ def apply_event(
         _touch_session(sessions, session_id, ts, payload["decision_id"], event["project_version_after"])
     elif event_type == "proposal_issued":
         proposal = deepcopy(payload["proposal"])
+        proposal.setdefault("origin_session_id", session_id)
         decision = _ensure_decision(project_state, proposal["target_id"])
         decision["status"] = "proposed"
         decision["question"] = proposal["question"]
@@ -292,14 +294,33 @@ def apply_event(
         ):
             decision["notes"] = stable_unique(
                 [*decision["notes"], "Accepted answer overrides the last recommendation."]
+        )
+        origin_session_id = payload.get("origin_session_id") or session_id
+        if origin_session_id in sessions:
+            _clear_question_state(
+                sessions[origin_session_id],
+                payload["reason"] if payload.get("reason") else None,
             )
-        _clear_question_state(sessions[session_id], payload["reason"] if payload.get("reason") else None)
-        _touch_session(sessions, session_id, ts, payload["target_id"], event["project_version_after"])
+            _touch_session(
+                sessions,
+                origin_session_id,
+                ts,
+                payload["target_id"],
+                event["project_version_after"],
+            )
     elif event_type == "proposal_rejected":
         decision = _ensure_decision(project_state, payload["target_id"])
         decision["status"] = "rejected"
-        _clear_question_state(sessions[session_id], payload["reason"])
-        _touch_session(sessions, session_id, ts, payload["target_id"], event["project_version_after"])
+        origin_session_id = payload.get("origin_session_id") or session_id
+        if origin_session_id in sessions:
+            _clear_question_state(sessions[origin_session_id], payload["reason"])
+            _touch_session(
+                sessions,
+                origin_session_id,
+                ts,
+                payload["target_id"],
+                event["project_version_after"],
+            )
     elif event_type == "decision_deferred":
         decision = _ensure_decision(project_state, payload["decision_id"])
         decision["status"] = "deferred"

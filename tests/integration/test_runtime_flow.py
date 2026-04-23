@@ -15,6 +15,7 @@ from decide_me.protocol import (
     discover_decision,
     invalidate_decision,
     issue_proposal,
+    reject_proposal,
     resolve_by_evidence,
     update_classification,
 )
@@ -86,6 +87,121 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertEqual("accepted", accepted["status"])
 
             rebuild_and_persist(ai_dir)
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_cross_session_explicit_proposal_acceptance_is_rejected(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Keep proposal ownership session scoped",
+                current_milestone="MVP",
+            )
+            owning_session_id = create_session(ai_dir, context="Auth thread")["session"]["id"]
+            other_session_id = create_session(ai_dir, context="Audit thread")["session"]["id"]
+
+            discover_decision(
+                ai_dir,
+                owning_session_id,
+                {
+                    "id": "D-ownership",
+                    "title": "Auth mode",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "question": "How should auth work?",
+                },
+            )
+            proposal = issue_proposal(
+                ai_dir,
+                owning_session_id,
+                decision_id="D-ownership",
+                question="Use magic links?",
+                recommendation="Use magic links.",
+                why="Smaller MVP surface area.",
+                if_not="Passwords expand auth scope.",
+            )
+
+            with self.assertRaisesRegex(ValueError, "belongs to session"):
+                accept_proposal(ai_dir, other_session_id, proposal_id=proposal["proposal_id"])
+
+            shown = show_session(ai_dir, owning_session_id)
+            active = shown["session"]["working_state"]["active_proposal"]
+            self.assertEqual(proposal["proposal_id"], active["proposal_id"])
+            self.assertTrue(active["is_active"])
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_closed_session_rejects_proposal_replies(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Keep closed sessions read-only",
+                current_milestone="MVP",
+            )
+            session_id = create_session(ai_dir, context="Retention thread")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-closed",
+                    "title": "Audit retention",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "ops",
+                    "question": "How long should audit logs be retained?",
+                },
+            )
+            proposal = issue_proposal(
+                ai_dir,
+                session_id,
+                decision_id="D-closed",
+                question="Use 30 days?",
+                recommendation="Use 30 days.",
+                why="Keeps MVP scope small.",
+                if_not="Longer retention expands compliance scope.",
+            )
+            close_session(ai_dir, session_id)
+
+            with self.assertRaisesRegex(ValueError, "closed"):
+                accept_proposal(ai_dir, session_id, proposal_id=proposal["proposal_id"])
+            with self.assertRaisesRegex(ValueError, "closed"):
+                reject_proposal(ai_dir, session_id, proposal_id=proposal["proposal_id"], reason="No")
+            with self.assertRaisesRegex(ValueError, "closed"):
+                handle_reply(ai_dir, session_id, "Use 90 days.", repo_root=tmp)
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_empty_session_does_not_claim_project_open_decisions(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Keep empty sessions unbound",
+                current_milestone="MVP",
+            )
+            owning_session_id = create_session(ai_dir, context="Auth thread")["session"]["id"]
+            empty_session_id = create_session(ai_dir, context="New thread")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                owning_session_id,
+                {
+                    "id": "D-open",
+                    "title": "Auth mode",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "question": "How should auth work?",
+                },
+            )
+
+            turn = advance_session(ai_dir, empty_session_id, repo_root=tmp)
+            self.assertEqual("unbound", turn["status"])
+            self.assertIn("No decisions are bound", turn["message"])
+            self.assertEqual([], show_session(ai_dir, empty_session_id)["session"]["session"]["decision_ids"])
+            self.assertEqual(["D-open"], show_session(ai_dir, owning_session_id)["session"]["session"]["decision_ids"])
             self.assertEqual([], validate_runtime(ai_dir))
 
     def test_close_sessions_generate_plan_and_adr(self) -> None:

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import re
+import shutil
+import subprocess
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -474,8 +476,19 @@ def advance_session(
         else:
             stale_proposal_id = None
 
-        decision_ids = session["session"].get("decision_ids") or None
-        decision = select_next_decision(bundle["project_state"], decision_ids=decision_ids)
+        decision_ids = session["session"].get("decision_ids", [])
+        decision = select_next_decision(
+            bundle["project_state"],
+            decision_ids=decision_ids,
+            scope="session",
+        )
+        if decision is None and not decision_ids:
+            return {
+                "status": "unbound",
+                "session_id": session_id,
+                "auto_resolved": auto_resolved,
+                "message": _render_unbound_message(session_id),
+            }
         if decision is None or stop_reached(bundle["project_state"]):
             summary = stopping_summary(bundle, session_id)
             return {
@@ -545,6 +558,11 @@ def handle_reply(
     text = reply.strip()
     if not text:
         raise ValueError("reply must not be empty")
+
+    bundle = current_bundle(ai_dir)
+    session = _require_session(bundle, session_id)
+    if session["session"]["lifecycle"]["status"] == "closed":
+        raise ValueError(f"session {session_id} is closed")
 
     lowered = text.casefold()
     if lowered == "ok":
@@ -625,8 +643,6 @@ def handle_reply(
             "message": message,
         }
 
-    bundle = current_bundle(ai_dir)
-    session = _require_session(bundle, session_id)
     active = session["working_state"]["active_proposal"]
     if active.get("proposal_id"):
         stale, reason = proposal_is_stale(bundle["project_state"], session)
@@ -782,6 +798,10 @@ def _runtime_evidence(
 
 
 def _search_repo(repo_root: Path, terms: list[str], source: str) -> list[str]:
+    rg_matches = _search_repo_with_rg(repo_root, terms, source)
+    if rg_matches is not None:
+        return rg_matches
+
     matches: list[str] = []
     for path in _iter_searchable_files(repo_root):
         category = _path_category(path)
@@ -800,15 +820,82 @@ def _search_repo(repo_root: Path, terms: list[str], source: str) -> list[str]:
     return matches
 
 
+def _search_repo_with_rg(repo_root: Path, terms: list[str], source: str) -> list[str] | None:
+    rg = shutil.which("rg")
+    patterns = _rg_patterns(terms)
+    if not rg or not patterns:
+        return None
+
+    command = [
+        rg,
+        "--files-with-matches",
+        "--ignore-case",
+        "--fixed-strings",
+        "--no-messages",
+    ]
+    for ignored in sorted(IGNORE_DIRS):
+        command.extend(["--glob", f"!{ignored}/**"])
+        command.extend(["--glob", f"!**/{ignored}/**"])
+    for pattern in patterns:
+        command.extend(["-e", pattern])
+    command.append(str(repo_root))
+
+    try:
+        completed = subprocess.run(
+            command,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if completed.returncode not in {0, 1}:
+        return None
+
+    matches: list[str] = []
+    for raw_path in completed.stdout.splitlines():
+        path = Path(raw_path)
+        if not path.is_absolute():
+            path = repo_root / path
+        if not _is_searchable_file(path):
+            continue
+        if source != _path_category(path):
+            continue
+        matches.append(_relative_ref(repo_root, path))
+        if len(matches) >= 3:
+            break
+    return matches
+
+
+def _rg_patterns(terms: list[str]) -> list[str]:
+    patterns: list[str] = []
+    for term in terms:
+        pattern = str(term).strip()
+        if not pattern or "\n" in pattern or "\r" in pattern:
+            continue
+        if pattern not in patterns:
+            patterns.append(pattern)
+        if len(patterns) >= 20:
+            break
+    return patterns
+
+
 def _iter_searchable_files(repo_root: Path) -> Iterable[Path]:
     for path in repo_root.rglob("*"):
-        if not path.is_file():
-            continue
-        if any(part in IGNORE_DIRS for part in path.parts):
-            continue
-        if path.suffix and path.suffix.lower() not in TEXT_EXTENSIONS:
+        if not _is_searchable_file(path):
             continue
         yield path
+
+
+def _is_searchable_file(path: Path) -> bool:
+    if not path.is_file():
+        return False
+    if any(part in IGNORE_DIRS for part in path.parts):
+        return False
+    if path.suffix and path.suffix.lower() not in TEXT_EXTENSIONS:
+        return False
+    return True
 
 
 def _path_category(path: Path) -> str:
@@ -999,6 +1086,15 @@ def _render_complete_message(auto_resolved: list[dict[str, Any]], summary: dict[
         ]
     )
     return "\n".join(parts)
+
+
+def _render_unbound_message(session_id: str) -> str:
+    return "\n".join(
+        [
+            f"No decisions are bound to session {session_id}.",
+            "Discover a new decision in this session, or resume a session that already owns the open decision.",
+        ]
+    )
 
 
 def _render_summary_items(items: list[dict[str, Any]]) -> str:

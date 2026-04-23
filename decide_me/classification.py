@@ -85,7 +85,7 @@ def classify_session(
             {
                 "session_id": session_id,
                 "event_type": "classification_updated",
-                "payload": {"classification": classification},
+                "payload": {"classification": classification, "reason": reason},
             }
         )
         return events

@@ -125,6 +125,39 @@ class SelectorTests(unittest.TestCase):
         self.assertIsNotNone(selected)
         self.assertEqual("D-001", selected["id"])
 
+    def test_session_scoped_selection_does_not_fallback_on_empty_decision_ids(self) -> None:
+        project_state = default_project_state()
+        project_state["decisions"] = [
+            {
+                "id": "D-001",
+                "title": "Now blocker",
+                "kind": "choice",
+                "domain": "technical",
+                "priority": "P0",
+                "frontier": "now",
+                "status": "unresolved",
+                "resolvable_by": "human",
+                "reversibility": "reversible",
+                "depends_on": [],
+                "blocked_by": [],
+                "question": None,
+                "context": None,
+                "options": [],
+                "recommendation": {},
+                "accepted_answer": {},
+                "resolved_by_evidence": {},
+                "evidence_refs": [],
+                "revisit_triggers": [],
+                "notes": [],
+                "bundle_id": None,
+                "invalidated_by": None,
+            }
+        ]
+
+        selected = select_next_decision(project_state, decision_ids=[], scope="session")
+
+        self.assertIsNone(selected)
+
     def test_proposal_is_stale_on_project_version_change(self) -> None:
         project_state = default_project_state()
         project_state["state"]["project_version"] = 3

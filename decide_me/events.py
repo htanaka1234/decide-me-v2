@@ -37,8 +37,14 @@ REQUIRED_PAYLOAD_KEYS: dict[str, tuple[str, ...]] = {
     "decision_enriched": ("decision_id",),
     "question_asked": ("decision_id", "question_id", "question"),
     "proposal_issued": ("proposal",),
-    "proposal_accepted": ("proposal_id", "target_type", "target_id", "accepted_answer"),
-    "proposal_rejected": ("proposal_id", "target_type", "target_id", "reason"),
+    "proposal_accepted": (
+        "proposal_id",
+        "origin_session_id",
+        "target_type",
+        "target_id",
+        "accepted_answer",
+    ),
+    "proposal_rejected": ("proposal_id", "origin_session_id", "target_type", "target_id", "reason"),
     "decision_deferred": ("decision_id", "reason"),
     "decision_resolved_by_evidence": ("decision_id", "source", "summary", "evidence_refs"),
     "decision_invalidated": ("decision_id", "invalidated_by_decision_id", "reason"),
@@ -123,6 +129,7 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
             proposal,
             (
                 "proposal_id",
+                "origin_session_id",
                 "target_type",
                 "target_id",
                 "recommendation_version",
@@ -204,6 +211,13 @@ def validate_event(event: dict[str, Any]) -> None:
         raise EventValidationError("project_version_after must be a positive integer")
     payload = _require_dict(event["payload"], "event.payload")
     validate_payload(event["event_type"], payload)
+    if event["event_type"] == "proposal_issued":
+        proposal = payload["proposal"]
+        if proposal["origin_session_id"] != event["session_id"]:
+            raise EventValidationError("proposal_issued origin_session_id must match event.session_id")
+    elif event["event_type"] in {"proposal_accepted", "proposal_rejected"}:
+        if payload["origin_session_id"] != event["session_id"]:
+            raise EventValidationError(f"{event['event_type']} origin_session_id must match event.session_id")
 
 
 def build_event(

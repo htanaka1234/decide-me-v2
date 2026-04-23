@@ -99,6 +99,7 @@ def issue_proposal(
                 "payload": {
                     "proposal": {
                         "proposal_id": proposal_id,
+                        "origin_session_id": session_id,
                         "target_type": "decision",
                         "target_id": decision_id,
                         "recommendation_version": next_version,
@@ -132,7 +133,7 @@ def accept_proposal(
     target_id: dict[str, str] = {}
 
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
-        session = _require_session(bundle, session_id)
+        session = _require_open_session(bundle, session_id)
         target = _resolve_proposal_target(bundle, session, proposal_id=proposal_id)
         target_id["value"] = target["target_id"]
         decision = _lookup_decision(bundle, target["target_id"])
@@ -159,6 +160,7 @@ def accept_proposal(
                 "event_type": "proposal_accepted",
                 "payload": {
                     "proposal_id": target["proposal_id"],
+                    "origin_session_id": target["origin_session_id"],
                     "target_type": target["target_type"],
                     "target_id": target["target_id"],
                     "accepted_answer": accepted_answer,
@@ -171,11 +173,13 @@ def accept_proposal(
     return _lookup_decision(bundle, target_id["value"])
 
 
-def reject_proposal(ai_dir: str, session_id: str, *, reason: str, proposal_id: str | None = None) -> dict[str, Any]:
+def reject_proposal(
+    ai_dir: str, session_id: str, *, reason: str, proposal_id: str | None = None
+) -> dict[str, Any]:
     target_id: dict[str, str] = {}
 
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
-        session = _require_session(bundle, session_id)
+        session = _require_open_session(bundle, session_id)
         target = _resolve_proposal_target(bundle, session, proposal_id=proposal_id)
         target_id["value"] = target["target_id"]
         decision = _lookup_decision(bundle, target["target_id"])
@@ -186,6 +190,7 @@ def reject_proposal(ai_dir: str, session_id: str, *, reason: str, proposal_id: s
                 "event_type": "proposal_rejected",
                 "payload": {
                     "proposal_id": target["proposal_id"],
+                    "origin_session_id": target["origin_session_id"],
                     "target_type": target["target_type"],
                     "target_id": target["target_id"],
                     "reason": reason,
@@ -210,7 +215,7 @@ def answer_proposal(
     target_id: dict[str, str] = {}
 
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
-        session = _require_session(bundle, session_id)
+        session = _require_open_session(bundle, session_id)
         target = _resolve_proposal_target(bundle, session, proposal_id=proposal_id)
         target_id["value"] = target["target_id"]
         decision = _lookup_decision(bundle, target["target_id"])
@@ -228,6 +233,7 @@ def answer_proposal(
                     "event_type": "proposal_rejected",
                     "payload": {
                         "proposal_id": target["proposal_id"],
+                        "origin_session_id": target["origin_session_id"],
                         "target_type": target["target_type"],
                         "target_id": target["target_id"],
                         "reason": reason or "User supplied an alternative answer.",
@@ -247,6 +253,7 @@ def answer_proposal(
                 "event_type": "proposal_accepted",
                 "payload": {
                     "proposal_id": target["proposal_id"],
+                    "origin_session_id": target["origin_session_id"],
                     "target_type": target["target_type"],
                     "target_id": target["target_id"],
                     "accepted_answer": accepted_answer,
@@ -417,6 +424,13 @@ def _require_session(bundle: dict[str, Any], session_id: str) -> dict[str, Any]:
         raise ValueError(f"unknown session: {session_id}") from exc
 
 
+def _require_open_session(bundle: dict[str, Any], session_id: str) -> dict[str, Any]:
+    session = _require_session(bundle, session_id)
+    if session["session"]["lifecycle"]["status"] == "closed":
+        raise ValueError(f"session {session_id} is closed")
+    return session
+
+
 def _lookup_decision(bundle: dict[str, Any], decision_id: str) -> dict[str, Any]:
     for decision in bundle["project_state"]["decisions"]:
         if decision["id"] == decision_id:
@@ -427,34 +441,59 @@ def _lookup_decision(bundle: dict[str, Any], decision_id: str) -> dict[str, Any]
 def _resolve_proposal_target(
     bundle: dict[str, Any], session: dict[str, Any], proposal_id: str | None
 ) -> dict[str, Any]:
+    session_id = session["session"]["id"]
     active = session["working_state"]["active_proposal"]
     if proposal_id is None:
         if not active.get("proposal_id"):
             raise ValueError("no active proposal for this session")
-        return deepcopy(active)
+        if not active.get("target_id"):
+            reason = active.get("inactive_reason") or "no-active-proposal"
+            raise ValueError(f"active proposal for session {session_id} is stale: {reason}")
+        return _session_scoped_proposal(active, session_id)
 
-    if active.get("proposal_id") == proposal_id and active.get("target_id"):
-        return deepcopy(active)
+    if active.get("proposal_id") == proposal_id:
+        if not active.get("target_id"):
+            reason = active.get("inactive_reason") or "superseded"
+            raise ValueError(f"proposal {proposal_id} is {reason}")
+        return _session_scoped_proposal(active, session_id)
 
+    owner_session_id = _proposal_owner_session_id(bundle, proposal_id)
+    if owner_session_id and owner_session_id != session_id:
+        raise ValueError(
+            f"proposal {proposal_id} belongs to session {owner_session_id}, not session {session_id}"
+        )
+    invalidated_decision_id = _invalidated_decision_id_for_proposal(bundle, proposal_id)
+    if invalidated_decision_id:
+        raise ValueError(f"proposal {proposal_id} is decision-invalidated for {invalidated_decision_id}")
+    raise ValueError(f"unknown or superseded proposal for this session: {proposal_id}")
+
+
+def _session_scoped_proposal(proposal: dict[str, Any], session_id: str) -> dict[str, Any]:
+    origin_session_id = proposal.get("origin_session_id")
+    if origin_session_id != session_id:
+        raise ValueError(
+            f"proposal {proposal.get('proposal_id')} belongs to session {origin_session_id}, "
+            f"not session {session_id}"
+        )
+    return deepcopy(proposal)
+
+
+def _proposal_owner_session_id(bundle: dict[str, Any], proposal_id: str) -> str | None:
+    for candidate_session_id, candidate_session in bundle["sessions"].items():
+        candidate = candidate_session["working_state"]["active_proposal"]
+        if candidate.get("proposal_id") == proposal_id:
+            return candidate.get("origin_session_id") or candidate_session_id
+    return None
+
+
+def _invalidated_decision_id_for_proposal(bundle: dict[str, Any], proposal_id: str) -> str | None:
     for decision in bundle["project_state"]["decisions"]:
-        recommendation = decision["recommendation"]
-        if recommendation.get("proposal_id") == proposal_id:
-            return {
-                "proposal_id": proposal_id,
-                "target_type": "decision",
-                "target_id": decision["id"],
-                "recommendation_version": recommendation["version"],
-                "based_on_project_version": recommendation["based_on_project_version"],
-                "question_id": None,
-                "question": decision.get("question"),
-                "recommendation": recommendation["summary"],
-                "why": recommendation["rationale_short"],
-                "if_not": decision.get("context"),
-                "is_active": False,
-                "activated_at": recommendation["proposed_at"],
-                "inactive_reason": "explicit-accept",
-            }
-    raise ValueError(f"unknown or superseded proposal: {proposal_id}")
+        if (
+            decision.get("recommendation", {}).get("proposal_id") == proposal_id
+            and decision.get("status") == "invalidated"
+        ):
+            return decision["id"]
+    return None
 
 
 def _resolve_decision_id(bundle: dict[str, Any], session_id: str, proposal_id: str | None) -> str:

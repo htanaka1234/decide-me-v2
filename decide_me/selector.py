@@ -14,14 +14,24 @@ def open_decisions(project_state: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def select_next_decision(
-    project_state: dict[str, Any], decision_ids: list[str] | None = None
+    project_state: dict[str, Any],
+    decision_ids: list[str] | None = None,
+    *,
+    scope: str = "project",
 ) -> dict[str, Any] | None:
+    if scope not in {"project", "session"}:
+        raise ValueError(f"unsupported decision selection scope: {scope}")
+    if scope == "session" and decision_ids is None:
+        raise ValueError("session-scoped decision selection requires decision_ids")
+
     allowed = set(decision_ids or [])
     visible_ids = visible_decision_ids(project_state)
+    if decision_ids is not None and not allowed:
+        return None
     candidates = [
         decision
         for decision in open_decisions(project_state)
-        if not allowed or decision["id"] in allowed
+        if decision_ids is None or decision["id"] in allowed
     ]
     if not candidates:
         return None

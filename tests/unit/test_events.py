@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from decide_me.events import build_event, validate_event
+from decide_me.events import EventValidationError, build_event, validate_event
 
 
 class EventTests(unittest.TestCase):
@@ -21,6 +21,55 @@ class EventTests(unittest.TestCase):
         )
 
         validate_event(event)
+
+    def test_proposal_issued_requires_origin_session_id(self) -> None:
+        with self.assertRaisesRegex(EventValidationError, "origin_session_id"):
+            build_event(
+                sequence=1,
+                session_id="S-001",
+                event_type="proposal_issued",
+                project_version_after=4,
+                payload={
+                    "proposal": {
+                        "proposal_id": "P-001",
+                        "target_type": "decision",
+                        "target_id": "D-001",
+                        "recommendation_version": 1,
+                        "based_on_project_version": 3,
+                        "question_id": "Q-001",
+                        "question": "Question?",
+                        "recommendation": "Use it.",
+                        "why": "Reason.",
+                        "if_not": "Alternative.",
+                        "is_active": True,
+                        "activated_at": "2026-04-23T12:00:00Z",
+                        "inactive_reason": None,
+                    }
+                },
+                timestamp="2026-04-23T12:00:00Z",
+            )
+
+    def test_proposal_acceptance_origin_must_match_event_session(self) -> None:
+        with self.assertRaisesRegex(EventValidationError, "must match"):
+            build_event(
+                sequence=1,
+                session_id="S-002",
+                event_type="proposal_accepted",
+                project_version_after=4,
+                payload={
+                    "proposal_id": "P-001",
+                    "origin_session_id": "S-001",
+                    "target_type": "decision",
+                    "target_id": "D-001",
+                    "accepted_answer": {
+                        "summary": "Use it.",
+                        "accepted_at": "2026-04-23T12:00:00Z",
+                        "accepted_via": "explicit",
+                        "proposal_id": "P-001",
+                    },
+                },
+                timestamp="2026-04-23T12:00:00Z",
+            )
 
 
 if __name__ == "__main__":

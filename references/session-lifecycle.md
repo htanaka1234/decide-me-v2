@@ -17,6 +17,10 @@ Public operations:
 
 Lifecycle rules:
 
+- `list-sessions` and `show-session` may persist compatibility backfill events for closed
+  sessions before returning the read model.
+- A newly created session has no bound decisions. `advance-session` stays session-local and does
+  not pull open decisions from other sessions.
 - Resuming a session invalidates any previously active proposal.
 - Invalidating a decision deactivates any active proposal that still points at that decision and
   removes the invalidated decision from normal session output.
