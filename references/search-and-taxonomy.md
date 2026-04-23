@@ -25,3 +25,4 @@ Search semantics:
 - tag filters expand by descendant closure
 - replaced nodes remain searchable through the replacement chain
 - closed sessions keep assigned tags frozen and may add compatibility tags lazily
+- deterministic classification may extend the taxonomy and update a session index in the same write

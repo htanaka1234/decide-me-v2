@@ -217,6 +217,15 @@ def resolved_tag_refs(session_state: dict[str, Any], taxonomy_state: dict[str, A
     return stable_unique([*refs, *replacements])
 
 
+def resolved_tag_nodes(session_state: dict[str, Any], taxonomy_state: dict[str, Any]) -> list[dict[str, Any]]:
+    nodes_by_id = taxonomy_by_id(taxonomy_state)
+    return [
+        nodes_by_id[tag_ref]
+        for tag_ref in resolved_tag_refs(session_state, taxonomy_state)
+        if tag_ref in nodes_by_id
+    ]
+
+
 def backfill_compatibility_tags(
     session_state: dict[str, Any], taxonomy_state: dict[str, Any]
 ) -> list[str]:

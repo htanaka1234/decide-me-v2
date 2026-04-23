@@ -62,6 +62,25 @@ python3 scripts/decide_me.py list-sessions --ai-dir .ai/decide-me
 python3 scripts/decide_me.py show-session --ai-dir .ai/decide-me --session-id S-...
 ```
 
+Classify a session and search with filters:
+
+```bash
+python3 scripts/decide_me.py classify-session \
+  --ai-dir .ai/decide-me \
+  --session-id S-... \
+  --domain technical \
+  --abstraction-level architecture \
+  --candidate-term "auth" \
+  --candidate-term "magic links" \
+  --source-ref latest_summary
+
+python3 scripts/decide_me.py list-sessions \
+  --ai-dir .ai/decide-me \
+  --domain technical \
+  --abstraction-level architecture \
+  --tag auth
+```
+
 Validate and rebuild projections:
 
 ```bash
@@ -94,3 +113,4 @@ python3 scripts/decide_me.py generate-plan \
 - This repo intentionally breaks compatibility with the legacy YAML runtime.
 - The runtime remains under `.ai/decide-me/`; human-readable artifacts are exports, not state.
 - Validation checks both event envelopes and projection consistency.
+- Closed-session compatibility tags are backfilled lazily and persisted as events.

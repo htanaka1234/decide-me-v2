@@ -10,6 +10,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from decide_me.classification import classify_session
 from decide_me.exports import export_adr
 from decide_me.lifecycle import close_session, create_session, list_sessions, resume_session, show_session
 from decide_me.planner import generate_plan
@@ -33,6 +34,11 @@ def main(argv: list[str] | None = None) -> int:
 
     list_cmd = subparsers.add_parser("list-sessions", help="list sessions")
     list_cmd.add_argument("--ai-dir", required=True)
+    list_cmd.add_argument("--query")
+    list_cmd.add_argument("--status", action="append", default=[])
+    list_cmd.add_argument("--domain", action="append", default=[])
+    list_cmd.add_argument("--abstraction-level", action="append", default=[])
+    list_cmd.add_argument("--tag", action="append", default=[])
 
     show = subparsers.add_parser("show-session", help="show one session")
     show.add_argument("--ai-dir", required=True)
@@ -60,6 +66,15 @@ def main(argv: list[str] | None = None) -> int:
     adr.add_argument("--ai-dir", required=True)
     adr.add_argument("--decision-id", required=True)
 
+    classify = subparsers.add_parser("classify-session", help="classify a session deterministically")
+    classify.add_argument("--ai-dir", required=True)
+    classify.add_argument("--session-id", required=True)
+    classify.add_argument("--domain")
+    classify.add_argument("--abstraction-level")
+    classify.add_argument("--candidate-term", action="append", default=[])
+    classify.add_argument("--source-ref", action="append", default=[])
+    classify.add_argument("--reason", default="classification-updated")
+
     args = parser.parse_args(argv)
 
     try:
@@ -75,7 +90,16 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "create-session":
             _print_json(create_session(args.ai_dir, context=args.context))
         elif args.command == "list-sessions":
-            _print_json(list_sessions(args.ai_dir))
+            _print_json(
+                list_sessions(
+                    args.ai_dir,
+                    query=args.query,
+                    statuses=args.status,
+                    domains=args.domain,
+                    abstraction_levels=args.abstraction_level,
+                    tag_terms=args.tag,
+                )
+            )
         elif args.command == "show-session":
             _print_json(show_session(args.ai_dir, args.session_id))
         elif args.command == "resume-session":
@@ -93,6 +117,18 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "export-adr":
             path = export_adr(args.ai_dir, args.decision_id)
             _print_json({"path": str(path)})
+        elif args.command == "classify-session":
+            _print_json(
+                classify_session(
+                    args.ai_dir,
+                    args.session_id,
+                    domain=args.domain,
+                    abstraction_level=args.abstraction_level,
+                    candidate_terms=args.candidate_term,
+                    source_refs=args.source_ref,
+                    reason=args.reason,
+                )
+            )
     except Exception as exc:  # pragma: no cover - exercised via CLI integration in real use
         print(str(exc), file=sys.stderr)
         return 1

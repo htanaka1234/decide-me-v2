@@ -3,11 +3,12 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
+from decide_me.classification import ensure_compatibility_backfill
 from decide_me.events import new_entity_id, utc_now
 from decide_me.projections import OPEN_DECISION_STATUSES, effective_session_status
-from decide_me.search import session_list_entry
+from decide_me.search import search_sessions, session_list_entry
 from decide_me.store import load_runtime, runtime_paths, transact
-from decide_me.taxonomy import stable_unique
+from decide_me.taxonomy import resolved_tag_nodes, stable_unique
 
 
 def create_session(ai_dir: str, context: str | None = None) -> dict[str, Any]:
@@ -36,20 +37,51 @@ def create_session(ai_dir: str, context: str | None = None) -> dict[str, Any]:
     return bundle["sessions"][session_id]
 
 
-def list_sessions(ai_dir: str) -> list[dict[str, Any]]:
-    bundle = load_runtime_from_ai_dir(ai_dir)
-    entries = [
-        session_list_entry(session_state, bundle["taxonomy_state"])
-        for session_state in bundle["sessions"].values()
-    ]
-    return sorted(entries, key=lambda item: item.get("last_seen_at") or "", reverse=True)
+def list_sessions(
+    ai_dir: str,
+    *,
+    query: str | None = None,
+    statuses: list[str] | None = None,
+    domains: list[str] | None = None,
+    abstraction_levels: list[str] | None = None,
+    tag_terms: list[str] | None = None,
+) -> dict[str, Any]:
+    backfilled, bundle = ensure_compatibility_backfill(ai_dir)
+    sessions = search_sessions(
+        bundle["sessions"],
+        bundle["taxonomy_state"],
+        query=query,
+        statuses=statuses,
+        domains=domains,
+        abstraction_levels=abstraction_levels,
+        tag_terms=tag_terms,
+    )
+    return {
+        "status": "ok",
+        "filters": {
+            "query": query,
+            "status": statuses or [],
+            "domain": domains or [],
+            "abstraction_level": abstraction_levels or [],
+            "tags": tag_terms or [],
+        },
+        "backfilled": backfilled,
+        "count": len(sessions),
+        "sessions": sessions,
+    }
 
 
 def show_session(ai_dir: str, session_id: str) -> dict[str, Any]:
-    bundle = load_runtime_from_ai_dir(ai_dir)
+    backfilled, bundle = ensure_compatibility_backfill(ai_dir, [session_id])
     session_state = deepcopy(_require_session(bundle, session_id))
     session_state["session"]["lifecycle"]["effective_status"] = effective_session_status(session_state)
-    return session_state
+    return {
+        "status": "ok",
+        "display": session_list_entry(session_state, bundle["taxonomy_state"]),
+        "resolved_tags": resolved_tag_nodes(session_state, bundle["taxonomy_state"]),
+        "compatibility_tag_refs_added": backfilled[0]["added_compatibility_tag_refs"] if backfilled else [],
+        "session": session_state,
+    }
 
 
 def resume_session(ai_dir: str, session_id: str) -> dict[str, Any]:

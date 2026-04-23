@@ -48,6 +48,7 @@ User-facing commands:
 - `Resume session S-...`
 - `Close session S-...`
 - `Generate plan from sessions S-..., S-...`
+- `Classify session S-...`
 
 Runtime invariants:
 

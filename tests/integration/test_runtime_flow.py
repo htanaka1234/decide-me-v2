@@ -4,8 +4,10 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from decide_me.classification import classify_session
 from decide_me.exports import export_adr
-from decide_me.lifecycle import close_session, create_session
+from decide_me.events import utc_now
+from decide_me.lifecycle import close_session, create_session, list_sessions, show_session
 from decide_me.planner import generate_plan
 from decide_me.protocol import (
     accept_proposal,
@@ -14,7 +16,7 @@ from decide_me.protocol import (
     resolve_by_evidence,
     update_classification,
 )
-from decide_me.store import bootstrap_runtime, rebuild_and_persist, validate_runtime
+from decide_me.store import bootstrap_runtime, rebuild_and_persist, transact, validate_runtime
 
 
 class RuntimeFlowTests(unittest.TestCase):
@@ -158,6 +160,87 @@ class RuntimeFlowTests(unittest.TestCase):
 
             adr_path = export_adr(ai_dir, "D-001")
             self.assertTrue(adr_path.exists())
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_classification_search_and_lazy_compatibility_backfill(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Exercise taxonomy-aware search",
+                current_milestone="MVP",
+            )
+
+            session = create_session(ai_dir, context="Authentication choices")
+            session_id = session["session"]["id"]
+            classification = classify_session(
+                ai_dir,
+                session_id,
+                domain="technical",
+                abstraction_level="architecture",
+                candidate_terms=["email link"],
+                source_refs=["latest_summary"],
+            )
+            self.assertEqual("technical", classification["classification"]["domain"])
+            self.assertIn("latest_summary", classification["classification"]["source_refs"])
+
+            listing = list_sessions(
+                ai_dir,
+                domains=["technical"],
+                abstraction_levels=["architecture"],
+                tag_terms=["email link"],
+            )
+            self.assertEqual(1, listing["count"])
+            self.assertEqual(session_id, listing["sessions"][0]["session_id"])
+
+            close_session(ai_dir, session_id)
+
+            now = utc_now()
+
+            def builder(bundle: dict[str, object]) -> list[dict[str, object]]:
+                return [
+                    {
+                        "session_id": session_id,
+                        "event_type": "taxonomy_extended",
+                        "payload": {
+                            "nodes": [
+                                {
+                                    "id": "tag:magic-links",
+                                    "axis": "tag",
+                                    "label": "magic links",
+                                    "aliases": ["authentication"],
+                                    "parent_id": None,
+                                    "replaced_by": [],
+                                    "status": "active",
+                                    "created_at": now,
+                                    "updated_at": now,
+                                },
+                                {
+                                    "id": "tag:email-link",
+                                    "axis": "tag",
+                                    "label": "email link",
+                                    "aliases": [],
+                                    "parent_id": None,
+                                    "replaced_by": ["tag:magic-links"],
+                                    "status": "replaced",
+                                    "created_at": bundle["taxonomy_state"]["nodes"][-1]["created_at"],
+                                    "updated_at": now,
+                                },
+                            ]
+                        },
+                    }
+                ]
+
+            transact(ai_dir, builder)
+
+            display = show_session(ai_dir, session_id)
+            self.assertIn("tag:magic-links", display["session"]["classification"]["compatibility_tags"])
+            self.assertIn("tag:magic-links", display["compatibility_tag_refs_added"])
+
+            listing = list_sessions(ai_dir, tag_terms=["authentication"])
+            self.assertEqual(1, listing["count"])
+            self.assertGreaterEqual(len(listing["backfilled"]), 0)
             self.assertEqual([], validate_runtime(ai_dir))
 
 
