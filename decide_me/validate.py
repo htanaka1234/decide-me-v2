@@ -186,6 +186,10 @@ def validate_session_state(session_state: dict[str, Any]) -> None:
     lifecycle = _require_dict(session_state["session"]["lifecycle"], "session_state.session.lifecycle")
     _require_keys(lifecycle, ("status", "closed_at"), "session_state.session.lifecycle")
     _require_enum(lifecycle["status"], SESSION_LIFECYCLE_STATUSES, "session_state.session.lifecycle.status")
+    if lifecycle["status"] == "closed":
+        _require_non_empty_string(lifecycle.get("closed_at"), "session_state.session.lifecycle.closed_at")
+    elif lifecycle.get("closed_at") is not None:
+        raise StateValidationError("active session lifecycle.closed_at must be null")
     _require_keys(
         session_state["summary"],
         ("latest_summary", "current_question_preview", "active_decision_id"),
@@ -529,6 +533,7 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
     created_session_ids: set[str] = {"SYSTEM"}
     session_status: dict[str, str] = {"SYSTEM": "active"}
     session_decision_ids: dict[str, set[str]] = defaultdict(set)
+    decision_status: dict[str, str] = {}
     has_close_summary: dict[str, bool] = {}
     discovered_decision_ids: set[str] = set()
     issued_proposals: dict[str, dict[str, str]] = {}
@@ -592,6 +597,7 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
                 raise StateValidationError(f"duplicate decision_discovered id: {decision_id}")
             discovered_decision_ids.add(decision_id)
             session_decision_ids[event["session_id"]].add(decision_id)
+            decision_status[decision_id] = event["payload"]["decision"].get("status") or "unresolved"
         else:
             for decision_id in _decision_refs_in_event(event):
                 if decision_id not in discovered_decision_ids:
@@ -607,6 +613,7 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
             accepted_proposals,
             rejected_proposals,
         )
+        _validate_event_log_decision_transition(event, decision_status, rejected_proposals)
         if event["event_type"] == "close_summary_generated":
             has_close_summary[event["session_id"]] = True
         if event["event_type"] == "plan_generated":
@@ -625,6 +632,9 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
             proposal_id = active_proposal_by_session.get(event["session_id"])
             if proposal_id:
                 disabled_proposals.add(proposal_id)
+                target_id = issued_proposals[proposal_id]["target_id"]
+                if decision_status.get(target_id) == "proposed":
+                    decision_status[target_id] = "unresolved"
                 active_proposal_by_session[event["session_id"]] = None
         elif event["event_type"] == "decision_invalidated":
             invalidated_id = event["payload"]["decision_id"]
@@ -684,6 +694,54 @@ def _validate_event_log_proposal_lifecycle(
             active_proposal_by_session[payload["origin_session_id"]] = None
         else:
             rejected_proposals.add(proposal_id)
+
+
+def _validate_event_log_decision_transition(
+    event: dict[str, Any], decision_status: dict[str, str], rejected_proposals: set[str]
+) -> None:
+    event_type = event["event_type"]
+    payload = event["payload"]
+    if event_type == "proposal_issued":
+        decision_id = payload["proposal"]["target_id"]
+        _require_event_decision_status(decision_id, decision_status, {"unresolved", "rejected", "blocked"}, event_type)
+        decision_status[decision_id] = "proposed"
+    elif event_type == "proposal_rejected":
+        decision_id = payload["target_id"]
+        _require_event_decision_status(decision_id, decision_status, {"proposed"}, event_type)
+        decision_status[decision_id] = "rejected"
+    elif event_type == "proposal_accepted":
+        decision_id = payload["target_id"]
+        allowed = {"proposed"}
+        if payload["proposal_id"] in rejected_proposals:
+            allowed.add("rejected")
+        _require_event_decision_status(decision_id, decision_status, allowed, event_type)
+        decision_status[decision_id] = "accepted"
+    elif event_type == "decision_deferred":
+        decision_id = payload["decision_id"]
+        _require_event_decision_status(
+            decision_id, decision_status, {"unresolved", "proposed", "rejected", "blocked"}, event_type
+        )
+        decision_status[decision_id] = "deferred"
+    elif event_type == "decision_resolved_by_evidence":
+        decision_id = payload["decision_id"]
+        _require_event_decision_status(
+            decision_id, decision_status, {"unresolved", "proposed", "rejected", "blocked"}, event_type
+        )
+        decision_status[decision_id] = "resolved-by-evidence"
+    elif event_type == "decision_invalidated":
+        decision_status[payload["decision_id"]] = "invalidated"
+
+
+def _require_event_decision_status(
+    decision_id: str, decision_status: dict[str, str], allowed: set[str], event_type: str
+) -> None:
+    status = decision_status[decision_id]
+    if status not in allowed:
+        allowed_values = ", ".join(sorted(allowed))
+        raise StateValidationError(
+            f"{event_type} cannot target decision {decision_id} with status {status}; "
+            f"allowed statuses: {allowed_values}"
+        )
 
 
 def _validate_event_log_session_decision_binding(

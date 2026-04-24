@@ -87,6 +87,17 @@ class EventTests(unittest.TestCase):
                 timestamp="2026-04-23T12:00:00Z",
             )
 
+    def test_session_closed_requires_closed_at(self) -> None:
+        with self.assertRaisesRegex(EventValidationError, "closed_at"):
+            build_event(
+                sequence=1,
+                session_id="S-001",
+                event_type="session_closed",
+                project_version_after=1,
+                payload={"closed_at": None},
+                timestamp="2026-04-23T12:00:00Z",
+            )
+
     def test_decision_discovered_rejects_terminal_status(self) -> None:
         with self.assertRaisesRegex(EventValidationError, "status"):
             build_event(

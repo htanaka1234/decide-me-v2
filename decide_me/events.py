@@ -155,6 +155,8 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
     elif event_type == "decision_invalidated":
         if payload["decision_id"] == payload["invalidated_by_decision_id"]:
             raise EventValidationError("decision_invalidated must not self-reference")
+    elif event_type == "session_closed":
+        _require_non_empty_string(payload.get("closed_at"), "session_closed.payload.closed_at")
     elif event_type == "decision_resolved_by_evidence":
         if payload["source"] not in EVIDENCE_SOURCES:
             raise EventValidationError(f"invalid evidence source: {payload['source']}")

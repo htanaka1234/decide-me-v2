@@ -172,6 +172,15 @@ class ProjectionValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(StateValidationError, "close_summary.generated_at"):
             validate_projection_bundle(bundle)
 
+    def test_rejects_closed_session_without_closed_at(self) -> None:
+        bundle = _valid_bundle()
+        session = bundle["sessions"]["S-001"]
+        session["session"]["lifecycle"]["status"] = "closed"
+        session["close_summary"]["generated_at"] = "2026-04-23T12:01:00Z"
+
+        with self.assertRaisesRegex(StateValidationError, "lifecycle.closed_at"):
+            validate_projection_bundle(bundle)
+
     def test_event_log_must_start_with_project_initialized(self) -> None:
         event = build_event(
             sequence=1,
@@ -474,6 +483,34 @@ class ProjectionValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(StateValidationError, "duplicate proposal_rejected"):
             validate_event_log([initialized, session, discovered, proposal, first, second])
 
+    def test_event_log_rejects_invalid_decision_state_transitions(self) -> None:
+        initialized = _project_initialized(1)
+        session = _session_created(2, "S-001")
+        discovered = _decision_discovered(3, "S-001", "D-001")
+        deferred = _decision_deferred(4, "S-001", "D-001")
+        proposal = _proposal_issued(5, "S-001", "D-001", proposal_id="P-001")
+
+        with self.assertRaisesRegex(StateValidationError, "proposal_issued cannot target"):
+            validate_event_log([initialized, session, discovered, deferred, proposal])
+
+        resolved = _decision_resolved_by_evidence(5, "S-001", "D-001")
+
+        with self.assertRaisesRegex(StateValidationError, "decision_resolved_by_evidence cannot target"):
+            validate_event_log([initialized, session, discovered, deferred, resolved])
+
+        proposal = _proposal_issued(4, "S-001", "D-001", proposal_id="P-001")
+        accepted = _proposal_accepted(5, "S-001", "D-001", "P-001")
+        second_proposal = _proposal_issued(6, "S-001", "D-001", proposal_id="P-002")
+
+        with self.assertRaisesRegex(StateValidationError, "proposal_issued cannot target"):
+            validate_event_log([initialized, session, discovered, proposal, accepted, second_proposal])
+
+        resolved = _decision_resolved_by_evidence(4, "S-001", "D-001")
+        late_defer = _decision_deferred(5, "S-001", "D-001")
+
+        with self.assertRaisesRegex(StateValidationError, "decision_deferred cannot target"):
+            validate_event_log([initialized, session, discovered, resolved, late_defer])
+
     def test_event_log_rejects_session_closed_without_close_summary(self) -> None:
         initialized = _project_initialized(1)
         session = _session_created(2, "S-001")
@@ -651,6 +688,33 @@ def _proposal_accepted(
                 "accepted_via": "explicit",
                 "proposal_id": accepted_proposal_id if accepted_proposal_id is not None else proposal_id,
             },
+        },
+        timestamp=f"2026-04-23T12:{sequence - 1:02d}:00Z",
+    )
+
+
+def _decision_deferred(sequence: int, session_id: str, decision_id: str) -> dict:
+    return build_event(
+        sequence=sequence,
+        session_id=session_id,
+        event_type="decision_deferred",
+        project_version_after=sequence,
+        payload={"decision_id": decision_id, "reason": "Later."},
+        timestamp=f"2026-04-23T12:{sequence - 1:02d}:00Z",
+    )
+
+
+def _decision_resolved_by_evidence(sequence: int, session_id: str, decision_id: str) -> dict:
+    return build_event(
+        sequence=sequence,
+        session_id=session_id,
+        event_type="decision_resolved_by_evidence",
+        project_version_after=sequence,
+        payload={
+            "decision_id": decision_id,
+            "source": "codebase",
+            "summary": "Found it.",
+            "evidence_refs": ["app/auth.py"],
         },
         timestamp=f"2026-04-23T12:{sequence - 1:02d}:00Z",
     )

@@ -62,16 +62,18 @@ def enrich_decision(
         session = _require_mutable_session(bundle, session_id)
         _require_bound_decision(session, decision_id)
         _lookup_decision(bundle, decision_id)
+        payload: dict[str, Any] = {
+            "decision_id": decision_id,
+            "notes_append": notes_append,
+            "revisit_triggers_append": revisit_triggers_append,
+        }
+        if context_append is not None:
+            payload["context_append"] = context_append
         return [
             {
                 "session_id": session_id,
                 "event_type": "decision_enriched",
-                "payload": {
-                    "decision_id": decision_id,
-                    "notes_append": notes_append,
-                    "revisit_triggers_append": revisit_triggers_append,
-                    "context_append": context_append,
-                },
+                "payload": payload,
             }
         ]
 
@@ -96,6 +98,7 @@ def issue_proposal(
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
         session = _require_mutable_session(bundle, session_id)
         _require_bound_decision(session, decision_id)
+        _require_no_other_active_proposal(session, decision_id)
         decision = _lookup_decision(bundle, decision_id)
         _require_decision_status(decision_id, decision, PROPOSABLE_STATUSES, "issue proposal")
         next_version = int(decision["recommendation"]["version"]) + 1

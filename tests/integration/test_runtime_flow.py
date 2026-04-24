@@ -15,6 +15,7 @@ from decide_me.protocol import (
     answer_proposal,
     defer_decision,
     discover_decision,
+    enrich_decision,
     invalidate_decision,
     issue_proposal,
     reject_proposal,
@@ -491,6 +492,26 @@ class RuntimeFlowTests(unittest.TestCase):
             )
 
             with self.assertRaisesRegex(ValueError, "active proposal"):
+                issue_proposal(
+                    ai_dir,
+                    session_id,
+                    decision_id="D-other",
+                    question="Use the existing flow?",
+                    recommendation="Use the existing flow.",
+                    why="It is already implemented.",
+                    if_not="A new flow expands scope.",
+                )
+            with self.assertRaisesRegex(ValueError, "proposed"):
+                issue_proposal(
+                    ai_dir,
+                    session_id,
+                    decision_id="D-active",
+                    question="Use passwords?",
+                    recommendation="Use passwords.",
+                    why="Enterprise users expect it.",
+                    if_not="Magic links may be unfamiliar.",
+                )
+            with self.assertRaisesRegex(ValueError, "active proposal"):
                 defer_decision(ai_dir, session_id, decision_id="D-other", reason="Move it later.")
             with self.assertRaisesRegex(ValueError, "active proposal"):
                 resolve_by_evidence(
@@ -506,6 +527,50 @@ class RuntimeFlowTests(unittest.TestCase):
             active = shown["working_state"]["active_proposal"]
             self.assertEqual(proposal["proposal_id"], active["proposal_id"])
             self.assertTrue(active["is_active"])
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_enrich_decision_accepts_individual_append_fields(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Enrich decisions incrementally",
+                current_milestone="MVP",
+            )
+            session_id = create_session(ai_dir, context="Decision thread")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-enrich",
+                    "title": "Auth mode",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "question": "How should auth work?",
+                },
+            )
+
+            enriched = enrich_decision(ai_dir, session_id, decision_id="D-enrich", notes_append=["note"])
+            self.assertIn("note", enriched["notes"])
+            enriched = enrich_decision(
+                ai_dir,
+                session_id,
+                decision_id="D-enrich",
+                revisit_triggers_append=["when enterprise launches"],
+            )
+            self.assertIn("when enterprise launches", enriched["revisit_triggers"])
+            enriched = enrich_decision(
+                ai_dir,
+                session_id,
+                decision_id="D-enrich",
+                context_append="Extra context.",
+            )
+            self.assertEqual("Extra context.", enriched["context"])
+
+            event_log = (Path(ai_dir) / "event-log.jsonl").read_text(encoding="utf-8")
+            self.assertNotIn('"context_append": null', event_log)
             self.assertEqual([], validate_runtime(ai_dir))
 
     def test_resolve_by_evidence_rejects_unknown_source(self) -> None:
