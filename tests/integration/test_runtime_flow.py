@@ -12,6 +12,7 @@ from decide_me.lifecycle import close_session, create_session, list_sessions, re
 from decide_me.planner import generate_plan
 from decide_me.protocol import (
     accept_proposal,
+    answer_proposal,
     defer_decision,
     discover_decision,
     invalidate_decision,
@@ -234,6 +235,15 @@ class RuntimeFlowTests(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "inactive"):
                 accept_proposal(ai_dir, session_id, proposal_id=proposal["proposal_id"])
+            with self.assertRaisesRegex(ValueError, "inactive"):
+                reject_proposal(ai_dir, session_id, reason="No")
+            with self.assertRaisesRegex(ValueError, "inactive"):
+                answer_proposal(ai_dir, session_id, answer_summary="Use passwords.")
+
+            turn = advance_session(ai_dir, session_id, repo_root=tmp)
+            self.assertEqual("question", turn["status"])
+            self.assertEqual("D-resume", turn["decision_id"])
+            self.assertNotEqual(proposal["proposal_id"], turn["proposal_id"])
             self.assertEqual([], validate_runtime(ai_dir))
 
     def test_closed_session_rejects_proposal_replies(self) -> None:
@@ -306,6 +316,59 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertIn("No decisions are bound", turn["message"])
             self.assertEqual([], show_session(ai_dir, empty_session_id)["session"]["session"]["decision_ids"])
             self.assertEqual(["D-open"], show_session(ai_dir, owning_session_id)["session"]["session"]["decision_ids"])
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_advance_session_returns_stale_prompt_for_active_stale_proposal(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Handle active stale proposals",
+                current_milestone="MVP",
+            )
+            session_id = create_session(ai_dir, context="Auth thread")["session"]["id"]
+            other_session_id = create_session(ai_dir, context="Other thread")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-stale",
+                    "title": "Auth mode",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "question": "How should auth work?",
+                },
+            )
+            proposal = issue_proposal(
+                ai_dir,
+                session_id,
+                decision_id="D-stale",
+                question="Use magic links?",
+                recommendation="Use magic links.",
+                why="Smaller MVP surface area.",
+                if_not="Passwords expand auth scope.",
+            )
+            discover_decision(
+                ai_dir,
+                other_session_id,
+                {
+                    "id": "D-unrelated",
+                    "title": "Unrelated decision",
+                    "priority": "P2",
+                    "frontier": "later",
+                    "domain": "ops",
+                    "question": "Should this make the proposal stale?",
+                },
+            )
+
+            turn = advance_session(ai_dir, session_id, repo_root=tmp)
+
+            self.assertEqual("stale-proposal", turn["status"])
+            self.assertEqual(proposal["proposal_id"], turn["proposal_id"])
+            self.assertEqual("project-version-changed", turn["stale_reason"])
+            self.assertIn("Accept P-", turn["message"])
             self.assertEqual([], validate_runtime(ai_dir))
 
     def test_terminal_decisions_cannot_be_deferred(self) -> None:
@@ -413,6 +476,44 @@ class RuntimeFlowTests(unittest.TestCase):
                 )
             self.assertEqual(["D-bound"], show_session(ai_dir, owning_session_id)["session"]["session"]["decision_ids"])
             self.assertEqual([], show_session(ai_dir, other_session_id)["session"]["session"]["decision_ids"])
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_discover_decision_rejects_existing_decision_id(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Reject duplicate decisions",
+                current_milestone="MVP",
+            )
+            first_session_id = create_session(ai_dir, context="Auth thread")["session"]["id"]
+            second_session_id = create_session(ai_dir, context="Other thread")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                first_session_id,
+                {
+                    "id": "D-duplicate",
+                    "title": "Auth mode",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "question": "How should auth work?",
+                },
+            )
+
+            with self.assertRaisesRegex(ValueError, "already exists"):
+                discover_decision(
+                    ai_dir,
+                    second_session_id,
+                    {
+                        "id": "D-duplicate",
+                        "title": "Overwrite auth mode",
+                        "status": "unresolved",
+                        "question": "Can this overwrite the first decision?",
+                    },
+                )
+            self.assertEqual([], show_session(ai_dir, second_session_id)["session"]["session"]["decision_ids"])
             self.assertEqual([], validate_runtime(ai_dir))
 
     def test_closed_session_rejects_low_level_mutations(self) -> None:
@@ -640,6 +741,74 @@ class RuntimeFlowTests(unittest.TestCase):
 
             event_log = (Path(ai_dir) / "event-log.jsonl").read_text(encoding="utf-8")
             self.assertIn('"event_type": "decision_invalidated"', event_log)
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_invalidation_does_not_bind_invalidating_decision_to_unrelated_session(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Keep invalidation project-wide",
+                current_milestone="MVP",
+            )
+            old_session_id = create_session(ai_dir, context="Old decision")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                old_session_id,
+                {
+                    "id": "D-old",
+                    "title": "Old auth mode",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "question": "Should the MVP use magic links?",
+                },
+            )
+            close_session(ai_dir, old_session_id)
+
+            new_session_id = create_session(ai_dir, context="New decision")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                new_session_id,
+                {
+                    "id": "D-new",
+                    "title": "New auth mode",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "question": "Should the MVP use passwords?",
+                    "resolvable_by": "codebase",
+                },
+            )
+            resolve_by_evidence(
+                ai_dir,
+                new_session_id,
+                decision_id="D-new",
+                source="codebase",
+                summary="Use the password flow.",
+                evidence_refs=["app/password_auth.py"],
+            )
+
+            with self.assertRaisesRegex(ValueError, "not bound"):
+                invalidate_decision(
+                    ai_dir,
+                    old_session_id,
+                    decision_id="D-old",
+                    invalidated_by_decision_id="D-new",
+                    reason="Superseded by the password decision.",
+                )
+
+            invalidate_decision(
+                ai_dir,
+                new_session_id,
+                decision_id="D-old",
+                invalidated_by_decision_id="D-new",
+                reason="Superseded by the password decision.",
+            )
+
+            old_session = show_session(ai_dir, old_session_id)["session"]
+            self.assertEqual([], old_session["session"]["decision_ids"])
             self.assertEqual([], validate_runtime(ai_dir))
 
     def test_advance_session_skips_invalidated_active_proposal(self) -> None:

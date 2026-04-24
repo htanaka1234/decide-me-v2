@@ -8,6 +8,7 @@ from decide_me.selector import proposal_is_stale
 from decide_me.store import load_runtime, runtime_paths, transact
 
 
+DOMAIN_VALUES = {"product", "technical", "data", "ux", "ops", "legal", "other"}
 OPEN_MUTATION_STATUSES = {"unresolved", "proposed", "rejected", "blocked"}
 PROPOSABLE_STATUSES = {"unresolved", "rejected", "blocked"}
 PROPOSAL_RESPONSE_STATUSES = {"proposed"}
@@ -16,6 +17,9 @@ PROPOSAL_RESPONSE_STATUSES = {"proposed"}
 def discover_decision(ai_dir: str, session_id: str, decision: dict[str, Any]) -> dict[str, Any]:
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
         _require_mutable_session(bundle, session_id)
+        decision_id = decision.get("id")
+        if decision_id and _decision_exists(bundle, decision_id):
+            raise ValueError(f"decision {decision_id} already exists")
         return [
             {
                 "session_id": session_id,
@@ -344,7 +348,8 @@ def invalidate_decision(
         raise ValueError("decision cannot invalidate itself")
 
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
-        _require_session(bundle, session_id)
+        session = _require_session(bundle, session_id)
+        _require_bound_decision(session, invalidated_by_decision_id)
         target = _lookup_decision(bundle, decision_id)
         invalidating = _lookup_decision(bundle, invalidated_by_decision_id)
         _require_not_invalidated(decision_id, target)
@@ -391,6 +396,8 @@ def update_classification(
 
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
         session = _require_mutable_session(bundle, session_id)
+        if domain is not None and domain not in DOMAIN_VALUES:
+            raise ValueError(f"invalid domain: {domain}")
         classification = deepcopy(session["classification"])
         classification.update(
             {
@@ -463,6 +470,10 @@ def _lookup_decision(bundle: dict[str, Any], decision_id: str) -> dict[str, Any]
     raise ValueError(f"unknown decision: {decision_id}")
 
 
+def _decision_exists(bundle: dict[str, Any], decision_id: str) -> bool:
+    return any(decision["id"] == decision_id for decision in bundle["project_state"]["decisions"])
+
+
 def _resolve_proposal_target(
     bundle: dict[str, Any], session: dict[str, Any], proposal_id: str | None
 ) -> dict[str, Any]:
@@ -471,6 +482,12 @@ def _resolve_proposal_target(
     if proposal_id is None:
         if not active.get("proposal_id"):
             raise ValueError("no active proposal for this session")
+        if not active.get("is_active"):
+            reason = active.get("inactive_reason") or "inactive"
+            raise ValueError(f"active proposal for session {session_id} is inactive: {reason}")
+        stale, reason = proposal_is_stale(bundle["project_state"], session)
+        if stale:
+            raise ValueError(f"active proposal for session {session_id} is stale: {reason}")
         if not active.get("target_id"):
             reason = active.get("inactive_reason") or "no-active-proposal"
             raise ValueError(f"active proposal for session {session_id} is stale: {reason}")

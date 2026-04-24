@@ -13,6 +13,12 @@ ALL_DECISION_STATUSES = OPEN_DECISION_STATUSES | {
     "resolved-by-evidence",
     "invalidated",
 }
+PRIORITIES = {"P0", "P1", "P2"}
+FRONTIERS = {"now", "later", "discovered-later", "deferred"}
+KINDS = {"choice", "constraint", "risk", "dependency"}
+DOMAINS = {"product", "technical", "data", "ux", "ops", "legal", "other"}
+RESOLVABLE_BY = {"human", "codebase", "docs", "tests", "external"}
+REVERSIBILITY = {"reversible", "hard-to-reverse", "irreversible", "unknown"}
 
 
 class StateValidationError(ValueError):
@@ -78,9 +84,40 @@ def validate_project_state(project_state: dict[str, Any]) -> None:
         )
         if decision["status"] not in ALL_DECISION_STATUSES:
             raise StateValidationError(f"unsupported decision status: {decision['status']}")
+        _require_enum(decision["priority"], PRIORITIES, f"decision {decision['id']}.priority")
+        _require_enum(decision["frontier"], FRONTIERS, f"decision {decision['id']}.frontier")
+        _require_enum(decision["kind"], KINDS, f"decision {decision['id']}.kind")
+        _require_enum(decision["domain"], DOMAINS, f"decision {decision['id']}.domain")
+        _require_enum(
+            decision["resolvable_by"], RESOLVABLE_BY, f"decision {decision['id']}.resolvable_by"
+        )
+        _require_enum(
+            decision["reversibility"], REVERSIBILITY, f"decision {decision['id']}.reversibility"
+        )
+        _validate_decision_status_payload(decision)
         if decision["id"] in decision_ids:
             raise StateValidationError(f"duplicate decision id: {decision['id']}")
         decision_ids.add(decision["id"])
+
+
+def _validate_decision_status_payload(decision: dict[str, Any]) -> None:
+    decision_id = decision["id"]
+    status = decision["status"]
+    accepted_summary = decision.get("accepted_answer", {}).get("summary")
+    if status == "accepted":
+        _require_non_empty_string(accepted_summary, f"decision {decision_id}.accepted_answer.summary")
+    elif status == "resolved-by-evidence":
+        resolved = decision.get("resolved_by_evidence", {})
+        _require_non_empty_string(resolved.get("summary"), f"decision {decision_id}.resolved_by_evidence.summary")
+        _require_non_empty_string(resolved.get("source"), f"decision {decision_id}.resolved_by_evidence.source")
+        if decision.get("accepted_answer", {}).get("accepted_via") != "evidence":
+            raise StateValidationError(
+                f"decision {decision_id}.accepted_answer.accepted_via must be evidence"
+            )
+    elif status in {"unresolved", "rejected", "deferred", "blocked"} and accepted_summary:
+        raise StateValidationError(
+            f"decision {decision_id} with status {status} must not have accepted_answer.summary"
+        )
 
 
 def validate_session_state(session_state: dict[str, Any]) -> None:
@@ -159,10 +196,14 @@ def validate_projection_bundle(bundle: dict[str, Any]) -> None:
         raise StateValidationError("projection_bundle.sessions must be a dictionary")
     decisions_by_id = _decision_index(bundle["project_state"])
     taxonomy_ids = set(taxonomy_by_id(bundle["taxonomy_state"]))
+    active_proposal_targets: dict[str, list[str]] = {}
     for session_id, session in bundle["sessions"].items():
         validate_session_state(session)
         _validate_session_integrity(session_id, session, decisions_by_id, taxonomy_ids)
-    _validate_decision_references(decisions_by_id)
+        proposal = session["working_state"]["active_proposal"]
+        if proposal.get("is_active") and proposal.get("target_id"):
+            active_proposal_targets.setdefault(proposal["target_id"], []).append(session_id)
+    _validate_decision_references(decisions_by_id, active_proposal_targets)
 
 
 def _decision_index(project_state: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -177,7 +218,9 @@ def _visible_decision_ids(decisions_by_id: dict[str, dict[str, Any]]) -> set[str
     }
 
 
-def _validate_decision_references(decisions_by_id: dict[str, dict[str, Any]]) -> None:
+def _validate_decision_references(
+    decisions_by_id: dict[str, dict[str, Any]], active_proposal_targets: dict[str, list[str]]
+) -> None:
     for decision_id, decision in decisions_by_id.items():
         for key in ("depends_on", "blocked_by"):
             for referenced_id in decision.get(key, []):
@@ -199,6 +242,16 @@ def _validate_decision_references(decisions_by_id: dict[str, dict[str, Any]]) ->
             raise StateValidationError(
                 f"decision {decision_id} accepted_answer.proposal_id does not match recommendation.proposal_id"
             )
+        if decision["status"] == "proposed":
+            _require_non_empty_string(
+                decision.get("recommendation", {}).get("proposal_id"),
+                f"decision {decision_id}.recommendation.proposal_id",
+            )
+            owners = active_proposal_targets.get(decision_id, [])
+            if len(owners) != 1:
+                raise StateValidationError(
+                    f"decision {decision_id} is proposed but has {len(owners)} active proposal targets"
+                )
 
 
 def _validate_session_integrity(
@@ -236,6 +289,9 @@ def _validate_classification_refs(
     session_id: str, session: dict[str, Any], taxonomy_ids: set[str]
 ) -> None:
     classification = session["classification"]
+    domain = classification.get("domain")
+    if domain is not None:
+        _require_enum(domain, DOMAINS, f"session {session_id} classification.domain")
     for key in ("assigned_tags", "compatibility_tags"):
         for tag_ref in classification.get(key, []):
             if tag_ref not in taxonomy_ids:
@@ -303,6 +359,10 @@ def _validate_active_proposal(
 
     if active.get("is_active"):
         decision = decisions_by_id[target_id]
+        if decision["status"] != "proposed":
+            raise StateValidationError(
+                f"session {session_id} active proposal target {target_id} is not proposed"
+            )
         if session["summary"].get("active_decision_id") != target_id:
             raise StateValidationError(f"session {session_id} active proposal does not match active_decision_id")
         if decision.get("recommendation", {}).get("proposal_id") != proposal_id:
@@ -377,6 +437,7 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
 
     previous_version = 0
     event_ids: set[str] = set()
+    discovered_decision_ids: set[str] = set()
     project_initialized_count = 0
     for sequence, event in enumerate(events, start=1):
         validate_event(event)
@@ -397,6 +458,11 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
             project = event["payload"]["project"]
             for key in ("name", "objective", "current_milestone", "stop_rule"):
                 _require_non_empty_string(project.get(key), f"project_initialized.payload.project.{key}")
+        if event["event_type"] == "decision_discovered":
+            decision_id = event["payload"]["decision"]["id"]
+            if decision_id in discovered_decision_ids:
+                raise StateValidationError(f"duplicate decision_discovered id: {decision_id}")
+            discovered_decision_ids.add(decision_id)
         if event["project_version_after"] <= previous_version:
             raise StateValidationError("event log project_version_after must be strictly increasing")
         previous_version = event["project_version_after"]
@@ -405,3 +471,9 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
 def _require_non_empty_string(value: Any, label: str) -> None:
     if not isinstance(value, str) or not value.strip():
         raise StateValidationError(f"{label} must be a non-empty string")
+
+
+def _require_enum(value: Any, allowed: set[str], label: str) -> None:
+    if value not in allowed:
+        choices = ", ".join(sorted(allowed))
+        raise StateValidationError(f"{label} must be one of: {choices}")

@@ -2,7 +2,7 @@
 
 `decide-me-v2` is an event-sourced decision runtime for structured interviewing,
 parallel session continuity, taxonomy-aware search, and close-summary-to-plan handoff.
-It uses an append-only event log and rebuildable projections as the runtime model.
+It uses a source-of-truth event log and rebuildable projections as the runtime model.
 
 ## Status
 

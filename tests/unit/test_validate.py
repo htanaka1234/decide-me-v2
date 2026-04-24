@@ -57,6 +57,7 @@ class ProjectionValidationTests(unittest.TestCase):
         bundle = _valid_bundle()
         replacement = default_decision("D-002", "Replacement")
         replacement["status"] = "accepted"
+        replacement["accepted_answer"]["summary"] = "Use the replacement."
         bundle["project_state"]["decisions"].append(replacement)
         invalidated = bundle["project_state"]["decisions"][0]
         invalidated["status"] = "invalidated"
@@ -77,9 +78,43 @@ class ProjectionValidationTests(unittest.TestCase):
         decision = bundle["project_state"]["decisions"][0]
         decision["status"] = "accepted"
         decision["recommendation"]["proposal_id"] = "P-001"
+        decision["accepted_answer"]["summary"] = "Use it."
         decision["accepted_answer"]["proposal_id"] = "P-other"
 
         with self.assertRaisesRegex(StateValidationError, "accepted_answer.proposal_id"):
+            validate_projection_bundle(bundle)
+
+    def test_rejects_proposed_decision_without_active_proposal(self) -> None:
+        bundle = _valid_bundle()
+        decision = bundle["project_state"]["decisions"][0]
+        decision["status"] = "proposed"
+        decision["recommendation"]["proposal_id"] = "P-001"
+
+        with self.assertRaisesRegex(StateValidationError, "active proposal targets"):
+            validate_projection_bundle(bundle)
+
+    def test_rejects_invalid_decision_enum_values(self) -> None:
+        bundle = _valid_bundle()
+        decision = bundle["project_state"]["decisions"][0]
+        decision["priority"] = "PX"
+
+        with self.assertRaisesRegex(StateValidationError, "priority"):
+            validate_projection_bundle(bundle)
+
+    def test_rejects_status_payload_mismatch(self) -> None:
+        bundle = _valid_bundle()
+        decision = bundle["project_state"]["decisions"][0]
+        decision["status"] = "accepted"
+
+        with self.assertRaisesRegex(StateValidationError, "accepted_answer.summary"):
+            validate_projection_bundle(bundle)
+
+        bundle = _valid_bundle()
+        decision = bundle["project_state"]["decisions"][0]
+        decision["status"] = "unresolved"
+        decision["accepted_answer"]["summary"] = "Use it."
+
+        with self.assertRaisesRegex(StateValidationError, "must not have accepted_answer.summary"):
             validate_projection_bundle(bundle)
 
     def test_rejects_empty_project_fields(self) -> None:
@@ -163,6 +198,42 @@ class ProjectionValidationTests(unittest.TestCase):
 
         with self.assertRaisesRegex(StateValidationError, "exactly one"):
             validate_event_log([first, second])
+
+    def test_event_log_rejects_duplicate_decision_discovered_ids(self) -> None:
+        initialized = build_event(
+            sequence=1,
+            session_id="SYSTEM",
+            event_type="project_initialized",
+            project_version_after=1,
+            payload={
+                "project": {
+                    "name": "Demo",
+                    "objective": "Test",
+                    "current_milestone": "MVP",
+                    "stop_rule": "Resolve blockers",
+                }
+            },
+            timestamp="2026-04-23T12:00:00Z",
+        )
+        first = build_event(
+            sequence=2,
+            session_id="S-001",
+            event_type="decision_discovered",
+            project_version_after=2,
+            payload={"decision": {"id": "D-001", "title": "Decision"}},
+            timestamp="2026-04-23T12:01:00Z",
+        )
+        second = build_event(
+            sequence=3,
+            session_id="S-002",
+            event_type="decision_discovered",
+            project_version_after=3,
+            payload={"decision": {"id": "D-001", "title": "Decision again"}},
+            timestamp="2026-04-23T12:02:00Z",
+        )
+
+        with self.assertRaisesRegex(StateValidationError, "duplicate decision_discovered"):
+            validate_event_log([initialized, first, second])
 
 
 def _valid_bundle() -> dict:

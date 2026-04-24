@@ -472,6 +472,16 @@ def advance_session(
                     auto_resolved=auto_resolved,
                     reused_active_proposal=True,
                 )
+            if active.get("is_active") and active.get("target_id"):
+                return {
+                    "status": "stale-proposal",
+                    "session_id": session_id,
+                    "proposal_id": active["proposal_id"],
+                    "decision_id": active["target_id"],
+                    "stale_reason": reason,
+                    "auto_resolved": auto_resolved,
+                    "message": _render_stale_proposal_message(active, reason),
+                }
             stale_proposal_id = active["proposal_id"]
         else:
             stale_proposal_id = None
@@ -1093,6 +1103,17 @@ def _render_unbound_message(session_id: str) -> str:
         [
             f"No decisions are bound to session {session_id}.",
             "Discover a new decision in this session, or resume a session that already owns the open decision.",
+        ]
+    )
+
+
+def _render_stale_proposal_message(proposal: dict[str, Any], reason: str | None) -> str:
+    return "\n".join(
+        [
+            f"Proposal {proposal['proposal_id']} is stale: {reason or 'stale'}.",
+            f"Decision: {proposal['target_id']}",
+            f"Recommendation: {proposal.get('recommendation')}",
+            "Use explicit Accept P-... or Reject P-... before advancing this decision.",
         ]
     )
 

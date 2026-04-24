@@ -228,9 +228,15 @@ def apply_event(
         sessions[session_payload["id"]]["session"]["last_seen_at"] = session_payload["last_seen_at"]
     elif event_type == "session_resumed":
         session = sessions[session_id]
+        active = session["working_state"]["active_proposal"]
+        active_target_id = active.get("target_id")
         session["session"]["last_seen_at"] = payload["resumed_at"]
         session["session"]["lifecycle"]["status"] = "active"
         _deactivate_proposal(session, "session-boundary")
+        if active_target_id:
+            decision = _find_decision(project_state, active_target_id)
+            if decision and decision["status"] == "proposed":
+                decision["status"] = "unresolved"
     elif event_type == "decision_discovered":
         decision = _ensure_decision(project_state, payload["decision"]["id"], payload["decision"].get("title"))
         _deep_update(decision, payload["decision"])
@@ -374,8 +380,9 @@ def apply_event(
             sessions,
             session_id,
             ts,
-            payload["invalidated_by_decision_id"],
+            None,
             event["project_version_after"],
+            add_decision=False,
         )
     elif event_type == "classification_updated":
         session = sessions[session_id]
@@ -400,9 +407,15 @@ def apply_event(
         )
     elif event_type == "session_closed":
         session = sessions[session_id]
+        active = session["working_state"]["active_proposal"]
+        active_target_id = active.get("target_id")
         session["session"]["lifecycle"]["status"] = "closed"
         session["session"]["lifecycle"]["closed_at"] = payload["closed_at"]
         _clear_question_state(session, "session-closed")
+        if active_target_id:
+            decision = _find_decision(project_state, active_target_id)
+            if decision and decision["status"] == "proposed":
+                decision["status"] = "unresolved"
         _touch_session(
             sessions,
             session_id,
@@ -449,6 +462,13 @@ def _ensure_decision(
     project_state["decisions"].append(decision)
     project_state["decisions"].sort(key=lambda item: item["id"])
     return decision
+
+
+def _find_decision(project_state: dict[str, Any], decision_id: str) -> dict[str, Any] | None:
+    for decision in project_state["decisions"]:
+        if decision["id"] == decision_id:
+            return decision
+    return None
 
 
 def _touch_session(
