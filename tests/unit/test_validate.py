@@ -3,9 +3,10 @@ from __future__ import annotations
 import unittest
 from copy import deepcopy
 
+from decide_me.events import build_event
 from decide_me.projections import default_decision, default_project_state, default_session_state
 from decide_me.taxonomy import default_taxonomy_state
-from decide_me.validate import StateValidationError, validate_projection_bundle
+from decide_me.validate import StateValidationError, validate_event_log, validate_projection_bundle
 
 
 class ProjectionValidationTests(unittest.TestCase):
@@ -81,10 +82,98 @@ class ProjectionValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(StateValidationError, "accepted_answer.proposal_id"):
             validate_projection_bundle(bundle)
 
+    def test_rejects_empty_project_fields(self) -> None:
+        bundle = _valid_bundle()
+        bundle["project_state"]["project"]["objective"] = " "
+
+        with self.assertRaisesRegex(StateValidationError, "non-empty string"):
+            validate_projection_bundle(bundle)
+
+    def test_event_log_must_start_with_project_initialized(self) -> None:
+        event = build_event(
+            sequence=1,
+            session_id="S-001",
+            event_type="session_created",
+            project_version_after=1,
+            payload={
+                "session": {
+                    "id": "S-001",
+                    "started_at": "2026-04-23T12:00:00Z",
+                    "last_seen_at": "2026-04-23T12:00:00Z",
+                    "bound_context_hint": "demo",
+                }
+            },
+            timestamp="2026-04-23T12:00:00Z",
+        )
+
+        with self.assertRaisesRegex(StateValidationError, "start with project_initialized"):
+            validate_event_log([event])
+
+    def test_event_log_rejects_mismatched_event_id_sequence(self) -> None:
+        event = build_event(
+            sequence=2,
+            session_id="SYSTEM",
+            event_type="project_initialized",
+            project_version_after=1,
+            payload={
+                "project": {
+                    "name": "Demo",
+                    "objective": "Test",
+                    "current_milestone": "MVP",
+                    "stop_rule": "Resolve blockers",
+                }
+            },
+            timestamp="2026-04-23T12:00:00Z",
+        )
+
+        with self.assertRaisesRegex(StateValidationError, "does not match sequence"):
+            validate_event_log([event])
+
+    def test_event_log_rejects_duplicate_project_initialized(self) -> None:
+        first = build_event(
+            sequence=1,
+            session_id="SYSTEM",
+            event_type="project_initialized",
+            project_version_after=1,
+            payload={
+                "project": {
+                    "name": "Demo",
+                    "objective": "Test",
+                    "current_milestone": "MVP",
+                    "stop_rule": "Resolve blockers",
+                }
+            },
+            timestamp="2026-04-23T12:00:00Z",
+        )
+        second = build_event(
+            sequence=2,
+            session_id="SYSTEM",
+            event_type="project_initialized",
+            project_version_after=2,
+            payload={
+                "project": {
+                    "name": "Demo 2",
+                    "objective": "Test",
+                    "current_milestone": "MVP",
+                    "stop_rule": "Resolve blockers",
+                }
+            },
+            timestamp="2026-04-23T12:01:00Z",
+        )
+
+        with self.assertRaisesRegex(StateValidationError, "exactly one"):
+            validate_event_log([first, second])
+
 
 def _valid_bundle() -> dict:
     now = "2026-04-23T12:00:00Z"
     project_state = default_project_state()
+    project_state["project"] = {
+        "name": "Demo",
+        "objective": "Test",
+        "current_milestone": "MVP",
+        "stop_rule": "Resolve blockers",
+    }
     project_state["decisions"] = [default_decision("D-001", "Decision")]
     session = default_session_state("S-001", now, "demo")
     session["session"]["decision_ids"] = ["D-001"]

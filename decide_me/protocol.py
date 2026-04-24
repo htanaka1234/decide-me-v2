@@ -8,9 +8,14 @@ from decide_me.selector import proposal_is_stale
 from decide_me.store import load_runtime, runtime_paths, transact
 
 
+OPEN_MUTATION_STATUSES = {"unresolved", "proposed", "rejected", "blocked"}
+PROPOSABLE_STATUSES = {"unresolved", "rejected", "blocked"}
+PROPOSAL_RESPONSE_STATUSES = {"proposed"}
+
+
 def discover_decision(ai_dir: str, session_id: str, decision: dict[str, Any]) -> dict[str, Any]:
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
-        _require_session(bundle, session_id)
+        _require_mutable_session(bundle, session_id)
         return [
             {
                 "session_id": session_id,
@@ -41,7 +46,8 @@ def enrich_decision(
         return _lookup_decision(current_bundle(ai_dir), decision_id)
 
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
-        _require_session(bundle, session_id)
+        session = _require_mutable_session(bundle, session_id)
+        _require_bound_decision(session, decision_id)
         _lookup_decision(bundle, decision_id)
         return [
             {
@@ -75,11 +81,10 @@ def issue_proposal(
     proposal_id = new_entity_id("P")
 
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
-        session = _require_session(bundle, session_id)
-        if session["session"]["lifecycle"]["status"] == "closed":
-            raise ValueError(f"session {session_id} is closed")
+        session = _require_mutable_session(bundle, session_id)
+        _require_bound_decision(session, decision_id)
         decision = _lookup_decision(bundle, decision_id)
-        _require_not_invalidated(decision_id, decision)
+        _require_decision_status(decision_id, decision, PROPOSABLE_STATUSES, "issue proposal")
         next_version = int(decision["recommendation"]["version"]) + 1
         return [
             {
@@ -137,7 +142,9 @@ def accept_proposal(
         target = _resolve_proposal_target(bundle, session, proposal_id=proposal_id)
         target_id["value"] = target["target_id"]
         decision = _lookup_decision(bundle, target["target_id"])
-        _require_not_invalidated(target["target_id"], decision)
+        _require_decision_status(
+            target["target_id"], decision, PROPOSAL_RESPONSE_STATUSES, "accept proposal"
+        )
         if proposal_id is None:
             stale, reason = proposal_is_stale(bundle["project_state"], session)
             if stale:
@@ -183,7 +190,9 @@ def reject_proposal(
         target = _resolve_proposal_target(bundle, session, proposal_id=proposal_id)
         target_id["value"] = target["target_id"]
         decision = _lookup_decision(bundle, target["target_id"])
-        _require_not_invalidated(target["target_id"], decision)
+        _require_decision_status(
+            target["target_id"], decision, PROPOSAL_RESPONSE_STATUSES, "reject proposal"
+        )
         return [
             {
                 "session_id": session_id,
@@ -219,7 +228,9 @@ def answer_proposal(
         target = _resolve_proposal_target(bundle, session, proposal_id=proposal_id)
         target_id["value"] = target["target_id"]
         decision = _lookup_decision(bundle, target["target_id"])
-        _require_not_invalidated(target["target_id"], decision)
+        _require_decision_status(
+            target["target_id"], decision, PROPOSAL_RESPONSE_STATUSES, "answer proposal"
+        )
         recommendation = target["recommendation"] or ""
         answer = answer_summary.strip()
         if not answer:
@@ -269,9 +280,10 @@ def answer_proposal(
 
 def defer_decision(ai_dir: str, session_id: str, *, decision_id: str, reason: str) -> dict[str, Any]:
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
-        _require_session(bundle, session_id)
+        session = _require_mutable_session(bundle, session_id)
+        _require_bound_decision(session, decision_id)
         decision = _lookup_decision(bundle, decision_id)
-        _require_not_invalidated(decision_id, decision)
+        _require_decision_status(decision_id, decision, OPEN_MUTATION_STATUSES, "defer")
         return [
             {
                 "session_id": session_id,
@@ -294,9 +306,12 @@ def resolve_by_evidence(
     evidence_refs: list[str],
 ) -> dict[str, Any]:
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
-        _require_session(bundle, session_id)
+        session = _require_mutable_session(bundle, session_id)
+        _require_bound_decision(session, decision_id)
         decision = _lookup_decision(bundle, decision_id)
-        _require_not_invalidated(decision_id, decision)
+        _require_decision_status(
+            decision_id, decision, OPEN_MUTATION_STATUSES, "resolve by evidence"
+        )
         return [
             {
                 "session_id": session_id,
@@ -375,7 +390,7 @@ def update_classification(
     now = utc_now()
 
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
-        session = _require_session(bundle, session_id)
+        session = _require_mutable_session(bundle, session_id)
         classification = deepcopy(session["classification"])
         classification.update(
             {
@@ -424,11 +439,21 @@ def _require_session(bundle: dict[str, Any], session_id: str) -> dict[str, Any]:
         raise ValueError(f"unknown session: {session_id}") from exc
 
 
-def _require_open_session(bundle: dict[str, Any], session_id: str) -> dict[str, Any]:
+def _require_mutable_session(bundle: dict[str, Any], session_id: str) -> dict[str, Any]:
     session = _require_session(bundle, session_id)
     if session["session"]["lifecycle"]["status"] == "closed":
         raise ValueError(f"session {session_id} is closed")
     return session
+
+
+def _require_open_session(bundle: dict[str, Any], session_id: str) -> dict[str, Any]:
+    return _require_mutable_session(bundle, session_id)
+
+
+def _require_bound_decision(session: dict[str, Any], decision_id: str) -> None:
+    session_id = session["session"]["id"]
+    if decision_id not in session["session"].get("decision_ids", []):
+        raise ValueError(f"decision {decision_id} is not bound to session {session_id}")
 
 
 def _lookup_decision(bundle: dict[str, Any], decision_id: str) -> dict[str, Any]:
@@ -452,6 +477,9 @@ def _resolve_proposal_target(
         return _session_scoped_proposal(active, session_id)
 
     if active.get("proposal_id") == proposal_id:
+        if not active.get("is_active"):
+            reason = active.get("inactive_reason") or "inactive"
+            raise ValueError(f"proposal {proposal_id} is inactive: {reason}")
         if not active.get("target_id"):
             reason = active.get("inactive_reason") or "superseded"
             raise ValueError(f"proposal {proposal_id} is {reason}")
@@ -516,3 +544,15 @@ def _normalize(value: str) -> str:
 def _require_not_invalidated(decision_id: str, decision: dict[str, Any]) -> None:
     if decision.get("status") == "invalidated":
         raise ValueError(f"decision {decision_id} is invalidated")
+
+
+def _require_decision_status(
+    decision_id: str, decision: dict[str, Any], allowed_statuses: set[str], operation: str
+) -> None:
+    status = decision.get("status")
+    if status not in allowed_statuses:
+        allowed = ", ".join(sorted(allowed_statuses))
+        raise ValueError(
+            f"decision {decision_id} is {status} and cannot be modified by {operation}; "
+            f"allowed statuses: {allowed}"
+        )

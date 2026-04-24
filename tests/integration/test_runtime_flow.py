@@ -8,10 +8,11 @@ from decide_me.classification import classify_session
 from decide_me.exports import export_adr
 from decide_me.events import utc_now
 from decide_me.interview import advance_session, handle_reply
-from decide_me.lifecycle import close_session, create_session, list_sessions, show_session
+from decide_me.lifecycle import close_session, create_session, list_sessions, resume_session, show_session
 from decide_me.planner import generate_plan
 from decide_me.protocol import (
     accept_proposal,
+    defer_decision,
     discover_decision,
     invalidate_decision,
     issue_proposal,
@@ -132,6 +133,109 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertTrue(active["is_active"])
             self.assertEqual([], validate_runtime(ai_dir))
 
+    def test_inactive_proposal_cannot_be_reused_after_accept_or_reject(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Reject inactive proposal reuse",
+                current_milestone="MVP",
+            )
+            session_id = create_session(ai_dir, context="Auth thread")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-reuse-accept",
+                    "title": "Auth mode",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "question": "How should auth work?",
+                },
+            )
+            proposal = issue_proposal(
+                ai_dir,
+                session_id,
+                decision_id="D-reuse-accept",
+                question="Use magic links?",
+                recommendation="Use magic links.",
+                why="Smaller MVP surface area.",
+                if_not="Passwords expand auth scope.",
+            )
+            accept_proposal(ai_dir, session_id)
+
+            with self.assertRaisesRegex(ValueError, "inactive"):
+                accept_proposal(ai_dir, session_id, proposal_id=proposal["proposal_id"])
+            with self.assertRaisesRegex(ValueError, "inactive"):
+                reject_proposal(ai_dir, session_id, proposal_id=proposal["proposal_id"], reason="No")
+
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-reuse-reject",
+                    "title": "Audit sink",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "ops",
+                    "question": "Where should audit logs land?",
+                },
+            )
+            rejected = issue_proposal(
+                ai_dir,
+                session_id,
+                decision_id="D-reuse-reject",
+                question="Use the product database?",
+                recommendation="Use the product database.",
+                why="Cheaper for the milestone.",
+                if_not="A separate sink becomes in scope now.",
+            )
+            reject_proposal(ai_dir, session_id, reason="No")
+
+            with self.assertRaisesRegex(ValueError, "inactive"):
+                accept_proposal(ai_dir, session_id, proposal_id=rejected["proposal_id"])
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_resume_session_makes_previous_proposal_unusable(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Reject proposal reuse after resume",
+                current_milestone="MVP",
+            )
+            session_id = create_session(ai_dir, context="Auth thread")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-resume",
+                    "title": "Auth mode",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "question": "How should auth work?",
+                },
+            )
+            proposal = issue_proposal(
+                ai_dir,
+                session_id,
+                decision_id="D-resume",
+                question="Use magic links?",
+                recommendation="Use magic links.",
+                why="Smaller MVP surface area.",
+                if_not="Passwords expand auth scope.",
+            )
+
+            resume_session(ai_dir, session_id)
+
+            with self.assertRaisesRegex(ValueError, "inactive"):
+                accept_proposal(ai_dir, session_id, proposal_id=proposal["proposal_id"])
+            self.assertEqual([], validate_runtime(ai_dir))
+
     def test_closed_session_rejects_proposal_replies(self) -> None:
         with TemporaryDirectory() as tmp:
             ai_dir = str(Path(tmp) / ".ai" / "decide-me")
@@ -202,6 +306,172 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertIn("No decisions are bound", turn["message"])
             self.assertEqual([], show_session(ai_dir, empty_session_id)["session"]["session"]["decision_ids"])
             self.assertEqual(["D-open"], show_session(ai_dir, owning_session_id)["session"]["session"]["decision_ids"])
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_terminal_decisions_cannot_be_deferred(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Protect terminal decisions",
+                current_milestone="MVP",
+            )
+            session_id = create_session(ai_dir, context="Decision thread")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-accepted-terminal",
+                    "title": "Auth mode",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "question": "How should auth work?",
+                },
+            )
+            issue_proposal(
+                ai_dir,
+                session_id,
+                decision_id="D-accepted-terminal",
+                question="Use magic links?",
+                recommendation="Use magic links.",
+                why="Smaller MVP surface area.",
+                if_not="Passwords expand auth scope.",
+            )
+            accept_proposal(ai_dir, session_id)
+
+            with self.assertRaisesRegex(ValueError, "accepted"):
+                defer_decision(
+                    ai_dir,
+                    session_id,
+                    decision_id="D-accepted-terminal",
+                    reason="Move it later.",
+                )
+
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-evidence-terminal",
+                    "title": "Existing auth flow",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "question": "Which auth flow already exists?",
+                    "resolvable_by": "codebase",
+                },
+            )
+            resolve_by_evidence(
+                ai_dir,
+                session_id,
+                decision_id="D-evidence-terminal",
+                source="codebase",
+                summary="Use the existing magic-link flow.",
+                evidence_refs=["app/auth.py"],
+            )
+
+            with self.assertRaisesRegex(ValueError, "resolved-by-evidence"):
+                defer_decision(
+                    ai_dir,
+                    session_id,
+                    decision_id="D-evidence-terminal",
+                    reason="Move it later.",
+                )
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_decision_level_commands_are_session_bound(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Keep decision commands session scoped",
+                current_milestone="MVP",
+            )
+            owning_session_id = create_session(ai_dir, context="Auth thread")["session"]["id"]
+            other_session_id = create_session(ai_dir, context="Other thread")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                owning_session_id,
+                {
+                    "id": "D-bound",
+                    "title": "Auth mode",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "question": "How should auth work?",
+                },
+            )
+
+            with self.assertRaisesRegex(ValueError, "not bound"):
+                defer_decision(
+                    ai_dir,
+                    other_session_id,
+                    decision_id="D-bound",
+                    reason="Move it later.",
+                )
+            self.assertEqual(["D-bound"], show_session(ai_dir, owning_session_id)["session"]["session"]["decision_ids"])
+            self.assertEqual([], show_session(ai_dir, other_session_id)["session"]["session"]["decision_ids"])
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_closed_session_rejects_low_level_mutations(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Keep closed sessions read-only",
+                current_milestone="MVP",
+            )
+            session_id = create_session(ai_dir, context="Closed thread")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-closed-low-level",
+                    "title": "Auth mode",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "question": "How should auth work?",
+                },
+            )
+            close_session(ai_dir, session_id)
+
+            with self.assertRaisesRegex(ValueError, "closed"):
+                discover_decision(
+                    ai_dir,
+                    session_id,
+                    {
+                        "id": "D-after-close",
+                        "title": "Late decision",
+                        "question": "Should this be allowed?",
+                    },
+                )
+            with self.assertRaisesRegex(ValueError, "closed"):
+                resolve_by_evidence(
+                    ai_dir,
+                    session_id,
+                    decision_id="D-closed-low-level",
+                    source="codebase",
+                    summary="Resolved late.",
+                    evidence_refs=["app/auth.py"],
+                )
+            with self.assertRaisesRegex(ValueError, "closed"):
+                defer_decision(
+                    ai_dir,
+                    session_id,
+                    decision_id="D-closed-low-level",
+                    reason="Move it later.",
+                )
+            with self.assertRaisesRegex(ValueError, "closed"):
+                update_classification(
+                    ai_dir,
+                    session_id,
+                    domain="technical",
+                    abstraction_level="architecture",
+                )
             self.assertEqual([], validate_runtime(ai_dir))
 
     def test_close_sessions_generate_plan_and_adr(self) -> None:

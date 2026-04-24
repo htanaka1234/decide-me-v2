@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from decide_me.events import EVENT_TYPES, validate_event
+from decide_me.events import EVENT_TYPES, make_event_id, validate_event
 from decide_me.taxonomy import taxonomy_by_id
 
 
@@ -36,6 +36,8 @@ def validate_project_state(project_state: dict[str, Any]) -> None:
         ("name", "objective", "current_milestone", "stop_rule"),
         "project_state.project",
     )
+    for key in ("name", "objective", "current_milestone", "stop_rule"):
+        _require_non_empty_string(project_state["project"].get(key), f"project_state.project.{key}")
     _require_keys(
         project_state["state"],
         ("project_version", "updated_at", "last_event_id"),
@@ -365,11 +367,41 @@ def _require_visible_summary_decision(
 
 
 def validate_event_log(events: list[dict[str, Any]]) -> None:
+    if not events:
+        return
+    first = events[0]
+    if first.get("event_type") != "project_initialized":
+        raise StateValidationError("event log must start with project_initialized")
+    if first.get("session_id") != "SYSTEM":
+        raise StateValidationError("project_initialized event must use SYSTEM session_id")
+
     previous_version = 0
-    for event in events:
+    event_ids: set[str] = set()
+    project_initialized_count = 0
+    for sequence, event in enumerate(events, start=1):
         validate_event(event)
         if event["event_type"] not in EVENT_TYPES:
             raise StateValidationError(f"unsupported event type in log: {event['event_type']}")
+        if event["event_id"] in event_ids:
+            raise StateValidationError(f"duplicate event id: {event['event_id']}")
+        event_ids.add(event["event_id"])
+        expected_event_id = make_event_id(sequence, event["ts"])
+        if event["event_id"] != expected_event_id:
+            raise StateValidationError(
+                f"event_id {event['event_id']} does not match sequence {sequence}"
+            )
+        if event["event_type"] == "project_initialized":
+            project_initialized_count += 1
+            if project_initialized_count > 1:
+                raise StateValidationError("event log must contain exactly one project_initialized event")
+            project = event["payload"]["project"]
+            for key in ("name", "objective", "current_milestone", "stop_rule"):
+                _require_non_empty_string(project.get(key), f"project_initialized.payload.project.{key}")
         if event["project_version_after"] <= previous_version:
             raise StateValidationError("event log project_version_after must be strictly increasing")
         previous_version = event["project_version_after"]
+
+
+def _require_non_empty_string(value: Any, label: str) -> None:
+    if not isinstance(value, str) or not value.strip():
+        raise StateValidationError(f"{label} must be a non-empty string")
