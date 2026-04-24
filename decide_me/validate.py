@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from typing import Any
 
 from decide_me.constants import ACCEPTED_VIA_VALUES, DOMAIN_VALUES, EVIDENCE_SOURCES
@@ -405,6 +406,11 @@ def _validate_active_proposal(
         working_state.get("current_question_id") or working_state.get("current_question")
     ):
         raise StateValidationError(f"closed session {session_id} must not have current question state")
+    if lifecycle_status == "closed":
+        _require_non_empty_string(
+            session["close_summary"].get("generated_at"),
+            f"session {session_id}.close_summary.generated_at",
+        )
 
     proposal_id = active.get("proposal_id")
     if not proposal_id:
@@ -522,8 +528,11 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
     event_ids: set[str] = set()
     created_session_ids: set[str] = {"SYSTEM"}
     session_status: dict[str, str] = {"SYSTEM": "active"}
+    session_decision_ids: dict[str, set[str]] = defaultdict(set)
+    has_close_summary: dict[str, bool] = {}
     discovered_decision_ids: set[str] = set()
     issued_proposals: dict[str, dict[str, str]] = {}
+    accepted_proposals: set[str] = set()
     project_initialized_count = 0
     for sequence, event in enumerate(events, start=1):
         validate_event(event)
@@ -554,6 +563,8 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
                 raise StateValidationError(f"duplicate session_created id: {created_session_id}")
             created_session_ids.add(created_session_id)
             session_status[created_session_id] = "active"
+            session_decision_ids[created_session_id] = set()
+            has_close_summary[created_session_id] = False
         else:
             if event["session_id"] != "SYSTEM" and event["session_id"] not in created_session_ids:
                 raise StateValidationError(f"event references unknown session: {event['session_id']}")
@@ -567,23 +578,35 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
             if event["event_type"] == "session_closed":
                 if session_status.get(event["session_id"]) == "closed":
                     raise StateValidationError(f"session {event['session_id']} is already closed")
+                if not has_close_summary.get(event["session_id"]):
+                    raise StateValidationError(
+                        f"session_closed requires prior close_summary_generated for {event['session_id']}"
+                    )
         if event["event_type"] == "decision_discovered":
             decision_id = event["payload"]["decision"]["id"]
             if decision_id in discovered_decision_ids:
                 raise StateValidationError(f"duplicate decision_discovered id: {decision_id}")
             discovered_decision_ids.add(decision_id)
+            session_decision_ids[event["session_id"]].add(decision_id)
         else:
             for decision_id in _decision_refs_in_event(event):
                 if decision_id not in discovered_decision_ids:
                     raise StateValidationError(
                         f"{event['event_type']} references undiscovered decision {decision_id}"
                     )
-        _validate_event_log_proposal_lifecycle(event, issued_proposals)
+        _validate_event_log_session_decision_binding(event, session_decision_ids)
+        _validate_event_log_proposal_lifecycle(event, issued_proposals, accepted_proposals)
+        if event["event_type"] == "close_summary_generated":
+            has_close_summary[event["session_id"]] = True
         if event["event_type"] == "plan_generated":
             for referenced_session_id in event["payload"]["session_ids"]:
                 if referenced_session_id not in created_session_ids:
                     raise StateValidationError(
                         f"plan_generated references unknown session: {referenced_session_id}"
+                    )
+                if session_status.get(referenced_session_id) != "closed":
+                    raise StateValidationError(
+                        f"plan_generated references non-closed session: {referenced_session_id}"
                     )
         if event["event_type"] == "session_closed":
             session_status[event["session_id"]] = "closed"
@@ -593,7 +616,9 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
 
 
 def _validate_event_log_proposal_lifecycle(
-    event: dict[str, Any], issued_proposals: dict[str, dict[str, str]]
+    event: dict[str, Any],
+    issued_proposals: dict[str, dict[str, str]],
+    accepted_proposals: set[str],
 ) -> None:
     event_type = event["event_type"]
     payload = event["payload"]
@@ -619,9 +644,40 @@ def _validate_event_log_proposal_lifecycle(
         if payload["target_type"] != issued["target_type"]:
             raise StateValidationError("proposal response target_type does not match issued proposal")
         if event_type == "proposal_accepted":
+            if proposal_id in accepted_proposals:
+                raise StateValidationError(f"duplicate proposal_accepted for {proposal_id}")
             accepted_proposal_id = payload["accepted_answer"].get("proposal_id")
             if accepted_proposal_id != proposal_id:
                 raise StateValidationError("accepted_answer.proposal_id must match payload.proposal_id")
+            accepted_proposals.add(proposal_id)
+
+
+def _validate_event_log_session_decision_binding(
+    event: dict[str, Any], session_decision_ids: dict[str, set[str]]
+) -> None:
+    event_type = event["event_type"]
+    session_id = event["session_id"]
+    if event_type in {
+        "decision_enriched",
+        "question_asked",
+        "proposal_issued",
+        "proposal_accepted",
+        "proposal_rejected",
+        "decision_deferred",
+        "decision_resolved_by_evidence",
+    }:
+        for decision_id in _decision_refs_in_event(event):
+            if decision_id not in session_decision_ids[session_id]:
+                raise StateValidationError(
+                    f"{event_type} references decision {decision_id} not bound to session {session_id}"
+                )
+    elif event_type == "decision_invalidated":
+        invalidating_id = event["payload"]["invalidated_by_decision_id"]
+        if invalidating_id not in session_decision_ids[session_id]:
+            raise StateValidationError(
+                f"decision_invalidated references invalidating decision {invalidating_id} "
+                f"not bound to session {session_id}"
+            )
 
 
 def _decision_refs_in_event(event: dict[str, Any]) -> list[str]:

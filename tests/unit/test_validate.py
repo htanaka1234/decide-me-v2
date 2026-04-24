@@ -163,6 +163,15 @@ class ProjectionValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(StateValidationError, "close_summary.readiness"):
             validate_projection_bundle(bundle)
 
+    def test_rejects_closed_session_without_generated_close_summary(self) -> None:
+        bundle = _valid_bundle()
+        session = bundle["sessions"]["S-001"]
+        session["session"]["lifecycle"]["status"] = "closed"
+        session["session"]["lifecycle"]["closed_at"] = "2026-04-23T12:01:00Z"
+
+        with self.assertRaisesRegex(StateValidationError, "close_summary.generated_at"):
+            validate_projection_bundle(bundle)
+
     def test_event_log_must_start_with_project_initialized(self) -> None:
         event = build_event(
             sequence=1,
@@ -366,17 +375,18 @@ class ProjectionValidationTests(unittest.TestCase):
     def test_event_log_rejects_closed_session_mutations(self) -> None:
         initialized = _project_initialized(1)
         session = _session_created(2, "S-001")
-        closed = _session_closed(3, "S-001")
-        discovered = _decision_discovered(4, "S-001", "D-late")
+        close_summary = _close_summary_generated(3, "S-001")
+        closed = _session_closed(4, "S-001")
+        discovered = _decision_discovered(5, "S-001", "D-late")
 
         with self.assertRaisesRegex(StateValidationError, "mutates closed session"):
-            validate_event_log([initialized, session, closed, discovered])
+            validate_event_log([initialized, session, close_summary, closed, discovered])
 
         classification = build_event(
-            sequence=4,
+            sequence=5,
             session_id="S-001",
             event_type="classification_updated",
-            project_version_after=4,
+            project_version_after=5,
             payload={
                 "classification": {
                     "domain": "technical",
@@ -392,7 +402,66 @@ class ProjectionValidationTests(unittest.TestCase):
         )
 
         with self.assertRaisesRegex(StateValidationError, "mutates closed session"):
-            validate_event_log([initialized, session, closed, classification])
+            validate_event_log([initialized, session, close_summary, closed, classification])
+
+    def test_event_log_rejects_cross_session_decision_mutation(self) -> None:
+        initialized = _project_initialized(1)
+        session_a = _session_created(2, "S-A")
+        session_b = _session_created(3, "S-B")
+        discovered = _decision_discovered(4, "S-A", "D-001")
+        proposal = _proposal_issued(5, "S-B", "D-001", proposal_id="P-001")
+
+        with self.assertRaisesRegex(StateValidationError, "not bound to session S-B"):
+            validate_event_log([initialized, session_a, session_b, discovered, proposal])
+
+    def test_event_log_rejects_unbound_invalidating_decision(self) -> None:
+        initialized = _project_initialized(1)
+        session_a = _session_created(2, "S-A")
+        session_b = _session_created(3, "S-B")
+        old_decision = _decision_discovered(4, "S-A", "D-old")
+        new_decision = _decision_discovered(5, "S-B", "D-new")
+        invalidated = build_event(
+            sequence=6,
+            session_id="S-A",
+            event_type="decision_invalidated",
+            project_version_after=6,
+            payload={
+                "decision_id": "D-old",
+                "invalidated_by_decision_id": "D-new",
+                "reason": "Superseded.",
+            },
+            timestamp="2026-04-23T12:05:00Z",
+        )
+
+        with self.assertRaisesRegex(StateValidationError, "invalidating decision D-new not bound"):
+            validate_event_log([initialized, session_a, session_b, old_decision, new_decision, invalidated])
+
+    def test_event_log_rejects_duplicate_proposal_accepted(self) -> None:
+        initialized = _project_initialized(1)
+        session = _session_created(2, "S-001")
+        discovered = _decision_discovered(3, "S-001", "D-001")
+        proposal = _proposal_issued(4, "S-001", "D-001", proposal_id="P-001")
+        first = _proposal_accepted(5, "S-001", "D-001", "P-001")
+        second = _proposal_accepted(6, "S-001", "D-001", "P-001")
+
+        with self.assertRaisesRegex(StateValidationError, "duplicate proposal_accepted"):
+            validate_event_log([initialized, session, discovered, proposal, first, second])
+
+    def test_event_log_rejects_session_closed_without_close_summary(self) -> None:
+        initialized = _project_initialized(1)
+        session = _session_created(2, "S-001")
+        closed = _session_closed(3, "S-001")
+
+        with self.assertRaisesRegex(StateValidationError, "prior close_summary_generated"):
+            validate_event_log([initialized, session, closed])
+
+    def test_event_log_rejects_plan_generated_for_active_session(self) -> None:
+        initialized = _project_initialized(1)
+        session = _session_created(2, "S-001")
+        plan = _plan_generated(3, ["S-001"])
+
+        with self.assertRaisesRegex(StateValidationError, "non-closed session"):
+            validate_event_log([initialized, session, plan])
 
 
 def _project_initialized(sequence: int) -> dict:
@@ -449,6 +518,43 @@ def _session_closed(sequence: int, session_id: str) -> dict:
         event_type="session_closed",
         project_version_after=sequence,
         payload={"closed_at": f"2026-04-23T12:{sequence - 1:02d}:00Z"},
+        timestamp=f"2026-04-23T12:{sequence - 1:02d}:00Z",
+    )
+
+
+def _close_summary_generated(sequence: int, session_id: str) -> dict:
+    return build_event(
+        sequence=sequence,
+        session_id=session_id,
+        event_type="close_summary_generated",
+        project_version_after=sequence,
+        payload={
+            "close_summary": {
+                "work_item_title": "Demo",
+                "work_item_statement": "Demo",
+                "goal": "Test",
+                "readiness": "ready",
+                "accepted_decisions": [],
+                "deferred_decisions": [],
+                "unresolved_blockers": [],
+                "unresolved_risks": [],
+                "candidate_workstreams": [],
+                "candidate_action_slices": [],
+                "evidence_refs": [],
+                "generated_at": f"2026-04-23T12:{sequence - 1:02d}:00Z",
+            }
+        },
+        timestamp=f"2026-04-23T12:{sequence - 1:02d}:00Z",
+    )
+
+
+def _plan_generated(sequence: int, session_ids: list[str]) -> dict:
+    return build_event(
+        sequence=sequence,
+        session_id="SYSTEM",
+        event_type="plan_generated",
+        project_version_after=sequence,
+        payload={"session_ids": session_ids, "status": "action-plan"},
         timestamp=f"2026-04-23T12:{sequence - 1:02d}:00Z",
     )
 
