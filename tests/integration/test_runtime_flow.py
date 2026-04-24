@@ -445,6 +445,69 @@ class RuntimeFlowTests(unittest.TestCase):
                 )
             self.assertEqual([], validate_runtime(ai_dir))
 
+    def test_active_proposal_blocks_other_decision_mutations(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Protect active proposal state",
+                current_milestone="MVP",
+            )
+            session_id = create_session(ai_dir, context="Decision thread")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-active",
+                    "title": "Auth mode",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "question": "How should auth work?",
+                },
+            )
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-other",
+                    "title": "Existing auth flow",
+                    "priority": "P1",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "question": "Which auth flow already exists?",
+                    "resolvable_by": "codebase",
+                },
+            )
+            proposal = issue_proposal(
+                ai_dir,
+                session_id,
+                decision_id="D-active",
+                question="Use magic links?",
+                recommendation="Use magic links.",
+                why="Smaller MVP surface area.",
+                if_not="Passwords expand auth scope.",
+            )
+
+            with self.assertRaisesRegex(ValueError, "active proposal"):
+                defer_decision(ai_dir, session_id, decision_id="D-other", reason="Move it later.")
+            with self.assertRaisesRegex(ValueError, "active proposal"):
+                resolve_by_evidence(
+                    ai_dir,
+                    session_id,
+                    decision_id="D-other",
+                    source="codebase",
+                    summary="Use the existing magic-link flow.",
+                    evidence_refs=["app/auth.py"],
+                )
+
+            shown = show_session(ai_dir, session_id)["session"]
+            active = shown["working_state"]["active_proposal"]
+            self.assertEqual(proposal["proposal_id"], active["proposal_id"])
+            self.assertTrue(active["is_active"])
+            self.assertEqual([], validate_runtime(ai_dir))
+
     def test_resolve_by_evidence_rejects_unknown_source(self) -> None:
         with TemporaryDirectory() as tmp:
             ai_dir = str(Path(tmp) / ".ai" / "decide-me")

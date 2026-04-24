@@ -532,7 +532,10 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
     has_close_summary: dict[str, bool] = {}
     discovered_decision_ids: set[str] = set()
     issued_proposals: dict[str, dict[str, str]] = {}
+    active_proposal_by_session: dict[str, str | None] = {}
+    disabled_proposals: set[str] = set()
     accepted_proposals: set[str] = set()
+    rejected_proposals: set[str] = set()
     project_initialized_count = 0
     for sequence, event in enumerate(events, start=1):
         validate_event(event)
@@ -565,6 +568,7 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
             session_status[created_session_id] = "active"
             session_decision_ids[created_session_id] = set()
             has_close_summary[created_session_id] = False
+            active_proposal_by_session[created_session_id] = None
         else:
             if event["session_id"] != "SYSTEM" and event["session_id"] not in created_session_ids:
                 raise StateValidationError(f"event references unknown session: {event['session_id']}")
@@ -595,7 +599,14 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
                         f"{event['event_type']} references undiscovered decision {decision_id}"
                     )
         _validate_event_log_session_decision_binding(event, session_decision_ids)
-        _validate_event_log_proposal_lifecycle(event, issued_proposals, accepted_proposals)
+        _validate_event_log_proposal_lifecycle(
+            event,
+            issued_proposals,
+            active_proposal_by_session,
+            disabled_proposals,
+            accepted_proposals,
+            rejected_proposals,
+        )
         if event["event_type"] == "close_summary_generated":
             has_close_summary[event["session_id"]] = True
         if event["event_type"] == "plan_generated":
@@ -610,6 +621,17 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
                     )
         if event["event_type"] == "session_closed":
             session_status[event["session_id"]] = "closed"
+        if event["event_type"] in {"session_resumed", "session_closed"}:
+            proposal_id = active_proposal_by_session.get(event["session_id"])
+            if proposal_id:
+                disabled_proposals.add(proposal_id)
+                active_proposal_by_session[event["session_id"]] = None
+        elif event["event_type"] == "decision_invalidated":
+            invalidated_id = event["payload"]["decision_id"]
+            for candidate_session_id, proposal_id in list(active_proposal_by_session.items()):
+                if proposal_id and issued_proposals.get(proposal_id, {}).get("target_id") == invalidated_id:
+                    disabled_proposals.add(proposal_id)
+                    active_proposal_by_session[candidate_session_id] = None
         if event["project_version_after"] <= previous_version:
             raise StateValidationError("event log project_version_after must be strictly increasing")
         previous_version = event["project_version_after"]
@@ -618,7 +640,10 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
 def _validate_event_log_proposal_lifecycle(
     event: dict[str, Any],
     issued_proposals: dict[str, dict[str, str]],
+    active_proposal_by_session: dict[str, str | None],
+    disabled_proposals: set[str],
     accepted_proposals: set[str],
+    rejected_proposals: set[str],
 ) -> None:
     event_type = event["event_type"]
     payload = event["payload"]
@@ -632,11 +657,18 @@ def _validate_event_log_proposal_lifecycle(
             "target_id": proposal["target_id"],
             "target_type": proposal["target_type"],
         }
+        active_proposal_by_session[event["session_id"]] = proposal_id
     elif event_type in {"proposal_accepted", "proposal_rejected"}:
         proposal_id = payload["proposal_id"]
         issued = issued_proposals.get(proposal_id)
         if issued is None:
             raise StateValidationError(f"{event_type} references unknown proposal {proposal_id}")
+        if event_type == "proposal_accepted" and proposal_id in accepted_proposals:
+            raise StateValidationError(f"duplicate proposal_accepted for {proposal_id}")
+        if event_type == "proposal_rejected" and proposal_id in rejected_proposals:
+            raise StateValidationError(f"duplicate proposal_rejected for {proposal_id}")
+        if proposal_id in disabled_proposals:
+            raise StateValidationError(f"{event_type} references inactive proposal {proposal_id}")
         if payload["origin_session_id"] != issued["origin_session_id"]:
             raise StateValidationError("proposal response origin_session_id does not match issued proposal")
         if payload["target_id"] != issued["target_id"]:
@@ -644,12 +676,14 @@ def _validate_event_log_proposal_lifecycle(
         if payload["target_type"] != issued["target_type"]:
             raise StateValidationError("proposal response target_type does not match issued proposal")
         if event_type == "proposal_accepted":
-            if proposal_id in accepted_proposals:
-                raise StateValidationError(f"duplicate proposal_accepted for {proposal_id}")
             accepted_proposal_id = payload["accepted_answer"].get("proposal_id")
             if accepted_proposal_id != proposal_id:
                 raise StateValidationError("accepted_answer.proposal_id must match payload.proposal_id")
             accepted_proposals.add(proposal_id)
+            disabled_proposals.add(proposal_id)
+            active_proposal_by_session[payload["origin_session_id"]] = None
+        else:
+            rejected_proposals.add(proposal_id)
 
 
 def _validate_event_log_session_decision_binding(

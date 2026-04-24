@@ -297,6 +297,7 @@ def defer_decision(ai_dir: str, session_id: str, *, decision_id: str, reason: st
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
         session = _require_mutable_session(bundle, session_id)
         _require_bound_decision(session, decision_id)
+        _require_no_other_active_proposal(session, decision_id)
         decision = _lookup_decision(bundle, decision_id)
         _require_decision_status(decision_id, decision, OPEN_MUTATION_STATUSES, "defer")
         return [
@@ -331,6 +332,7 @@ def resolve_by_evidence(
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
         session = _require_mutable_session(bundle, session_id)
         _require_bound_decision(session, decision_id)
+        _require_no_other_active_proposal(session, decision_id)
         decision = _lookup_decision(bundle, decision_id)
         _require_decision_status(
             decision_id, decision, OPEN_MUTATION_STATUSES, "resolve by evidence"
@@ -480,6 +482,15 @@ def _require_bound_decision(session: dict[str, Any], decision_id: str) -> None:
     session_id = session["session"]["id"]
     if decision_id not in session["session"].get("decision_ids", []):
         raise ValueError(f"decision {decision_id} is not bound to session {session_id}")
+
+
+def _require_no_other_active_proposal(session: dict[str, Any], decision_id: str) -> None:
+    active = session["working_state"]["active_proposal"]
+    if active.get("is_active") and active.get("target_id") != decision_id:
+        raise ValueError(
+            f"session has active proposal {active['proposal_id']} for {active['target_id']}; "
+            f"resolve it before mutating {decision_id}"
+        )
 
 
 def _lookup_decision(bundle: dict[str, Any], decision_id: str) -> dict[str, Any]:

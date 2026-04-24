@@ -447,6 +447,33 @@ class ProjectionValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(StateValidationError, "duplicate proposal_accepted"):
             validate_event_log([initialized, session, discovered, proposal, first, second])
 
+    def test_event_log_rejects_proposal_response_after_session_resume(self) -> None:
+        initialized = _project_initialized(1)
+        session = _session_created(2, "S-001")
+        discovered = _decision_discovered(3, "S-001", "D-001")
+        proposal = _proposal_issued(4, "S-001", "D-001", proposal_id="P-001")
+        resumed = _session_resumed(5, "S-001")
+        accepted = _proposal_accepted(6, "S-001", "D-001", "P-001")
+
+        with self.assertRaisesRegex(StateValidationError, "inactive proposal P-001"):
+            validate_event_log([initialized, session, discovered, proposal, resumed, accepted])
+
+        rejected = _proposal_rejected(6, "S-001", "D-001", "P-001")
+
+        with self.assertRaisesRegex(StateValidationError, "inactive proposal P-001"):
+            validate_event_log([initialized, session, discovered, proposal, resumed, rejected])
+
+    def test_event_log_rejects_duplicate_proposal_rejected(self) -> None:
+        initialized = _project_initialized(1)
+        session = _session_created(2, "S-001")
+        discovered = _decision_discovered(3, "S-001", "D-001")
+        proposal = _proposal_issued(4, "S-001", "D-001", proposal_id="P-001")
+        first = _proposal_rejected(5, "S-001", "D-001", "P-001")
+        second = _proposal_rejected(6, "S-001", "D-001", "P-001")
+
+        with self.assertRaisesRegex(StateValidationError, "duplicate proposal_rejected"):
+            validate_event_log([initialized, session, discovered, proposal, first, second])
+
     def test_event_log_rejects_session_closed_without_close_summary(self) -> None:
         initialized = _project_initialized(1)
         session = _session_created(2, "S-001")
@@ -518,6 +545,17 @@ def _session_closed(sequence: int, session_id: str) -> dict:
         event_type="session_closed",
         project_version_after=sequence,
         payload={"closed_at": f"2026-04-23T12:{sequence - 1:02d}:00Z"},
+        timestamp=f"2026-04-23T12:{sequence - 1:02d}:00Z",
+    )
+
+
+def _session_resumed(sequence: int, session_id: str) -> dict:
+    return build_event(
+        sequence=sequence,
+        session_id=session_id,
+        event_type="session_resumed",
+        project_version_after=sequence,
+        payload={"resumed_at": f"2026-04-23T12:{sequence - 1:02d}:00Z"},
         timestamp=f"2026-04-23T12:{sequence - 1:02d}:00Z",
     )
 

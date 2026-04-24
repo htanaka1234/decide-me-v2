@@ -96,6 +96,11 @@ def _require_keys(payload: dict[str, Any], keys: tuple[str, ...], label: str) ->
         raise EventValidationError(f"{label} is missing required keys: {joined}")
 
 
+def _require_non_empty_string(value: Any, label: str) -> None:
+    if not isinstance(value, str) or not value.strip():
+        raise EventValidationError(f"{label} must be a non-empty string")
+
+
 def prepare_payload(
     event_type: str, payload: dict[str, Any], project_version_after: int
 ) -> dict[str, Any]:
@@ -116,9 +121,14 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
     elif event_type == "session_created":
         session = _require_dict(payload["session"], "session_created.payload.session")
         _require_keys(session, ("id", "started_at", "last_seen_at", "bound_context_hint"), "session")
+        _require_non_empty_string(session.get("id"), "session_created.payload.session.id")
+        _require_non_empty_string(session.get("started_at"), "session_created.payload.session.started_at")
+        _require_non_empty_string(session.get("last_seen_at"), "session_created.payload.session.last_seen_at")
     elif event_type == "decision_discovered":
         decision = _require_dict(payload["decision"], "decision_discovered.payload.decision")
         _require_keys(decision, ("id", "title"), "decision")
+        _require_non_empty_string(decision.get("id"), "decision_discovered.payload.decision.id")
+        _require_non_empty_string(decision.get("title"), "decision_discovered.payload.decision.title")
         forbidden = sorted(set(decision) & FORBIDDEN_DISCOVERED_DECISION_FIELDS)
         if forbidden:
             raise EventValidationError(
@@ -239,6 +249,7 @@ def validate_event(event: dict[str, Any]) -> None:
         ("event_id", "ts", "session_id", "event_type", "project_version_after", "payload"),
         "event",
     )
+    _require_non_empty_string(event["session_id"], "event.session_id")
     if event["event_type"] not in EVENT_TYPES:
         raise EventValidationError(f"unsupported event_type: {event['event_type']}")
     if not isinstance(event["project_version_after"], int) or event["project_version_after"] < 1:

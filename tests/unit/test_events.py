@@ -98,6 +98,78 @@ class EventTests(unittest.TestCase):
                 timestamp="2026-04-23T12:00:00Z",
             )
 
+    def test_event_session_id_must_not_be_empty(self) -> None:
+        with self.assertRaisesRegex(EventValidationError, "event.session_id"):
+            build_event(
+                sequence=1,
+                session_id="",
+                event_type="project_initialized",
+                project_version_after=1,
+                payload={
+                    "project": {
+                        "name": "Demo",
+                        "objective": "Test",
+                        "current_milestone": "MVP",
+                        "stop_rule": "Resolve blockers",
+                    }
+                },
+                timestamp="2026-04-23T12:00:00Z",
+            )
+
+    def test_session_created_requires_non_empty_id_and_timestamps(self) -> None:
+        with self.assertRaisesRegex(EventValidationError, "session.id"):
+            build_event(
+                sequence=1,
+                session_id="S-001",
+                event_type="session_created",
+                project_version_after=1,
+                payload={
+                    "session": {
+                        "id": "",
+                        "started_at": "2026-04-23T12:00:00Z",
+                        "last_seen_at": "2026-04-23T12:00:00Z",
+                        "bound_context_hint": "demo",
+                    }
+                },
+                timestamp="2026-04-23T12:00:00Z",
+            )
+        with self.assertRaisesRegex(EventValidationError, "started_at"):
+            build_event(
+                sequence=1,
+                session_id="S-001",
+                event_type="session_created",
+                project_version_after=1,
+                payload={
+                    "session": {
+                        "id": "S-001",
+                        "started_at": "",
+                        "last_seen_at": "2026-04-23T12:00:00Z",
+                        "bound_context_hint": "demo",
+                    }
+                },
+                timestamp="2026-04-23T12:00:00Z",
+            )
+
+    def test_decision_discovered_requires_non_empty_id_and_title(self) -> None:
+        with self.assertRaisesRegex(EventValidationError, "decision.id"):
+            build_event(
+                sequence=1,
+                session_id="S-001",
+                event_type="decision_discovered",
+                project_version_after=1,
+                payload={"decision": {"id": "", "title": "Decision"}},
+                timestamp="2026-04-23T12:00:00Z",
+            )
+        with self.assertRaisesRegex(EventValidationError, "decision.title"):
+            build_event(
+                sequence=1,
+                session_id="S-001",
+                event_type="decision_discovered",
+                project_version_after=1,
+                payload={"decision": {"id": "D-001", "title": ""}},
+                timestamp="2026-04-23T12:00:00Z",
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
