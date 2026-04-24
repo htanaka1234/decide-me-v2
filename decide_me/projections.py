@@ -662,7 +662,20 @@ def _sanitize_close_summary(
     if close_summary.get("work_item_statement") in hidden_strings:
         close_summary["work_item_statement"] = fallback_statement
         changed = True
+
+    readiness = _close_summary_readiness(close_summary)
+    if close_summary.get("readiness") != readiness:
+        close_summary["readiness"] = readiness
+        changed = True
     return changed
+
+
+def _close_summary_readiness(close_summary: dict[str, Any]) -> str:
+    if close_summary.get("unresolved_blockers"):
+        return "blocked"
+    if close_summary.get("unresolved_risks"):
+        return "conditional"
+    return "ready"
 
 
 def _recompute_counts(project_state: dict[str, Any]) -> None:

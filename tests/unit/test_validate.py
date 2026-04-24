@@ -95,6 +95,23 @@ class ProjectionValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(StateValidationError, "active proposal targets"):
             validate_projection_bundle(bundle)
 
+    def test_rejects_proposed_decision_with_terminal_payloads(self) -> None:
+        bundle = _valid_bundle()
+        decision = bundle["project_state"]["decisions"][0]
+        decision["status"] = "proposed"
+        decision["accepted_answer"]["summary"] = "Should not be here."
+
+        with self.assertRaisesRegex(StateValidationError, "accepted_answer.summary"):
+            validate_projection_bundle(bundle)
+
+        bundle = _valid_bundle()
+        decision = bundle["project_state"]["decisions"][0]
+        decision["status"] = "proposed"
+        decision["resolved_by_evidence"]["summary"] = "Should not be here."
+
+        with self.assertRaisesRegex(StateValidationError, "resolved_by_evidence.summary"):
+            validate_projection_bundle(bundle)
+
     def test_rejects_invalid_decision_enum_values(self) -> None:
         bundle = _valid_bundle()
         decision = bundle["project_state"]["decisions"][0]
@@ -136,6 +153,14 @@ class ProjectionValidationTests(unittest.TestCase):
         bundle["project_state"]["project"]["objective"] = " "
 
         with self.assertRaisesRegex(StateValidationError, "non-empty string"):
+            validate_projection_bundle(bundle)
+
+    def test_rejects_stale_close_summary_readiness(self) -> None:
+        bundle = _valid_bundle()
+        session = bundle["sessions"]["S-001"]
+        session["close_summary"]["readiness"] = "blocked"
+
+        with self.assertRaisesRegex(StateValidationError, "close_summary.readiness"):
             validate_projection_bundle(bundle)
 
     def test_event_log_must_start_with_project_initialized(self) -> None:
@@ -297,6 +322,78 @@ class ProjectionValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(StateValidationError, "undiscovered decision D-never"):
             validate_event_log([initialized, session, accepted])
 
+    def test_event_log_rejects_proposal_response_before_issue(self) -> None:
+        initialized = _project_initialized(1)
+        session = _session_created(2, "S-001")
+        discovered = _decision_discovered(3, "S-001", "D-001")
+        rejected = _proposal_rejected(4, "S-001", "D-001", "P-never")
+
+        with self.assertRaisesRegex(StateValidationError, "unknown proposal P-never"):
+            validate_event_log([initialized, session, discovered, rejected])
+
+        accepted = _proposal_accepted(4, "S-001", "D-001", "P-never")
+
+        with self.assertRaisesRegex(StateValidationError, "unknown proposal P-never"):
+            validate_event_log([initialized, session, discovered, accepted])
+
+    def test_event_log_rejects_proposal_response_mismatch(self) -> None:
+        initialized = _project_initialized(1)
+        session = _session_created(2, "S-001")
+        discovered = _decision_discovered(3, "S-001", "D-001")
+        proposal = _proposal_issued(4, "S-001", "D-001", proposal_id="P-001")
+        accepted = _proposal_accepted(5, "S-001", "D-001", "P-001", accepted_proposal_id="P-other")
+
+        with self.assertRaisesRegex(StateValidationError, "accepted_answer.proposal_id"):
+            validate_event_log([initialized, session, discovered, proposal, accepted])
+
+        discovered_other = _decision_discovered(4, "S-001", "D-other")
+        proposal = _proposal_issued(5, "S-001", "D-001", proposal_id="P-001")
+        mismatched_target = _proposal_accepted(6, "S-001", "D-other", "P-001")
+
+        with self.assertRaisesRegex(StateValidationError, "target_id"):
+            validate_event_log([initialized, session, discovered, discovered_other, proposal, mismatched_target])
+
+    def test_event_log_rejects_duplicate_proposal_id(self) -> None:
+        initialized = _project_initialized(1)
+        session = _session_created(2, "S-001")
+        discovered = _decision_discovered(3, "S-001", "D-001")
+        first = _proposal_issued(4, "S-001", "D-001", proposal_id="P-001")
+        second = _proposal_issued(5, "S-001", "D-001", proposal_id="P-001")
+
+        with self.assertRaisesRegex(StateValidationError, "duplicate proposal_id"):
+            validate_event_log([initialized, session, discovered, first, second])
+
+    def test_event_log_rejects_closed_session_mutations(self) -> None:
+        initialized = _project_initialized(1)
+        session = _session_created(2, "S-001")
+        closed = _session_closed(3, "S-001")
+        discovered = _decision_discovered(4, "S-001", "D-late")
+
+        with self.assertRaisesRegex(StateValidationError, "mutates closed session"):
+            validate_event_log([initialized, session, closed, discovered])
+
+        classification = build_event(
+            sequence=4,
+            session_id="S-001",
+            event_type="classification_updated",
+            project_version_after=4,
+            payload={
+                "classification": {
+                    "domain": "technical",
+                    "abstraction_level": "architecture",
+                    "assigned_tags": [],
+                    "compatibility_tags": [],
+                    "search_terms": [],
+                    "source_refs": [],
+                    "updated_at": "2026-04-23T12:03:00Z",
+                }
+            },
+            timestamp="2026-04-23T12:03:00Z",
+        )
+
+        with self.assertRaisesRegex(StateValidationError, "mutates closed session"):
+            validate_event_log([initialized, session, closed, classification])
+
 
 def _project_initialized(sequence: int) -> dict:
     return build_event(
@@ -345,7 +442,20 @@ def _decision_discovered(sequence: int, session_id: str, decision_id: str) -> di
     )
 
 
-def _proposal_issued(sequence: int, session_id: str, decision_id: str) -> dict:
+def _session_closed(sequence: int, session_id: str) -> dict:
+    return build_event(
+        sequence=sequence,
+        session_id=session_id,
+        event_type="session_closed",
+        project_version_after=sequence,
+        payload={"closed_at": f"2026-04-23T12:{sequence - 1:02d}:00Z"},
+        timestamp=f"2026-04-23T12:{sequence - 1:02d}:00Z",
+    )
+
+
+def _proposal_issued(
+    sequence: int, session_id: str, decision_id: str, *, proposal_id: str = "P-001"
+) -> dict:
     return build_event(
         sequence=sequence,
         session_id=session_id,
@@ -353,7 +463,7 @@ def _proposal_issued(sequence: int, session_id: str, decision_id: str) -> dict:
         project_version_after=sequence,
         payload={
             "proposal": {
-                "proposal_id": "P-001",
+                "proposal_id": proposal_id,
                 "origin_session_id": session_id,
                 "target_type": "decision",
                 "target_id": decision_id,
@@ -368,6 +478,52 @@ def _proposal_issued(sequence: int, session_id: str, decision_id: str) -> dict:
                 "activated_at": f"2026-04-23T12:{sequence - 1:02d}:00Z",
                 "inactive_reason": None,
             }
+        },
+        timestamp=f"2026-04-23T12:{sequence - 1:02d}:00Z",
+    )
+
+
+def _proposal_accepted(
+    sequence: int,
+    session_id: str,
+    decision_id: str,
+    proposal_id: str,
+    *,
+    accepted_proposal_id: str | None = None,
+) -> dict:
+    return build_event(
+        sequence=sequence,
+        session_id=session_id,
+        event_type="proposal_accepted",
+        project_version_after=sequence,
+        payload={
+            "proposal_id": proposal_id,
+            "origin_session_id": session_id,
+            "target_type": "decision",
+            "target_id": decision_id,
+            "accepted_answer": {
+                "summary": "Use it.",
+                "accepted_at": f"2026-04-23T12:{sequence - 1:02d}:00Z",
+                "accepted_via": "explicit",
+                "proposal_id": accepted_proposal_id if accepted_proposal_id is not None else proposal_id,
+            },
+        },
+        timestamp=f"2026-04-23T12:{sequence - 1:02d}:00Z",
+    )
+
+
+def _proposal_rejected(sequence: int, session_id: str, decision_id: str, proposal_id: str) -> dict:
+    return build_event(
+        sequence=sequence,
+        session_id=session_id,
+        event_type="proposal_rejected",
+        project_version_after=sequence,
+        payload={
+            "proposal_id": proposal_id,
+            "origin_session_id": session_id,
+            "target_type": "decision",
+            "target_id": decision_id,
+            "reason": "No.",
         },
         timestamp=f"2026-04-23T12:{sequence - 1:02d}:00Z",
     )

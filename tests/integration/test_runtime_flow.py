@@ -834,6 +834,96 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertIn('"event_type": "decision_invalidated"', event_log)
             self.assertEqual([], validate_runtime(ai_dir))
 
+    def test_invalidation_recomputes_close_summary_readiness(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Recompute stale close summary readiness",
+                current_milestone="MVP",
+            )
+
+            blocker_session_id = create_session(ai_dir, context="Blocked work")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                blocker_session_id,
+                {
+                    "id": "D-blocker",
+                    "title": "Blocking decision",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "question": "What blocks the MVP?",
+                },
+            )
+            closed_blocker = close_session(ai_dir, blocker_session_id)
+            self.assertEqual("blocked", closed_blocker["close_summary"]["readiness"])
+
+            replacement_session_id = create_session(ai_dir, context="Replacement")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                replacement_session_id,
+                {
+                    "id": "D-replacement",
+                    "title": "Replacement decision",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "question": "What supersedes the blocker?",
+                    "resolvable_by": "codebase",
+                },
+            )
+            resolve_by_evidence(
+                ai_dir,
+                replacement_session_id,
+                decision_id="D-replacement",
+                source="codebase",
+                summary="Use the replacement.",
+                evidence_refs=["app/replacement.py"],
+            )
+            invalidate_decision(
+                ai_dir,
+                replacement_session_id,
+                decision_id="D-blocker",
+                invalidated_by_decision_id="D-replacement",
+                reason="Superseded by a replacement decision.",
+            )
+
+            shown = show_session(ai_dir, blocker_session_id)["session"]
+            self.assertEqual("ready", shown["close_summary"]["readiness"])
+            self.assertEqual([], shown["close_summary"]["unresolved_blockers"])
+            self.assertEqual([], validate_runtime(ai_dir))
+
+            risk_session_id = create_session(ai_dir, context="Risk work")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                risk_session_id,
+                {
+                    "id": "D-risk",
+                    "title": "Risk decision",
+                    "kind": "risk",
+                    "priority": "P1",
+                    "frontier": "now",
+                    "domain": "ops",
+                    "question": "What risk remains?",
+                },
+            )
+            closed_risk = close_session(ai_dir, risk_session_id)
+            self.assertEqual("conditional", closed_risk["close_summary"]["readiness"])
+            invalidate_decision(
+                ai_dir,
+                replacement_session_id,
+                decision_id="D-risk",
+                invalidated_by_decision_id="D-replacement",
+                reason="Superseded by a replacement decision.",
+            )
+
+            shown_risk = show_session(ai_dir, risk_session_id)["session"]
+            self.assertEqual("ready", shown_risk["close_summary"]["readiness"])
+            self.assertEqual([], shown_risk["close_summary"]["unresolved_risks"])
+            self.assertEqual([], validate_runtime(ai_dir))
+
     def test_invalidation_does_not_bind_invalidating_decision_to_unrelated_session(self) -> None:
         with TemporaryDirectory() as tmp:
             ai_dir = str(Path(tmp) / ".ai" / "decide-me")

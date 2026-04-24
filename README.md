@@ -140,6 +140,8 @@ python3 scripts/decide_me.py handle-reply \
 - Validation checks both event envelopes and projection consistency.
 - `list-sessions` and `show-session` may lazily backfill closed-session compatibility tags and
   persist those additions as events.
+- Proposal staleness is currently based on the global project version. Lazy backfill events can
+  therefore make an active proposal require explicit `Accept P-...` / `Reject P-...`.
 - `advance-session` resolves evidence conservatively. It only auto-resolves decisions when a
   recommendation is already recorded and matching evidence is found.
 - `advance-session` is session-scoped. A new empty session does not claim open decisions from
