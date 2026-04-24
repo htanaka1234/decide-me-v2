@@ -3,33 +3,42 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
+from decide_me.constants import (
+    ACCEPTED_VIA_VALUES,
+    DISCOVERABLE_DECISION_FIELDS,
+    DISCOVERABLE_DECISION_STATUSES,
+    DOMAIN_VALUES,
+    EVIDENCE_SOURCES,
+    FORBIDDEN_DISCOVERED_DECISION_FIELDS,
+)
 from decide_me.events import AUTO_PROJECT_VERSION, new_entity_id, utc_now
 from decide_me.selector import proposal_is_stale
 from decide_me.store import load_runtime, runtime_paths, transact
 
 
-DOMAIN_VALUES = {"product", "technical", "data", "ux", "ops", "legal", "other"}
 OPEN_MUTATION_STATUSES = {"unresolved", "proposed", "rejected", "blocked"}
 PROPOSABLE_STATUSES = {"unresolved", "rejected", "blocked"}
 PROPOSAL_RESPONSE_STATUSES = {"proposed"}
 
 
 def discover_decision(ai_dir: str, session_id: str, decision: dict[str, Any]) -> dict[str, Any]:
+    sanitized_decision = _sanitize_discovered_decision(decision)
+
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
         _require_mutable_session(bundle, session_id)
-        decision_id = decision.get("id")
+        decision_id = sanitized_decision.get("id")
         if decision_id and _decision_exists(bundle, decision_id):
             raise ValueError(f"decision {decision_id} already exists")
         return [
             {
                 "session_id": session_id,
                 "event_type": "decision_discovered",
-                "payload": {"decision": decision},
+                "payload": {"decision": sanitized_decision},
             }
         ]
 
     _, bundle = transact(ai_dir, builder)
-    return _lookup_decision(bundle, decision["id"])
+    return _lookup_decision(bundle, sanitized_decision["id"])
 
 
 def enrich_decision(
@@ -159,6 +168,7 @@ def accept_proposal(
             mode = acceptance_mode or "ok"
         else:
             mode = acceptance_mode or "explicit"
+        _require_acceptance_mode(mode)
         accepted_answer = {
             "summary": target["recommendation"],
             "accepted_at": now,
@@ -239,6 +249,7 @@ def answer_proposal(
         answer = answer_summary.strip()
         if not answer:
             raise ValueError("answer_summary must not be empty")
+        _require_acceptance_mode(acceptance_mode)
 
         events: list[dict[str, Any]] = []
         if _normalize(answer) != _normalize(recommendation):
@@ -309,6 +320,14 @@ def resolve_by_evidence(
     summary: str,
     evidence_refs: list[str],
 ) -> dict[str, Any]:
+    if source not in EVIDENCE_SOURCES:
+        raise ValueError(f"invalid evidence source: {source}")
+    summary = summary.strip()
+    if not summary:
+        raise ValueError("summary must not be empty")
+    if not isinstance(evidence_refs, list):
+        raise ValueError("evidence_refs must be a list")
+
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
         session = _require_mutable_session(bundle, session_id)
         _require_bound_decision(session, decision_id)
@@ -474,6 +493,28 @@ def _decision_exists(bundle: dict[str, Any], decision_id: str) -> bool:
     return any(decision["id"] == decision_id for decision in bundle["project_state"]["decisions"])
 
 
+def _sanitize_discovered_decision(decision: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(decision, dict):
+        raise ValueError("decision must be an object")
+    for key in ("id", "title"):
+        if not decision.get(key):
+            raise ValueError(f"decision_discovered requires {key}")
+    forbidden = sorted(set(decision) & FORBIDDEN_DISCOVERED_DECISION_FIELDS)
+    if forbidden:
+        raise ValueError(f"decision_discovered must not include {', '.join(forbidden)}")
+    allowed = DISCOVERABLE_DECISION_FIELDS | {"status"}
+    unknown = sorted(set(decision) - allowed)
+    if unknown:
+        raise ValueError(f"decision_discovered contains unsupported fields: {', '.join(unknown)}")
+    status = decision.get("status") or "unresolved"
+    if status not in DISCOVERABLE_DECISION_STATUSES:
+        allowed_statuses = ", ".join(sorted(DISCOVERABLE_DECISION_STATUSES))
+        raise ValueError(f"decision_discovered may only create statuses: {allowed_statuses}")
+    sanitized = {key: deepcopy(value) for key, value in decision.items() if key in DISCOVERABLE_DECISION_FIELDS}
+    sanitized["status"] = status
+    return sanitized
+
+
 def _resolve_proposal_target(
     bundle: dict[str, Any], session: dict[str, Any], proposal_id: str | None
 ) -> dict[str, Any]:
@@ -573,3 +614,9 @@ def _require_decision_status(
             f"decision {decision_id} is {status} and cannot be modified by {operation}; "
             f"allowed statuses: {allowed}"
         )
+
+
+def _require_acceptance_mode(mode: str) -> None:
+    if mode not in ACCEPTED_VIA_VALUES - {"evidence"}:
+        allowed = ", ".join(sorted(ACCEPTED_VIA_VALUES - {"evidence"}))
+        raise ValueError(f"accepted_via must be one of: {allowed}")

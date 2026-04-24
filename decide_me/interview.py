@@ -1370,7 +1370,7 @@ def _build_discovered_decision(current_decision: dict[str, Any], clause: str) ->
         "notes": [f"Discovered from reply while resolving {current_decision['id']}."],
     }
     if recommendation is not None:
-        discovered["recommendation"] = recommendation
+        discovered["options"] = [{"summary": recommendation["summary"]}]
     return discovered
 
 

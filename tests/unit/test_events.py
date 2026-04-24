@@ -71,6 +71,33 @@ class EventTests(unittest.TestCase):
                 timestamp="2026-04-23T12:00:00Z",
             )
 
+    def test_decision_resolved_by_evidence_requires_list_refs(self) -> None:
+        with self.assertRaisesRegex(EventValidationError, "evidence_refs must be a list"):
+            build_event(
+                sequence=1,
+                session_id="S-001",
+                event_type="decision_resolved_by_evidence",
+                project_version_after=4,
+                payload={
+                    "decision_id": "D-001",
+                    "source": "codebase",
+                    "summary": "Found it.",
+                    "evidence_refs": "app/auth.py",
+                },
+                timestamp="2026-04-23T12:00:00Z",
+            )
+
+    def test_decision_discovered_rejects_terminal_status(self) -> None:
+        with self.assertRaisesRegex(EventValidationError, "status"):
+            build_event(
+                sequence=1,
+                session_id="S-001",
+                event_type="decision_discovered",
+                project_version_after=4,
+                payload={"decision": {"id": "D-001", "title": "Decision", "status": "accepted"}},
+                timestamp="2026-04-23T12:00:00Z",
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

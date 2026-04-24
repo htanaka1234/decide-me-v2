@@ -229,6 +229,7 @@ def transact(ai_dir: str | Path, builder: Builder) -> tuple[list[dict[str, Any]]
             )
             next_sequence += 1
 
+        validate_event_log(new_events)
         new_bundle = rebuild_projections(new_events)
         validate_projection_bundle(new_bundle)
         _write_runtime(paths, new_events, new_bundle)

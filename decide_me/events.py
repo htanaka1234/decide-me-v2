@@ -5,6 +5,14 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
+from decide_me.constants import (
+    ACCEPTED_VIA_VALUES,
+    DISCOVERABLE_DECISION_FIELDS,
+    DISCOVERABLE_DECISION_STATUSES,
+    EVIDENCE_SOURCES,
+    FORBIDDEN_DISCOVERED_DECISION_FIELDS,
+)
+
 
 AUTO_PROJECT_VERSION = "__AUTO_PROJECT_VERSION__"
 
@@ -111,6 +119,20 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
     elif event_type == "decision_discovered":
         decision = _require_dict(payload["decision"], "decision_discovered.payload.decision")
         _require_keys(decision, ("id", "title"), "decision")
+        forbidden = sorted(set(decision) & FORBIDDEN_DISCOVERED_DECISION_FIELDS)
+        if forbidden:
+            raise EventValidationError(
+                f"decision_discovered.payload.decision must not include {', '.join(forbidden)}"
+            )
+        unknown = sorted(set(decision) - (DISCOVERABLE_DECISION_FIELDS | {"status"}))
+        if unknown:
+            raise EventValidationError(
+                f"decision_discovered.payload.decision contains unsupported fields: {', '.join(unknown)}"
+            )
+        status = decision.get("status")
+        if status is not None and status not in DISCOVERABLE_DECISION_STATUSES:
+            allowed = ", ".join(sorted(DISCOVERABLE_DECISION_STATUSES))
+            raise EventValidationError(f"decision_discovered.payload.decision.status must be one of: {allowed}")
     elif event_type == "decision_enriched":
         if "notes_append" in payload and not isinstance(payload["notes_append"], list):
             raise EventValidationError("decision_enriched.payload.notes_append must be a list")
@@ -123,6 +145,13 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
     elif event_type == "decision_invalidated":
         if payload["decision_id"] == payload["invalidated_by_decision_id"]:
             raise EventValidationError("decision_invalidated must not self-reference")
+    elif event_type == "decision_resolved_by_evidence":
+        if payload["source"] not in EVIDENCE_SOURCES:
+            raise EventValidationError(f"invalid evidence source: {payload['source']}")
+        if not isinstance(payload["summary"], str) or not payload["summary"].strip():
+            raise EventValidationError("decision_resolved_by_evidence.payload.summary must be a non-empty string")
+        if not isinstance(payload["evidence_refs"], list):
+            raise EventValidationError("decision_resolved_by_evidence.payload.evidence_refs must be a list")
     elif event_type == "proposal_issued":
         proposal = _require_dict(payload["proposal"], "proposal_issued.payload.proposal")
         _require_keys(
@@ -154,6 +183,11 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
             ("summary", "accepted_at", "accepted_via", "proposal_id"),
             "accepted_answer",
         )
+        if accepted_answer["accepted_via"] not in ACCEPTED_VIA_VALUES:
+            allowed = ", ".join(sorted(ACCEPTED_VIA_VALUES))
+            raise EventValidationError(
+                f"proposal_accepted.payload.accepted_answer.accepted_via must be one of: {allowed}"
+            )
     elif event_type == "classification_updated":
         classification = _require_dict(
             payload["classification"], "classification_updated.payload.classification"

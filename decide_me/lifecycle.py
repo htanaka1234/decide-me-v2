@@ -131,8 +131,9 @@ def close_session(ai_dir: str, session_id: str) -> dict[str, Any]:
 
 def build_close_summary(project_state: dict[str, Any], session_state: dict[str, Any]) -> dict[str, Any]:
     decision_index = {decision["id"]: decision for decision in project_state["decisions"]}
+    active_target_id = session_state["working_state"]["active_proposal"].get("target_id")
     decisions = [
-        decision_index[decision_id]
+        _decision_for_close_summary(decision_index[decision_id], active_target_id)
         for decision_id in session_state["session"]["decision_ids"]
         if decision_id in decision_index
         and not decision_is_invalidated(decision_index[decision_id])
@@ -214,6 +215,14 @@ def _decision_snapshot(decision: dict[str, Any]) -> dict[str, Any]:
         "evidence_refs": deepcopy(decision.get("evidence_refs", [])),
         "accepted_answer": answer,
     }
+
+
+def _decision_for_close_summary(decision: dict[str, Any], active_target_id: str | None) -> dict[str, Any]:
+    if decision["id"] != active_target_id or decision["status"] != "proposed":
+        return decision
+    demoted = deepcopy(decision)
+    demoted["status"] = "unresolved"
+    return demoted
 
 
 def _candidate_workstreams(

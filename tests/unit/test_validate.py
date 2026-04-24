@@ -58,6 +58,7 @@ class ProjectionValidationTests(unittest.TestCase):
         replacement = default_decision("D-002", "Replacement")
         replacement["status"] = "accepted"
         replacement["accepted_answer"]["summary"] = "Use the replacement."
+        replacement["accepted_answer"]["accepted_via"] = "explicit"
         bundle["project_state"]["decisions"].append(replacement)
         invalidated = bundle["project_state"]["decisions"][0]
         invalidated["status"] = "invalidated"
@@ -79,6 +80,7 @@ class ProjectionValidationTests(unittest.TestCase):
         decision["status"] = "accepted"
         decision["recommendation"]["proposal_id"] = "P-001"
         decision["accepted_answer"]["summary"] = "Use it."
+        decision["accepted_answer"]["accepted_via"] = "explicit"
         decision["accepted_answer"]["proposal_id"] = "P-other"
 
         with self.assertRaisesRegex(StateValidationError, "accepted_answer.proposal_id"):
@@ -115,6 +117,18 @@ class ProjectionValidationTests(unittest.TestCase):
         decision["accepted_answer"]["summary"] = "Use it."
 
         with self.assertRaisesRegex(StateValidationError, "must not have accepted_answer.summary"):
+            validate_projection_bundle(bundle)
+
+    def test_rejects_resolved_by_evidence_unknown_source(self) -> None:
+        bundle = _valid_bundle()
+        decision = bundle["project_state"]["decisions"][0]
+        decision["status"] = "resolved-by-evidence"
+        decision["accepted_answer"]["summary"] = "Use it."
+        decision["accepted_answer"]["accepted_via"] = "evidence"
+        decision["resolved_by_evidence"]["summary"] = "Found it."
+        decision["resolved_by_evidence"]["source"] = "aliens"
+
+        with self.assertRaisesRegex(StateValidationError, "resolved_by_evidence.source"):
             validate_projection_bundle(bundle)
 
     def test_rejects_empty_project_fields(self) -> None:
@@ -200,40 +214,163 @@ class ProjectionValidationTests(unittest.TestCase):
             validate_event_log([first, second])
 
     def test_event_log_rejects_duplicate_decision_discovered_ids(self) -> None:
-        initialized = build_event(
-            sequence=1,
-            session_id="SYSTEM",
-            event_type="project_initialized",
-            project_version_after=1,
+        initialized = _project_initialized(1)
+        first_session = _session_created(2, "S-001")
+        second_session = _session_created(3, "S-002")
+        first = _decision_discovered(4, "S-001", "D-001")
+        second = _decision_discovered(5, "S-002", "D-001")
+
+        with self.assertRaisesRegex(StateValidationError, "duplicate decision_discovered"):
+            validate_event_log([initialized, first_session, second_session, first, second])
+
+    def test_event_log_rejects_unknown_session_id(self) -> None:
+        initialized = _project_initialized(1)
+        discovered = _decision_discovered(2, "S-missing", "D-001")
+
+        with self.assertRaisesRegex(StateValidationError, "unknown session"):
+            validate_event_log([initialized, discovered])
+
+    def test_event_log_rejects_session_created_id_mismatch(self) -> None:
+        initialized = _project_initialized(1)
+        mismatched = build_event(
+            sequence=2,
+            session_id="S-outer",
+            event_type="session_created",
+            project_version_after=2,
             payload={
-                "project": {
-                    "name": "Demo",
-                    "objective": "Test",
-                    "current_milestone": "MVP",
-                    "stop_rule": "Resolve blockers",
+                "session": {
+                    "id": "S-inner",
+                    "started_at": "2026-04-23T12:01:00Z",
+                    "last_seen_at": "2026-04-23T12:01:00Z",
+                    "bound_context_hint": "demo",
                 }
             },
-            timestamp="2026-04-23T12:00:00Z",
-        )
-        first = build_event(
-            sequence=2,
-            session_id="S-001",
-            event_type="decision_discovered",
-            project_version_after=2,
-            payload={"decision": {"id": "D-001", "title": "Decision"}},
             timestamp="2026-04-23T12:01:00Z",
         )
-        second = build_event(
+
+        with self.assertRaisesRegex(StateValidationError, "must match"):
+            validate_event_log([initialized, mismatched])
+
+    def test_event_log_rejects_decision_refs_before_discovery(self) -> None:
+        initialized = _project_initialized(1)
+        session = _session_created(2, "S-001")
+        proposal = _proposal_issued(3, "S-001", "D-never")
+
+        with self.assertRaisesRegex(StateValidationError, "undiscovered decision D-never"):
+            validate_event_log([initialized, session, proposal])
+
+    def test_event_log_rejects_deferred_and_accepted_undiscovered_decisions(self) -> None:
+        initialized = _project_initialized(1)
+        session = _session_created(2, "S-001")
+        deferred = build_event(
             sequence=3,
-            session_id="S-002",
-            event_type="decision_discovered",
+            session_id="S-001",
+            event_type="decision_deferred",
             project_version_after=3,
-            payload={"decision": {"id": "D-001", "title": "Decision again"}},
+            payload={"decision_id": "D-never", "reason": "Later."},
             timestamp="2026-04-23T12:02:00Z",
         )
 
-        with self.assertRaisesRegex(StateValidationError, "duplicate decision_discovered"):
-            validate_event_log([initialized, first, second])
+        with self.assertRaisesRegex(StateValidationError, "undiscovered decision D-never"):
+            validate_event_log([initialized, session, deferred])
+
+        accepted = build_event(
+            sequence=3,
+            session_id="S-001",
+            event_type="proposal_accepted",
+            project_version_after=3,
+            payload={
+                "proposal_id": "P-001",
+                "origin_session_id": "S-001",
+                "target_type": "decision",
+                "target_id": "D-never",
+                "accepted_answer": {
+                    "summary": "Use it.",
+                    "accepted_at": "2026-04-23T12:02:00Z",
+                    "accepted_via": "explicit",
+                    "proposal_id": "P-001",
+                },
+            },
+            timestamp="2026-04-23T12:02:00Z",
+        )
+
+        with self.assertRaisesRegex(StateValidationError, "undiscovered decision D-never"):
+            validate_event_log([initialized, session, accepted])
+
+
+def _project_initialized(sequence: int) -> dict:
+    return build_event(
+        sequence=sequence,
+        session_id="SYSTEM",
+        event_type="project_initialized",
+        project_version_after=sequence,
+        payload={
+            "project": {
+                "name": "Demo",
+                "objective": "Test",
+                "current_milestone": "MVP",
+                "stop_rule": "Resolve blockers",
+            }
+        },
+        timestamp=f"2026-04-23T12:{sequence - 1:02d}:00Z",
+    )
+
+
+def _session_created(sequence: int, session_id: str) -> dict:
+    return build_event(
+        sequence=sequence,
+        session_id=session_id,
+        event_type="session_created",
+        project_version_after=sequence,
+        payload={
+            "session": {
+                "id": session_id,
+                "started_at": f"2026-04-23T12:{sequence - 1:02d}:00Z",
+                "last_seen_at": f"2026-04-23T12:{sequence - 1:02d}:00Z",
+                "bound_context_hint": "demo",
+            }
+        },
+        timestamp=f"2026-04-23T12:{sequence - 1:02d}:00Z",
+    )
+
+
+def _decision_discovered(sequence: int, session_id: str, decision_id: str) -> dict:
+    return build_event(
+        sequence=sequence,
+        session_id=session_id,
+        event_type="decision_discovered",
+        project_version_after=sequence,
+        payload={"decision": {"id": decision_id, "title": "Decision"}},
+        timestamp=f"2026-04-23T12:{sequence - 1:02d}:00Z",
+    )
+
+
+def _proposal_issued(sequence: int, session_id: str, decision_id: str) -> dict:
+    return build_event(
+        sequence=sequence,
+        session_id=session_id,
+        event_type="proposal_issued",
+        project_version_after=sequence,
+        payload={
+            "proposal": {
+                "proposal_id": "P-001",
+                "origin_session_id": session_id,
+                "target_type": "decision",
+                "target_id": decision_id,
+                "recommendation_version": 1,
+                "based_on_project_version": sequence - 1,
+                "question_id": "Q-001",
+                "question": "Question?",
+                "recommendation": "Use it.",
+                "why": "Because.",
+                "if_not": "Risk.",
+                "is_active": True,
+                "activated_at": f"2026-04-23T12:{sequence - 1:02d}:00Z",
+                "inactive_reason": None,
+            }
+        },
+        timestamp=f"2026-04-23T12:{sequence - 1:02d}:00Z",
+    )
 
 
 def _valid_bundle() -> dict:

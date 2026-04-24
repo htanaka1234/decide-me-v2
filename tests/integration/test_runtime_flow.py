@@ -285,6 +285,8 @@ class RuntimeFlowTests(unittest.TestCase):
                 reject_proposal(ai_dir, session_id, proposal_id=proposal["proposal_id"], reason="No")
             with self.assertRaisesRegex(ValueError, "closed"):
                 handle_reply(ai_dir, session_id, "Use 90 days.", repo_root=tmp)
+            close_summary = show_session(ai_dir, session_id)["session"]["close_summary"]
+            self.assertEqual("unresolved", close_summary["unresolved_blockers"][0]["status"])
             self.assertEqual([], validate_runtime(ai_dir))
 
     def test_empty_session_does_not_claim_project_open_decisions(self) -> None:
@@ -443,6 +445,41 @@ class RuntimeFlowTests(unittest.TestCase):
                 )
             self.assertEqual([], validate_runtime(ai_dir))
 
+    def test_resolve_by_evidence_rejects_unknown_source(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Keep evidence sources typed",
+                current_milestone="MVP",
+            )
+            session_id = create_session(ai_dir, context="Evidence thread")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-evidence-source",
+                    "title": "Existing auth flow",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "question": "Which auth flow already exists?",
+                    "resolvable_by": "codebase",
+                },
+            )
+
+            with self.assertRaisesRegex(ValueError, "invalid evidence source"):
+                resolve_by_evidence(
+                    ai_dir,
+                    session_id,
+                    decision_id="D-evidence-source",
+                    source="aliens",
+                    summary="Found elsewhere.",
+                    evidence_refs=[],
+                )
+            self.assertEqual([], validate_runtime(ai_dir))
+
     def test_decision_level_commands_are_session_bound(self) -> None:
         with TemporaryDirectory() as tmp:
             ai_dir = str(Path(tmp) / ".ai" / "decide-me")
@@ -514,6 +551,60 @@ class RuntimeFlowTests(unittest.TestCase):
                     },
                 )
             self.assertEqual([], show_session(ai_dir, second_session_id)["session"]["session"]["decision_ids"])
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_discover_decision_rejects_terminal_or_runtime_payloads(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Keep discovery from bypassing state transitions",
+                current_milestone="MVP",
+            )
+            session_id = create_session(ai_dir, context="Discovery thread")["session"]["id"]
+
+            with self.assertRaisesRegex(ValueError, "statuses"):
+                discover_decision(
+                    ai_dir,
+                    session_id,
+                    {
+                        "id": "D-injected-accepted",
+                        "title": "Injected accepted",
+                        "status": "accepted",
+                    },
+                )
+            with self.assertRaisesRegex(ValueError, "statuses"):
+                discover_decision(
+                    ai_dir,
+                    session_id,
+                    {
+                        "id": "D-injected-evidence",
+                        "title": "Injected evidence",
+                        "status": "resolved-by-evidence",
+                    },
+                )
+            with self.assertRaisesRegex(ValueError, "accepted_answer"):
+                discover_decision(
+                    ai_dir,
+                    session_id,
+                    {
+                        "id": "D-injected-answer",
+                        "title": "Injected answer",
+                        "accepted_answer": {"summary": "Already decided."},
+                    },
+                )
+            with self.assertRaisesRegex(ValueError, "invalidated_by"):
+                discover_decision(
+                    ai_dir,
+                    session_id,
+                    {
+                        "id": "D-injected-invalidated",
+                        "title": "Injected invalidation",
+                        "invalidated_by": {"decision_id": "D-other"},
+                    },
+                )
+            self.assertEqual([], show_session(ai_dir, session_id)["session"]["session"]["decision_ids"])
             self.assertEqual([], validate_runtime(ai_dir))
 
     def test_closed_session_rejects_low_level_mutations(self) -> None:
@@ -1013,10 +1104,7 @@ class RuntimeFlowTests(unittest.TestCase):
                     "resolvable_by": "codebase",
                     "question": "Should the MVP use the existing magic-link flow?",
                     "context": "Use the current auth implementation if possible.",
-                    "recommendation": {
-                        "summary": "Use the existing magic-link flow.",
-                        "rationale_short": "The repo already has it.",
-                    },
+                    "options": [{"summary": "Use the existing magic-link flow."}],
                 },
             )
             discover_decision(
@@ -1031,10 +1119,7 @@ class RuntimeFlowTests(unittest.TestCase):
                     "resolvable_by": "human",
                     "question": "How long should audit logs be retained?",
                     "context": "Retention affects compliance scope.",
-                    "recommendation": {
-                        "summary": "Start with 30 days.",
-                        "rationale_short": "It keeps the MVP scope small.",
-                    },
+                    "options": [{"summary": "Start with 30 days."}],
                 },
             )
 
@@ -1075,10 +1160,7 @@ class RuntimeFlowTests(unittest.TestCase):
                     "resolvable_by": "human",
                     "question": "How long should audit logs be retained?",
                     "context": "Retention affects compliance scope.",
-                    "recommendation": {
-                        "summary": "Start with 30 days.",
-                        "rationale_short": "It keeps the MVP scope small.",
-                    },
+                    "options": [{"summary": "Start with 30 days."}],
                 },
             )
 
@@ -1125,10 +1207,7 @@ class RuntimeFlowTests(unittest.TestCase):
                     "resolvable_by": "human",
                     "question": "How long should audit logs be retained?",
                     "context": "Retention affects compliance scope.",
-                    "recommendation": {
-                        "summary": "Start with 30 days.",
-                        "rationale_short": "It keeps the MVP scope small.",
-                    },
+                    "options": [{"summary": "Start with 30 days."}],
                 },
             )
 
@@ -1160,10 +1239,7 @@ class RuntimeFlowTests(unittest.TestCase):
                     "resolvable_by": "human",
                     "question": "How long should audit logs be retained?",
                     "context": "Retention affects compliance scope.",
-                    "recommendation": {
-                        "summary": "Start with 30 days.",
-                        "rationale_short": "It keeps the MVP scope small.",
-                    },
+                    "options": [{"summary": "Start with 30 days."}],
                 },
             )
 
@@ -1196,10 +1272,7 @@ class RuntimeFlowTests(unittest.TestCase):
                     "resolvable_by": "human",
                     "question": "Should the MVP use magic links?",
                     "context": "Choose the initial authentication mode.",
-                    "recommendation": {
-                        "summary": "Use magic links for the MVP.",
-                        "rationale_short": "It keeps auth scope down.",
-                    },
+                    "options": [{"summary": "Use magic links for the MVP."}],
                 },
             )
 
@@ -1263,10 +1336,7 @@ class RuntimeFlowTests(unittest.TestCase):
                     "resolvable_by": "human",
                     "question": "Should the MVP use magic links?",
                     "context": "Choose the initial authentication mode.",
-                    "recommendation": {
-                        "summary": "Use magic links for the MVP.",
-                        "rationale_short": "It keeps auth scope down.",
-                    },
+                    "options": [{"summary": "Use magic links for the MVP."}],
                 },
             )
 
@@ -1326,10 +1396,7 @@ class RuntimeFlowTests(unittest.TestCase):
                     "resolvable_by": "human",
                     "question": "How long should audit logs be retained?",
                     "context": "Retention affects compliance scope.",
-                    "recommendation": {
-                        "summary": "Start with 30 days.",
-                        "rationale_short": "It keeps the MVP scope small.",
-                    },
+                    "options": [{"summary": "Start with 30 days."}],
                 },
             )
 
@@ -1395,10 +1462,7 @@ class RuntimeFlowTests(unittest.TestCase):
                     "resolvable_by": "human",
                     "question": "Should the MVP use magic links?",
                     "context": "Choose the initial authentication mode.",
-                    "recommendation": {
-                        "summary": "Use magic links for the MVP.",
-                        "rationale_short": "It keeps auth scope down.",
-                    },
+                    "options": [{"summary": "Use magic links for the MVP."}],
                 },
             )
 

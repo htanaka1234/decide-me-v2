@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from decide_me.constants import ACCEPTED_VIA_VALUES, DOMAIN_VALUES, EVIDENCE_SOURCES
 from decide_me.events import EVENT_TYPES, make_event_id, validate_event
 from decide_me.taxonomy import taxonomy_by_id
 
@@ -16,9 +17,11 @@ ALL_DECISION_STATUSES = OPEN_DECISION_STATUSES | {
 PRIORITIES = {"P0", "P1", "P2"}
 FRONTIERS = {"now", "later", "discovered-later", "deferred"}
 KINDS = {"choice", "constraint", "risk", "dependency"}
-DOMAINS = {"product", "technical", "data", "ux", "ops", "legal", "other"}
 RESOLVABLE_BY = {"human", "codebase", "docs", "tests", "external"}
 REVERSIBILITY = {"reversible", "hard-to-reverse", "irreversible", "unknown"}
+SESSION_LIFECYCLE_STATUSES = {"active", "closed"}
+TAXONOMY_AXES = {"domain", "abstraction_level", "tag"}
+TAXONOMY_STATUSES = {"active", "replaced"}
 
 
 class StateValidationError(ValueError):
@@ -87,17 +90,35 @@ def validate_project_state(project_state: dict[str, Any]) -> None:
         _require_enum(decision["priority"], PRIORITIES, f"decision {decision['id']}.priority")
         _require_enum(decision["frontier"], FRONTIERS, f"decision {decision['id']}.frontier")
         _require_enum(decision["kind"], KINDS, f"decision {decision['id']}.kind")
-        _require_enum(decision["domain"], DOMAINS, f"decision {decision['id']}.domain")
+        _require_enum(decision["domain"], DOMAIN_VALUES, f"decision {decision['id']}.domain")
         _require_enum(
             decision["resolvable_by"], RESOLVABLE_BY, f"decision {decision['id']}.resolvable_by"
         )
         _require_enum(
             decision["reversibility"], REVERSIBILITY, f"decision {decision['id']}.reversibility"
         )
+        _require_list(decision["depends_on"], f"decision {decision['id']}.depends_on")
+        _require_list(decision["blocked_by"], f"decision {decision['id']}.blocked_by")
+        _require_list(decision["options"], f"decision {decision['id']}.options")
+        _require_list(decision["evidence_refs"], f"decision {decision['id']}.evidence_refs")
+        _require_list(decision["revisit_triggers"], f"decision {decision['id']}.revisit_triggers")
+        _require_list(decision["notes"], f"decision {decision['id']}.notes")
+        _require_dict(decision["recommendation"], f"decision {decision['id']}.recommendation")
+        _require_dict(decision["accepted_answer"], f"decision {decision['id']}.accepted_answer")
+        resolved_by_evidence = _require_dict(
+            decision["resolved_by_evidence"], f"decision {decision['id']}.resolved_by_evidence"
+        )
+        _require_list(
+            resolved_by_evidence.get("evidence_refs"),
+            f"decision {decision['id']}.resolved_by_evidence.evidence_refs",
+        )
         _validate_decision_status_payload(decision)
         if decision["id"] in decision_ids:
             raise StateValidationError(f"duplicate decision id: {decision['id']}")
         decision_ids.add(decision["id"])
+    expected_counts = _recomputed_counts(project_state["decisions"])
+    if project_state["counts"] != expected_counts:
+        raise StateValidationError("project_state.counts does not match decision state")
 
 
 def _validate_decision_status_payload(decision: dict[str, Any]) -> None:
@@ -106,10 +127,20 @@ def _validate_decision_status_payload(decision: dict[str, Any]) -> None:
     accepted_summary = decision.get("accepted_answer", {}).get("summary")
     if status == "accepted":
         _require_non_empty_string(accepted_summary, f"decision {decision_id}.accepted_answer.summary")
+        _require_enum(
+            decision.get("accepted_answer", {}).get("accepted_via"),
+            ACCEPTED_VIA_VALUES - {"evidence"},
+            f"decision {decision_id}.accepted_answer.accepted_via",
+        )
     elif status == "resolved-by-evidence":
         resolved = decision.get("resolved_by_evidence", {})
         _require_non_empty_string(resolved.get("summary"), f"decision {decision_id}.resolved_by_evidence.summary")
         _require_non_empty_string(resolved.get("source"), f"decision {decision_id}.resolved_by_evidence.source")
+        _require_enum(
+            resolved.get("source"),
+            EVIDENCE_SOURCES,
+            f"decision {decision_id}.resolved_by_evidence.source",
+        )
         if decision.get("accepted_answer", {}).get("accepted_via") != "evidence":
             raise StateValidationError(
                 f"decision {decision_id}.accepted_answer.accepted_via must be evidence"
@@ -131,6 +162,10 @@ def validate_session_state(session_state: dict[str, Any]) -> None:
         ("id", "started_at", "last_seen_at", "bound_context_hint", "decision_ids", "lifecycle"),
         "session_state.session",
     )
+    _require_list(session_state["session"]["decision_ids"], "session_state.session.decision_ids")
+    lifecycle = _require_dict(session_state["session"]["lifecycle"], "session_state.session.lifecycle")
+    _require_keys(lifecycle, ("status", "closed_at"), "session_state.session.lifecycle")
+    _require_enum(lifecycle["status"], SESSION_LIFECYCLE_STATUSES, "session_state.session.lifecycle.status")
     _require_keys(
         session_state["summary"],
         ("latest_summary", "current_question_preview", "active_decision_id"),
@@ -172,6 +207,18 @@ def validate_session_state(session_state: dict[str, Any]) -> None:
         ("current_question_id", "current_question", "active_proposal", "last_seen_project_version"),
         "session_state.working_state",
     )
+    for key in ("assigned_tags", "compatibility_tags", "search_terms", "source_refs"):
+        _require_list(session_state["classification"][key], f"session_state.classification.{key}")
+    for key in (
+        "accepted_decisions",
+        "deferred_decisions",
+        "unresolved_blockers",
+        "unresolved_risks",
+        "candidate_workstreams",
+        "candidate_action_slices",
+        "evidence_refs",
+    ):
+        _require_list(session_state["close_summary"][key], f"session_state.close_summary.{key}")
 
 
 def validate_taxonomy_state(taxonomy_state: dict[str, Any]) -> None:
@@ -186,6 +233,10 @@ def validate_taxonomy_state(taxonomy_state: dict[str, Any]) -> None:
             ("id", "axis", "label", "aliases", "parent_id", "replaced_by", "status", "created_at", "updated_at"),
             f"taxonomy node {node.get('id', '?')}",
         )
+        _require_enum(node["axis"], TAXONOMY_AXES, f"taxonomy node {node['id']}.axis")
+        _require_enum(node["status"], TAXONOMY_STATUSES, f"taxonomy node {node['id']}.status")
+        _require_list(node["aliases"], f"taxonomy node {node['id']}.aliases")
+        _require_list(node["replaced_by"], f"taxonomy node {node['id']}.replaced_by")
 
 
 def validate_projection_bundle(bundle: dict[str, Any]) -> None:
@@ -291,7 +342,7 @@ def _validate_classification_refs(
     classification = session["classification"]
     domain = classification.get("domain")
     if domain is not None:
-        _require_enum(domain, DOMAINS, f"session {session_id} classification.domain")
+        _require_enum(domain, DOMAIN_VALUES, f"session {session_id} classification.domain")
     for key in ("assigned_tags", "compatibility_tags"):
         for tag_ref in classification.get(key, []):
             if tag_ref not in taxonomy_ids:
@@ -437,6 +488,7 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
 
     previous_version = 0
     event_ids: set[str] = set()
+    created_session_ids: set[str] = {"SYSTEM"}
     discovered_decision_ids: set[str] = set()
     project_initialized_count = 0
     for sequence, event in enumerate(events, start=1):
@@ -452,20 +504,58 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
                 f"event_id {event['event_id']} does not match sequence {sequence}"
             )
         if event["event_type"] == "project_initialized":
+            if event["session_id"] != "SYSTEM":
+                raise StateValidationError("project_initialized event must use SYSTEM session_id")
             project_initialized_count += 1
             if project_initialized_count > 1:
                 raise StateValidationError("event log must contain exactly one project_initialized event")
             project = event["payload"]["project"]
             for key in ("name", "objective", "current_milestone", "stop_rule"):
                 _require_non_empty_string(project.get(key), f"project_initialized.payload.project.{key}")
+        elif event["event_type"] == "session_created":
+            created_session_id = event["payload"]["session"]["id"]
+            if event["session_id"] != created_session_id:
+                raise StateValidationError("session_created event.session_id must match payload.session.id")
+            if created_session_id in created_session_ids:
+                raise StateValidationError(f"duplicate session_created id: {created_session_id}")
+            created_session_ids.add(created_session_id)
+        else:
+            if event["session_id"] != "SYSTEM" and event["session_id"] not in created_session_ids:
+                raise StateValidationError(f"event references unknown session: {event['session_id']}")
         if event["event_type"] == "decision_discovered":
             decision_id = event["payload"]["decision"]["id"]
             if decision_id in discovered_decision_ids:
                 raise StateValidationError(f"duplicate decision_discovered id: {decision_id}")
             discovered_decision_ids.add(decision_id)
+        else:
+            for decision_id in _decision_refs_in_event(event):
+                if decision_id not in discovered_decision_ids:
+                    raise StateValidationError(
+                        f"{event['event_type']} references undiscovered decision {decision_id}"
+                    )
+        if event["event_type"] == "plan_generated":
+            for referenced_session_id in event["payload"]["session_ids"]:
+                if referenced_session_id not in created_session_ids:
+                    raise StateValidationError(
+                        f"plan_generated references unknown session: {referenced_session_id}"
+                    )
         if event["project_version_after"] <= previous_version:
             raise StateValidationError("event log project_version_after must be strictly increasing")
         previous_version = event["project_version_after"]
+
+
+def _decision_refs_in_event(event: dict[str, Any]) -> list[str]:
+    event_type = event["event_type"]
+    payload = event["payload"]
+    if event_type in {"decision_enriched", "question_asked", "decision_deferred", "decision_resolved_by_evidence"}:
+        return [payload["decision_id"]]
+    if event_type == "proposal_issued":
+        return [payload["proposal"]["target_id"]]
+    if event_type in {"proposal_accepted", "proposal_rejected"}:
+        return [payload["target_id"]]
+    if event_type == "decision_invalidated":
+        return [payload["decision_id"], payload["invalidated_by_decision_id"]]
+    return []
 
 
 def _require_non_empty_string(value: Any, label: str) -> None:
@@ -473,7 +563,35 @@ def _require_non_empty_string(value: Any, label: str) -> None:
         raise StateValidationError(f"{label} must be a non-empty string")
 
 
+def _require_dict(value: Any, label: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise StateValidationError(f"{label} must be an object")
+    return value
+
+
+def _require_list(value: Any, label: str) -> None:
+    if not isinstance(value, list):
+        raise StateValidationError(f"{label} must be a list")
+
+
 def _require_enum(value: Any, allowed: set[str], label: str) -> None:
     if value not in allowed:
         choices = ", ".join(sorted(allowed))
         raise StateValidationError(f"{label} must be one of: {choices}")
+
+
+def _recomputed_counts(decisions: list[dict[str, Any]]) -> dict[str, int]:
+    counts = {"p0_now_open": 0, "p1_now_open": 0, "p2_open": 0, "blocked": 0, "deferred": 0}
+    for decision in decisions:
+        status = decision["status"]
+        if decision["priority"] == "P0" and decision["frontier"] == "now" and status in OPEN_DECISION_STATUSES:
+            counts["p0_now_open"] += 1
+        if decision["priority"] == "P1" and decision["frontier"] == "now" and status in OPEN_DECISION_STATUSES:
+            counts["p1_now_open"] += 1
+        if decision["priority"] == "P2" and status in OPEN_DECISION_STATUSES:
+            counts["p2_open"] += 1
+        if status == "blocked":
+            counts["blocked"] += 1
+        if status == "deferred":
+            counts["deferred"] += 1
+    return counts
