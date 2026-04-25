@@ -24,6 +24,29 @@ REVERSIBILITY = {"reversible", "hard-to-reverse", "irreversible", "unknown"}
 SESSION_LIFECYCLE_STATUSES = {"active", "closed"}
 TAXONOMY_AXES = {"domain", "abstraction_level", "tag"}
 TAXONOMY_STATUSES = {"active", "replaced"}
+SYSTEM_SESSION_ID = "SYSTEM"
+SYSTEM_EVENT_TYPES = {
+    "project_initialized",
+    "plan_generated",
+}
+SESSION_SCOPED_EVENT_TYPES = {
+    "session_created",
+    "session_resumed",
+    "decision_discovered",
+    "decision_enriched",
+    "question_asked",
+    "proposal_issued",
+    "proposal_accepted",
+    "proposal_rejected",
+    "decision_deferred",
+    "decision_resolved_by_evidence",
+    "decision_invalidated",
+    "classification_updated",
+    "close_summary_generated",
+    "session_closed",
+    "taxonomy_extended",
+    "compatibility_backfilled",
+}
 SESSION_MUTATION_EVENT_TYPES = {
     "session_resumed",
     "decision_discovered",
@@ -280,6 +303,7 @@ def validate_projection_bundle(bundle: dict[str, Any]) -> None:
         if proposal.get("is_active") and proposal.get("target_id"):
             active_proposal_targets.setdefault(proposal["target_id"], []).append(session_id)
     _validate_decision_references(decisions_by_id, active_proposal_targets)
+    _validate_visible_decision_bindings(bundle["sessions"], _visible_decision_ids(decisions_by_id))
 
 
 def _decision_index(project_state: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -334,6 +358,21 @@ def _validate_decision_references(
                 raise StateValidationError(
                     f"decision {decision_id} is proposed but has {len(owners)} active proposal targets"
                 )
+
+
+def _validate_visible_decision_bindings(
+    sessions: dict[str, dict[str, Any]], visible_decision_ids: set[str]
+) -> None:
+    bound_decision_ids = {
+        decision_id
+        for session in sessions.values()
+        for decision_id in session["session"]["decision_ids"]
+    }
+    unbound = visible_decision_ids - bound_decision_ids
+    if unbound:
+        raise StateValidationError(
+            f"visible decisions are not bound to any session: {sorted(unbound)}"
+        )
 
 
 def _validate_session_integrity(
@@ -424,6 +463,18 @@ def _validate_active_proposal(
         )
 
     proposal_id = active.get("proposal_id")
+    if active.get("is_active"):
+        if active.get("inactive_reason") is not None:
+            raise StateValidationError(
+                f"session {session_id} active proposal must not have inactive_reason"
+            )
+    elif proposal_id and (
+        not isinstance(active.get("inactive_reason"), str)
+        or not active.get("inactive_reason", "").strip()
+    ):
+        raise StateValidationError(
+            f"session {session_id} inactive proposal must have inactive_reason"
+        )
     if not proposal_id:
         return
 
@@ -532,13 +583,13 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
     first = events[0]
     if first.get("event_type") != "project_initialized":
         raise StateValidationError("event log must start with project_initialized")
-    if first.get("session_id") != "SYSTEM":
+    if first.get("session_id") != SYSTEM_SESSION_ID:
         raise StateValidationError("project_initialized event must use SYSTEM session_id")
 
     previous_version = 0
     event_ids: set[str] = set()
-    created_session_ids: set[str] = {"SYSTEM"}
-    session_status: dict[str, str] = {"SYSTEM": "active"}
+    created_session_ids: set[str] = {SYSTEM_SESSION_ID}
+    session_status: dict[str, str] = {SYSTEM_SESSION_ID: "active"}
     session_decision_ids: dict[str, set[str]] = defaultdict(set)
     decision_status: dict[str, str] = {}
     has_close_summary: dict[str, bool] = {}
@@ -562,8 +613,9 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
             raise StateValidationError(
                 f"event_id {event['event_id']} does not match sequence {sequence}"
             )
+        _validate_event_log_session_scope(event, created_session_ids)
         if event["event_type"] == "project_initialized":
-            if event["session_id"] != "SYSTEM":
+            if event["session_id"] != SYSTEM_SESSION_ID:
                 raise StateValidationError("project_initialized event must use SYSTEM session_id")
             project_initialized_count += 1
             if project_initialized_count > 1:
@@ -583,8 +635,6 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
             has_close_summary[created_session_id] = False
             active_proposal_by_session[created_session_id] = None
         else:
-            if event["session_id"] != "SYSTEM" and event["session_id"] not in created_session_ids:
-                raise StateValidationError(f"event references unknown session: {event['session_id']}")
             if (
                 event["event_type"] in SESSION_MUTATION_EVENT_TYPES
                 and session_status.get(event["session_id"]) == "closed"
@@ -687,6 +737,9 @@ def _validate_event_log_proposal_lifecycle(
             "target_id": proposal["target_id"],
             "target_type": proposal["target_type"],
         }
+        previous = active_proposal_by_session.get(event["session_id"])
+        if previous:
+            disabled_proposals.add(previous)
         active_proposal_by_session[event["session_id"]] = proposal_id
     elif event_type in {"proposal_accepted", "proposal_rejected"}:
         proposal_id = payload["proposal_id"]
@@ -714,6 +767,22 @@ def _validate_event_log_proposal_lifecycle(
             active_proposal_by_session[payload["origin_session_id"]] = None
         else:
             rejected_proposals.add(proposal_id)
+
+
+def _validate_event_log_session_scope(event: dict[str, Any], created_session_ids: set[str]) -> None:
+    event_type = event["event_type"]
+    session_id = event["session_id"]
+    if event_type in SYSTEM_EVENT_TYPES:
+        if session_id != SYSTEM_SESSION_ID:
+            raise StateValidationError(f"{event_type} must use SYSTEM session_id")
+        return
+    if event_type in SESSION_SCOPED_EVENT_TYPES:
+        if session_id == SYSTEM_SESSION_ID:
+            raise StateValidationError(f"{event_type} must not use SYSTEM session_id")
+        if event_type != "session_created" and session_id not in created_session_ids:
+            raise StateValidationError(f"event references unknown session: {session_id}")
+        return
+    raise StateValidationError(f"event type has no session scope: {event_type}")
 
 
 def _validate_event_log_decision_transition(

@@ -243,6 +243,7 @@ def answer_proposal(
     acceptance_mode: str = "explicit",
 ) -> dict[str, Any]:
     now = utc_now()
+    normalized_reason = reason.strip() if reason and reason.strip() else None
     target_id: dict[str, str] = {}
 
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
@@ -270,7 +271,7 @@ def answer_proposal(
                         "origin_session_id": target["origin_session_id"],
                         "target_type": target["target_type"],
                         "target_id": target["target_id"],
-                        "reason": reason or "User supplied an alternative answer.",
+                        "reason": normalized_reason or "User supplied an alternative answer.",
                     },
                 }
             )

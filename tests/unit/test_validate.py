@@ -17,6 +17,13 @@ class ProjectionValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(StateValidationError, "unknown decision"):
             validate_projection_bundle(bundle)
 
+    def test_rejects_visible_decision_unbound_to_any_session(self) -> None:
+        bundle = _valid_bundle()
+        bundle["sessions"]["S-001"]["session"]["decision_ids"] = []
+
+        with self.assertRaisesRegex(StateValidationError, "not bound to any session"):
+            validate_projection_bundle(bundle)
+
     def test_rejects_active_proposal_not_owned_by_session(self) -> None:
         bundle = _valid_bundle()
         session = bundle["sessions"]["S-001"]
@@ -44,6 +51,39 @@ class ProjectionValidationTests(unittest.TestCase):
         )
 
         with self.assertRaisesRegex(StateValidationError, "not bound"):
+            validate_projection_bundle(bundle)
+
+    def test_rejects_active_proposal_with_inactive_reason(self) -> None:
+        bundle = _valid_bundle()
+        decision = bundle["project_state"]["decisions"][0]
+        decision["status"] = "proposed"
+        decision["recommendation"]["proposal_id"] = "P-001"
+        session = bundle["sessions"]["S-001"]
+        session["summary"]["active_decision_id"] = "D-001"
+        active = _active_proposal(
+            proposal_id="P-001",
+            origin_session_id="S-001",
+            decision_id="D-001",
+        )
+        active["inactive_reason"] = "session-boundary"
+        session["working_state"]["active_proposal"] = active
+
+        with self.assertRaisesRegex(StateValidationError, "must not have inactive_reason"):
+            validate_projection_bundle(bundle)
+
+    def test_rejects_inactive_proposal_without_inactive_reason(self) -> None:
+        bundle = _valid_bundle()
+        session = bundle["sessions"]["S-001"]
+        inactive = _active_proposal(
+            proposal_id="P-001",
+            origin_session_id="S-001",
+            decision_id="D-001",
+        )
+        inactive["is_active"] = False
+        inactive["inactive_reason"] = None
+        session["working_state"]["active_proposal"] = inactive
+
+        with self.assertRaisesRegex(StateValidationError, "inactive proposal must have inactive_reason"):
             validate_projection_bundle(bundle)
 
     def test_rejects_unknown_taxonomy_tag_reference(self) -> None:
@@ -288,6 +328,38 @@ class ProjectionValidationTests(unittest.TestCase):
 
         with self.assertRaisesRegex(StateValidationError, "unknown session"):
             validate_event_log([initialized, discovered])
+
+    def test_event_log_rejects_session_scoped_event_with_system_session_id(self) -> None:
+        initialized = _project_initialized(1)
+        discovered = _decision_discovered(2, "SYSTEM", "D-001")
+
+        with self.assertRaisesRegex(StateValidationError, "decision_discovered must not use SYSTEM"):
+            validate_event_log([initialized, discovered])
+
+    def test_event_log_rejects_other_session_scoped_events_with_system_session_id(self) -> None:
+        cases = {
+            "session_created": [_project_initialized(1), _session_created(2, "SYSTEM")],
+            "session_resumed": [_project_initialized(1), _session_resumed(2, "SYSTEM")],
+            "proposal_issued": [
+                _project_initialized(1),
+                _session_created(2, "S-001"),
+                _decision_discovered(3, "S-001", "D-001"),
+                _proposal_issued(4, "SYSTEM", "D-001"),
+            ],
+            "decision_deferred": [
+                _project_initialized(1),
+                _session_created(2, "S-001"),
+                _decision_discovered(3, "S-001", "D-001"),
+                _decision_deferred(4, "SYSTEM", "D-001"),
+            ],
+        }
+
+        for event_type, events in cases.items():
+            with self.subTest(event_type=event_type):
+                with self.assertRaisesRegex(
+                    StateValidationError, f"{event_type} must not use SYSTEM"
+                ):
+                    validate_event_log(events)
 
     def test_event_log_rejects_session_created_id_mismatch(self) -> None:
         initialized = _project_initialized(1)
@@ -603,6 +675,28 @@ class ProjectionValidationTests(unittest.TestCase):
         late_accept = _proposal_accepted(7, "S-001", "D-001", "P-001")
         with self.assertRaisesRegex(StateValidationError, "proposal_accepted cannot target"):
             validate_event_log([initialized, session, discovered, proposal, rejected, enriched, late_accept])
+
+    def test_event_log_rejects_response_to_superseded_proposal(self) -> None:
+        initialized = _project_initialized(1)
+        session = _session_created(2, "S-001")
+        discovered = _decision_discovered(3, "S-001", "D-001")
+        first_proposal = _proposal_issued(4, "S-001", "D-001", proposal_id="P-001")
+        rejected = _proposal_rejected(5, "S-001", "D-001", "P-001")
+        second_proposal = _proposal_issued(6, "S-001", "D-001", proposal_id="P-002")
+        late_accept = _proposal_accepted(7, "S-001", "D-001", "P-001")
+
+        with self.assertRaisesRegex(StateValidationError, "inactive proposal P-001"):
+            validate_event_log(
+                [
+                    initialized,
+                    session,
+                    discovered,
+                    first_proposal,
+                    rejected,
+                    second_proposal,
+                    late_accept,
+                ]
+            )
 
     def test_event_log_rejects_invalid_decision_state_transitions(self) -> None:
         initialized = _project_initialized(1)

@@ -22,7 +22,14 @@ from decide_me.protocol import (
     resolve_by_evidence,
     update_classification,
 )
-from decide_me.store import bootstrap_runtime, rebuild_and_persist, transact, validate_runtime
+from decide_me.store import (
+    bootstrap_runtime,
+    read_event_log,
+    rebuild_and_persist,
+    runtime_paths,
+    transact,
+    validate_runtime,
+)
 
 
 class RuntimeFlowTests(unittest.TestCase):
@@ -606,6 +613,78 @@ class RuntimeFlowTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "reason"):
                 reject_proposal(ai_dir, session_id, reason=" ")
 
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_answer_proposal_normalizes_reason(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Normalize answer reasons",
+                current_milestone="MVP",
+            )
+            session_id = create_session(ai_dir, context="Decision thread")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-default-reason",
+                    "title": "Auth mode",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "question": "How should auth work?",
+                },
+            )
+            issue_proposal(
+                ai_dir,
+                session_id,
+                decision_id="D-default-reason",
+                question="Use magic links?",
+                recommendation="Use magic links.",
+                why="Smaller MVP surface area.",
+                if_not="Passwords expand auth scope.",
+            )
+            answer_proposal(ai_dir, session_id, answer_summary="Use passwords.", reason="   ")
+
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-custom-reason",
+                    "title": "Audit sink",
+                    "priority": "P1",
+                    "frontier": "later",
+                    "domain": "ops",
+                    "question": "Where should audit logs land?",
+                },
+            )
+            issue_proposal(
+                ai_dir,
+                session_id,
+                decision_id="D-custom-reason",
+                question="Use the product database?",
+                recommendation="Use the product database.",
+                why="Cheaper for the milestone.",
+                if_not="A separate sink becomes in scope now.",
+            )
+            answer_proposal(
+                ai_dir,
+                session_id,
+                answer_summary="Use a separate audit sink.",
+                reason="custom reason",
+            )
+
+            rejected_reasons = [
+                event["payload"]["reason"]
+                for event in read_event_log(runtime_paths(ai_dir))
+                if event["event_type"] == "proposal_rejected"
+            ]
+            self.assertEqual(
+                ["User supplied an alternative answer.", "custom reason"],
+                rejected_reasons,
+            )
             self.assertEqual([], validate_runtime(ai_dir))
 
     def test_enrich_decision_accepts_individual_append_fields(self) -> None:
