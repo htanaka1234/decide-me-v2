@@ -662,6 +662,7 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
     rejected_proposals: set[str] = set()
     pending_rejected_proposal_id: str | None = None
     pending_question: dict[str, str] | None = None
+    pending_close_summary_session_id: str | None = None
     project_initialized_count = 0
     for sequence, event in enumerate(events, start=1):
         validate_event(event)
@@ -680,6 +681,15 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
                 f"event {event['event_id']} project_version_after must equal sequence {sequence}"
             )
         _validate_event_log_session_scope(event, created_session_ids)
+        if pending_close_summary_session_id is not None:
+            if (
+                event["event_type"] != "session_closed"
+                or event["session_id"] != pending_close_summary_session_id
+            ):
+                raise StateValidationError(
+                    "close_summary_generated must be followed by matching session_closed"
+                )
+            pending_close_summary_session_id = None
         if event["event_type"] == "project_initialized":
             if event["session_id"] != SYSTEM_SESSION_ID:
                 raise StateValidationError("project_initialized event must use SYSTEM session_id")
@@ -745,6 +755,12 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
             accepted_proposals,
             rejected_proposals,
         )
+        _deactivate_active_proposal_for_decision_event(
+            event,
+            issued_proposals,
+            active_proposal_by_session,
+            disabled_proposals,
+        )
         accepts_immediate_rejected_proposal = (
             event["event_type"] == "proposal_accepted"
             and event["payload"]["proposal_id"] == pending_rejected_proposal_id
@@ -760,6 +776,7 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
             pending_rejected_proposal_id = None
         if event["event_type"] == "close_summary_generated":
             has_close_summary[event["session_id"]] = True
+            pending_close_summary_session_id = event["session_id"]
         if event["event_type"] == "plan_generated":
             for referenced_session_id in event["payload"]["session_ids"]:
                 if referenced_session_id not in created_session_ids:
@@ -791,6 +808,8 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
         previous_version = event["project_version_after"]
     if pending_question is not None:
         raise StateValidationError("question_asked must be followed by matching proposal_issued")
+    if pending_close_summary_session_id is not None:
+        raise StateValidationError("close_summary_generated must be followed by matching session_closed")
 
 
 def _validate_event_log_proposal_lifecycle(
@@ -865,6 +884,33 @@ def _expire_pending_rejected_proposal(
     if active_proposal_by_session.get(origin_session_id) == pending_rejected_proposal_id:
         active_proposal_by_session[origin_session_id] = None
     return None
+
+
+def _deactivate_active_proposal_for_decision_event(
+    event: dict[str, Any],
+    issued_proposals: dict[str, dict[str, str]],
+    active_proposal_by_session: dict[str, str | None],
+    disabled_proposals: set[str],
+) -> None:
+    event_type = event["event_type"]
+    if event_type not in {"decision_deferred", "decision_resolved_by_evidence"}:
+        return
+
+    session_id = event["session_id"]
+    decision_id = event["payload"]["decision_id"]
+    active_proposal_id = active_proposal_by_session.get(session_id)
+    if not active_proposal_id:
+        return
+
+    active_target_id = issued_proposals[active_proposal_id]["target_id"]
+    if active_target_id != decision_id:
+        raise StateValidationError(
+            f"{event_type} targets {decision_id} while proposal "
+            f"{active_proposal_id} is active for {active_target_id}"
+        )
+
+    disabled_proposals.add(active_proposal_id)
+    active_proposal_by_session[session_id] = None
 
 
 def _validate_event_log_question_pairing(

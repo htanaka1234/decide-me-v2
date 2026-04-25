@@ -632,6 +632,28 @@ class ProjectionValidationTests(unittest.TestCase):
                 ]
             )
 
+    def test_event_log_rejects_defer_of_other_decision_while_proposal_active(self) -> None:
+        initialized = _project_initialized(1)
+        session = _session_created(2, "S-001")
+        first_decision = _decision_discovered(3, "S-001", "D-001")
+        second_decision = _decision_discovered(4, "S-001", "D-002")
+        proposal = _proposal_issued(5, "S-001", "D-001", proposal_id="P-001")
+        deferred = _decision_deferred(6, "S-001", "D-002")
+
+        with self.assertRaisesRegex(StateValidationError, "decision_deferred targets D-002"):
+            validate_event_log([initialized, session, first_decision, second_decision, proposal, deferred])
+
+    def test_event_log_rejects_evidence_resolution_of_other_decision_while_proposal_active(self) -> None:
+        initialized = _project_initialized(1)
+        session = _session_created(2, "S-001")
+        first_decision = _decision_discovered(3, "S-001", "D-001")
+        second_decision = _decision_discovered(4, "S-001", "D-002")
+        proposal = _proposal_issued(5, "S-001", "D-001", proposal_id="P-001")
+        resolved = _decision_resolved_by_evidence(6, "S-001", "D-002")
+
+        with self.assertRaisesRegex(StateValidationError, "decision_resolved_by_evidence targets D-002"):
+            validate_event_log([initialized, session, first_decision, second_decision, proposal, resolved])
+
     def test_event_log_rejects_duplicate_proposal_id(self) -> None:
         initialized = _project_initialized(1)
         session = _session_created(2, "S-001")
@@ -906,6 +928,32 @@ class ProjectionValidationTests(unittest.TestCase):
 
         with self.assertRaisesRegex(StateValidationError, "prior close_summary_generated"):
             validate_event_log([initialized, session, closed])
+
+    def test_event_log_rejects_unclosed_close_summary_generated(self) -> None:
+        initialized = _project_initialized(1)
+        session = _session_created(2, "S-001")
+        close_summary = _close_summary_generated(3, "S-001")
+
+        with self.assertRaisesRegex(StateValidationError, "close_summary_generated must be followed"):
+            validate_event_log([initialized, session, close_summary])
+
+    def test_event_log_rejects_interrupted_close_summary_close_pair(self) -> None:
+        initialized = _project_initialized(1)
+        session = _session_created(2, "S-001")
+        close_summary = _close_summary_generated(3, "S-001")
+        resumed = _session_resumed(4, "S-001")
+        closed = _session_closed(5, "S-001")
+
+        with self.assertRaisesRegex(StateValidationError, "close_summary_generated must be followed"):
+            validate_event_log([initialized, session, close_summary, resumed, closed])
+
+    def test_event_log_accepts_close_summary_followed_by_session_closed(self) -> None:
+        initialized = _project_initialized(1)
+        session = _session_created(2, "S-001")
+        close_summary = _close_summary_generated(3, "S-001")
+        closed = _session_closed(4, "S-001")
+
+        validate_event_log([initialized, session, close_summary, closed])
 
     def test_event_log_rejects_plan_generated_for_active_session(self) -> None:
         initialized = _project_initialized(1)

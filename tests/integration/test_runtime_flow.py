@@ -536,6 +536,107 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertTrue(active["is_active"])
             self.assertEqual([], validate_runtime(ai_dir))
 
+    def test_defer_active_proposal_allows_next_decision_proposal(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Continue after deferring an active proposal",
+                current_milestone="MVP",
+            )
+            session_id = create_session(ai_dir, context="Decision thread")["session"]["id"]
+            for decision_id, title in (("D-first", "Auth mode"), ("D-next", "Audit sink")):
+                discover_decision(
+                    ai_dir,
+                    session_id,
+                    {
+                        "id": decision_id,
+                        "title": title,
+                        "priority": "P0",
+                        "frontier": "now",
+                        "domain": "technical",
+                        "question": f"What should we do about {title.lower()}?",
+                    },
+                )
+
+            issue_proposal(
+                ai_dir,
+                session_id,
+                decision_id="D-first",
+                question="Use magic links?",
+                recommendation="Use magic links.",
+                why="Smaller MVP surface area.",
+                if_not="Passwords expand auth scope.",
+            )
+            defer_decision(ai_dir, session_id, decision_id="D-first", reason="Move it later.")
+            proposal = issue_proposal(
+                ai_dir,
+                session_id,
+                decision_id="D-next",
+                question="Use the product database?",
+                recommendation="Use the product database.",
+                why="Lowest operational overhead.",
+                if_not="A separate sink becomes in scope now.",
+            )
+
+            self.assertEqual("D-next", proposal["target_id"])
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_evidence_resolve_active_proposal_allows_next_decision_proposal(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Continue after resolving an active proposal",
+                current_milestone="MVP",
+            )
+            session_id = create_session(ai_dir, context="Decision thread")["session"]["id"]
+            for decision_id, title in (("D-first", "Auth mode"), ("D-next", "Audit sink")):
+                discover_decision(
+                    ai_dir,
+                    session_id,
+                    {
+                        "id": decision_id,
+                        "title": title,
+                        "priority": "P0",
+                        "frontier": "now",
+                        "domain": "technical",
+                        "question": f"What should we do about {title.lower()}?",
+                    },
+                )
+
+            issue_proposal(
+                ai_dir,
+                session_id,
+                decision_id="D-first",
+                question="Use magic links?",
+                recommendation="Use magic links.",
+                why="Smaller MVP surface area.",
+                if_not="Passwords expand auth scope.",
+            )
+            resolve_by_evidence(
+                ai_dir,
+                session_id,
+                decision_id="D-first",
+                source="codebase",
+                summary="Use the existing magic-link flow.",
+                evidence_refs=["app/auth.py"],
+            )
+            proposal = issue_proposal(
+                ai_dir,
+                session_id,
+                decision_id="D-next",
+                question="Use the product database?",
+                recommendation="Use the product database.",
+                why="Lowest operational overhead.",
+                if_not="A separate sink becomes in scope now.",
+            )
+
+            self.assertEqual("D-next", proposal["target_id"])
+            self.assertEqual([], validate_runtime(ai_dir))
+
     def test_issue_proposal_rejects_empty_text_fields(self) -> None:
         with TemporaryDirectory() as tmp:
             ai_dir = str(Path(tmp) / ".ai" / "decide-me")
