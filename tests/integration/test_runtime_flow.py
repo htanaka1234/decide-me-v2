@@ -529,6 +529,85 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertTrue(active["is_active"])
             self.assertEqual([], validate_runtime(ai_dir))
 
+    def test_issue_proposal_rejects_empty_text_fields(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Reject empty proposal text",
+                current_milestone="MVP",
+            )
+            session_id = create_session(ai_dir, context="Decision thread")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-empty-proposal",
+                    "title": "Auth mode",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "question": "How should auth work?",
+                },
+            )
+            kwargs = {
+                "decision_id": "D-empty-proposal",
+                "question": "Use magic links?",
+                "recommendation": "Use magic links.",
+                "why": "Smaller MVP surface area.",
+                "if_not": "Passwords expand auth scope.",
+            }
+
+            for field in ("question", "recommendation", "why", "if_not"):
+                with self.subTest(field=field):
+                    candidate = dict(kwargs)
+                    candidate[field] = " "
+                    with self.assertRaisesRegex(ValueError, field):
+                        issue_proposal(ai_dir, session_id, **candidate)
+
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_reason_commands_require_non_empty_reason(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Reject empty reasons",
+                current_milestone="MVP",
+            )
+            session_id = create_session(ai_dir, context="Decision thread")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-empty-reason",
+                    "title": "Auth mode",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "question": "How should auth work?",
+                },
+            )
+
+            with self.assertRaisesRegex(ValueError, "reason"):
+                defer_decision(ai_dir, session_id, decision_id="D-empty-reason", reason="")
+
+            issue_proposal(
+                ai_dir,
+                session_id,
+                decision_id="D-empty-reason",
+                question="Use magic links?",
+                recommendation="Use magic links.",
+                why="Smaller MVP surface area.",
+                if_not="Passwords expand auth scope.",
+            )
+            with self.assertRaisesRegex(ValueError, "reason"):
+                reject_proposal(ai_dir, session_id, reason=" ")
+
+            self.assertEqual([], validate_runtime(ai_dir))
+
     def test_enrich_decision_accepts_individual_append_fields(self) -> None:
         with TemporaryDirectory() as tmp:
             ai_dir = str(Path(tmp) / ".ai" / "decide-me")
@@ -1118,6 +1197,59 @@ class RuntimeFlowTests(unittest.TestCase):
 
             old_session = show_session(ai_dir, old_session_id)["session"]
             self.assertEqual([], old_session["session"]["decision_ids"])
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_invalidation_chain_remains_valid(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Allow chained replacement decisions",
+                current_milestone="MVP",
+            )
+            session_id = create_session(ai_dir, context="Replacement chain")["session"]["id"]
+            for decision_id in ("D-old", "D-replacement", "D-final"):
+                discover_decision(
+                    ai_dir,
+                    session_id,
+                    {
+                        "id": decision_id,
+                        "title": decision_id,
+                        "priority": "P0",
+                        "frontier": "now",
+                        "domain": "technical",
+                        "question": f"What should {decision_id} decide?",
+                    },
+                )
+                issue_proposal(
+                    ai_dir,
+                    session_id,
+                    decision_id=decision_id,
+                    question=f"Use {decision_id}?",
+                    recommendation=f"Use {decision_id}.",
+                    why="It is the current replacement.",
+                    if_not="Keep the earlier decision.",
+                )
+                accept_proposal(ai_dir, session_id)
+
+            invalidate_decision(
+                ai_dir,
+                session_id,
+                decision_id="D-old",
+                invalidated_by_decision_id="D-replacement",
+                reason="Superseded by the replacement.",
+            )
+            invalidate_decision(
+                ai_dir,
+                session_id,
+                decision_id="D-replacement",
+                invalidated_by_decision_id="D-final",
+                reason="Superseded by the final replacement.",
+            )
+
+            shown = show_session(ai_dir, session_id)["session"]
+            self.assertEqual(["D-final"], shown["session"]["decision_ids"])
             self.assertEqual([], validate_runtime(ai_dir))
 
     def test_advance_session_skips_invalidated_active_proposal(self) -> None:

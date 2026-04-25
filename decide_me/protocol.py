@@ -91,6 +91,10 @@ def issue_proposal(
     why: str,
     if_not: str,
 ) -> dict[str, Any]:
+    question = _require_non_empty_text(question, "question")
+    recommendation = _require_non_empty_text(recommendation, "recommendation")
+    why = _require_non_empty_text(why, "why")
+    if_not = _require_non_empty_text(if_not, "if_not")
     now = utc_now()
     question_id = new_entity_id("Q")
     proposal_id = new_entity_id("P")
@@ -200,6 +204,7 @@ def accept_proposal(
 def reject_proposal(
     ai_dir: str, session_id: str, *, reason: str, proposal_id: str | None = None
 ) -> dict[str, Any]:
+    reason = _require_non_empty_text(reason, "reason")
     target_id: dict[str, str] = {}
 
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
@@ -297,6 +302,8 @@ def answer_proposal(
 
 
 def defer_decision(ai_dir: str, session_id: str, *, decision_id: str, reason: str) -> dict[str, Any]:
+    reason = _require_non_empty_text(reason, "reason")
+
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
         session = _require_mutable_session(bundle, session_id)
         _require_bound_decision(session, decision_id)
@@ -634,3 +641,9 @@ def _require_acceptance_mode(mode: str) -> None:
     if mode not in ACCEPTED_VIA_VALUES - {"evidence"}:
         allowed = ", ".join(sorted(ACCEPTED_VIA_VALUES - {"evidence"}))
         raise ValueError(f"accepted_via must be one of: {allowed}")
+
+
+def _require_non_empty_text(value: Any, label: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{label} must not be empty")
+    return value.strip()

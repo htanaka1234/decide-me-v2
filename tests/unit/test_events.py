@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from copy import deepcopy
 
 from decide_me.events import EventValidationError, build_event, validate_event
 
@@ -49,6 +50,40 @@ class EventTests(unittest.TestCase):
                 timestamp="2026-04-23T12:00:00Z",
             )
 
+    def test_proposal_issued_requires_non_empty_text_fields(self) -> None:
+        payload = {
+            "proposal": {
+                "proposal_id": "P-001",
+                "origin_session_id": "S-001",
+                "target_type": "decision",
+                "target_id": "D-001",
+                "recommendation_version": 1,
+                "based_on_project_version": 3,
+                "question_id": "Q-001",
+                "question": "Question?",
+                "recommendation": "Use it.",
+                "why": "Reason.",
+                "if_not": "Alternative.",
+                "is_active": True,
+                "activated_at": "2026-04-23T12:00:00Z",
+                "inactive_reason": None,
+            }
+        }
+
+        for field in ("question", "recommendation", "why", "if_not"):
+            with self.subTest(field=field):
+                candidate = deepcopy(payload)
+                candidate["proposal"][field] = ""
+                with self.assertRaisesRegex(EventValidationError, field):
+                    build_event(
+                        sequence=1,
+                        session_id="S-001",
+                        event_type="proposal_issued",
+                        project_version_after=4,
+                        payload=candidate,
+                        timestamp="2026-04-23T12:00:00Z",
+                    )
+
     def test_proposal_acceptance_origin_must_match_event_session(self) -> None:
         with self.assertRaisesRegex(EventValidationError, "must match"):
             build_event(
@@ -67,6 +102,47 @@ class EventTests(unittest.TestCase):
                         "accepted_via": "explicit",
                         "proposal_id": "P-001",
                     },
+                },
+                timestamp="2026-04-23T12:00:00Z",
+            )
+
+    def test_reason_events_require_non_empty_reason(self) -> None:
+        with self.assertRaisesRegex(EventValidationError, "decision_deferred.payload.reason"):
+            build_event(
+                sequence=1,
+                session_id="S-001",
+                event_type="decision_deferred",
+                project_version_after=4,
+                payload={"decision_id": "D-001", "reason": ""},
+                timestamp="2026-04-23T12:00:00Z",
+            )
+
+        with self.assertRaisesRegex(EventValidationError, "proposal_rejected.payload.reason"):
+            build_event(
+                sequence=1,
+                session_id="S-001",
+                event_type="proposal_rejected",
+                project_version_after=4,
+                payload={
+                    "proposal_id": "P-001",
+                    "origin_session_id": "S-001",
+                    "target_type": "decision",
+                    "target_id": "D-001",
+                    "reason": "",
+                },
+                timestamp="2026-04-23T12:00:00Z",
+            )
+
+        with self.assertRaisesRegex(EventValidationError, "decision_invalidated.payload.reason"):
+            build_event(
+                sequence=1,
+                session_id="S-001",
+                event_type="decision_invalidated",
+                project_version_after=4,
+                payload={
+                    "decision_id": "D-001",
+                    "invalidated_by_decision_id": "D-002",
+                    "reason": "",
                 },
                 timestamp="2026-04-23T12:00:00Z",
             )

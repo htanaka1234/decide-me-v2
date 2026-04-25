@@ -74,6 +74,22 @@ class ProjectionValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(StateValidationError, "non-visible decision"):
             validate_projection_bundle(bundle)
 
+    def test_rejects_invalidated_decision_with_non_final_invalidator(self) -> None:
+        bundle = _valid_bundle()
+        replacement = default_decision("D-002", "Replacement")
+        bundle["project_state"]["decisions"].append(replacement)
+        invalidated = bundle["project_state"]["decisions"][0]
+        invalidated["status"] = "invalidated"
+        invalidated["invalidated_by"] = {
+            "decision_id": "D-002",
+            "reason": "Superseded.",
+            "invalidated_at": "2026-04-23T12:00:00Z",
+        }
+        bundle["sessions"]["S-001"]["session"]["decision_ids"] = []
+
+        with self.assertRaisesRegex(StateValidationError, "non-final decision D-002"):
+            validate_projection_bundle(bundle)
+
     def test_rejects_accepted_answer_proposal_mismatch(self) -> None:
         bundle = _valid_bundle()
         decision = bundle["project_state"]["decisions"][0]
@@ -445,6 +461,90 @@ class ProjectionValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(StateValidationError, "invalidating decision D-new not bound"):
             validate_event_log([initialized, session_a, session_b, old_decision, new_decision, invalidated])
 
+    def test_event_log_rejects_non_final_invalidating_decision(self) -> None:
+        initialized = _project_initialized(1)
+        session = _session_created(2, "S-001")
+
+        unresolved = [
+            initialized,
+            session,
+            _decision_discovered(3, "S-001", "D-old"),
+            _decision_discovered(4, "S-001", "D-new"),
+            _decision_invalidated(5, "S-001", "D-old", "D-new"),
+        ]
+        with self.assertRaisesRegex(StateValidationError, "decision_invalidated cannot target"):
+            validate_event_log(unresolved)
+
+        blocked = [
+            initialized,
+            session,
+            _decision_discovered(3, "S-001", "D-old"),
+            _decision_discovered(4, "S-001", "D-new", status="blocked"),
+            _decision_invalidated(5, "S-001", "D-old", "D-new"),
+        ]
+        with self.assertRaisesRegex(StateValidationError, "decision_invalidated cannot target"):
+            validate_event_log(blocked)
+
+        deferred = [
+            initialized,
+            session,
+            _decision_discovered(3, "S-001", "D-old"),
+            _decision_discovered(4, "S-001", "D-new"),
+            _decision_deferred(5, "S-001", "D-new"),
+            _decision_invalidated(6, "S-001", "D-old", "D-new"),
+        ]
+        with self.assertRaisesRegex(StateValidationError, "decision_invalidated cannot target"):
+            validate_event_log(deferred)
+
+        rejected = [
+            initialized,
+            session,
+            _decision_discovered(3, "S-001", "D-old"),
+            _decision_discovered(4, "S-001", "D-new"),
+            _proposal_issued(5, "S-001", "D-new", proposal_id="P-001"),
+            _proposal_rejected(6, "S-001", "D-new", "P-001"),
+            _decision_invalidated(7, "S-001", "D-old", "D-new"),
+        ]
+        with self.assertRaisesRegex(StateValidationError, "decision_invalidated cannot target"):
+            validate_event_log(rejected)
+
+    def test_event_log_allows_final_invalidating_decision(self) -> None:
+        accepted = [
+            _project_initialized(1),
+            _session_created(2, "S-001"),
+            _decision_discovered(3, "S-001", "D-old"),
+            _decision_discovered(4, "S-001", "D-new"),
+            _proposal_issued(5, "S-001", "D-new", proposal_id="P-001"),
+            _proposal_accepted(6, "S-001", "D-new", "P-001"),
+            _decision_invalidated(7, "S-001", "D-old", "D-new"),
+        ]
+        validate_event_log(accepted)
+
+        resolved = [
+            _project_initialized(1),
+            _session_created(2, "S-001"),
+            _decision_discovered(3, "S-001", "D-old"),
+            _decision_discovered(4, "S-001", "D-new"),
+            _decision_resolved_by_evidence(5, "S-001", "D-new"),
+            _decision_invalidated(6, "S-001", "D-old", "D-new"),
+        ]
+        validate_event_log(resolved)
+
+    def test_event_log_rejects_duplicate_decision_invalidated(self) -> None:
+        events = [
+            _project_initialized(1),
+            _session_created(2, "S-001"),
+            _decision_discovered(3, "S-001", "D-old"),
+            _decision_discovered(4, "S-001", "D-new"),
+            _proposal_issued(5, "S-001", "D-new", proposal_id="P-001"),
+            _proposal_accepted(6, "S-001", "D-new", "P-001"),
+            _decision_invalidated(7, "S-001", "D-old", "D-new"),
+            _decision_invalidated(8, "S-001", "D-old", "D-new"),
+        ]
+
+        with self.assertRaisesRegex(StateValidationError, "already invalidated"):
+            validate_event_log(events)
+
     def test_event_log_rejects_duplicate_proposal_accepted(self) -> None:
         initialized = _project_initialized(1)
         session = _session_created(2, "S-001")
@@ -482,6 +582,27 @@ class ProjectionValidationTests(unittest.TestCase):
 
         with self.assertRaisesRegex(StateValidationError, "duplicate proposal_rejected"):
             validate_event_log([initialized, session, discovered, proposal, first, second])
+
+    def test_event_log_only_allows_immediate_rejected_proposal_acceptance(self) -> None:
+        initialized = _project_initialized(1)
+        session = _session_created(2, "S-001")
+        discovered = _decision_discovered(3, "S-001", "D-001")
+        proposal = _proposal_issued(4, "S-001", "D-001", proposal_id="P-001")
+        rejected = _proposal_rejected(5, "S-001", "D-001", "P-001")
+        accepted = _proposal_accepted(6, "S-001", "D-001", "P-001")
+        validate_event_log([initialized, session, discovered, proposal, rejected, accepted])
+
+        enriched = build_event(
+            sequence=6,
+            session_id="S-001",
+            event_type="decision_enriched",
+            project_version_after=6,
+            payload={"decision_id": "D-001", "notes_append": ["after rejection"]},
+            timestamp="2026-04-23T12:05:00Z",
+        )
+        late_accept = _proposal_accepted(7, "S-001", "D-001", "P-001")
+        with self.assertRaisesRegex(StateValidationError, "proposal_accepted cannot target"):
+            validate_event_log([initialized, session, discovered, proposal, rejected, enriched, late_accept])
 
     def test_event_log_rejects_invalid_decision_state_transitions(self) -> None:
         initialized = _project_initialized(1)
@@ -564,13 +685,16 @@ def _session_created(sequence: int, session_id: str) -> dict:
     )
 
 
-def _decision_discovered(sequence: int, session_id: str, decision_id: str) -> dict:
+def _decision_discovered(sequence: int, session_id: str, decision_id: str, *, status: str | None = None) -> dict:
+    decision = {"id": decision_id, "title": "Decision"}
+    if status is not None:
+        decision["status"] = status
     return build_event(
         sequence=sequence,
         session_id=session_id,
         event_type="decision_discovered",
         project_version_after=sequence,
-        payload={"decision": {"id": decision_id, "title": "Decision"}},
+        payload={"decision": decision},
         timestamp=f"2026-04-23T12:{sequence - 1:02d}:00Z",
     )
 
@@ -715,6 +839,23 @@ def _decision_resolved_by_evidence(sequence: int, session_id: str, decision_id: 
             "source": "codebase",
             "summary": "Found it.",
             "evidence_refs": ["app/auth.py"],
+        },
+        timestamp=f"2026-04-23T12:{sequence - 1:02d}:00Z",
+    )
+
+
+def _decision_invalidated(
+    sequence: int, session_id: str, decision_id: str, invalidated_by_decision_id: str
+) -> dict:
+    return build_event(
+        sequence=sequence,
+        session_id=session_id,
+        event_type="decision_invalidated",
+        project_version_after=sequence,
+        payload={
+            "decision_id": decision_id,
+            "invalidated_by_decision_id": invalidated_by_decision_id,
+            "reason": "Superseded.",
         },
         timestamp=f"2026-04-23T12:{sequence - 1:02d}:00Z",
     )

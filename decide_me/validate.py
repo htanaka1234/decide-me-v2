@@ -9,6 +9,7 @@ from decide_me.taxonomy import taxonomy_by_id
 
 
 OPEN_DECISION_STATUSES = {"unresolved", "proposed", "rejected", "blocked"}
+FINAL_INVALIDATING_STATUSES = {"accepted", "resolved-by-evidence"}
 ALL_DECISION_STATUSES = OPEN_DECISION_STATUSES | {
     "accepted",
     "deferred",
@@ -306,8 +307,14 @@ def _validate_decision_references(
 
         invalidated_by = decision.get("invalidated_by")
         if decision["status"] == "invalidated":
-            if not invalidated_by or invalidated_by.get("decision_id") not in decisions_by_id:
+            invalidated_by = _require_dict(invalidated_by, f"decision {decision_id}.invalidated_by")
+            invalidating_id = invalidated_by.get("decision_id")
+            if invalidating_id not in decisions_by_id:
                 raise StateValidationError(f"decision {decision_id} has invalid invalidated_by reference")
+            if not _has_final_invalidating_chain(invalidating_id, decisions_by_id, seen={decision_id}):
+                raise StateValidationError(
+                    f"decision {decision_id} is invalidated by non-final decision {invalidating_id}"
+                )
         elif invalidated_by is not None:
             raise StateValidationError(f"non-invalidated decision {decision_id} must not carry invalidated_by")
 
@@ -541,6 +548,7 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
     disabled_proposals: set[str] = set()
     accepted_proposals: set[str] = set()
     rejected_proposals: set[str] = set()
+    pending_rejected_proposal_id: str | None = None
     project_initialized_count = 0
     for sequence, event in enumerate(events, start=1):
         validate_event(event)
@@ -613,7 +621,19 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
             accepted_proposals,
             rejected_proposals,
         )
-        _validate_event_log_decision_transition(event, decision_status, rejected_proposals)
+        accepts_immediate_rejected_proposal = (
+            event["event_type"] == "proposal_accepted"
+            and event["payload"]["proposal_id"] == pending_rejected_proposal_id
+        )
+        _validate_event_log_decision_transition(
+            event,
+            decision_status,
+            accepts_immediate_rejected_proposal=accepts_immediate_rejected_proposal,
+        )
+        if event["event_type"] == "proposal_rejected":
+            pending_rejected_proposal_id = event["payload"]["proposal_id"]
+        else:
+            pending_rejected_proposal_id = None
         if event["event_type"] == "close_summary_generated":
             has_close_summary[event["session_id"]] = True
         if event["event_type"] == "plan_generated":
@@ -697,7 +717,10 @@ def _validate_event_log_proposal_lifecycle(
 
 
 def _validate_event_log_decision_transition(
-    event: dict[str, Any], decision_status: dict[str, str], rejected_proposals: set[str]
+    event: dict[str, Any],
+    decision_status: dict[str, str],
+    *,
+    accepts_immediate_rejected_proposal: bool = False,
 ) -> None:
     event_type = event["event_type"]
     payload = event["payload"]
@@ -712,7 +735,7 @@ def _validate_event_log_decision_transition(
     elif event_type == "proposal_accepted":
         decision_id = payload["target_id"]
         allowed = {"proposed"}
-        if payload["proposal_id"] in rejected_proposals:
+        if accepts_immediate_rejected_proposal:
             allowed.add("rejected")
         _require_event_decision_status(decision_id, decision_status, allowed, event_type)
         decision_status[decision_id] = "accepted"
@@ -729,7 +752,17 @@ def _validate_event_log_decision_transition(
         )
         decision_status[decision_id] = "resolved-by-evidence"
     elif event_type == "decision_invalidated":
-        decision_status[payload["decision_id"]] = "invalidated"
+        target_id = payload["decision_id"]
+        invalidating_id = payload["invalidated_by_decision_id"]
+        _require_event_decision_status(
+            invalidating_id,
+            decision_status,
+            FINAL_INVALIDATING_STATUSES,
+            event_type,
+        )
+        if decision_status[target_id] == "invalidated":
+            raise StateValidationError(f"decision {target_id} is already invalidated")
+        decision_status[target_id] = "invalidated"
 
 
 def _require_event_decision_status(
@@ -742,6 +775,31 @@ def _require_event_decision_status(
             f"{event_type} cannot target decision {decision_id} with status {status}; "
             f"allowed statuses: {allowed_values}"
         )
+
+
+def _has_final_invalidating_chain(
+    decision_id: str,
+    decisions_by_id: dict[str, dict[str, Any]],
+    *,
+    seen: set[str],
+) -> bool:
+    if decision_id in seen:
+        return False
+    seen.add(decision_id)
+    decision = decisions_by_id.get(decision_id)
+    if decision is None:
+        return False
+    if decision["status"] in FINAL_INVALIDATING_STATUSES:
+        return True
+    if decision["status"] != "invalidated":
+        return False
+    invalidated_by = decision.get("invalidated_by")
+    if not isinstance(invalidated_by, dict):
+        return False
+    invalidating_id = invalidated_by.get("decision_id")
+    if not invalidating_id:
+        return False
+    return _has_final_invalidating_chain(invalidating_id, decisions_by_id, seen=seen)
 
 
 def _validate_event_log_session_decision_binding(

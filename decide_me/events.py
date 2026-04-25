@@ -152,7 +152,18 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
             )
         if "context_append" in payload and not isinstance(payload["context_append"], str):
             raise EventValidationError("decision_enriched.payload.context_append must be a string")
+    elif event_type == "question_asked":
+        _require_non_empty_string(payload.get("question_id"), "question_asked.payload.question_id")
+        _require_non_empty_string(payload.get("question"), "question_asked.payload.question")
+    elif event_type == "decision_deferred":
+        _require_non_empty_string(payload.get("reason"), "decision_deferred.payload.reason")
     elif event_type == "decision_invalidated":
+        _require_non_empty_string(payload.get("decision_id"), "decision_invalidated.payload.decision_id")
+        _require_non_empty_string(
+            payload.get("invalidated_by_decision_id"),
+            "decision_invalidated.payload.invalidated_by_decision_id",
+        )
+        _require_non_empty_string(payload.get("reason"), "decision_invalidated.payload.reason")
         if payload["decision_id"] == payload["invalidated_by_decision_id"]:
             raise EventValidationError("decision_invalidated must not self-reference")
     elif event_type == "session_closed":
@@ -186,7 +197,22 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
             ),
             "proposal",
         )
+        for key in (
+            "proposal_id",
+            "origin_session_id",
+            "target_type",
+            "target_id",
+            "question_id",
+            "question",
+            "recommendation",
+            "why",
+            "if_not",
+            "activated_at",
+        ):
+            _require_non_empty_string(proposal.get(key), f"proposal_issued.payload.proposal.{key}")
     elif event_type == "proposal_accepted":
+        for key in ("proposal_id", "origin_session_id", "target_type", "target_id"):
+            _require_non_empty_string(payload.get(key), f"proposal_accepted.payload.{key}")
         accepted_answer = _require_dict(
             payload["accepted_answer"], "proposal_accepted.payload.accepted_answer"
         )
@@ -195,11 +221,19 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
             ("summary", "accepted_at", "accepted_via", "proposal_id"),
             "accepted_answer",
         )
+        for key in ("summary", "accepted_at", "proposal_id"):
+            _require_non_empty_string(
+                accepted_answer.get(key),
+                f"proposal_accepted.payload.accepted_answer.{key}",
+            )
         if accepted_answer["accepted_via"] not in ACCEPTED_VIA_VALUES:
             allowed = ", ".join(sorted(ACCEPTED_VIA_VALUES))
             raise EventValidationError(
                 f"proposal_accepted.payload.accepted_answer.accepted_via must be one of: {allowed}"
             )
+    elif event_type == "proposal_rejected":
+        for key in ("proposal_id", "origin_session_id", "target_type", "target_id", "reason"):
+            _require_non_empty_string(payload.get(key), f"proposal_rejected.payload.{key}")
     elif event_type == "classification_updated":
         classification = _require_dict(
             payload["classification"], "classification_updated.payload.classification"
