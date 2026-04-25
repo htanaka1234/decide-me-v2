@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from datetime import datetime
 from typing import Any
 
 from decide_me.constants import ACCEPTED_VIA_VALUES, DOMAIN_VALUES, EVIDENCE_SOURCES
@@ -72,6 +73,21 @@ def _require_keys(payload: dict[str, Any], keys: tuple[str, ...], label: str) ->
         raise StateValidationError(f"{label} is missing required keys: {', '.join(missing)}")
 
 
+def _require_timestamp(value: Any, label: str) -> None:
+    if not isinstance(value, str) or not value.strip():
+        raise StateValidationError(f"{label} must be a non-empty timestamp")
+    try:
+        datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise StateValidationError(f"{label} must be ISO-8601/RFC3339-like") from exc
+
+
+def _require_optional_timestamp(value: Any, label: str) -> None:
+    if value is None:
+        return
+    _require_timestamp(value, label)
+
+
 def validate_project_state(project_state: dict[str, Any]) -> None:
     _require_keys(
         project_state,
@@ -90,6 +106,7 @@ def validate_project_state(project_state: dict[str, Any]) -> None:
         ("project_version", "updated_at", "last_event_id"),
         "project_state.state",
     )
+    _require_timestamp(project_state["state"].get("updated_at"), "project_state.state.updated_at")
     if not isinstance(project_state["decisions"], list):
         raise StateValidationError("project_state.decisions must be a list")
 
@@ -170,6 +187,10 @@ def _validate_decision_status_payload(decision: dict[str, Any]) -> None:
             decision.get("accepted_answer", {}).get("accepted_at"),
             f"decision {decision_id}.accepted_answer.accepted_at",
         )
+        _require_timestamp(
+            decision.get("accepted_answer", {}).get("accepted_at"),
+            f"decision {decision_id}.accepted_answer.accepted_at",
+        )
         _require_non_empty_string(
             decision.get("accepted_answer", {}).get("proposal_id"),
             f"decision {decision_id}.accepted_answer.proposal_id",
@@ -193,6 +214,10 @@ def _validate_decision_status_payload(decision: dict[str, Any]) -> None:
             f"decision {decision_id}.resolved_by_evidence.source",
         )
         _require_non_empty_string(
+            resolved.get("resolved_at"),
+            f"decision {decision_id}.resolved_by_evidence.resolved_at",
+        )
+        _require_timestamp(
             resolved.get("resolved_at"),
             f"decision {decision_id}.resolved_by_evidence.resolved_at",
         )
@@ -226,12 +251,14 @@ def validate_session_state(session_state: dict[str, Any]) -> None:
         ("id", "started_at", "last_seen_at", "bound_context_hint", "decision_ids", "lifecycle"),
         "session_state.session",
     )
+    _require_timestamp(session_state["session"].get("started_at"), "session_state.session.started_at")
+    _require_timestamp(session_state["session"].get("last_seen_at"), "session_state.session.last_seen_at")
     _require_list(session_state["session"]["decision_ids"], "session_state.session.decision_ids")
     lifecycle = _require_dict(session_state["session"]["lifecycle"], "session_state.session.lifecycle")
     _require_keys(lifecycle, ("status", "closed_at"), "session_state.session.lifecycle")
     _require_enum(lifecycle["status"], SESSION_LIFECYCLE_STATUSES, "session_state.session.lifecycle.status")
     if lifecycle["status"] == "closed":
-        _require_non_empty_string(lifecycle.get("closed_at"), "session_state.session.lifecycle.closed_at")
+        _require_timestamp(lifecycle.get("closed_at"), "session_state.session.lifecycle.closed_at")
     elif lifecycle.get("closed_at") is not None:
         raise StateValidationError("active session lifecycle.closed_at must be null")
     _require_keys(
@@ -277,6 +304,14 @@ def validate_session_state(session_state: dict[str, Any]) -> None:
     )
     for key in ("assigned_tags", "compatibility_tags", "search_terms", "source_refs"):
         _require_list(session_state["classification"][key], f"session_state.classification.{key}")
+    _require_optional_timestamp(
+        session_state["classification"].get("updated_at"),
+        "session_state.classification.updated_at",
+    )
+    _require_optional_timestamp(
+        session_state["close_summary"].get("generated_at"),
+        "session_state.close_summary.generated_at",
+    )
     for key in (
         "accepted_decisions",
         "deferred_decisions",
@@ -292,6 +327,7 @@ def validate_session_state(session_state: dict[str, Any]) -> None:
 def validate_taxonomy_state(taxonomy_state: dict[str, Any]) -> None:
     _require_keys(taxonomy_state, ("schema_version", "state", "required_axes", "nodes"), "taxonomy_state")
     _require_keys(taxonomy_state["state"], ("updated_at", "last_event_id"), "taxonomy_state.state")
+    _require_timestamp(taxonomy_state["state"].get("updated_at"), "taxonomy_state.state.updated_at")
     node_ids = taxonomy_by_id(taxonomy_state)
     if len(node_ids) != len(taxonomy_state["nodes"]):
         raise StateValidationError("taxonomy_state.nodes contains duplicate ids")
@@ -305,6 +341,8 @@ def validate_taxonomy_state(taxonomy_state: dict[str, Any]) -> None:
         _require_enum(node["status"], TAXONOMY_STATUSES, f"taxonomy node {node['id']}.status")
         _require_list(node["aliases"], f"taxonomy node {node['id']}.aliases")
         _require_list(node["replaced_by"], f"taxonomy node {node['id']}.replaced_by")
+        _require_timestamp(node.get("created_at"), f"taxonomy node {node['id']}.created_at")
+        _require_timestamp(node.get("updated_at"), f"taxonomy node {node['id']}.updated_at")
 
 
 def validate_projection_bundle(bundle: dict[str, Any]) -> None:
@@ -353,6 +391,10 @@ def _validate_decision_references(
         if decision["status"] == "invalidated":
             invalidated_by = _require_dict(invalidated_by, f"decision {decision_id}.invalidated_by")
             invalidating_id = invalidated_by.get("decision_id")
+            _require_timestamp(
+                invalidated_by.get("invalidated_at"),
+                f"decision {decision_id}.invalidated_by.invalidated_at",
+            )
             if invalidating_id not in decisions_by_id:
                 raise StateValidationError(f"decision {decision_id} has invalid invalidated_by reference")
             if not _has_final_invalidating_chain(invalidating_id, decisions_by_id, seen={decision_id}):
@@ -477,7 +519,7 @@ def _validate_active_proposal(
     ):
         raise StateValidationError(f"closed session {session_id} must not have current question state")
     if lifecycle_status == "closed":
-        _require_non_empty_string(
+        _require_timestamp(
             session["close_summary"].get("generated_at"),
             f"session {session_id}.close_summary.generated_at",
         )
@@ -498,6 +540,10 @@ def _validate_active_proposal(
     if not proposal_id:
         _validate_question_state(session_id, session)
         return
+    _require_timestamp(
+        active.get("activated_at"),
+        f"session {session_id} active_proposal.activated_at",
+    )
 
     if active.get("origin_session_id") != session_id:
         raise StateValidationError(f"session {session_id} active proposal has wrong origin_session_id")

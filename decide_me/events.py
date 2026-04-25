@@ -102,6 +102,15 @@ def _require_non_empty_string(value: Any, label: str) -> None:
         raise EventValidationError(f"{label} must be a non-empty string")
 
 
+def _require_timestamp(value: Any, label: str) -> None:
+    if not isinstance(value, str) or not value.strip():
+        raise EventValidationError(f"{label} must be a non-empty timestamp")
+    try:
+        datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise EventValidationError(f"{label} must be ISO-8601/RFC3339-like") from exc
+
+
 def prepare_payload(
     event_type: str, payload: dict[str, Any], project_version_after: int
 ) -> dict[str, Any]:
@@ -123,8 +132,10 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
         session = _require_dict(payload["session"], "session_created.payload.session")
         _require_keys(session, ("id", "started_at", "last_seen_at", "bound_context_hint"), "session")
         _require_non_empty_string(session.get("id"), "session_created.payload.session.id")
-        _require_non_empty_string(session.get("started_at"), "session_created.payload.session.started_at")
-        _require_non_empty_string(session.get("last_seen_at"), "session_created.payload.session.last_seen_at")
+        _require_timestamp(session.get("started_at"), "session_created.payload.session.started_at")
+        _require_timestamp(session.get("last_seen_at"), "session_created.payload.session.last_seen_at")
+    elif event_type == "session_resumed":
+        _require_timestamp(payload.get("resumed_at"), "session_resumed.payload.resumed_at")
     elif event_type == "decision_discovered":
         decision = _require_dict(payload["decision"], "decision_discovered.payload.decision")
         _require_keys(decision, ("id", "title"), "decision")
@@ -168,7 +179,7 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
         if payload["decision_id"] == payload["invalidated_by_decision_id"]:
             raise EventValidationError("decision_invalidated must not self-reference")
     elif event_type == "session_closed":
-        _require_non_empty_string(payload.get("closed_at"), "session_closed.payload.closed_at")
+        _require_timestamp(payload.get("closed_at"), "session_closed.payload.closed_at")
     elif event_type == "decision_resolved_by_evidence":
         if payload["source"] not in EVIDENCE_SOURCES:
             raise EventValidationError(f"invalid evidence source: {payload['source']}")
@@ -208,9 +219,9 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
             "recommendation",
             "why",
             "if_not",
-            "activated_at",
         ):
             _require_non_empty_string(proposal.get(key), f"proposal_issued.payload.proposal.{key}")
+        _require_timestamp(proposal.get("activated_at"), "proposal_issued.payload.proposal.activated_at")
     elif event_type == "proposal_accepted":
         for key in ("proposal_id", "origin_session_id", "target_type", "target_id"):
             _require_non_empty_string(payload.get(key), f"proposal_accepted.payload.{key}")
@@ -222,11 +233,15 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
             ("summary", "accepted_at", "accepted_via", "proposal_id"),
             "accepted_answer",
         )
-        for key in ("summary", "accepted_at", "proposal_id"):
+        for key in ("summary", "proposal_id"):
             _require_non_empty_string(
                 accepted_answer.get(key),
                 f"proposal_accepted.payload.accepted_answer.{key}",
             )
+        _require_timestamp(
+            accepted_answer.get("accepted_at"),
+            "proposal_accepted.payload.accepted_answer.accepted_at",
+        )
         if accepted_answer["accepted_via"] not in ACCEPTED_VIA_VALUES:
             allowed = ", ".join(sorted(ACCEPTED_VIA_VALUES))
             raise EventValidationError(
@@ -252,6 +267,10 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
             ),
             "classification",
         )
+        _require_timestamp(
+            classification.get("updated_at"),
+            "classification_updated.payload.classification.updated_at",
+        )
     elif event_type == "close_summary_generated":
         close_summary = _require_dict(
             payload["close_summary"], "close_summary_generated.payload.close_summary"
@@ -274,10 +293,26 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
             ),
             "close_summary",
         )
+        _require_timestamp(
+            close_summary.get("generated_at"),
+            "close_summary_generated.payload.close_summary.generated_at",
+        )
     elif event_type == "taxonomy_extended":
         nodes = payload["nodes"]
         if not isinstance(nodes, list):
             raise EventValidationError("taxonomy_extended.payload.nodes must be a list")
+        for node in nodes:
+            node_payload = _require_dict(node, "taxonomy_extended.payload.nodes[]")
+            if "created_at" in node_payload:
+                _require_timestamp(
+                    node_payload.get("created_at"),
+                    "taxonomy_extended.payload.nodes[].created_at",
+                )
+            if "updated_at" in node_payload:
+                _require_timestamp(
+                    node_payload.get("updated_at"),
+                    "taxonomy_extended.payload.nodes[].updated_at",
+                )
     elif event_type == "plan_generated":
         session_ids = payload["session_ids"]
         if not isinstance(session_ids, list) or not session_ids:
@@ -294,6 +329,7 @@ def validate_event(event: dict[str, Any]) -> None:
         ("event_id", "ts", "session_id", "event_type", "project_version_after", "payload"),
         "event",
     )
+    _require_timestamp(event["ts"], "event.ts")
     _require_non_empty_string(event["session_id"], "event.session_id")
     if event["event_type"] not in EVENT_TYPES:
         raise EventValidationError(f"unsupported event_type: {event['event_type']}")

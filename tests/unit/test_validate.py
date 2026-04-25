@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 from copy import deepcopy
 
-from decide_me.events import build_event
+from decide_me.events import EventValidationError, build_event
 from decide_me.projections import default_decision, default_project_state, default_session_state
 from decide_me.taxonomy import default_taxonomy_state
 from decide_me.validate import StateValidationError, validate_event_log, validate_projection_bundle
@@ -115,6 +115,19 @@ class ProjectionValidationTests(unittest.TestCase):
         session["summary"]["active_decision_id"] = "D-001"
 
         with self.assertRaisesRegex(StateValidationError, "current_question_id"):
+            validate_projection_bundle(bundle)
+
+    def test_rejects_invalid_projection_timestamps(self) -> None:
+        bundle = _valid_bundle()
+        bundle["sessions"]["S-001"]["session"]["last_seen_at"] = "not-time"
+
+        with self.assertRaisesRegex(StateValidationError, "last_seen_at"):
+            validate_projection_bundle(bundle)
+
+        bundle = _valid_bundle()
+        bundle["project_state"]["state"]["updated_at"] = "not-time"
+
+        with self.assertRaisesRegex(StateValidationError, "project_state.state.updated_at"):
             validate_projection_bundle(bundle)
 
     def test_rejects_unknown_taxonomy_tag_reference(self) -> None:
@@ -339,6 +352,32 @@ class ProjectionValidationTests(unittest.TestCase):
         )
 
         with self.assertRaisesRegex(StateValidationError, "start with project_initialized"):
+            validate_event_log([event])
+
+    def test_event_log_rejects_invalid_event_timestamp(self) -> None:
+        event = {
+            "event_id": "E--000001",
+            "ts": "",
+            "session_id": "SYSTEM",
+            "event_type": "project_initialized",
+            "project_version_after": 1,
+            "payload": {
+                "project": {
+                    "name": "Demo",
+                    "objective": "Test",
+                    "current_milestone": "MVP",
+                    "stop_rule": "Resolve blockers",
+                }
+            },
+        }
+
+        with self.assertRaisesRegex(EventValidationError, "event.ts"):
+            validate_event_log([event])
+
+        event["ts"] = "not-time"
+        event["event_id"] = "E-nottime-000001"
+
+        with self.assertRaisesRegex(EventValidationError, "event.ts"):
             validate_event_log([event])
 
     def test_event_log_rejects_mismatched_event_id_sequence(self) -> None:
@@ -1223,6 +1262,11 @@ def _valid_bundle() -> dict:
         "objective": "Test",
         "current_milestone": "MVP",
         "stop_rule": "Resolve blockers",
+    }
+    project_state["state"] = {
+        "project_version": 1,
+        "updated_at": now,
+        "last_event_id": "E-20260423-000001",
     }
     project_state["decisions"] = [default_decision("D-001", "Decision")]
     session = default_session_state("S-001", now, "demo")

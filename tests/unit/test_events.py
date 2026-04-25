@@ -278,6 +278,98 @@ class EventTests(unittest.TestCase):
                 },
                 timestamp="2026-04-23T12:00:00Z",
             )
+        with self.assertRaisesRegex(EventValidationError, "started_at"):
+            build_event(
+                sequence=1,
+                session_id="S-001",
+                event_type="session_created",
+                project_version_after=1,
+                payload={
+                    "session": {
+                        "id": "S-001",
+                        "started_at": "not-time",
+                        "last_seen_at": "2026-04-23T12:00:00Z",
+                        "bound_context_hint": "demo",
+                    }
+                },
+                timestamp="2026-04-23T12:00:00Z",
+            )
+        with self.assertRaisesRegex(EventValidationError, "last_seen_at"):
+            build_event(
+                sequence=1,
+                session_id="S-001",
+                event_type="session_created",
+                project_version_after=1,
+                payload={
+                    "session": {
+                        "id": "S-001",
+                        "started_at": "2026-04-23T12:00:00Z",
+                        "last_seen_at": "not-time",
+                        "bound_context_hint": "demo",
+                    }
+                },
+                timestamp="2026-04-23T12:00:00Z",
+            )
+
+    def test_event_payloads_reject_invalid_timestamps(self) -> None:
+        with self.assertRaisesRegex(EventValidationError, "resumed_at"):
+            build_event(
+                sequence=1,
+                session_id="S-001",
+                event_type="session_resumed",
+                project_version_after=1,
+                payload={"resumed_at": "not-time"},
+                timestamp="2026-04-23T12:00:00Z",
+            )
+
+        proposal_payload = {
+            "proposal": {
+                "proposal_id": "P-001",
+                "origin_session_id": "S-001",
+                "target_type": "decision",
+                "target_id": "D-001",
+                "recommendation_version": 1,
+                "based_on_project_version": 1,
+                "question_id": "Q-001",
+                "question": "Question?",
+                "recommendation": "Use it.",
+                "why": "Reason.",
+                "if_not": "Alternative.",
+                "is_active": True,
+                "activated_at": "not-time",
+                "inactive_reason": None,
+            }
+        }
+        with self.assertRaisesRegex(EventValidationError, "activated_at"):
+            build_event(
+                sequence=1,
+                session_id="S-001",
+                event_type="proposal_issued",
+                project_version_after=1,
+                payload=proposal_payload,
+                timestamp="2026-04-23T12:00:00Z",
+            )
+
+        with self.assertRaisesRegex(EventValidationError, "accepted_at"):
+            build_event(
+                sequence=1,
+                session_id="S-001",
+                event_type="proposal_accepted",
+                project_version_after=1,
+                payload={
+                    "proposal_id": "P-001",
+                    "origin_session_id": "S-001",
+                    "target_type": "decision",
+                    "target_id": "D-001",
+                    "accepted_answer": {
+                        "summary": "Use it.",
+                        "accepted_at": "not-time",
+                        "accepted_via": "explicit",
+                        "proposal_id": "P-001",
+                    },
+                },
+                timestamp="2026-04-23T12:00:00Z",
+            )
 
     def test_decision_discovered_requires_non_empty_id_and_title(self) -> None:
         with self.assertRaisesRegex(EventValidationError, "decision.id"):
