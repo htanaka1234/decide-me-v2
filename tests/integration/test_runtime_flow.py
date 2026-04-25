@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import json
+import os
+import subprocess
+import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -1646,6 +1650,7 @@ class RuntimeFlowTests(unittest.TestCase):
                 ]
 
             transact(ai_dir, builder)
+            events_before_read = len(read_event_log(runtime_paths(ai_dir)))
 
             display = show_session(ai_dir, session_id)
             self.assertIn("tag:magic-links", display["session"]["classification"]["compatibility_tags"])
@@ -1654,6 +1659,94 @@ class RuntimeFlowTests(unittest.TestCase):
             listing = list_sessions(ai_dir, tag_terms=["authentication"])
             self.assertEqual(1, listing["count"])
             self.assertGreaterEqual(len(listing["backfilled"]), 0)
+            self.assertEqual(events_before_read, len(read_event_log(runtime_paths(ai_dir))))
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_read_only_compatibility_backfill_does_not_stale_active_proposal(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Keep reads side-effect free",
+                current_milestone="MVP",
+            )
+            closed_session_id = create_session(ai_dir, context="Closed tagged work")["session"]["id"]
+            classify_session(
+                ai_dir,
+                closed_session_id,
+                domain="technical",
+                abstraction_level="architecture",
+                candidate_terms=["email link"],
+                source_refs=["latest_summary"],
+            )
+            close_session(ai_dir, closed_session_id)
+            now = utc_now()
+
+            def builder(bundle: dict[str, object]) -> list[dict[str, object]]:
+                return [
+                    {
+                        "session_id": closed_session_id,
+                        "event_type": "taxonomy_extended",
+                        "payload": {
+                            "nodes": [
+                                {
+                                    "id": "tag:magic-links",
+                                    "axis": "tag",
+                                    "label": "magic links",
+                                    "aliases": ["authentication"],
+                                    "parent_id": None,
+                                    "replaced_by": [],
+                                    "status": "active",
+                                    "created_at": now,
+                                    "updated_at": now,
+                                },
+                                {
+                                    "id": "tag:email-link",
+                                    "axis": "tag",
+                                    "label": "email link",
+                                    "aliases": [],
+                                    "parent_id": None,
+                                    "replaced_by": ["tag:magic-links"],
+                                    "status": "replaced",
+                                    "created_at": bundle["taxonomy_state"]["nodes"][-1]["created_at"],
+                                    "updated_at": now,
+                                },
+                            ]
+                        },
+                    }
+                ]
+
+            transact(ai_dir, builder)
+            active_session_id = create_session(ai_dir, context="Active work")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                active_session_id,
+                {
+                    "id": "D-active",
+                    "title": "Auth mode",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "question": "How should auth work?",
+                },
+            )
+            issue_proposal(
+                ai_dir,
+                active_session_id,
+                decision_id="D-active",
+                question="Use magic links?",
+                recommendation="Use magic links.",
+                why="Smaller MVP surface area.",
+                if_not="Passwords expand auth scope.",
+            )
+            event_count = len(read_event_log(runtime_paths(ai_dir)))
+            show_session(ai_dir, closed_session_id)
+            list_sessions(ai_dir, tag_terms=["authentication"])
+
+            self.assertEqual(event_count, len(read_event_log(runtime_paths(ai_dir))))
+            accepted = accept_proposal(ai_dir, active_session_id)
+            self.assertEqual("accepted", accepted["status"])
             self.assertEqual([], validate_runtime(ai_dir))
 
     def test_advance_session_resolves_evidence_then_handles_ok_reply(self) -> None:
@@ -1717,6 +1810,145 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertEqual("complete", reply["next_turn"]["status"])
             self.assertIn("Accepted: D-002", reply["message"])
             self.assertIn("Next recommended action:", reply["message"])
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_codebase_evidence_ignores_single_keyword_hits(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "app").mkdir()
+            (root / "app" / "auth.py").write_text(
+                "def login():\n    return 'auth enabled'\n",
+                encoding="utf-8",
+            )
+            ai_dir = str(root / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Avoid weak evidence hits",
+                current_milestone="MVP",
+            )
+            session_id = create_session(ai_dir, context="Auth decision")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-auth",
+                    "title": "Auth",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "resolvable_by": "codebase",
+                    "question": "Should auth be enabled?",
+                    "options": [{"summary": "Use auth."}],
+                },
+            )
+
+            turn = advance_session(ai_dir, session_id, repo_root=root)
+
+            self.assertEqual("question", turn["status"])
+            self.assertEqual("D-auth", turn["decision_id"])
+            self.assertEqual([], turn["auto_resolved"])
+            self.assertEqual("proposed", turn["decision"]["status"])
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_cli_bootstrap_works_with_pythonpath_repo_root(self) -> None:
+        repo_root = Path(__file__).resolve().parents[2]
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            env = dict(os.environ)
+            env["PYTHONPATH"] = "."
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/decide_me.py",
+                    "bootstrap",
+                    "--ai-dir",
+                    ai_dir,
+                    "--project-name",
+                    "Demo",
+                    "--objective",
+                    "Exercise CLI bootstrap",
+                    "--current-milestone",
+                    "MVP",
+                ],
+                cwd=repo_root,
+                env=env,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertEqual(0, completed.returncode, completed.stderr)
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_validate_runtime_reports_malformed_event_log(self) -> None:
+        repo_root = Path(__file__).resolve().parents[2]
+        with TemporaryDirectory() as tmp:
+            ai_dir = Path(tmp) / ".ai" / "decide-me"
+            ai_dir.mkdir(parents=True)
+            (ai_dir / "event-log.jsonl").write_text("{bad json\n", encoding="utf-8")
+
+            issues = validate_runtime(str(ai_dir))
+            self.assertEqual(1, len(issues))
+            self.assertIn("event-log.jsonl line 1 contains malformed JSON", issues[0])
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/decide_me.py",
+                    "validate-state",
+                    "--ai-dir",
+                    str(ai_dir),
+                ],
+                cwd=repo_root,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertEqual(1, completed.returncode)
+            payload = json.loads(completed.stdout)
+            self.assertFalse(payload["ok"])
+            self.assertIn("event-log.jsonl line 1 contains malformed JSON", payload["issues"][0])
+
+    def test_concurrent_cli_bootstrap_leaves_one_valid_runtime(self) -> None:
+        repo_root = Path(__file__).resolve().parents[2]
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            command = [
+                sys.executable,
+                "scripts/decide_me.py",
+                "bootstrap",
+                "--ai-dir",
+                ai_dir,
+                "--project-name",
+                "Demo",
+                "--objective",
+                "Exercise bootstrap locking",
+                "--current-milestone",
+                "MVP",
+            ]
+            first = subprocess.Popen(
+                command,
+                cwd=repo_root,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            second = subprocess.Popen(
+                command,
+                cwd=repo_root,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            first_stdout, first_stderr = first.communicate(timeout=15)
+            second_stdout, second_stderr = second.communicate(timeout=15)
+
+            self.assertEqual([0, 1], sorted([first.returncode, second.returncode]))
+            combined = "\n".join([first_stdout, first_stderr, second_stdout, second_stderr])
+            self.assertIn("runtime already exists", combined)
             self.assertEqual([], validate_runtime(ai_dir))
 
     def test_handle_reply_accepts_freeform_alternative_answer(self) -> None:

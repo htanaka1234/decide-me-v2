@@ -7,8 +7,9 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+REPO_ROOT_STR = str(REPO_ROOT)
+sys.path = [entry for entry in sys.path if entry != REPO_ROOT_STR]
+sys.path.insert(0, REPO_ROOT_STR)
 
 from decide_me.classification import classify_session
 from decide_me.exports import export_adr

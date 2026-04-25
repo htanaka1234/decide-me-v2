@@ -759,7 +759,10 @@ def find_evidence(
         return None
 
     source = decision["resolvable_by"]
-    refs = _search_repo(repo_root, _decision_terms(decision), source)
+    phrases = _evidence_phrases(decision)
+    if not phrases:
+        return None
+    refs = _search_repo(repo_root, phrases, source)
     if not refs:
         return None
     return {
@@ -807,9 +810,9 @@ def _runtime_evidence(
     return None
 
 
-def _search_repo(repo_root: Path, terms: list[str], source: str) -> list[str]:
-    rg_matches = _search_repo_with_rg(repo_root, terms, source)
-    if rg_matches is not None:
+def _search_repo(repo_root: Path, phrases: list[str], source: str) -> list[str]:
+    rg_matches = _search_repo_with_rg(repo_root, phrases, source)
+    if rg_matches:
         return rg_matches
 
     matches: list[str] = []
@@ -817,22 +820,16 @@ def _search_repo(repo_root: Path, terms: list[str], source: str) -> list[str]:
         category = _path_category(path)
         if source != category:
             continue
-        text = _read_text(path)
-        if text is None:
-            continue
-        normalized_text = _normalize(text)
-        for term in terms:
-            if _normalize(term) and _normalize(term) in normalized_text:
-                matches.append(_relative_ref(repo_root, path))
-                break
+        if _file_matches_phrases(path, phrases):
+            matches.append(_relative_ref(repo_root, path))
         if len(matches) >= 3:
             break
     return matches
 
 
-def _search_repo_with_rg(repo_root: Path, terms: list[str], source: str) -> list[str] | None:
+def _search_repo_with_rg(repo_root: Path, phrases: list[str], source: str) -> list[str] | None:
     rg = shutil.which("rg")
-    patterns = _rg_patterns(terms)
+    patterns = _rg_patterns(phrases)
     if not rg or not patterns:
         return None
 
@@ -871,6 +868,8 @@ def _search_repo_with_rg(repo_root: Path, terms: list[str], source: str) -> list
         if not _is_searchable_file(path):
             continue
         if source != _path_category(path):
+            continue
+        if not _file_matches_phrases(path, phrases):
             continue
         matches.append(_relative_ref(repo_root, path))
         if len(matches) >= 3:
@@ -926,27 +925,49 @@ def _read_text(path: Path) -> str | None:
         return None
 
 
-def _decision_terms(decision: dict[str, Any]) -> list[str]:
-    terms: list[str] = []
+def _file_matches_phrases(path: Path, phrases: list[str]) -> bool:
+    text = _read_text(path)
+    if text is None:
+        return False
+    normalized_text = _normalize_search_phrase(text)
+    return any(_normalize_search_phrase(phrase) in normalized_text for phrase in phrases)
+
+
+def _evidence_phrases(decision: dict[str, Any]) -> list[str]:
+    source_texts: list[str] = []
     for field in (
         decision.get("title"),
-        decision.get("question"),
-        decision.get("context"),
         decision.get("recommendation", {}).get("summary"),
     ):
         if field:
-            terms.append(str(field))
-            terms.extend(_keywords(str(field)))
-    for option in decision.get("options", []):
-        summary = option.get("summary")
-        if summary:
-            terms.append(summary)
-    seen: list[str] = []
-    for term in terms:
-        stripped = term.strip()
-        if stripped and stripped not in seen:
-            seen.append(stripped)
-    return seen
+            source_texts.append(str(field))
+    options = decision.get("options", [])
+    if len(options) == 1 and options[0].get("summary"):
+        source_texts.append(str(options[0]["summary"]))
+
+    phrases: list[str] = []
+    for text in source_texts:
+        tokens = _phrase_tokens(text)
+        if len(tokens) < 2:
+            continue
+        max_size = min(5, len(tokens))
+        for size in range(max_size, 1, -1):
+            for index in range(0, len(tokens) - size + 1):
+                phrases.append(" ".join(tokens[index : index + size]))
+    return _stable_unique_strings(phrases)[:20]
+
+
+def _phrase_tokens(text: str) -> list[str]:
+    normalized = _normalize_search_phrase(text)
+    return [
+        token
+        for token in normalized.split()
+        if token not in STOP_WORDS and len(token) > 1
+    ]
+
+
+def _normalize_search_phrase(value: Any) -> str:
+    return " ".join(re.findall(r"[a-z0-9]+", str(value or "").casefold()))
 
 
 def _resolve_discovered_decisions_by_evidence(

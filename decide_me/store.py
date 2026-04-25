@@ -71,10 +71,15 @@ def read_event_log(paths: RuntimePaths) -> list[dict[str, Any]]:
         return []
     events: list[dict[str, Any]] = []
     with paths.event_log.open("r", encoding="utf-8") as handle:
-        for line in handle:
+        for line_number, line in enumerate(handle, start=1):
             stripped = line.strip()
             if stripped:
-                events.append(json.loads(stripped))
+                try:
+                    events.append(json.loads(stripped))
+                except json.JSONDecodeError as exc:
+                    raise StateValidationError(
+                        f"event-log.jsonl line {line_number} contains malformed JSON: {exc.msg}"
+                    ) from exc
     return events
 
 
@@ -97,44 +102,45 @@ def bootstrap_runtime(
 ) -> dict[str, Any]:
     paths = runtime_paths(ai_dir)
     ensure_runtime_dirs(paths)
-    if paths.event_log.exists() and paths.event_log.read_text(encoding="utf-8").strip():
-        raise StateValidationError(f"runtime already exists at {paths.ai_dir}")
+    with _write_lock(paths.lock_path):
+        if paths.event_log.exists() and paths.event_log.read_text(encoding="utf-8").strip():
+            raise StateValidationError(f"runtime already exists at {paths.ai_dir}")
 
-    stop_rule = stop_rule or (
-        "All relevant P0 decisions with frontier=now are resolved, accepted, or explicitly deferred."
-    )
-    payload = {
-        "project": {
-            "name": project_name,
-            "objective": objective,
-            "current_milestone": current_milestone,
-            "stop_rule": stop_rule,
-        },
-        "protocol": {
-            "plain_ok_scope": "same-session-active-proposal-only",
-            "proposal_expiry_rules": [
-                "project-version-changed",
-                "session-boundary",
-                "superseded-proposal",
-                "decision-invalidated",
-                "session-closed",
-            ],
-            "close_policy": "generate-close-summary-on-close",
-        },
-        "default_bundles": default_bundles or [],
-    }
-    event = build_event(
-        sequence=1,
-        session_id=SYSTEM_SESSION_ID,
-        event_type="project_initialized",
-        project_version_after=1,
-        payload=payload,
-        timestamp=utc_now(),
-    )
-    bundle = rebuild_projections([event])
-    validate_projection_bundle(bundle)
-    _write_runtime(paths, [event], bundle)
-    return bundle
+        stop_rule = stop_rule or (
+            "All relevant P0 decisions with frontier=now are resolved, accepted, or explicitly deferred."
+        )
+        payload = {
+            "project": {
+                "name": project_name,
+                "objective": objective,
+                "current_milestone": current_milestone,
+                "stop_rule": stop_rule,
+            },
+            "protocol": {
+                "plain_ok_scope": "same-session-active-proposal-only",
+                "proposal_expiry_rules": [
+                    "project-version-changed",
+                    "session-boundary",
+                    "superseded-proposal",
+                    "decision-invalidated",
+                    "session-closed",
+                ],
+                "close_policy": "generate-close-summary-on-close",
+            },
+            "default_bundles": default_bundles or [],
+        }
+        event = build_event(
+            sequence=1,
+            session_id=SYSTEM_SESSION_ID,
+            event_type="project_initialized",
+            project_version_after=1,
+            payload=payload,
+            timestamp=utc_now(),
+        )
+        bundle = rebuild_projections([event])
+        validate_projection_bundle(bundle)
+        _write_runtime(paths, [event], bundle)
+        return bundle
 
 
 def rebuild_and_persist(ai_dir: str | Path) -> dict[str, Any]:
@@ -152,8 +158,8 @@ def rebuild_and_persist(ai_dir: str | Path) -> dict[str, Any]:
 def validate_runtime(ai_dir: str | Path) -> list[str]:
     paths = runtime_paths(ai_dir)
     issues: list[str] = []
-    events = read_event_log(paths)
     try:
+        events = read_event_log(paths)
         validate_event_log(events)
     except (StateValidationError, ValueError) as exc:
         issues.append(str(exc))

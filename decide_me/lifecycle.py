@@ -3,12 +3,11 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
-from decide_me.classification import ensure_compatibility_backfill
 from decide_me.events import new_entity_id, utc_now
 from decide_me.projections import OPEN_DECISION_STATUSES, decision_is_invalidated, effective_session_status
 from decide_me.search import search_sessions, session_list_entry
 from decide_me.store import load_runtime, runtime_paths, transact
-from decide_me.taxonomy import resolved_tag_nodes, stable_unique
+from decide_me.taxonomy import backfill_compatibility_tags, resolved_tag_nodes, stable_unique
 
 
 def create_session(ai_dir: str, context: str | None = None) -> dict[str, Any]:
@@ -46,9 +45,10 @@ def list_sessions(
     abstraction_levels: list[str] | None = None,
     tag_terms: list[str] | None = None,
 ) -> dict[str, Any]:
-    backfilled, bundle = ensure_compatibility_backfill(ai_dir)
+    bundle = load_runtime(runtime_paths(ai_dir))
+    backfilled, sessions = _sessions_with_display_compatibility(bundle)
     sessions = search_sessions(
-        bundle["sessions"],
+        sessions,
         bundle["taxonomy_state"],
         query=query,
         statuses=statuses,
@@ -72,8 +72,9 @@ def list_sessions(
 
 
 def show_session(ai_dir: str, session_id: str) -> dict[str, Any]:
-    backfilled, bundle = ensure_compatibility_backfill(ai_dir, [session_id])
-    session_state = deepcopy(_require_session(bundle, session_id))
+    bundle = load_runtime(runtime_paths(ai_dir))
+    backfilled, sessions = _sessions_with_display_compatibility(bundle, [session_id])
+    session_state = deepcopy(_require_session({"sessions": sessions}, session_id))
     session_state["session"]["lifecycle"]["effective_status"] = effective_session_status(session_state)
     return {
         "status": "ok",
@@ -192,6 +193,26 @@ def build_close_summary(project_state: dict[str, Any], session_state: dict[str, 
 
 def load_runtime_from_ai_dir(ai_dir: str) -> dict[str, Any]:
     return load_runtime(runtime_paths(ai_dir))
+
+
+def _sessions_with_display_compatibility(
+    bundle: dict[str, Any], session_ids: list[str] | None = None
+) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]]:
+    sessions = deepcopy(bundle["sessions"])
+    requested = set(session_ids or [])
+    backfilled: list[dict[str, Any]] = []
+    for candidate_session_id, session in sessions.items():
+        if requested and candidate_session_id not in requested:
+            continue
+        additions = backfill_compatibility_tags(session, bundle["taxonomy_state"])
+        if additions:
+            backfilled.append(
+                {
+                    "session_id": candidate_session_id,
+                    "added_compatibility_tag_refs": additions,
+                }
+            )
+    return backfilled, sessions
 
 
 def _require_session(bundle: dict[str, Any], session_id: str) -> dict[str, Any]:
