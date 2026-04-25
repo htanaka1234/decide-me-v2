@@ -56,7 +56,10 @@ def enrich_decision(
     ]
     context_append = context_append.strip() if context_append and context_append.strip() else None
     if not notes_append and not revisit_triggers_append and not context_append:
-        return _lookup_decision(current_bundle(ai_dir), decision_id)
+        bundle = current_bundle(ai_dir)
+        session = _require_mutable_session(bundle, session_id)
+        _require_bound_decision(session, decision_id)
+        return _lookup_decision(bundle, decision_id)
 
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
         session = _require_mutable_session(bundle, session_id)

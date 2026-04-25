@@ -15,6 +15,7 @@ from decide_me.constants import (
 
 
 AUTO_PROJECT_VERSION = "__AUTO_PROJECT_VERSION__"
+PLAN_STATUSES = {"action-plan", "conflicts"}
 
 EVENT_TYPES = {
     "project_initialized",
@@ -277,6 +278,14 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
         nodes = payload["nodes"]
         if not isinstance(nodes, list):
             raise EventValidationError("taxonomy_extended.payload.nodes must be a list")
+    elif event_type == "plan_generated":
+        session_ids = payload["session_ids"]
+        if not isinstance(session_ids, list) or not session_ids:
+            raise EventValidationError("plan_generated.payload.session_ids must be a non-empty list")
+        for session_id in session_ids:
+            _require_non_empty_string(session_id, "plan_generated.payload.session_ids[]")
+        if payload["status"] not in PLAN_STATUSES:
+            raise EventValidationError("plan_generated.payload.status must be action-plan or conflicts")
 
 
 def validate_event(event: dict[str, Any]) -> None:

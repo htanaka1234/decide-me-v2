@@ -86,6 +86,37 @@ class ProjectionValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(StateValidationError, "inactive proposal must have inactive_reason"):
             validate_projection_bundle(bundle)
 
+    def test_rejects_current_question_without_active_proposal(self) -> None:
+        bundle = _valid_bundle()
+        session = bundle["sessions"]["S-001"]
+        session["summary"]["current_question_preview"] = "Dangling?"
+        session["summary"]["active_decision_id"] = "D-001"
+        session["working_state"]["current_question_id"] = "Q-001"
+        session["working_state"]["current_question"] = "Dangling?"
+
+        with self.assertRaisesRegex(StateValidationError, "without active proposal"):
+            validate_projection_bundle(bundle)
+
+    def test_rejects_current_question_mismatched_to_active_proposal(self) -> None:
+        bundle = _valid_bundle()
+        decision = bundle["project_state"]["decisions"][0]
+        decision["status"] = "proposed"
+        decision["recommendation"]["proposal_id"] = "P-001"
+        session = bundle["sessions"]["S-001"]
+        active = _active_proposal(
+            proposal_id="P-001",
+            origin_session_id="S-001",
+            decision_id="D-001",
+        )
+        session["working_state"]["active_proposal"] = active
+        session["working_state"]["current_question_id"] = "Q-other"
+        session["working_state"]["current_question"] = active["question"]
+        session["summary"]["current_question_preview"] = active["question"]
+        session["summary"]["active_decision_id"] = "D-001"
+
+        with self.assertRaisesRegex(StateValidationError, "current_question_id"):
+            validate_projection_bundle(bundle)
+
     def test_rejects_unknown_taxonomy_tag_reference(self) -> None:
         bundle = _valid_bundle()
         bundle["sessions"]["S-001"]["classification"]["assigned_tags"] = ["tag:missing"]
@@ -458,6 +489,51 @@ class ProjectionValidationTests(unittest.TestCase):
 
         with self.assertRaisesRegex(StateValidationError, "target_id"):
             validate_event_log([initialized, session, discovered, discovered_other, proposal, mismatched_target])
+
+    def test_event_log_accepts_question_followed_by_matching_proposal(self) -> None:
+        initialized = _project_initialized(1)
+        session = _session_created(2, "S-001")
+        discovered = _decision_discovered(3, "S-001", "D-001")
+        question = _question_asked(4, "S-001", "D-001")
+        proposal = _proposal_issued(5, "S-001", "D-001", proposal_id="P-001")
+
+        validate_event_log([initialized, session, discovered, question, proposal])
+
+    def test_event_log_rejects_dangling_question_asked(self) -> None:
+        initialized = _project_initialized(1)
+        session = _session_created(2, "S-001")
+        discovered = _decision_discovered(3, "S-001", "D-001")
+        question = _question_asked(4, "S-001", "D-001")
+
+        with self.assertRaisesRegex(StateValidationError, "question_asked must be followed"):
+            validate_event_log([initialized, session, discovered, question])
+
+    def test_event_log_rejects_question_asked_not_followed_immediately_by_proposal(self) -> None:
+        initialized = _project_initialized(1)
+        session = _session_created(2, "S-001")
+        discovered = _decision_discovered(3, "S-001", "D-001")
+        question = _question_asked(4, "S-001", "D-001")
+        enriched = build_event(
+            sequence=5,
+            session_id="S-001",
+            event_type="decision_enriched",
+            project_version_after=5,
+            payload={"decision_id": "D-001", "notes_append": ["not a proposal"]},
+            timestamp="2026-04-23T12:04:00Z",
+        )
+
+        with self.assertRaisesRegex(StateValidationError, "question_asked must be followed"):
+            validate_event_log([initialized, session, discovered, question, enriched])
+
+    def test_event_log_rejects_question_proposal_mismatch(self) -> None:
+        initialized = _project_initialized(1)
+        session = _session_created(2, "S-001")
+        discovered = _decision_discovered(3, "S-001", "D-001")
+        question = _question_asked(4, "S-001", "D-001", question_id="Q-other")
+        proposal = _proposal_issued(5, "S-001", "D-001", proposal_id="P-001")
+
+        with self.assertRaisesRegex(StateValidationError, "pending question_id"):
+            validate_event_log([initialized, session, discovered, question, proposal])
 
     def test_event_log_rejects_duplicate_proposal_id(self) -> None:
         initialized = _project_initialized(1)
@@ -848,6 +924,28 @@ def _plan_generated(sequence: int, session_ids: list[str]) -> dict:
         event_type="plan_generated",
         project_version_after=sequence,
         payload={"session_ids": session_ids, "status": "action-plan"},
+        timestamp=f"2026-04-23T12:{sequence - 1:02d}:00Z",
+    )
+
+
+def _question_asked(
+    sequence: int,
+    session_id: str,
+    decision_id: str,
+    *,
+    question_id: str = "Q-001",
+    question: str = "Question?",
+) -> dict:
+    return build_event(
+        sequence=sequence,
+        session_id=session_id,
+        event_type="question_asked",
+        project_version_after=sequence,
+        payload={
+            "decision_id": decision_id,
+            "question_id": question_id,
+            "question": question,
+        },
         timestamp=f"2026-04-23T12:{sequence - 1:02d}:00Z",
     )
 

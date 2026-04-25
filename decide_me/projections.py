@@ -303,9 +303,10 @@ def apply_event(
         )
         origin_session_id = payload.get("origin_session_id") or session_id
         if origin_session_id in sessions:
+            latest_summary = payload.get("reason") or payload["accepted_answer"]["summary"]
             _clear_question_state(
                 sessions[origin_session_id],
-                payload["reason"] if payload.get("reason") else None,
+                latest_summary,
             )
             _touch_session(
                 sessions,
@@ -510,6 +511,10 @@ def _deactivate_proposal(session: dict[str, Any], reason: str) -> None:
         return
     proposal["is_active"] = False
     proposal["inactive_reason"] = reason
+    session["working_state"]["current_question_id"] = None
+    session["working_state"]["current_question"] = None
+    session["summary"]["current_question_preview"] = None
+    session["summary"]["active_decision_id"] = None
 
 
 def _invalidate_proposal(session: dict[str, Any], reason: str) -> None:

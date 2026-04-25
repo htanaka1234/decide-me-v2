@@ -476,6 +476,7 @@ def _validate_active_proposal(
             f"session {session_id} inactive proposal must have inactive_reason"
         )
     if not proposal_id:
+        _validate_question_state(session_id, session)
         return
 
     if active.get("origin_session_id") != session_id:
@@ -505,6 +506,46 @@ def _validate_active_proposal(
             raise StateValidationError(f"session {session_id} active proposal does not match active_decision_id")
         if decision.get("recommendation", {}).get("proposal_id") != proposal_id:
             raise StateValidationError(f"session {session_id} active proposal is not the decision recommendation")
+    _validate_question_state(session_id, session)
+
+
+def _validate_question_state(session_id: str, session: dict[str, Any]) -> None:
+    working_state = session["working_state"]
+    active = working_state["active_proposal"]
+    current_question_id = working_state.get("current_question_id")
+    current_question = working_state.get("current_question")
+    preview = session["summary"].get("current_question_preview")
+    active_decision_id = session["summary"].get("active_decision_id")
+    has_question = bool(current_question_id or current_question or preview or active_decision_id)
+
+    if has_question:
+        if not active.get("is_active"):
+            raise StateValidationError(
+                f"session {session_id} has current question state without active proposal"
+            )
+        if current_question_id != active.get("question_id"):
+            raise StateValidationError(
+                f"session {session_id} current_question_id does not match active proposal"
+            )
+        if current_question != active.get("question"):
+            raise StateValidationError(
+                f"session {session_id} current_question does not match active proposal"
+            )
+        if preview != active.get("question"):
+            raise StateValidationError(
+                f"session {session_id} current_question_preview does not match active proposal"
+            )
+        if active_decision_id != active.get("target_id"):
+            raise StateValidationError(
+                f"session {session_id} active_decision_id does not match active proposal"
+            )
+
+    if active.get("is_active") and not (
+        current_question_id and current_question and preview and active_decision_id
+    ):
+        raise StateValidationError(
+            f"session {session_id} active proposal requires current question state"
+        )
 
 
 def _validate_close_summary(
@@ -600,6 +641,7 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
     accepted_proposals: set[str] = set()
     rejected_proposals: set[str] = set()
     pending_rejected_proposal_id: str | None = None
+    pending_question: dict[str, str] | None = None
     project_initialized_count = 0
     for sequence, event in enumerate(events, start=1):
         validate_event(event)
@@ -663,6 +705,7 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
                         f"{event['event_type']} references undiscovered decision {decision_id}"
                     )
         _validate_event_log_session_decision_binding(event, session_decision_ids)
+        pending_question = _validate_event_log_question_pairing(event, pending_question)
         _validate_event_log_proposal_lifecycle(
             event,
             issued_proposals,
@@ -715,6 +758,8 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
         if event["project_version_after"] <= previous_version:
             raise StateValidationError("event log project_version_after must be strictly increasing")
         previous_version = event["project_version_after"]
+    if pending_question is not None:
+        raise StateValidationError("question_asked must be followed by matching proposal_issued")
 
 
 def _validate_event_log_proposal_lifecycle(
@@ -767,6 +812,34 @@ def _validate_event_log_proposal_lifecycle(
             active_proposal_by_session[payload["origin_session_id"]] = None
         else:
             rejected_proposals.add(proposal_id)
+
+
+def _validate_event_log_question_pairing(
+    event: dict[str, Any], pending_question: dict[str, str] | None
+) -> dict[str, str] | None:
+    event_type = event["event_type"]
+    if pending_question is not None:
+        if event_type != "proposal_issued":
+            raise StateValidationError("question_asked must be followed by matching proposal_issued")
+        proposal = event["payload"]["proposal"]
+        if event["session_id"] != pending_question["session_id"]:
+            raise StateValidationError("proposal_issued does not match pending question session")
+        if proposal["target_id"] != pending_question["decision_id"]:
+            raise StateValidationError("proposal_issued does not match pending question decision")
+        if proposal["question_id"] != pending_question["question_id"]:
+            raise StateValidationError("proposal_issued does not match pending question_id")
+        if proposal["question"] != pending_question["question"]:
+            raise StateValidationError("proposal_issued does not match pending question text")
+        return None
+
+    if event_type == "question_asked":
+        return {
+            "session_id": event["session_id"],
+            "decision_id": event["payload"]["decision_id"],
+            "question_id": event["payload"]["question_id"],
+            "question": event["payload"]["question"],
+        }
+    return None
 
 
 def _validate_event_log_session_scope(event: dict[str, Any], created_session_ids: set[str]) -> None:

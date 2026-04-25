@@ -10,6 +10,9 @@ from decide_me.taxonomy import stable_unique
 
 
 def generate_plan(ai_dir: str, session_ids: list[str]) -> dict[str, Any]:
+    if not session_ids:
+        raise ValueError("at least one closed session is required to generate a plan")
+
     bundle = load_runtime(runtime_paths(ai_dir))
     sessions = []
     for session_id in session_ids:

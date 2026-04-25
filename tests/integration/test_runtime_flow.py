@@ -731,6 +731,42 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertNotIn('"context_append": null', event_log)
             self.assertEqual([], validate_runtime(ai_dir))
 
+    def test_noop_enrich_decision_still_validates_session_binding(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Validate no-op enrich calls",
+                current_milestone="MVP",
+            )
+            session_id = create_session(ai_dir, context="Decision thread")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-noop-enrich",
+                    "title": "Auth mode",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "question": "How should auth work?",
+                },
+            )
+
+            decision = enrich_decision(ai_dir, session_id, decision_id="D-noop-enrich")
+            self.assertEqual("D-noop-enrich", decision["id"])
+            with self.assertRaisesRegex(ValueError, "unknown session"):
+                enrich_decision(ai_dir, "S-missing", decision_id="D-noop-enrich")
+            with self.assertRaisesRegex(ValueError, "not bound"):
+                enrich_decision(ai_dir, session_id, decision_id="D-missing")
+
+            close_session(ai_dir, session_id)
+            with self.assertRaisesRegex(ValueError, "closed"):
+                enrich_decision(ai_dir, session_id, decision_id="D-noop-enrich")
+
+            self.assertEqual([], validate_runtime(ai_dir))
+
     def test_resolve_by_evidence_rejects_unknown_source(self) -> None:
         with TemporaryDirectory() as tmp:
             ai_dir = str(Path(tmp) / ".ai" / "decide-me")
@@ -950,6 +986,21 @@ class RuntimeFlowTests(unittest.TestCase):
                     domain="technical",
                     abstraction_level="architecture",
                 )
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_generate_plan_requires_at_least_one_session(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Reject empty plan inputs",
+                current_milestone="MVP",
+            )
+
+            with self.assertRaisesRegex(ValueError, "at least one closed session"):
+                generate_plan(ai_dir, [])
+
             self.assertEqual([], validate_runtime(ai_dir))
 
     def test_close_sessions_generate_plan_and_adr(self) -> None:

@@ -174,6 +174,48 @@ class EventTests(unittest.TestCase):
                 timestamp="2026-04-23T12:00:00Z",
             )
 
+    def test_plan_generated_requires_non_empty_session_ids(self) -> None:
+        with self.assertRaisesRegex(EventValidationError, "non-empty list"):
+            build_event(
+                sequence=1,
+                session_id="SYSTEM",
+                event_type="plan_generated",
+                project_version_after=1,
+                payload={"session_ids": "S-001", "status": "action-plan"},
+                timestamp="2026-04-23T12:00:00Z",
+            )
+
+        with self.assertRaisesRegex(EventValidationError, "non-empty list"):
+            build_event(
+                sequence=1,
+                session_id="SYSTEM",
+                event_type="plan_generated",
+                project_version_after=1,
+                payload={"session_ids": [], "status": "action-plan"},
+                timestamp="2026-04-23T12:00:00Z",
+            )
+
+        with self.assertRaisesRegex(EventValidationError, "session_ids"):
+            build_event(
+                sequence=1,
+                session_id="SYSTEM",
+                event_type="plan_generated",
+                project_version_after=1,
+                payload={"session_ids": [" "], "status": "action-plan"},
+                timestamp="2026-04-23T12:00:00Z",
+            )
+
+    def test_plan_generated_requires_known_status(self) -> None:
+        with self.assertRaisesRegex(EventValidationError, "status"):
+            build_event(
+                sequence=1,
+                session_id="SYSTEM",
+                event_type="plan_generated",
+                project_version_after=1,
+                payload={"session_ids": ["S-001"], "status": "empty"},
+                timestamp="2026-04-23T12:00:00Z",
+            )
+
     def test_decision_discovered_rejects_terminal_status(self) -> None:
         with self.assertRaisesRegex(EventValidationError, "status"):
             build_event(
