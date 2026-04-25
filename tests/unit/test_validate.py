@@ -128,8 +128,11 @@ class ProjectionValidationTests(unittest.TestCase):
         bundle = _valid_bundle()
         replacement = default_decision("D-002", "Replacement")
         replacement["status"] = "accepted"
+        replacement["recommendation"]["proposal_id"] = "P-002"
         replacement["accepted_answer"]["summary"] = "Use the replacement."
+        replacement["accepted_answer"]["accepted_at"] = "2026-04-23T12:00:00Z"
         replacement["accepted_answer"]["accepted_via"] = "explicit"
+        replacement["accepted_answer"]["proposal_id"] = "P-002"
         bundle["project_state"]["decisions"].append(replacement)
         invalidated = bundle["project_state"]["decisions"][0]
         invalidated["status"] = "invalidated"
@@ -167,10 +170,35 @@ class ProjectionValidationTests(unittest.TestCase):
         decision["status"] = "accepted"
         decision["recommendation"]["proposal_id"] = "P-001"
         decision["accepted_answer"]["summary"] = "Use it."
+        decision["accepted_answer"]["accepted_at"] = "2026-04-23T12:00:00Z"
         decision["accepted_answer"]["accepted_via"] = "explicit"
         decision["accepted_answer"]["proposal_id"] = "P-other"
 
         with self.assertRaisesRegex(StateValidationError, "accepted_answer.proposal_id"):
+            validate_projection_bundle(bundle)
+
+    def test_rejects_accepted_decision_without_proposal_id(self) -> None:
+        bundle = _valid_bundle()
+        decision = bundle["project_state"]["decisions"][0]
+        decision["status"] = "accepted"
+        decision["recommendation"]["proposal_id"] = "P-001"
+        decision["accepted_answer"]["summary"] = "Use it."
+        decision["accepted_answer"]["accepted_at"] = "2026-04-23T12:00:00Z"
+        decision["accepted_answer"]["accepted_via"] = "explicit"
+
+        with self.assertRaisesRegex(StateValidationError, "accepted_answer.proposal_id"):
+            validate_projection_bundle(bundle)
+
+    def test_rejects_accepted_decision_without_accepted_at(self) -> None:
+        bundle = _valid_bundle()
+        decision = bundle["project_state"]["decisions"][0]
+        decision["status"] = "accepted"
+        decision["recommendation"]["proposal_id"] = "P-001"
+        decision["accepted_answer"]["summary"] = "Use it."
+        decision["accepted_answer"]["accepted_via"] = "explicit"
+        decision["accepted_answer"]["proposal_id"] = "P-001"
+
+        with self.assertRaisesRegex(StateValidationError, "accepted_answer.accepted_at"):
             validate_projection_bundle(bundle)
 
     def test_rejects_proposed_decision_without_active_proposal(self) -> None:
@@ -233,6 +261,31 @@ class ProjectionValidationTests(unittest.TestCase):
         decision["resolved_by_evidence"]["source"] = "aliens"
 
         with self.assertRaisesRegex(StateValidationError, "resolved_by_evidence.source"):
+            validate_projection_bundle(bundle)
+
+    def test_rejects_resolved_by_evidence_without_resolved_at(self) -> None:
+        bundle = _valid_bundle()
+        decision = bundle["project_state"]["decisions"][0]
+        decision["status"] = "resolved-by-evidence"
+        decision["accepted_answer"]["summary"] = "Found it."
+        decision["accepted_answer"]["accepted_via"] = "evidence"
+        decision["resolved_by_evidence"]["summary"] = "Found it."
+        decision["resolved_by_evidence"]["source"] = "docs"
+
+        with self.assertRaisesRegex(StateValidationError, "resolved_by_evidence.resolved_at"):
+            validate_projection_bundle(bundle)
+
+    def test_rejects_resolved_by_evidence_accepted_summary_mismatch(self) -> None:
+        bundle = _valid_bundle()
+        decision = bundle["project_state"]["decisions"][0]
+        decision["status"] = "resolved-by-evidence"
+        decision["accepted_answer"]["summary"] = "Different."
+        decision["accepted_answer"]["accepted_via"] = "evidence"
+        decision["resolved_by_evidence"]["summary"] = "Found it."
+        decision["resolved_by_evidence"]["source"] = "docs"
+        decision["resolved_by_evidence"]["resolved_at"] = "2026-04-23T12:00:00Z"
+
+        with self.assertRaisesRegex(StateValidationError, "accepted_answer.summary"):
             validate_projection_bundle(bundle)
 
     def test_rejects_empty_project_fields(self) -> None:
@@ -306,6 +359,26 @@ class ProjectionValidationTests(unittest.TestCase):
         )
 
         with self.assertRaisesRegex(StateValidationError, "does not match sequence"):
+            validate_event_log([event])
+
+    def test_event_log_rejects_project_version_that_does_not_match_sequence(self) -> None:
+        event = build_event(
+            sequence=1,
+            session_id="SYSTEM",
+            event_type="project_initialized",
+            project_version_after=10,
+            payload={
+                "project": {
+                    "name": "Demo",
+                    "objective": "Test",
+                    "current_milestone": "MVP",
+                    "stop_rule": "Resolve blockers",
+                }
+            },
+            timestamp="2026-04-23T12:00:00Z",
+        )
+
+        with self.assertRaisesRegex(StateValidationError, "project_version_after must equal sequence"):
             validate_event_log([event])
 
     def test_event_log_rejects_duplicate_project_initialized(self) -> None:
@@ -535,6 +608,30 @@ class ProjectionValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(StateValidationError, "pending question_id"):
             validate_event_log([initialized, session, discovered, question, proposal])
 
+    def test_event_log_rejects_proposal_issued_while_previous_proposal_active(self) -> None:
+        initialized = _project_initialized(1)
+        session = _session_created(2, "S-001")
+        first_decision = _decision_discovered(3, "S-001", "D-001")
+        second_decision = _decision_discovered(4, "S-001", "D-002")
+        first_question = _question_asked(5, "S-001", "D-001")
+        first_proposal = _proposal_issued(6, "S-001", "D-001", proposal_id="P-001")
+        second_question = _question_asked(7, "S-001", "D-002")
+        second_proposal = _proposal_issued(8, "S-001", "D-002", proposal_id="P-002")
+
+        with self.assertRaisesRegex(StateValidationError, "proposal_issued while proposal P-001 is still active"):
+            validate_event_log(
+                [
+                    initialized,
+                    session,
+                    first_decision,
+                    second_decision,
+                    first_question,
+                    first_proposal,
+                    second_question,
+                    second_proposal,
+                ]
+            )
+
     def test_event_log_rejects_duplicate_proposal_id(self) -> None:
         initialized = _project_initialized(1)
         session = _session_created(2, "S-001")
@@ -749,7 +846,7 @@ class ProjectionValidationTests(unittest.TestCase):
             timestamp="2026-04-23T12:05:00Z",
         )
         late_accept = _proposal_accepted(7, "S-001", "D-001", "P-001")
-        with self.assertRaisesRegex(StateValidationError, "proposal_accepted cannot target"):
+        with self.assertRaisesRegex(StateValidationError, "inactive proposal P-001"):
             validate_event_log([initialized, session, discovered, proposal, rejected, enriched, late_accept])
 
     def test_event_log_rejects_response_to_superseded_proposal(self) -> None:

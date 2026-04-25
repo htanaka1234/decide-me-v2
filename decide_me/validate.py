@@ -166,11 +166,23 @@ def _validate_decision_status_payload(decision: dict[str, Any]) -> None:
     evidence_summary = decision.get("resolved_by_evidence", {}).get("summary")
     if status == "accepted":
         _require_non_empty_string(accepted_summary, f"decision {decision_id}.accepted_answer.summary")
+        _require_non_empty_string(
+            decision.get("accepted_answer", {}).get("accepted_at"),
+            f"decision {decision_id}.accepted_answer.accepted_at",
+        )
+        _require_non_empty_string(
+            decision.get("accepted_answer", {}).get("proposal_id"),
+            f"decision {decision_id}.accepted_answer.proposal_id",
+        )
         _require_enum(
             decision.get("accepted_answer", {}).get("accepted_via"),
             ACCEPTED_VIA_VALUES - {"evidence"},
             f"decision {decision_id}.accepted_answer.accepted_via",
         )
+        if decision["accepted_answer"]["proposal_id"] != decision["recommendation"].get("proposal_id"):
+            raise StateValidationError(
+                f"decision {decision_id}.accepted_answer.proposal_id must match recommendation.proposal_id"
+            )
     elif status == "resolved-by-evidence":
         resolved = decision.get("resolved_by_evidence", {})
         _require_non_empty_string(resolved.get("summary"), f"decision {decision_id}.resolved_by_evidence.summary")
@@ -180,9 +192,17 @@ def _validate_decision_status_payload(decision: dict[str, Any]) -> None:
             EVIDENCE_SOURCES,
             f"decision {decision_id}.resolved_by_evidence.source",
         )
+        _require_non_empty_string(
+            resolved.get("resolved_at"),
+            f"decision {decision_id}.resolved_by_evidence.resolved_at",
+        )
         if decision.get("accepted_answer", {}).get("accepted_via") != "evidence":
             raise StateValidationError(
                 f"decision {decision_id}.accepted_answer.accepted_via must be evidence"
+            )
+        if decision.get("accepted_answer", {}).get("summary") != resolved.get("summary"):
+            raise StateValidationError(
+                f"decision {decision_id}.accepted_answer.summary must match resolved_by_evidence.summary"
             )
     elif status in {"unresolved", "proposed", "rejected", "deferred", "blocked"}:
         if accepted_summary:
@@ -655,6 +675,10 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
             raise StateValidationError(
                 f"event_id {event['event_id']} does not match sequence {sequence}"
             )
+        if event["project_version_after"] != sequence:
+            raise StateValidationError(
+                f"event {event['event_id']} project_version_after must equal sequence {sequence}"
+            )
         _validate_event_log_session_scope(event, created_session_ids)
         if event["event_type"] == "project_initialized":
             if event["session_id"] != SYSTEM_SESSION_ID:
@@ -704,6 +728,13 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
                     raise StateValidationError(
                         f"{event['event_type']} references undiscovered decision {decision_id}"
                     )
+        pending_rejected_proposal_id = _expire_pending_rejected_proposal(
+            event,
+            pending_rejected_proposal_id,
+            issued_proposals,
+            active_proposal_by_session,
+            disabled_proposals,
+        )
         _validate_event_log_session_decision_binding(event, session_decision_ids)
         pending_question = _validate_event_log_question_pairing(event, pending_question)
         _validate_event_log_proposal_lifecycle(
@@ -784,7 +815,7 @@ def _validate_event_log_proposal_lifecycle(
         }
         previous = active_proposal_by_session.get(event["session_id"])
         if previous:
-            disabled_proposals.add(previous)
+            raise StateValidationError(f"proposal_issued while proposal {previous} is still active")
         active_proposal_by_session[event["session_id"]] = proposal_id
     elif event_type in {"proposal_accepted", "proposal_rejected"}:
         proposal_id = payload["proposal_id"]
@@ -812,6 +843,28 @@ def _validate_event_log_proposal_lifecycle(
             active_proposal_by_session[payload["origin_session_id"]] = None
         else:
             rejected_proposals.add(proposal_id)
+
+
+def _expire_pending_rejected_proposal(
+    event: dict[str, Any],
+    pending_rejected_proposal_id: str | None,
+    issued_proposals: dict[str, dict[str, str]],
+    active_proposal_by_session: dict[str, str | None],
+    disabled_proposals: set[str],
+) -> str | None:
+    if pending_rejected_proposal_id is None:
+        return None
+    if (
+        event["event_type"] == "proposal_accepted"
+        and event["payload"]["proposal_id"] == pending_rejected_proposal_id
+    ):
+        return pending_rejected_proposal_id
+
+    disabled_proposals.add(pending_rejected_proposal_id)
+    origin_session_id = issued_proposals[pending_rejected_proposal_id]["origin_session_id"]
+    if active_proposal_by_session.get(origin_session_id) == pending_rejected_proposal_id:
+        active_proposal_by_session[origin_session_id] = None
+    return None
 
 
 def _validate_event_log_question_pairing(
