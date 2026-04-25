@@ -1,48 +1,153 @@
 # decide-me-v2
 
-`decide-me-v2` is an event-sourced decision runtime for structured interviewing,
-parallel session continuity, taxonomy-aware search, and close-summary-to-plan handoff.
-It uses a source-of-truth event log and rebuildable projections as the runtime model.
+`decide-me-v2` is a Codex Skill for turning ambiguous project work into a
+decision-complete action plan. It interviews the user one decision at a time,
+checks the codebase, docs, tests, and prior sessions before asking, records the
+decisions it reaches, and can close one or more sessions into an implementation
+plan.
 
-## Status
+The repository contains the v2 runtime behind that Skill: an event-sourced
+decision log, rebuildable projections, taxonomy-aware session search, close
+summaries, and plan exports.
 
-This repository contains the v2 implementation skeleton and core runtime:
+## What this Skill is for
 
-- skill authoring entrypoint in `SKILL.md`
-- protocol and architecture references in `references/`
-- JSON schema contracts in `schemas/`
-- markdown export templates in `templates/`
-- runtime and CLI implementation in `decide_me/` and `scripts/`
-- unit and integration tests in `tests/`
+Use decide-me when the problem is not "write the code now" yet. It is for the
+moments where the work is still under-specified:
 
-## Runtime layout
+- a feature needs scope decisions before implementation
+- a design has several viable approaches and tradeoffs
+- a review surfaced follow-up questions that should not be lost
+- parallel conversations need to converge into one plan
+- previous decisions should be reused instead of re-litigated
 
-The runtime lives under `.ai/decide-me/`:
+The Skill's job is to reduce user fatigue. It should ask only the next useful
+question, include a recommended answer, explain the tradeoff, and stop when the
+current milestone is clear enough to execute.
+
+## When to use it
+
+Good fits:
+
+- "Help me decide the MVP auth flow."
+- "Turn this rough feature request into an implementation plan."
+- "We discussed deployment constraints earlier; continue from that session."
+- "Find the previous auth decisions and use them for this plan."
+- "Close these discovery sessions and generate an action plan."
+
+Poor fits:
+
+- purely mechanical code edits with no decision to make
+- one-off factual questions that can be answered directly from the repository
+- long brainstorming where nothing needs to be recorded or carried forward
+
+## How to use the Skill
+
+Ask Codex to use decide-me for the decision thread you want to clarify. Useful
+prompts look like this:
 
 ```text
-.ai/decide-me/
-├── event-log.jsonl
-├── project-state.json
-├── taxonomy-state.json
-├── sessions/
-│   └── S-*.json
-├── exports/
-│   ├── adr/
-│   └── plans/
-└── write.lock
+Use decide-me to clarify this feature before implementation.
+Resume the previous decide-me session about auth and continue.
+Close this decide-me session and turn it into a plan.
+Find prior decide-me decisions related to audit logging.
+Generate a plan from the closed decide-me sessions for the MVP.
 ```
 
-`event-log.jsonl` is the source of truth. The JSON projections are derived state and can be
-rebuilt from the event log.
+For a new thread, the Skill creates a session and binds discovered decisions to
+that session. For a continuing thread, it resumes the existing session, validates
+state, and avoids treating stale proposals as silently accepted.
 
-## Prerequisites
+Before asking the user, the Skill should inspect available evidence:
 
-- Python 3.11 or newer
-- No third-party Python dependencies are required for the included test suite
+- repository code
+- docs and README-like files
+- tests
+- existing sessions
+- prior close summaries
 
-## Quick start
+If evidence already resolves a decision, the Skill records that instead of
+asking again. Otherwise it asks exactly one question in this shape:
 
-Bootstrap a runtime:
+```text
+Decision: D-012
+Proposal: P-0007
+Question: Should the MVP use email magic links or passwords?
+Recommendation: Use email magic links for the MVP.
+Why: Lower coordination and implementation burden for the current milestone.
+If not: Password reset, password policy, and recovery flows become in scope now.
+```
+
+## How to answer its questions
+
+Use short answers when the recommendation is right, and explicit answers when it
+is not.
+
+- `OK` accepts the current active proposal only when it is still valid in the
+  same session.
+- `Accept P-0007` explicitly accepts a proposal and is preferred when there is
+  any chance of ambiguity.
+- `Reject P-0007: reason` rejects the proposal and records why.
+- `Defer D-012: reason` keeps the decision out of the current milestone without
+  pretending it is resolved.
+- A free-form answer such as `Use passwords because enterprise customers require
+  them` becomes the accepted answer for the active proposal.
+
+Free-form replies can also add constraints or discover follow-up decisions. For
+example, `Use magic links, but they must expire within 15 minutes and we also
+need audit logging` records the answer, captures the constraint, and can create a
+new audit logging decision in the same session.
+
+## Typical workflows
+
+Start a new planning conversation:
+
+1. Ask Codex to use decide-me for the feature or design.
+2. Answer one decision question at a time.
+3. Accept, reject, defer, or answer each proposal.
+4. Close the session when the current milestone is clear.
+
+Continue earlier work:
+
+1. Ask Codex to list or show existing sessions.
+2. Resume the relevant session.
+3. Continue from the next unresolved decision.
+4. Use explicit `Accept P-...` if the active proposal became stale.
+
+Merge discovery into an execution plan:
+
+1. Close each relevant session.
+2. Generate a plan from the closed sessions.
+3. Resolve conflicts if accepted decisions disagree.
+4. Use the generated action slices as implementation input.
+
+Reuse prior context:
+
+1. Search sessions by topic, domain, abstraction level, or tag.
+2. Inspect the prior decisions and close summaries.
+3. Resume the matching session or start a new one with the old decisions as
+   evidence.
+
+## Runtime model, briefly
+
+The runtime lives under `.ai/decide-me/`.
+
+- `event-log.jsonl` is the source of truth.
+- `project-state.json`, `taxonomy-state.json`, and `sessions/*.json` are
+  rebuildable projections.
+- `exports/` contains human-readable plans and ADRs.
+- `write.lock` protects runtime writes.
+
+Normal users should not edit runtime state by hand. If projections look wrong,
+rebuild them from the event log and validate state instead of patching JSON
+files directly.
+
+## For maintainers
+
+Python 3.11 or newer is enough for the included runtime and tests. No third-party
+Python dependencies are required.
+
+Bootstrap a runtime only when one does not exist:
 
 ```bash
 python3 scripts/decide_me.py bootstrap \
@@ -52,109 +157,28 @@ python3 scripts/decide_me.py bootstrap \
   --current-milestone "MVP planning"
 ```
 
-Create and inspect sessions:
+The CLI is deterministic and is mainly for Skill internals, automation, and
+debugging. Use `python3 scripts/decide_me.py --help` for the full subcommand
+reference. Common maintainer operations include:
+
+- `list-sessions`, `show-session`, and `resume-session`
+- `advance-session` and `handle-reply`
+- `close-session` and `generate-plan`
+- `validate-state` and `rebuild-projections`
+
+Run the test suite with:
 
 ```bash
-python3 scripts/decide_me.py create-session --ai-dir .ai/decide-me --context "MVP scope"
-python3 scripts/decide_me.py list-sessions --ai-dir .ai/decide-me
-python3 scripts/decide_me.py show-session --ai-dir .ai/decide-me --session-id S-...
+PYTHONPATH=. python3 -m unittest discover -v
 ```
 
-Classify a session and search with filters:
+## Project layout
 
-```bash
-python3 scripts/decide_me.py classify-session \
-  --ai-dir .ai/decide-me \
-  --session-id S-... \
-  --domain technical \
-  --abstraction-level architecture \
-  --candidate-term "auth" \
-  --candidate-term "magic links" \
-  --source-ref latest_summary
-
-python3 scripts/decide_me.py list-sessions \
-  --ai-dir .ai/decide-me \
-  --domain technical \
-  --abstraction-level architecture \
-  --tag auth
-```
-
-Validate and rebuild projections:
-
-```bash
-python3 scripts/decide_me.py validate-state --ai-dir .ai/decide-me
-python3 scripts/decide_me.py rebuild-projections --ai-dir .ai/decide-me
-```
-
-Close sessions and generate a plan:
-
-```bash
-python3 scripts/decide_me.py close-session --ai-dir .ai/decide-me --session-id S-...
-python3 scripts/decide_me.py generate-plan \
-  --ai-dir .ai/decide-me \
-  --session-id S-... \
-  --session-id S-...
-
-python3 scripts/decide_me.py invalidate-decision \
-  --ai-dir .ai/decide-me \
-  --session-id S-... \
-  --decision-id D-... \
-  --invalidated-by D-... \
-  --reason "Superseded by the later decision."
-```
-
-Advance an interview turn:
-
-```bash
-python3 scripts/decide_me.py advance-session \
-  --ai-dir .ai/decide-me \
-  --session-id S-... \
-  --repo-root .
-
-python3 scripts/decide_me.py handle-reply \
-  --ai-dir .ai/decide-me \
-  --session-id S-... \
-  --reply "OK" \
-  --repo-root .
-
-python3 scripts/decide_me.py handle-reply \
-  --ai-dir .ai/decide-me \
-  --session-id S-... \
-  --reply "Use 90 days because enterprise customers will expect it." \
-  --repo-root .
-```
-
-## Project structure
-
-- `SKILL.md`: public skill entrypoint
-- `references/`: protocol, lifecycle, taxonomy, event model, plan generation, examples
-- `schemas/`: JSON schema contracts for events and projections
-- `templates/`: ADR and action-plan markdown templates
+- `SKILL.md`: public Skill entrypoint
+- `references/`: protocol, lifecycle, taxonomy, event model, plan generation,
+  output contract, and examples
+- `schemas/`: JSON contracts for events and projections
+- `templates/`: ADR and action-plan export templates
 - `decide_me/`: runtime implementation
-- `scripts/decide_me.py`: single subcommand CLI
+- `scripts/decide_me.py`: deterministic CLI
 - `tests/`: unit and integration coverage
-
-## Notes
-
-- The runtime lives under `.ai/decide-me/`; human-readable artifacts are exports, not state.
-- Validation checks both event envelopes and projection consistency.
-- `list-sessions` and `show-session` may lazily backfill closed-session compatibility tags and
-  persist those additions as events.
-- Proposal staleness is currently based on the global project version. Lazy backfill events can
-  therefore make an active proposal require explicit `Accept P-...` / `Reject P-...`.
-- `advance-session` resolves evidence conservatively. It only auto-resolves decisions when a
-  recommendation is already recorded and matching evidence is found.
-- `advance-session` is session-scoped. A new empty session does not claim open decisions from
-  other sessions; discover a decision in that session or resume the owning session.
-- `handle-reply` supports command-style replies and free-form answers against the active proposal.
-- Free-form replies can also capture additional constraints on the accepted decision and discover
-  follow-up decisions in the same session.
-- Discovered follow-up decisions infer `domain`, `kind`, `priority`, `resolvable_by`,
-  `reversibility`, and a source-aware question from the reply clause.
-- Newly discovered `codebase` / `docs` / `tests` decisions are scanned for evidence immediately
-  after `handle-reply`, so they can self-resolve before the next question is issued.
-- Close summaries now emit richer `candidate_action_slices`, and generated plans surface
-  evidence-backed implementation-ready slices separately from the broader action list.
-- Decisions can be invalidated explicitly by later accepted decisions. Invalidated decisions remain
-  in `event-log.jsonl` but are hidden from normal session, interview, close-summary, plan, and ADR
-  output.
