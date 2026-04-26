@@ -1,0 +1,27 @@
+name: Decide task
+description: Track an implementation-ready decide-me action slice.
+title: "[task] "
+labels:
+  - decide-me
+  - task
+body:
+  - type: input
+    id: decision-id
+    attributes:
+      label: Source decision ID
+      description: Source decide-me decision ID.
+  - type: input
+    id: session-id
+    attributes:
+      label: Session ID
+      description: Source decide-me session ID.
+  - type: textarea
+    id: task
+    attributes:
+      label: Task
+      description: Implementation-ready work to perform.
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance notes
+      description: How to verify this task is complete.

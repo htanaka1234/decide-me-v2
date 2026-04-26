@@ -13,7 +13,13 @@ sys.path.insert(0, REPO_ROOT_STR)
 
 from decide_me.classification import classify_session
 from decide_me.conflicts import detect_merge_conflicts, resolve_merge_conflict
-from decide_me.exports import export_adr, export_decision_register, export_structured_adr
+from decide_me.exports import (
+    export_adr,
+    export_decision_register,
+    export_github_issues,
+    export_github_templates,
+    export_structured_adr,
+)
 from decide_me.interview import advance_session, handle_reply
 from decide_me.lifecycle import close_session, create_session, list_sessions, resume_session, show_session
 from decide_me.planner import generate_plan
@@ -172,6 +178,19 @@ def main(argv: list[str] | None = None) -> int:
     decision_register.add_argument("--format", choices=("yaml", "markdown"), default="yaml")
     decision_register.add_argument("--include-invalidated", action="store_true")
 
+    github_templates = subparsers.add_parser(
+        "export-github-templates", help="export GitHub issue form templates"
+    )
+    github_templates.add_argument("--ai-dir", default=".ai/decide-me")
+    github_templates.add_argument("--output-dir", required=True)
+
+    github_issues = subparsers.add_parser(
+        "export-github-issues", help="export local GitHub issue draft files"
+    )
+    github_issues.add_argument("--ai-dir", required=True)
+    github_issues.add_argument("--session-id", action="append", required=True)
+    github_issues.add_argument("--output-dir", required=True)
+
     classify = subparsers.add_parser("classify-session", help="classify a session deterministically")
     classify.add_argument("--ai-dir", required=True)
     classify.add_argument("--session-id", required=True)
@@ -314,6 +333,13 @@ def main(argv: list[str] | None = None) -> int:
                 include_invalidated=args.include_invalidated,
             )
             _print_json({"path": str(path)})
+        elif args.command == "export-github-templates":
+            paths = export_github_templates(args.output_dir, ai_dir=args.ai_dir)
+            _print_json({"paths": [str(path) for path in paths]})
+        elif args.command == "export-github-issues":
+            path = export_github_issues(args.ai_dir, args.session_id, args.output_dir)
+            payload = json.loads(Path(path).read_text(encoding="utf-8"))
+            _print_json({"path": str(path), "issue_count": len(payload["issues"])})
         elif args.command == "classify-session":
             _print_json(
                 classify_session(

@@ -1,0 +1,27 @@
+name: Decide conflict
+description: Resolve a decide-me session or decision conflict.
+title: "[conflict] "
+labels:
+  - decide-me
+  - conflict
+body:
+  - type: input
+    id: conflict-id
+    attributes:
+      label: Conflict ID
+      description: Source decide-me conflict ID.
+  - type: textarea
+    id: sessions
+    attributes:
+      label: Source sessions
+      description: Sessions involved in the conflict.
+  - type: textarea
+    id: conflict
+    attributes:
+      label: Conflict
+      description: What differs and needs resolution.
+  - type: textarea
+    id: resolution
+    attributes:
+      label: Resolution
+      description: Record the winning session, decision, or scoped answer.

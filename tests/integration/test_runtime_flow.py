@@ -20,7 +20,13 @@ except ImportError as exc:  # pragma: no cover - exercised only in incomplete de
 
 from decide_me.classification import classify_session
 from decide_me.conflicts import detect_merge_conflicts, resolve_merge_conflict
-from decide_me.exports import export_adr, export_decision_register, export_structured_adr
+from decide_me.exports import (
+    export_adr,
+    export_decision_register,
+    export_github_issues,
+    export_github_templates,
+    export_structured_adr,
+)
 from decide_me.events import build_event, utc_now
 from decide_me.interview import advance_session, handle_reply
 from decide_me.lifecycle import close_session, create_session, list_sessions, resume_session, show_session
@@ -74,6 +80,14 @@ def _load_yaml_with_schema(text: str, schema_name: str) -> dict:
     schema_path = Path(__file__).resolve().parents[2] / "schemas" / schema_name
     schema = json.loads(schema_path.read_text(encoding="utf-8"))
     payload = yaml.safe_load(text)
+    Draft202012Validator(schema).validate(payload)
+    return payload
+
+
+def _load_json_with_schema(path: Path, schema_name: str) -> dict:
+    schema_path = Path(__file__).resolve().parents[2] / "schemas" / schema_name
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    payload = json.loads(path.read_text(encoding="utf-8"))
     Draft202012Validator(schema).validate(payload)
     return payload
 
@@ -2931,6 +2945,225 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertTrue(markdown_path.exists())
             markdown = markdown_path.read_text(encoding="utf-8")
             self.assertIn("| D-200 | invalidated | technical |", markdown)
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_github_template_export_creates_issue_forms(self) -> None:
+        with TemporaryDirectory() as tmp:
+            output_dir = Path(tmp) / ".github" / "ISSUE_TEMPLATE"
+            paths = export_github_templates(output_dir, ai_dir=Path(tmp) / ".ai" / "decide-me")
+            self.assertEqual(
+                [
+                    "decide-conflict.yml",
+                    "decide-decision.yml",
+                    "decide-risk.yml",
+                    "decide-task.yml",
+                ],
+                sorted(path.name for path in paths),
+            )
+            for name in ("decide-decision.yml", "decide-task.yml", "decide-conflict.yml", "decide-risk.yml"):
+                self.assertTrue((output_dir / name).exists())
+
+    def test_github_issue_export_maps_plan_items_and_is_deterministic(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Export GitHub issue drafts",
+                current_milestone="MVP",
+            )
+
+            task_session_id = create_session(ai_dir, context="Implementation-ready task")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                task_session_id,
+                {
+                    "id": "D-task",
+                    "title": "Auth implementation",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "kind": "choice",
+                    "resolvable_by": "codebase",
+                    "question": "How should auth be implemented?",
+                },
+            )
+            resolve_by_evidence(
+                ai_dir,
+                task_session_id,
+                decision_id="D-task",
+                source="codebase",
+                summary="Use the existing auth implementation.",
+                evidence_refs=["app/auth.py"],
+            )
+            close_session(ai_dir, task_session_id)
+
+            non_ready_session_id = create_session(ai_dir, context="Accepted but not implementation-ready")[
+                "session"
+            ]["id"]
+            _accept_runtime_decision(
+                ai_dir,
+                non_ready_session_id,
+                decision_id="D-human",
+                title="Manual launch process",
+                domain="product",
+                recommendation="Use a manual launch checklist.",
+            )
+            close_session(ai_dir, non_ready_session_id)
+
+            blocker_session_id = create_session(ai_dir, context="Blocking decision")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                blocker_session_id,
+                {
+                    "id": "D-blocker",
+                    "title": "Hosting region",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "ops",
+                    "kind": "choice",
+                    "question": "Which hosting region should be used?",
+                },
+            )
+            close_session(ai_dir, blocker_session_id)
+
+            risk_session_id = create_session(ai_dir, context="Risk decisions")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                risk_session_id,
+                {
+                    "id": "D-risk-open",
+                    "title": "Vendor quota risk",
+                    "priority": "P1",
+                    "frontier": "now",
+                    "domain": "ops",
+                    "kind": "risk",
+                    "question": "How should quota risk be handled?",
+                },
+            )
+            discover_decision(
+                ai_dir,
+                risk_session_id,
+                {
+                    "id": "D-risk-deferred",
+                    "title": "Long-term retention risk",
+                    "priority": "P2",
+                    "frontier": "later",
+                    "domain": "legal",
+                    "kind": "risk",
+                    "question": "How should retention risk be handled?",
+                },
+            )
+            defer_decision(
+                ai_dir,
+                risk_session_id,
+                decision_id="D-risk-deferred",
+                reason="Defer until retention policy work starts.",
+            )
+            close_session(ai_dir, risk_session_id)
+
+            event_count_before = len(read_event_log(runtime_paths(ai_dir)))
+            output_dir = Path(ai_dir) / "exports" / "github"
+            manifest_path = export_github_issues(
+                ai_dir,
+                [task_session_id, non_ready_session_id, blocker_session_id, risk_session_id],
+                output_dir,
+            )
+            self.assertEqual(event_count_before, len(read_event_log(runtime_paths(ai_dir))))
+
+            manifest = _load_json_with_schema(manifest_path, "github-issues-export.schema.json")
+            self.assertEqual("action-plan", manifest["plan_status"])
+            self.assertEqual(
+                [
+                    "issues/D-blocker-decision.md",
+                    "issues/D-task-task.md",
+                    "issues/D-risk-deferred-risk.md",
+                    "issues/D-risk-open-risk.md",
+                ],
+                [issue["body_path"] for issue in manifest["issues"]],
+            )
+            by_path = {issue["body_path"]: issue for issue in manifest["issues"]}
+            self.assertIn("blocker", by_path["issues/D-blocker-decision.md"]["labels"])
+            self.assertIn("P0", by_path["issues/D-blocker-decision.md"]["labels"])
+            self.assertIn("task", by_path["issues/D-task-task.md"]["labels"])
+            self.assertIn("implementation-ready", by_path["issues/D-task-task.md"]["labels"])
+            self.assertNotIn("issues/D-human-task.md", by_path)
+            self.assertEqual("D-task", by_path["issues/D-task-task.md"]["source"]["decision_id"])
+            self.assertEqual("D-blocker", by_path["issues/D-blocker-decision.md"]["source"]["decision_id"])
+            self.assertIn(
+                "- Decision ID: D-task",
+                (output_dir / "issues" / "D-task-task.md").read_text(encoding="utf-8"),
+            )
+            self.assertIn(
+                "- Session ID: " + blocker_session_id,
+                (output_dir / "issues" / "D-blocker-decision.md").read_text(encoding="utf-8"),
+            )
+
+            first_render = {
+                path.relative_to(output_dir).as_posix(): path.read_text(encoding="utf-8")
+                for path in sorted(output_dir.rglob("*"))
+                if path.is_file()
+            }
+            export_github_issues(
+                ai_dir,
+                [task_session_id, non_ready_session_id, blocker_session_id, risk_session_id],
+                output_dir,
+            )
+            second_render = {
+                path.relative_to(output_dir).as_posix(): path.read_text(encoding="utf-8")
+                for path in sorted(output_dir.rglob("*"))
+                if path.is_file()
+            }
+            self.assertEqual(first_render, second_render)
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_github_issue_export_emits_only_conflict_issues_for_conflict_plan(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Export GitHub conflict drafts",
+                current_milestone="MVP",
+            )
+
+            technical_session_id = create_session(ai_dir, context="Technical ownership")["session"]["id"]
+            _accept_runtime_decision(
+                ai_dir,
+                technical_session_id,
+                decision_id="D-conflict-tech",
+                title="Shared implementation slice",
+                domain="technical",
+                recommendation="Keep the shared slice in technical ownership.",
+            )
+            close_session(ai_dir, technical_session_id)
+
+            ops_session_id = create_session(ai_dir, context="Ops ownership")["session"]["id"]
+            _accept_runtime_decision(
+                ai_dir,
+                ops_session_id,
+                decision_id="D-conflict-ops",
+                title="Shared implementation slice",
+                domain="ops",
+                recommendation="Move the shared slice to ops ownership.",
+            )
+            close_session(ai_dir, ops_session_id)
+
+            output_dir = Path(ai_dir) / "exports" / "github-conflicts"
+            manifest_path = export_github_issues(
+                ai_dir,
+                [technical_session_id, ops_session_id],
+                output_dir,
+            )
+            manifest = _load_json_with_schema(manifest_path, "github-issues-export.schema.json")
+            self.assertEqual("conflicts", manifest["plan_status"])
+            self.assertEqual(1, len(manifest["issues"]))
+            self.assertIn("conflict", manifest["issues"][0]["labels"])
+            self.assertNotIn("task", manifest["issues"][0]["labels"])
+            conflict_body = (output_dir / manifest["issues"][0]["body_path"]).read_text(encoding="utf-8")
+            self.assertIn("- Conflict ID: ", conflict_body)
+            self.assertIn(technical_session_id, conflict_body)
+            self.assertIn(ops_session_id, conflict_body)
             self.assertEqual([], validate_runtime(ai_dir))
 
     def test_project_wide_invalidation_hides_closed_decision_outputs(self) -> None:

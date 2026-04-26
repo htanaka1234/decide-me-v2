@@ -1,0 +1,27 @@
+name: Decide decision
+description: Track an unresolved decide-me decision.
+title: "[decision] "
+labels:
+  - decide-me
+  - decision
+body:
+  - type: input
+    id: decision-id
+    attributes:
+      label: Decision ID
+      description: Source decide-me decision ID.
+  - type: input
+    id: session-id
+    attributes:
+      label: Session ID
+      description: Source decide-me session ID.
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What needs to be decided and why it blocks the milestone.
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: Record the chosen answer after the decision is made.

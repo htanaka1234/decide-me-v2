@@ -8,7 +8,8 @@ plan.
 
 The repository contains the v2 runtime behind that Skill: an event-sourced
 decision log, rebuildable projections, taxonomy-aware session search, close
-summaries, and plan exports.
+summaries, and local derived exports for plans, ADRs, registers, and GitHub
+issue drafts.
 
 ## What this Skill is for
 
@@ -178,7 +179,8 @@ The runtime lives under `.ai/decide-me/`.
 - `session-graph-cache.json` may cache full inferred graph output by
   `project_head`; persisted project state keeps inferred candidates empty until
   a command asks for them.
-- `exports/` contains human-readable plans, ADRs, structured ADRs, and decision registers.
+- `exports/` contains human-readable plans, ADRs, structured ADRs, decision registers, and
+  local GitHub issue drafts.
 - `write.lock` protects runtime writes.
 
 Legacy runtimes that still have `.ai/decide-me/event-log.jsonl` are not migrated
@@ -215,6 +217,8 @@ reference. Common maintainer operations include:
   `validate-state --cached` / `--fast` for projection/index validation, `rebuild-projections`,
   and `compact-runtime`
 - `benchmark-runtime` with `DECIDE_ME_PERF=1`
+- `export-github-templates` to write local issue forms under `.github/ISSUE_TEMPLATE`
+- `export-github-issues` to write local issue body Markdown and `issues.json` from closed sessions
 
 Full event-log replay uses `find` for event file discovery when available. Set
 `DECIDE_ME_EVENT_DISCOVERY=python` to force pure Python discovery, or
@@ -238,7 +242,7 @@ PYTHONPATH=. python3 -m unittest discover -v
 - `references/`: protocol, lifecycle, taxonomy, event model, plan generation,
   output contract, and examples
 - `schemas/`: JSON contracts for events and projections
-- `templates/`: ADR, structured ADR, and action-plan export templates
+- `templates/`: ADR, structured ADR, action-plan, and GitHub issue export templates
 - `decide_me/`: runtime implementation
 - `scripts/decide_me.py`: deterministic CLI
 - `requirements-dev.txt`: development-only dependencies for schema validation tests

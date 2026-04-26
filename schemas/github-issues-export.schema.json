@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/decide-me/github-issues-export.schema.json",
+  "title": "Decide Me GitHub Issues Export",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generated_at",
+    "project_head",
+    "source_session_ids",
+    "plan_status",
+    "issues"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "generated_at": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "project_head": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "source_session_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "plan_status": {
+      "type": "string",
+      "enum": [
+        "action-plan",
+        "conflicts"
+      ]
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "title",
+          "labels",
+          "body_path",
+          "source"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "body_path": {
+            "type": "string",
+            "pattern": "^issues/[^/]+\\.md$"
+          },
+          "source": {
+            "type": "object",
+            "properties": {
+              "decision_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "session_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "conflict_id": {
+                "type": "string"
+              },
+              "session_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
