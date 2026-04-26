@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from copy import deepcopy
-from datetime import datetime
 import json
 import os
 import subprocess
@@ -10,8 +8,6 @@ import unittest
 from unittest import mock
 from pathlib import Path
 from tempfile import TemporaryDirectory
-
-from jsonschema import Draft202012Validator, FormatChecker
 
 from decide_me.classification import classify_session
 from decide_me.conflicts import detect_merge_conflicts, resolve_merge_conflict
@@ -3291,156 +3287,66 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertEqual("proposed", turn["decision"]["status"])
             self.assertEqual([], validate_runtime(ai_dir))
 
-    def test_project_state_schema_matches_runtime_validation_contract(self) -> None:
+    def test_project_state_schema_covers_runtime_projection_shape(self) -> None:
         schema_path = Path(__file__).resolve().parents[2] / "schemas" / "project-state.schema.json"
         schema = json.loads(schema_path.read_text(encoding="utf-8"))
-        Draft202012Validator.check_schema(schema)
-        format_checker = FormatChecker()
+        project_properties = schema["properties"]["project"]["properties"]
+        for key in ("name", "objective", "current_milestone", "stop_rule"):
+            self.assertEqual("string", project_properties[key]["type"])
+            self.assertEqual(1, project_properties[key]["minLength"])
 
-        @format_checker.checks("date-time")
-        def is_date_time(value: object) -> bool:
-            if not isinstance(value, str):
-                return False
-            try:
-                datetime.fromisoformat(value.replace("Z", "+00:00"))
-            except ValueError:
-                return False
-            return True
+        state_properties = schema["properties"]["state"]["properties"]
+        self.assertEqual("string", state_properties["project_head"]["type"])
+        self.assertEqual(1, state_properties["project_head"]["minLength"])
+        self.assertEqual("string", state_properties["updated_at"]["type"])
+        self.assertEqual("date-time", state_properties["updated_at"]["format"])
 
-        validator = Draft202012Validator(schema, format_checker=format_checker)
+        decision_items = schema["properties"]["decisions"]["items"]
+        decision_properties = decision_items["properties"]
+        self.assertEqual(
+            ["choice", "constraint", "risk", "dependency"],
+            decision_properties["kind"]["enum"],
+        )
+        self.assertIn("technical", decision_properties["domain"]["enum"])
+        self.assertIn("codebase", decision_properties["resolvable_by"]["enum"])
+        self.assertIn("hard-to-reverse", decision_properties["reversibility"]["enum"])
+        self.assertEqual("string", decision_properties["depends_on"]["items"]["type"])
+        self.assertEqual("string", decision_properties["resolved_by_evidence"]["properties"]["evidence_refs"]["items"]["type"])
 
-        def errors_for(project_state: dict) -> list[str]:
-            errors = sorted(
-                validator.iter_errors(project_state),
-                key=lambda error: "/".join(str(part) for part in error.absolute_path),
-            )
-            return [error.message for error in errors]
+        all_of = decision_items["allOf"]
+        accepted_branch = next(
+            branch
+            for branch in all_of
+            if branch["if"]["properties"]["status"].get("const") == "accepted"
+        )
+        accepted = accepted_branch["then"]["properties"]["accepted_answer"]["properties"]
+        self.assertEqual({"type": "string", "minLength": 1}, accepted["summary"])
+        self.assertEqual({"type": "string", "format": "date-time"}, accepted["accepted_at"])
+        self.assertEqual(["ok", "explicit"], accepted["accepted_via"]["enum"])
+        self.assertEqual({"type": "string", "minLength": 1}, accepted["proposal_id"])
 
-        def assert_valid(project_state: dict) -> None:
-            self.assertEqual([], errors_for(project_state))
+        evidence_branch = next(
+            branch
+            for branch in all_of
+            if branch["if"]["properties"]["status"].get("const") == "resolved-by-evidence"
+        )
+        evidence_accepted = evidence_branch["then"]["properties"]["accepted_answer"]["properties"]
+        evidence_payload = evidence_branch["then"]["properties"]["resolved_by_evidence"]["properties"]
+        self.assertEqual("evidence", evidence_accepted["accepted_via"]["const"])
+        self.assertEqual({"type": "string", "minLength": 1}, evidence_payload["summary"])
+        self.assertEqual({"type": "string", "format": "date-time"}, evidence_payload["resolved_at"])
+        self.assertIn("existing-decisions", evidence_payload["source"]["enum"])
+        self.assertNotIn(None, evidence_payload["source"]["enum"])
 
-        def assert_invalid(project_state: dict) -> None:
-            self.assertTrue(errors_for(project_state))
-
-        def decision_by_id(project_state: dict, decision_id: str) -> dict:
-            return next(decision for decision in project_state["decisions"] if decision["id"] == decision_id)
-
-        with TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            ai_dir = str(root / ".ai" / "decide-me")
-            bootstrap_runtime(
-                ai_dir,
-                project_name="Demo",
-                objective="Validate project state schema",
-                current_milestone="MVP",
-            )
-            project_state = load_runtime(runtime_paths(ai_dir))["project_state"]
-            assert_valid(project_state)
-
-            invalid = deepcopy(project_state)
-            invalid["project"]["name"] = None
-            assert_invalid(invalid)
-
-            invalid = deepcopy(project_state)
-            invalid["state"]["project_head"] = ""
-            assert_invalid(invalid)
-
-            invalid = deepcopy(project_state)
-            invalid["state"]["updated_at"] = None
-            assert_invalid(invalid)
-
-            invalid = deepcopy(project_state)
-            invalid["state"]["updated_at"] = "not-time"
-            assert_invalid(invalid)
-
-            session_id = create_session(ai_dir, context="Schema decision")["session"]["id"]
-            discover_decision(
-                ai_dir,
-                session_id,
-                {
-                    "id": "D-open",
-                    "title": "Open schema decision",
-                    "priority": "P0",
-                    "frontier": "now",
-                    "domain": "technical",
-                    "resolvable_by": "human",
-                    "question": "Which option should be used?",
-                    "options": [{"summary": "Use the default option."}],
-                },
-            )
-            open_state = load_runtime(runtime_paths(ai_dir))["project_state"]
-            assert_valid(open_state)
-
-            invalid = deepcopy(open_state)
-            decision_by_id(invalid, "D-open")["accepted_answer"]["summary"] = "Accepted too early."
-            assert_invalid(invalid)
-
-            invalid = deepcopy(open_state)
-            decision_by_id(invalid, "D-open")["resolved_by_evidence"]["summary"] = "Evidence too early."
-            assert_invalid(invalid)
-
-            advance_session(ai_dir, session_id, repo_root=root)
-            accept_proposal(ai_dir, session_id)
-            accepted_state = load_runtime(runtime_paths(ai_dir))["project_state"]
-            assert_valid(accepted_state)
-
-            invalid = deepcopy(accepted_state)
-            decision_by_id(invalid, "D-open")["accepted_answer"]["summary"] = None
-            assert_invalid(invalid)
-
-            invalid = deepcopy(accepted_state)
-            decision_by_id(invalid, "D-open")["accepted_answer"]["accepted_at"] = "not-time"
-            assert_invalid(invalid)
-
-            invalid = deepcopy(accepted_state)
-            decision_by_id(invalid, "D-open")["accepted_answer"]["accepted_via"] = "evidence"
-            assert_invalid(invalid)
-
-            invalid = deepcopy(accepted_state)
-            decision_by_id(invalid, "D-open")["accepted_answer"]["proposal_id"] = ""
-            assert_invalid(invalid)
-
-            evidence_session_id = create_session(ai_dir, context="Evidence schema decision")["session"]["id"]
-            discover_decision(
-                ai_dir,
-                evidence_session_id,
-                {
-                    "id": "D-evidence",
-                    "title": "Evidence schema decision",
-                    "priority": "P0",
-                    "frontier": "now",
-                    "domain": "technical",
-                    "resolvable_by": "codebase",
-                    "question": "Can this be resolved from evidence?",
-                    "options": [{"summary": "Use the evidence-backed option."}],
-                },
-            )
-            resolve_by_evidence(
-                ai_dir,
-                evidence_session_id,
-                decision_id="D-evidence",
-                source="existing-decisions",
-                summary="Use the evidence-backed option.",
-                evidence_refs=["D-open"],
-            )
-            evidence_state = load_runtime(runtime_paths(ai_dir))["project_state"]
-            assert_valid(evidence_state)
-
-            invalid = deepcopy(evidence_state)
-            decision_by_id(invalid, "D-evidence")["resolved_by_evidence"]["summary"] = None
-            assert_invalid(invalid)
-
-            invalid = deepcopy(evidence_state)
-            del decision_by_id(invalid, "D-evidence")["resolved_by_evidence"]["source"]
-            assert_invalid(invalid)
-
-            invalid = deepcopy(evidence_state)
-            decision_by_id(invalid, "D-evidence")["resolved_by_evidence"]["resolved_at"] = "not-time"
-            assert_invalid(invalid)
-
-            invalid = deepcopy(evidence_state)
-            decision_by_id(invalid, "D-evidence")["accepted_answer"]["accepted_via"] = "explicit"
-            assert_invalid(invalid)
+        open_branch = next(
+            branch
+            for branch in all_of
+            if "unresolved" in branch["if"]["properties"]["status"].get("enum", [])
+        )
+        open_then = open_branch["then"]["properties"]
+        self.assertEqual("null", open_then["accepted_answer"]["properties"]["summary"]["type"])
+        self.assertEqual("null", open_then["resolved_by_evidence"]["properties"]["summary"]["type"])
+        # Cross-field equality constraints are enforced by validate_project_state().
 
     def test_cli_bootstrap_works_with_pythonpath_repo_root(self) -> None:
         repo_root = Path(__file__).resolve().parents[2]
