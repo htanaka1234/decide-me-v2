@@ -472,6 +472,7 @@ def advance_session(
                     proposal=active,
                     auto_resolved=auto_resolved,
                     reused_active_proposal=True,
+                    evidence_candidates=find_evidence_candidates(bundle, session_id, decision, repo_root),
                 )
             if active.get("is_active") and active.get("target_id"):
                 return {
@@ -549,12 +550,15 @@ def advance_session(
         if stale_proposal_id:
             proposal = dict(proposal)
             proposal["superseded_stale_proposal_id"] = stale_proposal_id
+        updated_bundle = current_bundle(ai_dir)
+        updated_decision = _lookup_decision(updated_bundle, decision["id"])
         return _question_result(
             session_id=session_id,
-            decision=_lookup_decision(current_bundle(ai_dir), decision["id"]),
+            decision=updated_decision,
             proposal=proposal,
             auto_resolved=auto_resolved,
             reused_active_proposal=False,
+            evidence_candidates=find_evidence_candidates(updated_bundle, session_id, updated_decision, repo_root),
         )
 
 
@@ -752,25 +756,37 @@ def find_evidence(
     runtime_hit = _runtime_evidence(bundle, session_id, decision)
     if runtime_hit is not None:
         return runtime_hit
+    return None
 
+
+def find_evidence_candidates(
+    bundle: dict[str, Any],
+    session_id: str,
+    decision: dict[str, Any],
+    repo_root: Path,
+) -> list[dict[str, Any]]:
     if decision.get("resolvable_by") not in {"codebase", "docs", "tests"}:
-        return None
+        return []
     summary = _evidence_resolution_summary(decision)
     if not summary:
-        return None
+        return []
 
     source = decision["resolvable_by"]
     phrases = _evidence_phrases(decision)
     if not phrases:
-        return None
+        return []
     refs = _search_repo(repo_root, phrases, source)
     if not refs:
-        return None
-    return {
-        "source": source,
-        "summary": summary,
-        "evidence_refs": refs,
-    }
+        return []
+    return [
+        {
+            "decision_id": decision["id"],
+            "source": source,
+            "candidate_answer": summary,
+            "evidence_refs": refs,
+        }
+    ]
+
 
 
 def _runtime_evidence(
@@ -1070,8 +1086,12 @@ def _question_result(
     proposal: dict[str, Any],
     auto_resolved: list[dict[str, Any]],
     reused_active_proposal: bool,
+    evidence_candidates: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
+    evidence_candidates = evidence_candidates or []
     block = render_question_block(decision, proposal)
+    if evidence_candidates:
+        block = "\n".join([block, _render_evidence_candidates(evidence_candidates)])
     message = block
     if auto_resolved:
         message = "\n".join([_render_auto_resolved(auto_resolved), block])
@@ -1084,6 +1104,7 @@ def _question_result(
         "proposal": proposal,
         "reused_active_proposal": reused_active_proposal,
         "auto_resolved": auto_resolved,
+        "evidence_candidates": evidence_candidates,
         "message": message,
     }
 
@@ -1107,6 +1128,16 @@ def _render_auto_resolved(auto_resolved: list[dict[str, Any]]) -> str:
     for item in auto_resolved:
         refs = ", ".join(item["evidence_refs"]) if item["evidence_refs"] else "no refs recorded"
         lines.append(f"Resolved by evidence: {item['decision_id']} ({item['source']}: {refs})")
+    return "\n".join(lines)
+
+
+def _render_evidence_candidates(evidence_candidates: list[dict[str, Any]]) -> str:
+    lines = ["Evidence candidates:"]
+    for item in evidence_candidates:
+        refs = ", ".join(item["evidence_refs"]) if item["evidence_refs"] else "no refs recorded"
+        lines.append(
+            f"- {item['decision_id']} ({item['source']}: {refs}) -> {item['candidate_answer']}"
+        )
     return "\n".join(lines)
 
 

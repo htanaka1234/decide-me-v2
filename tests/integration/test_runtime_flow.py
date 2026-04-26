@@ -620,6 +620,80 @@ class RuntimeFlowTests(unittest.TestCase):
             )
             self.assertEqual([], validate_runtime(ai_dir))
 
+    def test_link_session_rejects_duplicate_relationship_before_write(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Reject duplicate links before write",
+                current_milestone="MVP",
+            )
+            parent_id = create_session(ai_dir, context="Parent")["session"]["id"]
+            child_id = create_session(ai_dir, context="Child")["session"]["id"]
+            before = _raw_event_log_text(ai_dir)
+            link_session(
+                ai_dir,
+                parent_session_id=parent_id,
+                child_session_id=child_id,
+                relationship="refines",
+                reason="Child refines parent.",
+            )
+            linked = _raw_event_log_text(ai_dir)
+
+            with self.assertRaisesRegex(ValueError, "duplicate session_linked relationship"):
+                link_session(
+                    ai_dir,
+                    parent_session_id=parent_id,
+                    child_session_id=child_id,
+                    relationship="refines",
+                    reason="Duplicate link.",
+                )
+
+            self.assertNotEqual(before, linked)
+            self.assertEqual(linked, _raw_event_log_text(ai_dir))
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_link_session_rejects_cycle_before_write_but_allows_contradicts(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Reject cyclic links before write",
+                current_milestone="MVP",
+            )
+            first_id = create_session(ai_dir, context="First")["session"]["id"]
+            second_id = create_session(ai_dir, context="Second")["session"]["id"]
+            link_session(
+                ai_dir,
+                parent_session_id=first_id,
+                child_session_id=second_id,
+                relationship="refines",
+                reason="Second refines first.",
+            )
+            linked = _raw_event_log_text(ai_dir)
+
+            with self.assertRaisesRegex(ValueError, "session_linked would create a session graph cycle"):
+                link_session(
+                    ai_dir,
+                    parent_session_id=second_id,
+                    child_session_id=first_id,
+                    relationship="depends_on",
+                    reason="This would create a cycle.",
+                )
+
+            self.assertEqual(linked, _raw_event_log_text(ai_dir))
+            contradiction = link_session(
+                ai_dir,
+                parent_session_id=second_id,
+                child_session_id=first_id,
+                relationship="contradicts",
+                reason="Contradiction links are allowed to be cyclic.",
+            )
+            self.assertEqual("ok", contradiction["status"])
+            self.assertEqual([], validate_runtime(ai_dir))
+
     def test_detects_and_resolves_parent_child_session_conflict(self) -> None:
         with TemporaryDirectory() as tmp:
             ai_dir = str(Path(tmp) / ".ai" / "decide-me")
@@ -3048,7 +3122,7 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertEqual("accepted", accepted["status"])
             self.assertEqual([], validate_runtime(ai_dir))
 
-    def test_advance_session_resolves_evidence_then_handles_ok_reply(self) -> None:
+    def test_advance_session_returns_repo_evidence_candidates_then_handles_ok_reply(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / "app").mkdir()
@@ -3098,17 +3172,20 @@ class RuntimeFlowTests(unittest.TestCase):
 
             turn = advance_session(ai_dir, session_id, repo_root=root)
             self.assertEqual("question", turn["status"])
-            self.assertEqual("D-002", turn["decision_id"])
-            self.assertEqual(1, len(turn["auto_resolved"]))
-            self.assertEqual("D-001", turn["auto_resolved"][0]["decision_id"])
-            self.assertIn("app/auth.py", turn["auto_resolved"][0]["evidence_refs"])
-            self.assertIn("Resolved by evidence: D-001", turn["message"])
+            self.assertEqual("D-001", turn["decision_id"])
+            self.assertEqual([], turn["auto_resolved"])
+            self.assertEqual(1, len(turn["evidence_candidates"]))
+            self.assertEqual("D-001", turn["evidence_candidates"][0]["decision_id"])
+            self.assertEqual("codebase", turn["evidence_candidates"][0]["source"])
+            self.assertIn("app/auth.py", turn["evidence_candidates"][0]["evidence_refs"])
+            self.assertIn("Evidence candidates:", turn["message"])
+            self.assertNotIn("Resolved by evidence: D-001", turn["message"])
 
             reply = handle_reply(ai_dir, session_id, "OK", repo_root=root)
             self.assertEqual("accepted", reply["status"])
-            self.assertEqual("complete", reply["next_turn"]["status"])
-            self.assertIn("Accepted: D-002", reply["message"])
-            self.assertIn("Next recommended action:", reply["message"])
+            self.assertEqual("question", reply["next_turn"]["status"])
+            self.assertEqual("D-002", reply["next_turn"]["decision_id"])
+            self.assertIn("Accepted: D-001", reply["message"])
             self.assertEqual([], validate_runtime(ai_dir))
 
     def test_codebase_evidence_ignores_single_keyword_hits(self) -> None:
@@ -3147,8 +3224,29 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertEqual("question", turn["status"])
             self.assertEqual("D-auth", turn["decision_id"])
             self.assertEqual([], turn["auto_resolved"])
+            self.assertEqual([], turn["evidence_candidates"])
             self.assertEqual("proposed", turn["decision"]["status"])
             self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_project_state_schema_rejects_null_project_fields(self) -> None:
+        schema_path = Path(__file__).resolve().parents[2] / "schemas" / "project-state.schema.json"
+        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+
+        project_properties = schema["properties"]["project"]["properties"]
+        for key in ("name", "objective", "current_milestone", "stop_rule"):
+            self.assertEqual("string", project_properties[key]["type"])
+            self.assertEqual(1, project_properties[key]["minLength"])
+
+        decision_properties = schema["properties"]["decisions"]["items"]["properties"]
+        self.assertEqual(
+            ["choice", "constraint", "risk", "dependency"],
+            decision_properties["kind"]["enum"],
+        )
+        self.assertIn("technical", decision_properties["domain"]["enum"])
+        self.assertIn("codebase", decision_properties["resolvable_by"]["enum"])
+        self.assertIn("hard-to-reverse", decision_properties["reversibility"]["enum"])
+        self.assertEqual("string", decision_properties["depends_on"]["items"]["type"])
+        self.assertEqual("string", decision_properties["resolved_by_evidence"]["properties"]["evidence_refs"]["items"]["type"])
 
     def test_cli_bootstrap_works_with_pythonpath_repo_root(self) -> None:
         repo_root = Path(__file__).resolve().parents[2]
@@ -3524,7 +3622,7 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertIn("Discovered decisions:", reply["message"])
             self.assertEqual([], validate_runtime(ai_dir))
 
-    def test_handle_reply_immediately_resolves_discovered_codebase_decision(self) -> None:
+    def test_handle_reply_returns_candidates_for_discovered_codebase_decision(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / "app").mkdir()
@@ -3566,28 +3664,16 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertEqual("accepted", reply["status"])
             self.assertEqual(1, len(reply["discovered_decisions"]))
             discovered = reply["discovered_decisions"][0]
-            self.assertEqual("resolved-by-evidence", discovered["status"])
-            self.assertEqual("codebase", discovered["resolved_by_evidence"]["source"])
-            self.assertIn("app/auth.py", discovered["resolved_by_evidence"]["evidence_refs"])
-            self.assertEqual(1, len(reply["auto_resolved"]))
-            self.assertEqual(discovered["id"], reply["auto_resolved"][0]["decision_id"])
-            self.assertEqual("complete", reply["next_turn"]["status"])
-            self.assertEqual(discovered["id"], reply["next_turn"]["auto_resolved"][0]["decision_id"])
-            self.assertIn("Resolved by evidence:", reply["message"])
-            closed = close_session(ai_dir, session_id)
-            slices = closed["close_summary"]["candidate_action_slices"]
-            self.assertEqual(discovered["id"], slices[0]["decision_id"])
-            self.assertTrue(slices[0]["implementation_ready"])
-            self.assertTrue(slices[0]["evidence_backed"])
-            self.assertEqual("codebase", slices[0]["evidence_source"])
-            self.assertEqual("Implement Password reset before launch.", slices[0]["next_step"])
-            plan = generate_plan(ai_dir, [session_id])
-            self.assertEqual("action-plan", plan["status"])
-            self.assertEqual(discovered["id"], plan["action_plan"]["implementation_ready_slices"][0]["decision_id"])
-            self.assertEqual(discovered["id"], plan["action_plan"]["action_slices"][0]["decision_id"])
-            plan_body = Path(plan["export_path"]).read_text(encoding="utf-8")
-            self.assertIn("Implementation-Ready Slices", plan_body)
-            self.assertIn("via codebase", plan_body)
+            self.assertEqual("unresolved", discovered["status"])
+            self.assertEqual([], reply["auto_resolved"])
+            self.assertEqual("question", reply["next_turn"]["status"])
+            self.assertEqual(discovered["id"], reply["next_turn"]["decision_id"])
+            self.assertEqual(1, len(reply["next_turn"]["evidence_candidates"]))
+            self.assertEqual(discovered["id"], reply["next_turn"]["evidence_candidates"][0]["decision_id"])
+            self.assertEqual("codebase", reply["next_turn"]["evidence_candidates"][0]["source"])
+            self.assertIn("app/auth.py", reply["next_turn"]["evidence_candidates"][0]["evidence_refs"])
+            self.assertIn("Evidence candidates:", reply["message"])
+            self.assertNotIn("Resolved by evidence:", reply["message"])
             self.assertEqual([], validate_runtime(ai_dir))
 
     def test_handle_reply_extracts_multiple_constraints_and_decisions(self) -> None:
