@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import tempfile
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
@@ -56,19 +57,7 @@ def export_github_issues(
     manifest, bodies = build_github_issues_export(bundle, events, sessions, session_ids)
 
     target_dir = Path(output_dir)
-    issues_dir = target_dir / "issues"
-    issues_dir.mkdir(parents=True, exist_ok=True)
-    for relative_path, body in sorted(bodies.items()):
-        target = target_dir / relative_path
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(body.rstrip() + "\n", encoding="utf-8")
-
-    manifest_path = target_dir / "issues.json"
-    manifest_path.write_text(
-        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
-    return manifest_path
+    return _write_github_issues_output(target_dir, manifest, bodies)
 
 
 def build_github_issues_export(
@@ -124,6 +113,41 @@ def _closed_sessions(bundle: dict[str, Any], session_ids: list[str]) -> list[dic
             raise ValueError(f"session {session_id} must be closed before GitHub issue export")
         sessions.append(session)
     return sessions
+
+
+def _write_github_issues_output(
+    target_dir: Path,
+    manifest: dict[str, Any],
+    bodies: dict[str, str],
+) -> Path:
+    target_dir.mkdir(parents=True, exist_ok=True)
+    issues_dir = target_dir / "issues"
+    manifest_path = target_dir / "issues.json"
+    if issues_dir.exists() and not issues_dir.is_dir():
+        raise ValueError(f"GitHub issue export path is not a directory: {issues_dir}")
+    if manifest_path.exists() and manifest_path.is_dir():
+        raise ValueError(f"GitHub issue export manifest path is a directory: {manifest_path}")
+
+    with tempfile.TemporaryDirectory(prefix=".github-issues-", dir=target_dir) as temp_name:
+        temp_root = Path(temp_name)
+        temp_issues_dir = temp_root / "issues"
+        temp_issues_dir.mkdir()
+        for relative_path, body in sorted(bodies.items()):
+            target = temp_root / relative_path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(body.rstrip() + "\n", encoding="utf-8")
+
+        temp_manifest_path = temp_root / "issues.json"
+        temp_manifest_path.write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+
+        if issues_dir.exists():
+            shutil.rmtree(issues_dir)
+        shutil.move(str(temp_issues_dir), str(issues_dir))
+        temp_manifest_path.replace(manifest_path)
+    return manifest_path
 
 
 def _action_plan_issues(

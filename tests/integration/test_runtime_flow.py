@@ -3117,6 +3117,88 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertEqual(first_render, second_render)
             self.assertEqual([], validate_runtime(ai_dir))
 
+    def test_github_issue_export_replaces_generated_issue_bodies(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Replace stale GitHub issue drafts",
+                current_milestone="MVP",
+            )
+
+            first_session_id = create_session(ai_dir, context="First implementation task")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                first_session_id,
+                {
+                    "id": "D-first",
+                    "title": "First implementation",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "kind": "choice",
+                    "resolvable_by": "codebase",
+                    "question": "How should the first implementation work?",
+                },
+            )
+            resolve_by_evidence(
+                ai_dir,
+                first_session_id,
+                decision_id="D-first",
+                source="codebase",
+                summary="Use the first existing implementation.",
+                evidence_refs=["app/first.py"],
+            )
+            close_session(ai_dir, first_session_id)
+
+            second_session_id = create_session(ai_dir, context="Second implementation task")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                second_session_id,
+                {
+                    "id": "D-second",
+                    "title": "Second implementation",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "kind": "choice",
+                    "resolvable_by": "codebase",
+                    "question": "How should the second implementation work?",
+                },
+            )
+            resolve_by_evidence(
+                ai_dir,
+                second_session_id,
+                decision_id="D-second",
+                source="codebase",
+                summary="Use the second existing implementation.",
+                evidence_refs=["app/second.py"],
+            )
+            close_session(ai_dir, second_session_id)
+
+            output_dir = Path(ai_dir) / "exports" / "github"
+            output_dir.mkdir(parents=True)
+            (output_dir / "keep.txt").write_text("preserve me\n", encoding="utf-8")
+            export_github_issues(ai_dir, [first_session_id, second_session_id], output_dir)
+            self.assertTrue((output_dir / "issues" / "D-first-task.md").exists())
+            self.assertTrue((output_dir / "issues" / "D-second-task.md").exists())
+
+            manifest_path = export_github_issues(ai_dir, [first_session_id], output_dir)
+            manifest = _load_json_with_schema(manifest_path, "github-issues-export.schema.json")
+            self.assertEqual(["issues/D-first-task.md"], [issue["body_path"] for issue in manifest["issues"]])
+            self.assertTrue((output_dir / "issues" / "D-first-task.md").exists())
+            self.assertFalse((output_dir / "issues" / "D-second-task.md").exists())
+            self.assertEqual("preserve me\n", (output_dir / "keep.txt").read_text(encoding="utf-8"))
+
+            bad_output_dir = Path(ai_dir) / "exports" / "github-bad"
+            bad_output_dir.mkdir()
+            (bad_output_dir / "issues").write_text("not a directory\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "not a directory"):
+                export_github_issues(ai_dir, [first_session_id], bad_output_dir)
+
+            self.assertEqual([], validate_runtime(ai_dir))
+
     def test_github_issue_export_emits_only_conflict_issues_for_conflict_plan(self) -> None:
         with TemporaryDirectory() as tmp:
             ai_dir = str(Path(tmp) / ".ai" / "decide-me")
@@ -3126,6 +3208,31 @@ class RuntimeFlowTests(unittest.TestCase):
                 objective="Export GitHub conflict drafts",
                 current_milestone="MVP",
             )
+
+            stale_task_session_id = create_session(ai_dir, context="Previous task export")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                stale_task_session_id,
+                {
+                    "id": "D-stale",
+                    "title": "Stale implementation task",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "kind": "choice",
+                    "resolvable_by": "codebase",
+                    "question": "How should stale task output be tested?",
+                },
+            )
+            resolve_by_evidence(
+                ai_dir,
+                stale_task_session_id,
+                decision_id="D-stale",
+                source="codebase",
+                summary="Use the stale task implementation.",
+                evidence_refs=["app/stale.py"],
+            )
+            close_session(ai_dir, stale_task_session_id)
 
             technical_session_id = create_session(ai_dir, context="Technical ownership")["session"]["id"]
             _accept_runtime_decision(
@@ -3150,6 +3257,9 @@ class RuntimeFlowTests(unittest.TestCase):
             close_session(ai_dir, ops_session_id)
 
             output_dir = Path(ai_dir) / "exports" / "github-conflicts"
+            export_github_issues(ai_dir, [stale_task_session_id], output_dir)
+            self.assertTrue((output_dir / "issues" / "D-stale-task.md").exists())
+
             manifest_path = export_github_issues(
                 ai_dir,
                 [technical_session_id, ops_session_id],
@@ -3160,6 +3270,11 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertEqual(1, len(manifest["issues"]))
             self.assertIn("conflict", manifest["issues"][0]["labels"])
             self.assertNotIn("task", manifest["issues"][0]["labels"])
+            self.assertEqual([manifest["issues"][0]["body_path"]], [
+                path.relative_to(output_dir).as_posix()
+                for path in sorted((output_dir / "issues").glob("*.md"))
+            ])
+            self.assertFalse((output_dir / "issues" / "D-stale-task.md").exists())
             conflict_body = (output_dir / manifest["issues"][0]["body_path"]).read_text(encoding="utf-8")
             self.assertIn("- Conflict ID: ", conflict_body)
             self.assertIn(technical_session_id, conflict_body)

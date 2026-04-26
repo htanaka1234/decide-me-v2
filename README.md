@@ -219,6 +219,7 @@ reference. Common maintainer operations include:
 - `benchmark-runtime` with `DECIDE_ME_PERF=1`
 - `export-github-templates` to write local issue forms under `.github/ISSUE_TEMPLATE`
 - `export-github-issues` to write local issue body Markdown and `issues.json` from closed sessions
+  Re-exporting replaces the generated `issues/` directory, so do not keep hand-edited files there.
 
 Full event-log replay uses `find` for event file discovery when available. Set
 `DECIDE_ME_EVENT_DISCOVERY=python` to force pure Python discovery, or
