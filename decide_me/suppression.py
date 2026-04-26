@@ -3,6 +3,8 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any, Iterable
 
+from decide_me.taxonomy import replacement_closure, taxonomy_by_id
+
 
 SUMMARY_DECISION_SECTIONS = (
     "accepted_decisions",
@@ -28,14 +30,6 @@ def suppressed_decision_ids(project_state: dict[str, Any]) -> set[str]:
         context = resolved.get("suppressed_context", {})
         ids.update(context.get("decision_ids", []))
     return ids
-
-
-def suppressed_hidden_strings(project_state: dict[str, Any]) -> set[str]:
-    hidden: set[str] = set()
-    for resolved in project_state.get("session_graph", {}).get("resolved_conflicts", []):
-        context = resolved.get("suppressed_context", {})
-        hidden.update(_normalize_text(value) for value in context.get("hidden_strings", []))
-    return {value for value in hidden if value}
 
 
 def semantic_suppression_context_for_session(
@@ -72,15 +66,18 @@ def semantic_suppression_context_for_session(
 
 
 def apply_semantic_suppression_to_session(
-    session: dict[str, Any], resolution: dict[str, Any]
+    session: dict[str, Any],
+    resolution: dict[str, Any],
+    taxonomy_state: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     context = semantic_suppression_context_for_session(session, resolution)
     if not _has_suppressed_targets(context):
         return context
 
     hidden_strings = set(context["hidden_strings"])
+    _sanitize_session_bindings_by_context(session, context)
     _sanitize_session_text(session, hidden_strings)
-    _sanitize_classification(session, hidden_strings)
+    _sanitize_classification(session, hidden_strings, taxonomy_state)
     _sanitize_close_summary_by_context(session["close_summary"], context)
     return _normalized_context(context)
 
@@ -95,14 +92,32 @@ def merge_suppressed_contexts(contexts: Iterable[dict[str, Any]]) -> dict[str, A
 
 def has_remaining_suppressed_scope(session: dict[str, Any], resolution: dict[str, Any]) -> bool:
     context = semantic_suppression_context_for_session(session, resolution)
+    if resolution.get("scope", {}).get("kind") == "session":
+        return bool(
+            context.get("decision_ids")
+            or context.get("action_slice_names")
+            or context.get("workstream_names")
+        )
     return _has_suppressed_targets(context)
 
 
-def has_suppressed_context_remainders(session: dict[str, Any], context: dict[str, Any]) -> bool:
+def has_suppressed_context_remainders(
+    session: dict[str, Any],
+    context: dict[str, Any],
+    taxonomy_state: dict[str, Any] | None = None,
+) -> bool:
     decision_ids = set(context.get("decision_ids", []))
     action_slice_names = set(context.get("action_slice_names", []))
     workstream_names = set(context.get("workstream_names", []))
     hidden_strings = {_normalize_text(value) for value in context.get("hidden_strings", [])}
+
+    if decision_ids & set(session.get("session", {}).get("decision_ids", [])):
+        return True
+    if session.get("summary", {}).get("active_decision_id") in decision_ids:
+        return True
+    proposal = session.get("working_state", {}).get("active_proposal", {})
+    if proposal.get("target_id") in decision_ids:
+        return True
 
     close_summary = session.get("close_summary", {})
     for section in SUMMARY_DECISION_SECTIONS:
@@ -123,11 +138,23 @@ def has_suppressed_context_remainders(session: dict[str, Any], context: dict[str
         session.get("summary", {}).get("latest_summary"),
         session.get("summary", {}).get("current_question_preview"),
         session.get("working_state", {}).get("current_question"),
+        proposal.get("question"),
+        proposal.get("recommendation"),
+        proposal.get("why"),
+        proposal.get("if_not"),
         close_summary.get("work_item_title"),
         close_summary.get("work_item_statement"),
         *session.get("classification", {}).get("search_terms", []),
     ]
-    return any(_normalize_text(value) in hidden_strings for value in text_values if value)
+    if any(_normalize_text(value) in hidden_strings for value in text_values if value):
+        return True
+
+    classification = session.get("classification", {})
+    return any(
+        _tag_ref_matches_hidden(tag_ref, taxonomy_state, hidden_strings)
+        for key in ("assigned_tags", "compatibility_tags")
+        for tag_ref in classification.get(key, [])
+    )
 
 
 def _add_decision_context(context: dict[str, Any], close_summary: dict[str, Any], decision_id: str) -> None:
@@ -179,6 +206,13 @@ def _add_workstream_context(context: dict[str, Any], close_summary: dict[str, An
 
 
 def _add_session_context(context: dict[str, Any], close_summary: dict[str, Any]) -> None:
+    _extend_hidden_strings(
+        context,
+        [
+            close_summary.get("work_item_title"),
+            close_summary.get("work_item_statement"),
+        ],
+    )
     for section in SUMMARY_DECISION_SECTIONS:
         for item in close_summary.get(section, []):
             if item.get("id"):
@@ -194,6 +228,39 @@ def _add_session_context(context: dict[str, Any], close_summary: dict[str, Any])
         if workstream.get("name"):
             context["workstream_names"].append(workstream["name"])
         _extend_hidden_strings(context, _item_hidden_strings(workstream))
+
+
+def _sanitize_session_bindings_by_context(session: dict[str, Any], context: dict[str, Any]) -> None:
+    decision_ids = set(context.get("decision_ids", []))
+    if not decision_ids:
+        return
+
+    session_payload = session.get("session", {})
+    session_payload["decision_ids"] = [
+        decision_id
+        for decision_id in session_payload.get("decision_ids", [])
+        if decision_id not in decision_ids
+    ]
+
+    summary = session.get("summary", {})
+    working_state = session.get("working_state", {})
+    if summary.get("active_decision_id") in decision_ids:
+        summary["active_decision_id"] = None
+        summary["current_question_preview"] = None
+        working_state["current_question_id"] = None
+        working_state["current_question"] = None
+
+    proposal = working_state.get("active_proposal", {})
+    if proposal.get("target_id") in decision_ids:
+        proposal["is_active"] = False
+        proposal["inactive_reason"] = proposal.get("inactive_reason") or "semantic-conflict-resolved"
+        proposal["target_type"] = None
+        proposal["target_id"] = None
+        proposal["question_id"] = None
+        proposal["question"] = None
+        proposal["recommendation"] = None
+        proposal["why"] = None
+        proposal["if_not"] = None
 
 
 def _sanitize_session_text(session: dict[str, Any], hidden_strings: set[str]) -> None:
@@ -228,12 +295,62 @@ def _sanitize_session_text(session: dict[str, Any], hidden_strings: set[str]) ->
         close_summary["work_item_statement"] = fallback_statement
 
 
-def _sanitize_classification(session: dict[str, Any], hidden_strings: set[str]) -> None:
+def _sanitize_classification(
+    session: dict[str, Any],
+    hidden_strings: set[str],
+    taxonomy_state: dict[str, Any] | None,
+) -> None:
     hidden = {_normalize_text(value) for value in hidden_strings}
     classification = session.get("classification", {})
     classification["search_terms"] = [
         term for term in classification.get("search_terms", []) if _normalize_text(term) not in hidden
     ]
+    for key in ("assigned_tags", "compatibility_tags"):
+        classification[key] = [
+            tag_ref
+            for tag_ref in classification.get(key, [])
+            if not _tag_ref_matches_hidden(tag_ref, taxonomy_state, hidden)
+        ]
+
+
+def _tag_ref_matches_hidden(
+    tag_ref: Any,
+    taxonomy_state: dict[str, Any] | None,
+    hidden: set[str],
+) -> bool:
+    if _normalize_text(tag_ref) in hidden:
+        return True
+    if not isinstance(tag_ref, str) or not taxonomy_state:
+        return False
+
+    nodes_by_id = taxonomy_by_id(taxonomy_state)
+    candidate_ids = _related_taxonomy_ids(tag_ref, nodes_by_id, taxonomy_state)
+    for node_id in candidate_ids:
+        node = nodes_by_id.get(node_id)
+        values = [node_id]
+        if node:
+            values.append(node.get("label"))
+            values.extend(node.get("aliases", []))
+        if any(_normalize_text(value) in hidden for value in values if value):
+            return True
+    return False
+
+
+def _related_taxonomy_ids(
+    tag_ref: str,
+    nodes_by_id: dict[str, dict[str, Any]],
+    taxonomy_state: dict[str, Any],
+) -> list[str]:
+    related = replacement_closure(taxonomy_state, [tag_ref], include_start=True)
+    queue = list(related)
+    while queue:
+        node_id = queue.pop(0)
+        node = nodes_by_id.get(node_id)
+        parent_id = node.get("parent_id") if node else None
+        if parent_id and parent_id not in related:
+            related.append(parent_id)
+            queue.append(parent_id)
+    return _stable_unique(related)
 
 
 def _sanitize_close_summary_by_context(close_summary: dict[str, Any], context: dict[str, Any]) -> None:

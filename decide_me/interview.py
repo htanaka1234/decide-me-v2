@@ -786,8 +786,8 @@ def _runtime_evidence(
         if candidate["status"] not in {"accepted", "resolved-by-evidence"}:
             continue
         candidate_title = _normalize(candidate.get("title"))
-        summary = candidate["accepted_answer"]["summary"] or candidate["resolved_by_evidence"]["summary"]
         if title and title == candidate_title:
+            summary = candidate["accepted_answer"]["summary"] or candidate["resolved_by_evidence"]["summary"]
             refs = candidate.get("evidence_refs", [])
             return {
                 "source": "existing-decisions",

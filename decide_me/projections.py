@@ -6,7 +6,11 @@ from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from decide_me.suppression import apply_semantic_suppression_to_session, merge_suppressed_contexts
+from decide_me.suppression import (
+    apply_semantic_suppression_to_session,
+    merge_suppressed_contexts,
+    suppressed_decision_ids,
+)
 from decide_me.taxonomy import default_taxonomy_state, stable_unique
 
 
@@ -191,7 +195,12 @@ def decision_is_invalidated(decision: dict[str, Any]) -> bool:
 
 
 def visible_decision_ids(project_state: dict[str, Any]) -> set[str]:
-    return {decision["id"] for decision in project_state["decisions"] if not decision_is_invalidated(decision)}
+    suppressed_ids = suppressed_decision_ids(project_state)
+    return {
+        decision["id"]
+        for decision in project_state["decisions"]
+        if not decision_is_invalidated(decision) and decision["id"] not in suppressed_ids
+    }
 
 
 def project_heads_by_event_id(events: list[dict[str, Any]]) -> dict[str, str]:
@@ -522,7 +531,7 @@ def apply_event(
             rejected_session = sessions.get(rejected_session_id)
             if not rejected_session:
                 continue
-            context = apply_semantic_suppression_to_session(rejected_session, resolution)
+            context = apply_semantic_suppression_to_session(rejected_session, resolution, taxonomy_state)
             suppressed_contexts.append(context)
             if context.get("session_ids"):
                 _touch_session(
