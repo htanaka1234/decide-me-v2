@@ -53,6 +53,24 @@ class AgentInstructionFilterTests(unittest.TestCase):
                     "Use the service-layer architecture.",
                 ),
                 _accepted(
+                    "D-postgres",
+                    "Database engine",
+                    "technical",
+                    "Database must be PostgreSQL.",
+                ),
+                _accepted(
+                    "D-local-export",
+                    "Local export",
+                    "product",
+                    "The MVP must support local export.",
+                ),
+                _accepted(
+                    "D-artifact-storage",
+                    "Production artifact storage",
+                    "technical",
+                    "Use S3; do not use local disk for production artifacts.",
+                ),
+                _accepted(
                     "D-old",
                     "Old security policy",
                     "technical",

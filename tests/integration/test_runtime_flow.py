@@ -2987,6 +2987,14 @@ class RuntimeFlowTests(unittest.TestCase):
             _accept_runtime_decision(
                 ai_dir,
                 session_id,
+                decision_id="D-artifact-storage",
+                title="Production artifact storage",
+                domain="technical",
+                recommendation="Use S3; do not use local disk for production artifacts.",
+            )
+            _accept_runtime_decision(
+                ai_dir,
+                session_id,
                 decision_id="D-old-security",
                 title="Old security policy",
                 domain="technical",
@@ -3065,6 +3073,8 @@ class RuntimeFlowTests(unittest.TestCase):
                 self.assertNotIn("D-release", text)
                 self.assertNotIn("D-auth-implementation", text)
                 self.assertNotIn("Use the existing auth implementation.", text)
+                self.assertNotIn("D-artifact-storage", text)
+                self.assertNotIn("Use S3; do not use local disk for production artifacts.", text)
                 self.assertNotIn("D-old-security", text)
                 if target == "agents-md":
                     self.assertIn("<!-- decide-me:start -->", text)

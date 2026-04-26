@@ -200,12 +200,6 @@ AGENT_POLICY_KEYWORDS = (
     "confirm before",
     "confirmation",
     "approval",
-    "required",
-    "require",
-    "must",
-    "always",
-    "never",
-    "do not",
     "before opening pr",
     "before opening prs",
     "before merge",
@@ -217,6 +211,50 @@ AGENT_POLICY_KEYWORDS = (
     "pull request",
     "pr",
     "checklist",
+    "repository layout",
+    "repo layout",
+    "source of truth",
+    "event log",
+    "events/**/*.jsonl",
+    ".ai/decide-me/events",
+)
+POLICY_MODAL_KEYWORDS = (
+    "required",
+    "require",
+    "must",
+    "always",
+    "never",
+    "do not",
+)
+POLICY_MODAL_CONTEXT_KEYWORDS = (
+    "agent",
+    "agents.md",
+    "cursor",
+    "claude",
+    "codex",
+    "test",
+    "tests",
+    "testing",
+    "validate-state",
+    "dependency",
+    "dependencies",
+    "secret",
+    "secrets",
+    "credential",
+    "credentials",
+    "token",
+    "destructive",
+    "delete",
+    "overwrite",
+    "approval",
+    "review",
+    "pull request",
+    "pr",
+    "checklist",
+    "type hint",
+    "type hints",
+    "coding convention",
+    "code style",
     "repository layout",
     "repo layout",
     "source of truth",
@@ -324,7 +362,10 @@ def _section_for_text(text: str) -> str | None:
 
 
 def _is_agent_policy_decision(text: str) -> bool:
-    return _has_any(text, AGENT_POLICY_KEYWORDS)
+    return _has_any(text, AGENT_POLICY_KEYWORDS) or (
+        _has_any(text, POLICY_MODAL_KEYWORDS)
+        and _has_any(text, POLICY_MODAL_CONTEXT_KEYWORDS)
+    )
 
 
 def _decision_search_text(decision: dict[str, Any], summary: str) -> str:
