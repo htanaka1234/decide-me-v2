@@ -353,7 +353,11 @@ def _event_files(paths: RuntimePaths) -> list[Path]:
 def _reject_legacy_event_log(paths: RuntimePaths) -> None:
     legacy_path = paths.ai_dir / "event-log.jsonl"
     if legacy_path.exists():
-        raise StateValidationError("legacy event-log.jsonl is unsupported in this runtime layout")
+        raise StateValidationError(
+            "legacy event-log.jsonl is unsupported in this runtime layout; "
+            "automatic migration is not available. Rebootstrap this runtime, or export with the previous runtime "
+            "and recreate it under .ai/decide-me/events/."
+        )
 
 
 def _validate_transaction_rejection_controls(events: list[dict[str, Any]]) -> None:

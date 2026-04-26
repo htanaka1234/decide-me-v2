@@ -28,8 +28,16 @@ Projection rules:
 - Never mutate a projection directly without emitting an event.
 - Persist writes as `load events -> write transaction file -> rebuild -> validate -> atomic replace projections`.
 - If validation fails, reject the write and keep the previous runtime files unchanged.
-- `project_state.state.project_head` is a SHA-256 hash over canonical event IDs and replaces
-  the old project-wide sequence number.
+- `project_state.state.project_head` is a SHA-256 hash over canonical event content in
+  canonical order and replaces the old project-wide sequence number. For
+  `proposal_issued`, `based_on_project_head` is normalized before hashing so the proposal's
+  own auto-filled head does not make the hash self-referential.
+
+Legacy runtime layout:
+
+- `.ai/decide-me/event-log.jsonl` is rejected by this runtime. Automatic migration is not
+  implemented; rebootstrap the runtime, or export with the previous runtime and recreate it
+  under `.ai/decide-me/events/`.
 
 Raw and effective streams:
 

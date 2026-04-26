@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from itertools import combinations
 from typing import Any
 
@@ -22,6 +23,7 @@ from decide_me.validate import StateValidationError, validate_event_log, validat
 
 
 MAX_REJECTION_SET_SIZE = 2
+ENTITY_ID_PATTERN = re.compile(r"\b[DP]-[A-Za-z0-9_.:-]+\b")
 
 
 def detect_merge_conflicts(ai_dir: str) -> list[dict[str, Any]]:
@@ -35,6 +37,13 @@ def detect_merge_conflicts(ai_dir: str) -> list[dict[str, Any]]:
     else:
         return []
 
+    return _detect_merge_conflicts_from_invalid_events(effective_events, conflict_message)
+
+
+def _detect_merge_conflicts_from_invalid_events(
+    effective_events: list[dict[str, Any]],
+    conflict_message: str,
+) -> list[dict[str, Any]]:
     transactions = _transactions_by_id(effective_events)
     conflicts: list[dict[str, Any]] = []
     for session_id, candidate_tx_ids in _targetable_tx_ids_by_session(transactions).items():
@@ -44,7 +53,12 @@ def detect_merge_conflicts(ai_dir: str) -> list[dict[str, Any]]:
         )
         if not resolution_options:
             continue
-        candidate_ids = sorted({tx_id for option in resolution_options for tx_id in option})
+        candidate_ids = _conflict_participant_tx_ids(
+            conflict_message,
+            transactions,
+            candidate_tx_ids,
+            resolution_options,
+        )
         conflicts.append(
             {
                 "session_id": session_id,
@@ -53,17 +67,10 @@ def detect_merge_conflicts(ai_dir: str) -> list[dict[str, Any]]:
                 "candidate_transactions": [
                     _summarize_transaction(tx_id, transactions[tx_id]) for tx_id in candidate_ids
                 ],
-                "resolution_options": [
-                    {
-                        "reject_tx_ids": list(option),
-                        "keep_tx_ids": [
-                            tx_id
-                            for tx_id in candidate_ids
-                            if tx_id not in set(option)
-                        ],
-                    }
-                    for option in resolution_options
-                ],
+                "resolution_options": _resolution_option_payloads(
+                    resolution_options,
+                    candidate_ids,
+                ),
             }
         )
         break
@@ -102,6 +109,12 @@ def resolve_merge_conflict(
             reject_tx_ids=normalized_reject_tx_ids,
             transactions=transactions,
             already_rejected=rejected_transaction_ids(raw_events),
+        )
+        _validate_resolution_option(
+            session_id=session_id,
+            keep_tx_id=keep_tx_id,
+            reject_tx_ids=normalized_reject_tx_ids,
+            conflicts=_detect_merge_conflicts_from_invalid_events(effective_events, conflict_message),
         )
 
         now = utc_now()
@@ -157,6 +170,73 @@ def _valid_resolution_options(
         if options:
             break
     return options
+
+
+def _conflict_participant_tx_ids(
+    conflict_message: str,
+    transactions: dict[str, list[dict[str, Any]]],
+    candidate_tx_ids: list[str],
+    resolution_options: list[tuple[str, ...]],
+) -> list[str]:
+    participants = {tx_id for option in resolution_options for tx_id in option}
+    proposal_ids = {
+        entity_id for entity_id in ENTITY_ID_PATTERN.findall(conflict_message) if entity_id.startswith("P-")
+    }
+    decision_ids = {
+        entity_id for entity_id in ENTITY_ID_PATTERN.findall(conflict_message) if entity_id.startswith("D-")
+    }
+    for tx_id in candidate_tx_ids:
+        tx_events = transactions[tx_id]
+        tx_proposal_ids = {proposal_id for event in tx_events for proposal_id in _proposal_ids(event)}
+        tx_decision_ids = {decision_id for event in tx_events for decision_id in _decision_ids(event)}
+        if proposal_ids & tx_proposal_ids or decision_ids & tx_decision_ids:
+            participants.add(tx_id)
+    if len(participants) < 2:
+        return sorted(candidate_tx_ids)
+    return sorted(participants)
+
+
+def _resolution_option_payloads(
+    resolution_options: list[tuple[str, ...]],
+    candidate_tx_ids: list[str],
+) -> list[dict[str, list[str]]]:
+    payloads: list[dict[str, list[str]]] = []
+    for option in resolution_options:
+        reject_tx_ids = list(option)
+        rejected = set(reject_tx_ids)
+        surviving_tx_ids = [tx_id for tx_id in candidate_tx_ids if tx_id not in rejected]
+        payloads.append(
+            {
+                "reject_tx_ids": reject_tx_ids,
+                "surviving_tx_ids": surviving_tx_ids,
+                "keep_tx_ids": list(surviving_tx_ids),
+            }
+        )
+    return payloads
+
+
+def _validate_resolution_option(
+    *,
+    session_id: str,
+    keep_tx_id: str,
+    reject_tx_ids: list[str],
+    conflicts: list[dict[str, Any]],
+) -> None:
+    requested_rejects = set(reject_tx_ids)
+    for conflict in conflicts:
+        if conflict["session_id"] != session_id:
+            continue
+        candidate_tx_ids = {item["tx_id"] for item in conflict["candidate_transactions"]}
+        if keep_tx_id not in candidate_tx_ids:
+            raise ValueError("keep_tx_id is not part of the unresolved merge conflict")
+        for option in conflict["resolution_options"]:
+            if set(option["reject_tx_ids"]) != requested_rejects:
+                continue
+            if keep_tx_id not in set(option["surviving_tx_ids"]):
+                raise ValueError("keep_tx_id must be a surviving transaction for the selected resolution option")
+            return
+        raise ValueError("reject_tx_ids do not match a valid resolution option")
+    raise ValueError(f"no unresolved merge conflict exists for session {session_id}")
 
 
 def _without_transactions(events: list[dict[str, Any]], tx_ids: set[str]) -> list[dict[str, Any]]:

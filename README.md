@@ -124,7 +124,8 @@ Merge discovery into an execution plan:
 Resolve same-session transaction merge conflicts:
 
 1. Run `python3 scripts/decide_me.py detect-merge-conflicts --ai-dir .ai/decide-me`.
-2. Pick the `tx_id` to keep and the `tx_id` or IDs to reject from the returned candidates.
+2. Pick the `tx_id` to keep from the chosen option's `surviving_tx_ids`, and the `tx_id` or IDs
+   to reject from that option's `reject_tx_ids`.
 3. Run `python3 scripts/decide_me.py resolve-merge-conflict --ai-dir .ai/decide-me --session-id S-... --keep-tx-id T-... --reject-tx-id T-... --reason "..."`.
 4. Rebuild or validate state. Rejected transaction files remain in `events/` for audit, but are excluded from normal projections.
 
@@ -156,6 +157,10 @@ The runtime lives under `.ai/decide-me/`.
   rebuildable projections.
 - `exports/` contains human-readable plans and ADRs.
 - `write.lock` protects runtime writes.
+
+Legacy runtimes that still have `.ai/decide-me/event-log.jsonl` are not migrated
+automatically by this version. Rebootstrap the runtime, or export the old state
+with the previous runtime and recreate it under the transaction-file layout.
 
 Normal users should not edit runtime state by hand. If projections look wrong,
 rebuild them from the transaction event files and validate state instead of

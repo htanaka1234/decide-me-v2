@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -11,6 +12,7 @@ from decide_me.taxonomy import default_taxonomy_state, stable_unique
 OPEN_DECISION_STATUSES = {"unresolved", "proposed", "rejected", "blocked"}
 IDLE_AFTER = timedelta(hours=12)
 STALE_AFTER = timedelta(days=7)
+PROJECT_HEAD_PROPOSAL_BASE_SENTINEL = "__PROJECT_HEAD_PROPOSAL_BASE__"
 
 
 def default_project_state() -> dict[str, Any]:
@@ -195,10 +197,24 @@ def project_heads_by_event_id(events: list[dict[str, Any]]) -> dict[str, str]:
     heads: dict[str, str] = {}
     head_hasher = hashlib.sha256()
     for event in events:
-        head_hasher.update(event["event_id"].encode("utf-8"))
+        head_hasher.update(_project_head_hash_material(event).encode("utf-8"))
         head_hasher.update(b"\n")
         heads[event["event_id"]] = head_hasher.hexdigest()
     return heads
+
+
+def _project_head_hash_material(event: dict[str, Any]) -> str:
+    normalized = deepcopy(event)
+    if normalized.get("event_type") == "proposal_issued":
+        proposal = normalized.get("payload", {}).get("proposal")
+        if isinstance(proposal, dict):
+            proposal["based_on_project_head"] = PROJECT_HEAD_PROPOSAL_BASE_SENTINEL
+    return json.dumps(
+        normalized,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
 
 
 def rebuild_projections(events: list[dict[str, Any]]) -> dict[str, Any]:

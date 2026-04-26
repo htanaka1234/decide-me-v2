@@ -15,7 +15,8 @@ Startup checklist:
 3. Validate event and projection consistency before trusting the current state.
    If validation reports an unresolved same-session merge conflict, run
    `python3 scripts/decide_me.py detect-merge-conflicts --ai-dir .ai/decide-me` and ask the user
-   which candidate transaction to keep before resolving it.
+   which candidate transaction to keep from the selected option's `surviving_tx_ids` before
+   resolving it.
    If plan generation reports semantic conflicts across related sessions, inspect
    `show-session-graph` and use `detect-session-conflicts --include-related` before asking the
    user which session's scoped answer should win.
@@ -67,6 +68,8 @@ User-facing commands:
 Runtime invariants:
 
 - `.ai/decide-me/events/**/*.jsonl` transaction files are the source of truth.
+- Legacy `.ai/decide-me/event-log.jsonl` runtimes are not migrated automatically; rebootstrap
+  or recreate them from exports produced by the previous runtime before using this version.
 - `transaction_rejected` events record user-selected transaction rejection; rejected transaction
   files remain on disk for audit and are ignored only in the effective projection stream.
 - `session_linked` events are the source of truth for explicit session graph edges; inferred

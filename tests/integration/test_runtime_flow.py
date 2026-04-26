@@ -439,13 +439,88 @@ class RuntimeFlowTests(unittest.TestCase):
                 session_ids=[ids["parent_id"]],
                 include_related=True,
             )
-            resolved = [item for item in after["semantic_conflicts"] if not item["requires_resolution"]]
-            self.assertEqual([conflict_id], [item["conflict_id"] for item in resolved])
+            self.assertEqual([], after["semantic_conflicts"])
+            self.assertEqual([conflict_id], [item["conflict_id"] for item in after["resolved_conflicts"]])
             plan = generate_plan(ai_dir, [ids["parent_id"], ids["child_id"]])
             self.assertEqual("action-plan", plan["status"])
             action_names = [item["name"] for item in plan["action_plan"]["action_slices"]]
             self.assertEqual(1, action_names.count("Shared implementation slice"))
             self.assertIn("Child-only implementation slice", action_names)
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_generate_plan_uses_resolved_view_for_three_session_conflict_detection(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Avoid resolved false positives",
+                current_milestone="MVP",
+            )
+            first_id = create_session(ai_dir, context="First thread")["session"]["id"]
+            second_id = create_session(ai_dir, context="Second thread")["session"]["id"]
+            third_id = create_session(ai_dir, context="Third thread")["session"]["id"]
+            _accept_runtime_decision(
+                ai_dir,
+                first_id,
+                decision_id="D-first-shared",
+                title="Shared implementation slice",
+                domain="technical",
+                recommendation="Keep technical ownership.",
+            )
+            _accept_runtime_decision(
+                ai_dir,
+                first_id,
+                decision_id="D-first-extra",
+                title="First-only implementation slice",
+                domain="product",
+                recommendation="Keep the first-only work.",
+            )
+            _accept_runtime_decision(
+                ai_dir,
+                second_id,
+                decision_id="D-second-shared",
+                title="Shared implementation slice",
+                domain="ops",
+                recommendation="Move to ops ownership.",
+            )
+            _accept_runtime_decision(
+                ai_dir,
+                third_id,
+                decision_id="D-third-shared",
+                title="Shared implementation slice",
+                domain="ops",
+                recommendation="Move to ops ownership.",
+            )
+            close_session(ai_dir, first_id)
+            close_session(ai_dir, second_id)
+            close_session(ai_dir, third_id)
+            link_session(
+                ai_dir,
+                parent_session_id=first_id,
+                child_session_id=second_id,
+                relationship="refines",
+                reason="Second refines first.",
+            )
+
+            detected = detect_session_conflicts(ai_dir, session_ids=[first_id], include_related=True)
+            conflict_id = detected["semantic_conflicts"][0]["conflict_id"]
+            resolve_session_conflict(
+                ai_dir,
+                conflict_id=conflict_id,
+                winning_session_id=second_id,
+                rejected_session_ids=[first_id],
+                reason="Keep the ops ownership from the second thread.",
+            )
+
+            plan = generate_plan(ai_dir, [first_id, second_id, third_id])
+            self.assertEqual("action-plan", plan["status"])
+            action_slices = plan["action_plan"]["action_slices"]
+            action_names = [item["name"] for item in action_slices]
+            shared_slices = [item for item in action_slices if item["name"] == "Shared implementation slice"]
+            self.assertEqual(2, len(shared_slices))
+            self.assertEqual({"ops"}, {item["responsibility"] for item in shared_slices})
+            self.assertIn("First-only implementation slice", action_names)
             self.assertEqual([], validate_runtime(ai_dir))
 
     def test_cli_links_detects_and_resolves_session_conflict(self) -> None:
@@ -603,6 +678,10 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertEqual("competing-active-proposals", conflicts[0]["kind"])
             candidate_tx_ids = {item["tx_id"] for item in conflicts[0]["candidate_transactions"]}
             self.assertEqual({ids["first_tx_id"], ids["conflict_tx_id"]}, candidate_tx_ids)
+            for option in conflicts[0]["resolution_options"]:
+                self.assertIn("surviving_tx_ids", option)
+                self.assertEqual(option["surviving_tx_ids"], option["keep_tx_ids"])
+                self.assertTrue(set(option["surviving_tx_ids"]) <= candidate_tx_ids)
 
     def test_cli_detects_and_resolves_same_session_merge_conflict(self) -> None:
         repo_root = Path(__file__).resolve().parents[2]
@@ -789,6 +868,20 @@ class RuntimeFlowTests(unittest.TestCase):
                     session_id=ids["session_id"],
                     keep_tx_id=ids["first_tx_id"],
                     reject_tx_ids=[system_tx_id],
+                    reason="Invalid target.",
+                )
+            unrelated_same_session_tx_id = next(
+                event["tx_id"]
+                for event in read_raw_event_log(runtime_paths(ai_dir))
+                if event["event_type"] == "decision_discovered"
+                and event["payload"]["decision"]["id"] == "D-conflict-b"
+            )
+            with self.assertRaisesRegex(ValueError, "not part of the unresolved merge conflict"):
+                resolve_merge_conflict(
+                    ai_dir,
+                    session_id=ids["session_id"],
+                    keep_tx_id=unrelated_same_session_tx_id,
+                    reject_tx_ids=[ids["conflict_tx_id"]],
                     reason="Invalid target.",
                 )
 
@@ -2652,6 +2745,37 @@ class RuntimeFlowTests(unittest.TestCase):
             issues = validate_runtime(str(ai_dir))
             self.assertEqual(1, len(issues))
             self.assertIn("legacy event-log.jsonl is unsupported in this runtime layout", issues[0])
+            self.assertIn("automatic migration is not available", issues[0])
+
+    def test_auto_project_head_proposal_is_not_immediately_stale(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Keep proposal heads stable",
+                current_milestone="MVP",
+            )
+            session_id = create_session(ai_dir, context="Decision thread")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                session_id,
+                {"id": "D-head", "title": "Head decision", "priority": "P0", "frontier": "now"},
+            )
+            issue_proposal(
+                ai_dir,
+                session_id,
+                decision_id="D-head",
+                question="Use the current head?",
+                recommendation="Use the current head.",
+                why="It validates project_head hashing.",
+                if_not="The proposal becomes stale immediately.",
+            )
+
+            bundle = rebuild_and_persist(ai_dir)
+            proposal = bundle["sessions"][session_id]["working_state"]["active_proposal"]
+            self.assertEqual(bundle["project_state"]["state"]["project_head"], proposal["based_on_project_head"])
+            self.assertEqual([], validate_runtime(ai_dir))
 
     def test_concurrent_cli_bootstrap_leaves_one_valid_runtime(self) -> None:
         repo_root = Path(__file__).resolve().parents[2]

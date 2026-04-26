@@ -58,12 +58,13 @@ def detect_conflicts(
     accepted_by_id: dict[str, tuple[str | None, str]] = {}
     workstreams_by_name: dict[str, tuple[set[str], str]] = {}
     actions_by_name: dict[str, tuple[str, str]] = {}
+    normalized_sessions = _sessions_after_resolutions(sessions, resolved_conflicts or [])
     resolved_by_id = {
         resolved["conflict_id"]: resolved
         for resolved in (resolved_conflicts or [])
     }
 
-    for session in sessions:
+    for session in normalized_sessions:
         close_summary = session["close_summary"]
         session_id = session["session"]["id"]
 
@@ -148,7 +149,10 @@ def assemble_action_plan(
     *,
     resolved_conflicts: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    close_summaries = _close_summaries_after_resolutions(sessions, resolved_conflicts or [])
+    close_summaries = [
+        session["close_summary"]
+        for session in _sessions_after_resolutions(sessions, resolved_conflicts or [])
+    ]
     readiness = "ready"
     blockers: list[dict[str, Any]] = []
     risks: list[dict[str, Any]] = []
@@ -319,6 +323,13 @@ def _close_summaries_after_resolutions(
     sessions: list[dict[str, Any]],
     resolved_conflicts: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
+    return [session["close_summary"] for session in _sessions_after_resolutions(sessions, resolved_conflicts)]
+
+
+def _sessions_after_resolutions(
+    sessions: list[dict[str, Any]],
+    resolved_conflicts: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     selected_session_ids = {session["session"]["id"] for session in sessions}
     removals: dict[str, dict[str, set[str]]] = {}
     for resolution in resolved_conflicts:
@@ -346,15 +357,17 @@ def _close_summaries_after_resolutions(
                 if name:
                     session_removals["action_slices"].add(name)
 
-    close_summaries: list[dict[str, Any]] = []
+    normalized_sessions: list[dict[str, Any]] = []
     for session in sessions:
         session_id = session["session"]["id"]
+        normalized_session = deepcopy(session)
         close_summary = deepcopy(session["close_summary"])
         session_removals = removals.get(session_id)
         if session_removals:
             _apply_close_summary_removals(close_summary, session_removals)
-        close_summaries.append(close_summary)
-    return close_summaries
+        normalized_session["close_summary"] = close_summary
+        normalized_sessions.append(normalized_session)
+    return normalized_sessions
 
 
 def _apply_close_summary_removals(
