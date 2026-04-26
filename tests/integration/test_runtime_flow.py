@@ -9,6 +9,13 @@ from unittest import mock
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+try:
+    import yaml
+    from jsonschema import Draft202012Validator
+except ImportError:  # pragma: no cover - optional schema tooling may be absent locally.
+    yaml = None
+    Draft202012Validator = None
+
 from decide_me.classification import classify_session
 from decide_me.conflicts import detect_merge_conflicts, resolve_merge_conflict
 from decide_me.exports import export_adr, export_decision_register, export_structured_adr
@@ -59,6 +66,27 @@ def _write_event_file(ai_dir: str | Path, session_id: str, tx_id: str, events: l
     directory.mkdir(parents=True, exist_ok=True)
     body = "".join(json.dumps(event, ensure_ascii=False, sort_keys=True) + "\n" for event in events)
     (directory / f"{tx_id}.jsonl").write_text(body, encoding="utf-8")
+
+
+def _load_yaml_with_schema(text: str, schema_name: str) -> dict:
+    if yaml is None or Draft202012Validator is None:
+        raise unittest.SkipTest("PyYAML and jsonschema are required for export schema validation")
+    schema_path = Path(__file__).resolve().parents[2] / "schemas" / schema_name
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    payload = yaml.safe_load(text)
+    Draft202012Validator(schema).validate(payload)
+    return payload
+
+
+def _extract_frontmatter(markdown: str) -> str:
+    lines = markdown.splitlines()
+    if not lines or lines[0] != "---":
+        raise AssertionError("markdown does not start with YAML frontmatter")
+    try:
+        end = lines.index("---", 1)
+    except ValueError as exc:
+        raise AssertionError("markdown frontmatter is not closed") from exc
+    return "\n".join(lines[1:end])
 
 
 def _create_parallel_proposal_conflict(
@@ -2592,6 +2620,12 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertIn('domain: "ops"', ops_adr)
             self.assertIn('accepted_via: "ok"', ops_adr)
             self.assertIn("## Alternatives\n\n- none recorded", ops_adr)
+            ops_frontmatter = _load_yaml_with_schema(
+                _extract_frontmatter(ops_adr),
+                "structured-adr-frontmatter.schema.json",
+            )
+            self.assertEqual([], ops_frontmatter["depends_on"])
+            self.assertEqual([], ops_frontmatter["supersedes"])
 
             data_session_id = create_session(ai_dir, context="Data evidence")["session"]["id"]
             discover_decision(
@@ -2620,6 +2654,141 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertIn('status: "resolved-by-evidence"', data_adr)
             self.assertIn('accepted_via: "evidence"', data_adr)
             self.assertIn("- docs/warehouse.md", data_adr)
+            _load_yaml_with_schema(
+                _extract_frontmatter(data_adr),
+                "structured-adr-frontmatter.schema.json",
+            )
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_structured_adr_frontmatter_schema_handles_yaml_edge_cases(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Validate structured ADR frontmatter",
+                current_milestone="MVP",
+            )
+
+            session_id = create_session(ai_dir, context="Structured ADR schema")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-prereq",
+                    "title": "前提: config [base]",
+                    "priority": "P2",
+                    "frontier": "later",
+                    "domain": "technical",
+                    "kind": "dependency",
+                    "question": "What prerequisite is needed?",
+                },
+            )
+            defer_decision(
+                ai_dir,
+                session_id,
+                decision_id="D-prereq",
+                reason="Track the prerequisite in the register.",
+            )
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-old",
+                    "title": "Old ADR",
+                    "priority": "P1",
+                    "frontier": "later",
+                    "domain": "technical",
+                    "kind": "choice",
+                    "question": "What old ADR should be replaced?",
+                },
+            )
+            resolve_by_evidence(
+                ai_dir,
+                session_id,
+                decision_id="D-old",
+                source="docs",
+                summary="Use the old ADR shape.",
+                evidence_refs=["docs/old.md"],
+            )
+
+            title = "構造化: ADR #1 \"quote\" 'single' [array] | pipe"
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-weird",
+                    "title": title,
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "kind": "choice",
+                    "question": "How should structured ADR YAML render?",
+                    "context": "First line of context.\nSecond line with 日本語 and : # [ ] |.",
+                    "depends_on": ["D-prereq"],
+                },
+            )
+            resolve_by_evidence(
+                ai_dir,
+                session_id,
+                decision_id="D-weird",
+                source="docs",
+                summary="Use structured ADR.\nKeep YAML machine readable.",
+                evidence_refs=["docs/adr.md", "docs/adr:edge#case.md"],
+            )
+            invalidate_decision(
+                ai_dir,
+                session_id,
+                decision_id="D-old",
+                invalidated_by_decision_id="D-weird",
+                reason="Structured ADR supersedes the old ADR.",
+            )
+
+            adr_path = export_structured_adr(ai_dir, "D-weird")
+            adr_text = adr_path.read_text(encoding="utf-8")
+            frontmatter = _load_yaml_with_schema(
+                _extract_frontmatter(adr_text),
+                "structured-adr-frontmatter.schema.json",
+            )
+            self.assertEqual(title, frontmatter["title"])
+            self.assertEqual(["D-prereq"], frontmatter["depends_on"])
+            self.assertEqual(["D-old"], frontmatter["supersedes"])
+            self.assertEqual(["docs/adr.md", "docs/adr:edge#case.md"], frontmatter["evidence_refs"])
+            self.assertIsNone(frontmatter["risk"]["technical"])
+            self.assertIsNone(frontmatter["risk"]["operational"])
+            self.assertEqual("decide-me", frontmatter["audit"]["source"])
+            self.assertIn("Use structured ADR.\nKeep YAML machine readable.", adr_text)
+
+            register_path = export_decision_register(ai_dir)
+            register_payload = _load_yaml_with_schema(
+                register_path.read_text(encoding="utf-8"),
+                "decision-register.schema.json",
+            )
+            by_id = {decision["id"]: decision for decision in register_payload["decisions"]}
+            self.assertEqual(
+                "Use structured ADR.\nKeep YAML machine readable.",
+                by_id["D-weird"]["summary"],
+            )
+
+            before_validate = adr_path.read_text(encoding="utf-8")
+            repo_root = Path(__file__).resolve().parents[2]
+            validate_cli = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/decide_me.py",
+                    "validate-state",
+                    "--ai-dir",
+                    ai_dir,
+                    "--full",
+                ],
+                cwd=repo_root,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(0, validate_cli.returncode, validate_cli.stderr)
+            after_validate = export_structured_adr(ai_dir, "D-weird").read_text(encoding="utf-8")
+            self.assertEqual(before_validate, after_validate)
             self.assertEqual([], validate_runtime(ai_dir))
 
     def test_decision_register_and_structured_adr_handle_invalidated_and_stable_output(

@@ -33,5 +33,9 @@ Structured ADR exports must include stable YAML frontmatter with:
 - `risk`
 - `audit`
 
+Structured ADR `risk.technical` and `risk.operational` are reserved fields. Until the
+decision model records risk evaluation data, exporters must render them as `null` to mean
+unavailable rather than low or no risk.
+
 Decision register exports must include `schema_version`, `generated_at`, `project_head`,
 and a decision list sorted by decision ID.
