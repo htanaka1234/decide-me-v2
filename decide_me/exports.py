@@ -70,6 +70,26 @@ def export_plan(ai_dir: str, plan: dict[str, Any]) -> Path:
     return output
 
 
+def export_github_templates(
+    output_dir: str | Path,
+    *,
+    ai_dir: str | Path | None = None,
+) -> list[Path]:
+    from decide_me.exporters.github import export_github_templates as _export_github_templates
+
+    return _export_github_templates(output_dir, ai_dir=ai_dir)
+
+
+def export_github_issues(
+    ai_dir: str | Path,
+    session_ids: list[str],
+    output_dir: str | Path,
+) -> Path:
+    from decide_me.exporters.github import export_github_issues as _export_github_issues
+
+    return _export_github_issues(ai_dir, session_ids, output_dir)
+
+
 def _lookup_decision(bundle: dict[str, Any], decision_id: str) -> dict[str, Any]:
     for decision in bundle["project_state"]["decisions"]:
         if decision["id"] == decision_id:

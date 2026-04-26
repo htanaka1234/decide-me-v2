@@ -16,15 +16,13 @@ INCLUDE_FILES = (
     "SKILL.md",
     "agents/openai.yaml",
     "scripts/decide_me.py",
-    "templates/adr-template.md",
-    "templates/plan-template.md",
-    "templates/structured-adr-template.md",
 )
 
 INCLUDE_DIRS = (
     "decide_me",
     "references",
     "schemas",
+    "templates",
 )
 
 EXCLUDE_NAMES = {"__pycache__"}

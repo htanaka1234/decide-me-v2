@@ -1,0 +1,27 @@
+name: Decide risk
+description: Track a deferred risk or unresolved blocker from decide-me.
+title: "[risk] "
+labels:
+  - decide-me
+  - risk
+body:
+  - type: input
+    id: decision-id
+    attributes:
+      label: Source decision ID
+      description: Source decide-me risk decision ID.
+  - type: input
+    id: session-id
+    attributes:
+      label: Session ID
+      description: Source decide-me session ID.
+  - type: textarea
+    id: risk
+    attributes:
+      label: Risk
+      description: Risk, blocker, or deferred concern.
+  - type: textarea
+    id: mitigation
+    attributes:
+      label: Mitigation
+      description: Follow-up action or owner notes.

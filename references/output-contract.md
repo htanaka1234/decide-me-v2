@@ -39,3 +39,21 @@ unavailable rather than low or no risk.
 
 Decision register exports must include `schema_version`, `generated_at`, `project_head`,
 and a decision list sorted by decision ID.
+
+GitHub issue draft exports are local derived outputs only. They must not call GitHub APIs or
+record runtime events.
+
+GitHub issue draft `issues.json` must include:
+
+- `schema_version`, `generated_at`, `project_head`
+- `source_session_ids`
+- `plan_status`
+- `issues`
+
+Issue body paths must be relative POSIX paths under `issues/`. Issue bodies must include the
+source decision, session, or conflict IDs needed to trace each draft back to the decide-me event
+runtime.
+
+`issues.json` and `issues/` are generated together. Re-exporting to the same output directory
+must replace the generated `issues/` directory so stale issue body drafts from prior session
+inputs are removed.

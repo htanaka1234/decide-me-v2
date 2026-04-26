@@ -46,3 +46,20 @@ python3 scripts/decide_me.py export-decision-register \
   --ai-dir .ai/decide-me \
   --format yaml
 ```
+
+## GitHub issue template export
+
+```bash
+python3 scripts/decide_me.py export-github-templates \
+  --ai-dir .ai/decide-me \
+  --output-dir .github/ISSUE_TEMPLATE
+```
+
+## GitHub issue draft export
+
+```bash
+python3 scripts/decide_me.py export-github-issues \
+  --ai-dir .ai/decide-me \
+  --session-id S-20260423-101500-a1 \
+  --output-dir .ai/decide-me/exports/github
+```
