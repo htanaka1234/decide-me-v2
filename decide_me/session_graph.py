@@ -85,6 +85,15 @@ def link_session(
         if relationship not in SESSION_RELATIONSHIPS:
             allowed = ", ".join(sorted(SESSION_RELATIONSHIPS))
             raise ValueError(f"relationship must be one of: {allowed}")
+        edges = bundle["project_state"].get("session_graph", {}).get("edges", [])
+        if _has_duplicate_link(edges, parent_session_id, child_session_id, relationship):
+            raise ValueError("duplicate session_linked relationship")
+        if relationship in ACYCLIC_RELATIONSHIPS and _would_create_link_cycle(
+            edges,
+            parent_session_id=parent_session_id,
+            child_session_id=child_session_id,
+        ):
+            raise ValueError("session_linked would create a session graph cycle")
         return [
             {
                 "session_id": child_session_id,
@@ -323,6 +332,45 @@ def _explicit_components(bundle: dict[str, Any]) -> list[list[str]]:
         if len(component) > 1:
             components.append(sorted(component))
     return components
+
+
+def _has_duplicate_link(
+    edges: list[dict[str, Any]],
+    parent_session_id: str,
+    child_session_id: str,
+    relationship: str,
+) -> bool:
+    return any(
+        edge.get("parent_session_id") == parent_session_id
+        and edge.get("child_session_id") == child_session_id
+        and edge.get("relationship") == relationship
+        for edge in edges
+    )
+
+
+def _would_create_link_cycle(
+    edges: list[dict[str, Any]],
+    *,
+    parent_session_id: str,
+    child_session_id: str,
+) -> bool:
+    adjacency: dict[str, set[str]] = {}
+    for edge in edges:
+        if edge.get("relationship") not in ACYCLIC_RELATIONSHIPS:
+            continue
+        adjacency.setdefault(edge["parent_session_id"], set()).add(edge["child_session_id"])
+
+    stack = [child_session_id]
+    visited: set[str] = set()
+    while stack:
+        current = stack.pop()
+        if current == parent_session_id:
+            return True
+        if current in visited:
+            continue
+        visited.add(current)
+        stack.extend(sorted(adjacency.get(current, set()), reverse=True))
+    return False
 
 
 def _session_node(session_id: str, session: dict[str, Any]) -> dict[str, Any]:

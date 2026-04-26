@@ -28,28 +28,20 @@
       ],
       "properties": {
         "name": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "type": "string",
+          "minLength": 1
         },
         "objective": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "type": "string",
+          "minLength": 1
         },
         "current_milestone": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "type": "string",
+          "minLength": 1
         },
         "stop_rule": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "type": "string",
+          "minLength": 1
         }
       },
       "additionalProperties": false
@@ -64,17 +56,16 @@
       ],
       "properties": {
         "project_head": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "event_count": {
           "type": "integer",
           "minimum": 1
         },
         "updated_at": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "type": "string",
+          "format": "date-time"
         },
         "last_event_id": {
           "type": [
@@ -201,10 +192,25 @@
             ]
           },
           "kind": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "choice",
+              "constraint",
+              "risk",
+              "dependency"
+            ]
           },
           "domain": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "product",
+              "technical",
+              "data",
+              "ux",
+              "ops",
+              "legal",
+              "other"
+            ]
           },
           "priority": {
             "type": "string",
@@ -237,16 +243,35 @@
             ]
           },
           "resolvable_by": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "human",
+              "codebase",
+              "docs",
+              "tests",
+              "external"
+            ]
           },
           "reversibility": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "reversible",
+              "hard-to-reverse",
+              "irreversible",
+              "unknown"
+            ]
           },
           "depends_on": {
-            "type": "array"
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "blocked_by": {
-            "type": "array"
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "question": {
             "type": [
@@ -264,22 +289,160 @@
             "type": "array"
           },
           "recommendation": {
-            "type": "object"
+            "type": "object",
+            "required": [
+              "proposal_id",
+              "version",
+              "summary",
+              "rationale_short",
+              "confidence",
+              "proposed_at",
+              "based_on_project_head"
+            ],
+            "properties": {
+              "proposal_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "version": {
+                "type": "integer"
+              },
+              "summary": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "rationale_short": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "confidence": {
+                "type": "string"
+              },
+              "proposed_at": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "based_on_project_head": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": false
           },
           "accepted_answer": {
-            "type": "object"
+            "type": "object",
+            "required": [
+              "summary",
+              "accepted_at",
+              "accepted_via",
+              "proposal_id"
+            ],
+            "properties": {
+              "summary": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "accepted_at": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "accepted_via": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "enum": [
+                  "ok",
+                  "explicit",
+                  "evidence",
+                  null
+                ]
+              },
+              "proposal_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": false
           },
           "resolved_by_evidence": {
-            "type": "object"
+            "type": "object",
+            "required": [
+              "source",
+              "summary",
+              "resolved_at",
+              "evidence_refs"
+            ],
+            "properties": {
+              "source": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "enum": [
+                  "codebase",
+                  "docs",
+                  "tests",
+                  "external",
+                  "existing-decisions",
+                  "close-summaries",
+                  null
+                ]
+              },
+              "summary": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "resolved_at": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "evidence_refs": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
           },
           "evidence_refs": {
-            "type": "array"
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "revisit_triggers": {
-            "type": "array"
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "notes": {
-            "type": "array"
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "bundle_id": {
             "type": [
@@ -291,10 +454,154 @@
             "type": [
               "object",
               "null"
-            ]
+            ],
+            "required": [
+              "decision_id",
+              "reason",
+              "invalidated_at"
+            ],
+            "properties": {
+              "decision_id": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "invalidated_at": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
           }
         },
-        "additionalProperties": true
+        "additionalProperties": true,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "accepted"
+                }
+              },
+              "required": [
+                "status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "accepted_answer": {
+                  "properties": {
+                    "summary": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "accepted_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "accepted_via": {
+                      "type": "string",
+                      "enum": [
+                        "ok",
+                        "explicit"
+                      ]
+                    },
+                    "proposal_id": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "resolved-by-evidence"
+                }
+              },
+              "required": [
+                "status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "accepted_answer": {
+                  "properties": {
+                    "summary": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "accepted_via": {
+                      "const": "evidence"
+                    }
+                  }
+                },
+                "resolved_by_evidence": {
+                  "properties": {
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "codebase",
+                        "docs",
+                        "tests",
+                        "external",
+                        "existing-decisions",
+                        "close-summaries"
+                      ]
+                    },
+                    "summary": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "resolved_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "enum": [
+                    "unresolved",
+                    "proposed",
+                    "rejected",
+                    "deferred",
+                    "blocked"
+                  ]
+                }
+              },
+              "required": [
+                "status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "accepted_answer": {
+                  "properties": {
+                    "summary": {
+                      "type": "null"
+                    }
+                  }
+                },
+                "resolved_by_evidence": {
+                  "properties": {
+                    "summary": {
+                      "type": "null"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
       }
     }
   },

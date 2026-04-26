@@ -620,6 +620,116 @@ class RuntimeFlowTests(unittest.TestCase):
             )
             self.assertEqual([], validate_runtime(ai_dir))
 
+    def test_link_session_rejects_duplicate_relationship_before_write(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Reject duplicate links before write",
+                current_milestone="MVP",
+            )
+            parent_id = create_session(ai_dir, context="Parent")["session"]["id"]
+            child_id = create_session(ai_dir, context="Child")["session"]["id"]
+            before = _raw_event_log_text(ai_dir)
+            link_session(
+                ai_dir,
+                parent_session_id=parent_id,
+                child_session_id=child_id,
+                relationship="refines",
+                reason="Child refines parent.",
+            )
+            linked = _raw_event_log_text(ai_dir)
+
+            with self.assertRaisesRegex(ValueError, "duplicate session_linked relationship"):
+                link_session(
+                    ai_dir,
+                    parent_session_id=parent_id,
+                    child_session_id=child_id,
+                    relationship="refines",
+                    reason="Duplicate link.",
+                )
+
+            self.assertNotEqual(before, linked)
+            self.assertEqual(linked, _raw_event_log_text(ai_dir))
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_link_session_allows_same_pair_with_different_relationship(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Typed session graph links",
+                current_milestone="MVP",
+            )
+            parent_id = create_session(ai_dir, context="Parent")["session"]["id"]
+            child_id = create_session(ai_dir, context="Child")["session"]["id"]
+
+            link_session(
+                ai_dir,
+                parent_session_id=parent_id,
+                child_session_id=child_id,
+                relationship="refines",
+                reason="Child refines parent.",
+            )
+            link_session(
+                ai_dir,
+                parent_session_id=parent_id,
+                child_session_id=child_id,
+                relationship="depends_on",
+                reason="Child also depends on parent.",
+            )
+
+            graph = show_session_graph(ai_dir)["session_graph"]
+            relationships = sorted(
+                edge["relationship"]
+                for edge in graph["edges"]
+                if edge["parent_session_id"] == parent_id and edge["child_session_id"] == child_id
+            )
+            self.assertEqual(["depends_on", "refines"], relationships)
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_link_session_rejects_cycle_before_write_but_allows_contradicts(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Reject cyclic links before write",
+                current_milestone="MVP",
+            )
+            first_id = create_session(ai_dir, context="First")["session"]["id"]
+            second_id = create_session(ai_dir, context="Second")["session"]["id"]
+            link_session(
+                ai_dir,
+                parent_session_id=first_id,
+                child_session_id=second_id,
+                relationship="refines",
+                reason="Second refines first.",
+            )
+            linked = _raw_event_log_text(ai_dir)
+
+            with self.assertRaisesRegex(ValueError, "session_linked would create a session graph cycle"):
+                link_session(
+                    ai_dir,
+                    parent_session_id=second_id,
+                    child_session_id=first_id,
+                    relationship="depends_on",
+                    reason="This would create a cycle.",
+                )
+
+            self.assertEqual(linked, _raw_event_log_text(ai_dir))
+            contradiction = link_session(
+                ai_dir,
+                parent_session_id=second_id,
+                child_session_id=first_id,
+                relationship="contradicts",
+                reason="Contradiction links are allowed to be cyclic.",
+            )
+            self.assertEqual("ok", contradiction["status"])
+            self.assertEqual([], validate_runtime(ai_dir))
+
     def test_detects_and_resolves_parent_child_session_conflict(self) -> None:
         with TemporaryDirectory() as tmp:
             ai_dir = str(Path(tmp) / ".ai" / "decide-me")
@@ -3048,12 +3158,25 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertEqual("accepted", accepted["status"])
             self.assertEqual([], validate_runtime(ai_dir))
 
-    def test_advance_session_resolves_evidence_then_handles_ok_reply(self) -> None:
+    def test_advance_session_returns_repo_evidence_candidates_then_handles_ok_reply(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / "app").mkdir()
+            (root / "app" / "nested").mkdir()
             (root / "app" / "auth.py").write_text(
                 "def login():\n    return 'magic link auth flow'\n",
+                encoding="utf-8",
+            )
+            (root / "app" / "z_auth.py").write_text(
+                "def login_backup():\n    return 'magic link auth flow'\n",
+                encoding="utf-8",
+            )
+            (root / "app" / "nested" / "magic.py").write_text(
+                "def nested_login():\n    return 'magic link auth flow'\n",
+                encoding="utf-8",
+            )
+            (root / "app" / "other.py").write_text(
+                "def other_login():\n    return 'magic link auth flow'\n",
                 encoding="utf-8",
             )
             ai_dir = str(root / ".ai" / "decide-me")
@@ -3098,17 +3221,30 @@ class RuntimeFlowTests(unittest.TestCase):
 
             turn = advance_session(ai_dir, session_id, repo_root=root)
             self.assertEqual("question", turn["status"])
-            self.assertEqual("D-002", turn["decision_id"])
-            self.assertEqual(1, len(turn["auto_resolved"]))
-            self.assertEqual("D-001", turn["auto_resolved"][0]["decision_id"])
-            self.assertIn("app/auth.py", turn["auto_resolved"][0]["evidence_refs"])
-            self.assertIn("Resolved by evidence: D-001", turn["message"])
+            self.assertEqual("D-001", turn["decision_id"])
+            self.assertEqual([], turn["auto_resolved"])
+            self.assertEqual(1, len(turn["evidence_candidates"]))
+            self.assertEqual("D-001", turn["evidence_candidates"][0]["decision_id"])
+            self.assertEqual("codebase", turn["evidence_candidates"][0]["source"])
+            self.assertEqual(
+                ["app/auth.py", "app/nested/magic.py", "app/other.py"],
+                turn["evidence_candidates"][0]["evidence_refs"],
+            )
+            self.assertIn("Evidence candidates (not applied automatically):", turn["message"])
+            self.assertIn("candidate answer:", turn["message"])
+            self.assertNotIn("Resolved by evidence: D-001", turn["message"])
+
+            event_count = len(read_event_log(runtime_paths(ai_dir)))
+            repeated_turn = advance_session(ai_dir, session_id, repo_root=root)
+            self.assertTrue(repeated_turn["reused_active_proposal"])
+            self.assertEqual(turn["evidence_candidates"], repeated_turn["evidence_candidates"])
+            self.assertEqual(event_count, len(read_event_log(runtime_paths(ai_dir))))
 
             reply = handle_reply(ai_dir, session_id, "OK", repo_root=root)
             self.assertEqual("accepted", reply["status"])
-            self.assertEqual("complete", reply["next_turn"]["status"])
-            self.assertIn("Accepted: D-002", reply["message"])
-            self.assertIn("Next recommended action:", reply["message"])
+            self.assertEqual("question", reply["next_turn"]["status"])
+            self.assertEqual("D-002", reply["next_turn"]["decision_id"])
+            self.assertIn("Accepted: D-001", reply["message"])
             self.assertEqual([], validate_runtime(ai_dir))
 
     def test_codebase_evidence_ignores_single_keyword_hits(self) -> None:
@@ -3147,8 +3283,70 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertEqual("question", turn["status"])
             self.assertEqual("D-auth", turn["decision_id"])
             self.assertEqual([], turn["auto_resolved"])
+            self.assertEqual([], turn["evidence_candidates"])
             self.assertEqual("proposed", turn["decision"]["status"])
             self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_project_state_schema_covers_runtime_projection_shape(self) -> None:
+        schema_path = Path(__file__).resolve().parents[2] / "schemas" / "project-state.schema.json"
+        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+        project_properties = schema["properties"]["project"]["properties"]
+        for key in ("name", "objective", "current_milestone", "stop_rule"):
+            self.assertEqual("string", project_properties[key]["type"])
+            self.assertEqual(1, project_properties[key]["minLength"])
+
+        state_properties = schema["properties"]["state"]["properties"]
+        self.assertEqual("string", state_properties["project_head"]["type"])
+        self.assertEqual(1, state_properties["project_head"]["minLength"])
+        self.assertEqual("string", state_properties["updated_at"]["type"])
+        self.assertEqual("date-time", state_properties["updated_at"]["format"])
+
+        decision_items = schema["properties"]["decisions"]["items"]
+        decision_properties = decision_items["properties"]
+        self.assertEqual(
+            ["choice", "constraint", "risk", "dependency"],
+            decision_properties["kind"]["enum"],
+        )
+        self.assertIn("technical", decision_properties["domain"]["enum"])
+        self.assertIn("codebase", decision_properties["resolvable_by"]["enum"])
+        self.assertIn("hard-to-reverse", decision_properties["reversibility"]["enum"])
+        self.assertEqual("string", decision_properties["depends_on"]["items"]["type"])
+        self.assertEqual("string", decision_properties["resolved_by_evidence"]["properties"]["evidence_refs"]["items"]["type"])
+
+        all_of = decision_items["allOf"]
+        accepted_branch = next(
+            branch
+            for branch in all_of
+            if branch["if"]["properties"]["status"].get("const") == "accepted"
+        )
+        accepted = accepted_branch["then"]["properties"]["accepted_answer"]["properties"]
+        self.assertEqual({"type": "string", "minLength": 1}, accepted["summary"])
+        self.assertEqual({"type": "string", "format": "date-time"}, accepted["accepted_at"])
+        self.assertEqual(["ok", "explicit"], accepted["accepted_via"]["enum"])
+        self.assertEqual({"type": "string", "minLength": 1}, accepted["proposal_id"])
+
+        evidence_branch = next(
+            branch
+            for branch in all_of
+            if branch["if"]["properties"]["status"].get("const") == "resolved-by-evidence"
+        )
+        evidence_accepted = evidence_branch["then"]["properties"]["accepted_answer"]["properties"]
+        evidence_payload = evidence_branch["then"]["properties"]["resolved_by_evidence"]["properties"]
+        self.assertEqual("evidence", evidence_accepted["accepted_via"]["const"])
+        self.assertEqual({"type": "string", "minLength": 1}, evidence_payload["summary"])
+        self.assertEqual({"type": "string", "format": "date-time"}, evidence_payload["resolved_at"])
+        self.assertIn("existing-decisions", evidence_payload["source"]["enum"])
+        self.assertNotIn(None, evidence_payload["source"]["enum"])
+
+        open_branch = next(
+            branch
+            for branch in all_of
+            if "unresolved" in branch["if"]["properties"]["status"].get("enum", [])
+        )
+        open_then = open_branch["then"]["properties"]
+        self.assertEqual("null", open_then["accepted_answer"]["properties"]["summary"]["type"])
+        self.assertEqual("null", open_then["resolved_by_evidence"]["properties"]["summary"]["type"])
+        # Cross-field equality constraints are enforced by validate_project_state().
 
     def test_cli_bootstrap_works_with_pythonpath_repo_root(self) -> None:
         repo_root = Path(__file__).resolve().parents[2]
@@ -3524,7 +3722,7 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertIn("Discovered decisions:", reply["message"])
             self.assertEqual([], validate_runtime(ai_dir))
 
-    def test_handle_reply_immediately_resolves_discovered_codebase_decision(self) -> None:
+    def test_handle_reply_returns_candidates_for_discovered_codebase_decision(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / "app").mkdir()
@@ -3566,28 +3764,17 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertEqual("accepted", reply["status"])
             self.assertEqual(1, len(reply["discovered_decisions"]))
             discovered = reply["discovered_decisions"][0]
-            self.assertEqual("resolved-by-evidence", discovered["status"])
-            self.assertEqual("codebase", discovered["resolved_by_evidence"]["source"])
-            self.assertIn("app/auth.py", discovered["resolved_by_evidence"]["evidence_refs"])
-            self.assertEqual(1, len(reply["auto_resolved"]))
-            self.assertEqual(discovered["id"], reply["auto_resolved"][0]["decision_id"])
-            self.assertEqual("complete", reply["next_turn"]["status"])
-            self.assertEqual(discovered["id"], reply["next_turn"]["auto_resolved"][0]["decision_id"])
-            self.assertIn("Resolved by evidence:", reply["message"])
-            closed = close_session(ai_dir, session_id)
-            slices = closed["close_summary"]["candidate_action_slices"]
-            self.assertEqual(discovered["id"], slices[0]["decision_id"])
-            self.assertTrue(slices[0]["implementation_ready"])
-            self.assertTrue(slices[0]["evidence_backed"])
-            self.assertEqual("codebase", slices[0]["evidence_source"])
-            self.assertEqual("Implement Password reset before launch.", slices[0]["next_step"])
-            plan = generate_plan(ai_dir, [session_id])
-            self.assertEqual("action-plan", plan["status"])
-            self.assertEqual(discovered["id"], plan["action_plan"]["implementation_ready_slices"][0]["decision_id"])
-            self.assertEqual(discovered["id"], plan["action_plan"]["action_slices"][0]["decision_id"])
-            plan_body = Path(plan["export_path"]).read_text(encoding="utf-8")
-            self.assertIn("Implementation-Ready Slices", plan_body)
-            self.assertIn("via codebase", plan_body)
+            self.assertEqual("unresolved", discovered["status"])
+            self.assertEqual([], reply["auto_resolved"])
+            self.assertEqual("question", reply["next_turn"]["status"])
+            self.assertEqual(discovered["id"], reply["next_turn"]["decision_id"])
+            self.assertEqual(1, len(reply["next_turn"]["evidence_candidates"]))
+            self.assertEqual(discovered["id"], reply["next_turn"]["evidence_candidates"][0]["decision_id"])
+            self.assertEqual("codebase", reply["next_turn"]["evidence_candidates"][0]["source"])
+            self.assertIn("app/auth.py", reply["next_turn"]["evidence_candidates"][0]["evidence_refs"])
+            self.assertIn("Evidence candidates (not applied automatically):", reply["message"])
+            self.assertIn("candidate answer:", reply["message"])
+            self.assertNotIn("Resolved by evidence:", reply["message"])
             self.assertEqual([], validate_runtime(ai_dir))
 
     def test_handle_reply_extracts_multiple_constraints_and_decisions(self) -> None:
