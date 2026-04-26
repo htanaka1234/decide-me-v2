@@ -24,7 +24,7 @@ from decide_me.session_graph import (
     resolve_session_conflict,
     show_session_graph,
 )
-from decide_me.store import bootstrap_runtime, rebuild_and_persist, validate_runtime
+from decide_me.store import benchmark_runtime, bootstrap_runtime, compact_runtime, rebuild_and_persist, validate_runtime
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -75,6 +75,13 @@ def main(argv: list[str] | None = None) -> int:
 
     validate = subparsers.add_parser("validate-state", help="validate runtime consistency")
     validate.add_argument("--ai-dir", required=True)
+    validate.add_argument("--full", action="store_true", help="scan the full event log and compare projections")
+
+    compact = subparsers.add_parser("compact-runtime", help="refresh the projection checkpoint index")
+    compact.add_argument("--ai-dir", required=True)
+
+    benchmark = subparsers.add_parser("benchmark-runtime", help="run opt-in runtime performance checks")
+    benchmark.add_argument("--ai-dir", required=True)
 
     detect_conflicts = subparsers.add_parser(
         "detect-merge-conflicts",
@@ -196,9 +203,13 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "rebuild-projections":
             _print_json(rebuild_and_persist(args.ai_dir))
         elif args.command == "validate-state":
-            issues = validate_runtime(args.ai_dir)
+            issues = validate_runtime(args.ai_dir, full=args.full)
             _print_json({"ok": not issues, "issues": issues})
             return 0 if not issues else 1
+        elif args.command == "compact-runtime":
+            _print_json(compact_runtime(args.ai_dir))
+        elif args.command == "benchmark-runtime":
+            _print_json(benchmark_runtime(args.ai_dir))
         elif args.command == "detect-merge-conflicts":
             conflicts = detect_merge_conflicts(args.ai_dir)
             _print_json({"ok": not conflicts, "conflicts": conflicts})

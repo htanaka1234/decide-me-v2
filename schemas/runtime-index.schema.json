@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/decide-me/runtime-index.schema.json",
+  "title": "Decide Me Runtime Index",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "projection_schema_version",
+    "project_head",
+    "event_count",
+    "last_event_id",
+    "last_event_sort_key",
+    "rejected_tx_ids",
+    "projection_files"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "projection_schema_version": {
+      "type": "integer",
+      "const": 7
+    },
+    "project_head": {
+      "type": ["string", "null"]
+    },
+    "event_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "last_event_id": {
+      "type": ["string", "null"]
+    },
+    "last_event_sort_key": {
+      "type": ["array", "null"],
+      "items": {},
+      "minItems": 5,
+      "maxItems": 5
+    },
+    "rejected_tx_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "projection_files": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["sha256", "bytes"],
+        "properties": {
+          "sha256": {
+            "type": "string"
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

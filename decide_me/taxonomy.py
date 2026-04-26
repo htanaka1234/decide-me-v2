@@ -78,6 +78,7 @@ def default_taxonomy_state(now: str | None = None, last_event_id: str | None = N
             aliases=["code"],
         ),
     ]
+    nodes = sorted(nodes, key=lambda node: node["id"])
     return {
         "schema_version": 3,
         "state": {"updated_at": now, "last_event_id": last_event_id},

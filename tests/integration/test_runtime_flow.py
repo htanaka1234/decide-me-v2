@@ -34,7 +34,9 @@ from decide_me.session_graph import (
     show_session_graph,
 )
 from decide_me.store import (
+    compact_runtime,
     bootstrap_runtime,
+    load_runtime,
     read_raw_event_log,
     read_event_log,
     rebuild_and_persist,
@@ -341,6 +343,63 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertTrue(list((root / "sessions" / session_id).glob("*.jsonl")))
             self.assertFalse((Path(ai_dir) / "event-log.jsonl").exists())
             self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_load_runtime_uses_projection_cache_without_reading_event_log(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Use projection cache",
+                current_milestone="MVP",
+            )
+            session_id = create_session(ai_dir, context="Cached session")["session"]["id"]
+            bad_dir = Path(ai_dir) / "events" / "system"
+            bad_dir.mkdir(parents=True, exist_ok=True)
+            (bad_dir / "T-bad.jsonl").write_text("{bad json\n", encoding="utf-8")
+
+            bundle = load_runtime(runtime_paths(ai_dir))
+            self.assertIn(session_id, bundle["sessions"])
+            self.assertEqual([], validate_runtime(ai_dir, full=False))
+            self.assertIn("malformed JSON", validate_runtime(ai_dir)[0])
+
+    def test_incremental_transact_updates_runtime_index(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Update checkpoint",
+                current_milestone="MVP",
+            )
+            paths = runtime_paths(ai_dir)
+            before = json.loads(paths.runtime_index.read_text(encoding="utf-8"))
+
+            create_session(ai_dir, context="Index update")
+
+            after = json.loads(paths.runtime_index.read_text(encoding="utf-8"))
+            self.assertEqual(before["event_count"] + 1, after["event_count"])
+            self.assertNotEqual(before["project_head"], after["project_head"])
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_compact_runtime_refreshes_projection_manifest(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Refresh checkpoint",
+                current_milestone="MVP",
+            )
+            paths = runtime_paths(ai_dir)
+            index = json.loads(paths.runtime_index.read_text(encoding="utf-8"))
+            index["projection_files"] = {}
+            paths.runtime_index.write_text(json.dumps(index), encoding="utf-8")
+
+            refreshed = compact_runtime(ai_dir)
+
+            self.assertTrue(refreshed["projection_files"])
+            self.assertEqual([], validate_runtime(ai_dir, full=False))
 
     def test_later_merged_session_transaction_files_rebuild_cleanly(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -777,6 +836,43 @@ class RuntimeFlowTests(unittest.TestCase):
             detected = detect_session_conflicts(ai_dir, session_ids=[first_id], include_related=True)
             self.assertEqual([first_id], [item["session_id"] for item in detected["related_sessions"]])
             self.assertEqual([], detected["semantic_conflicts"])
+
+    def test_inferred_session_candidates_are_on_demand_only(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Infer on demand",
+                current_milestone="MVP",
+            )
+            first_id = create_session(ai_dir, context="First")["session"]["id"]
+            second_id = create_session(ai_dir, context="Second")["session"]["id"]
+            _accept_runtime_decision(
+                ai_dir,
+                first_id,
+                decision_id="D-first-shared",
+                title="Shared decision",
+                domain="technical",
+                recommendation="Keep technical ownership.",
+            )
+            _accept_runtime_decision(
+                ai_dir,
+                second_id,
+                decision_id="D-second-shared",
+                title="Shared decision",
+                domain="ops",
+                recommendation="Move to ops ownership.",
+            )
+            close_session(ai_dir, first_id)
+            close_session(ai_dir, second_id)
+
+            persisted = json.loads((Path(ai_dir) / "project-state.json").read_text(encoding="utf-8"))
+            self.assertEqual([], persisted["session_graph"]["inferred_candidates"])
+            without_inferred = show_session_graph(ai_dir, include_inferred=False)
+            self.assertEqual([], without_inferred["session_graph"]["inferred_candidates"])
+            with_inferred = show_session_graph(ai_dir, session_id=first_id, include_inferred=True)
+            self.assertTrue(with_inferred["session_graph"]["inferred_candidates"])
 
     def test_same_session_conflicting_parallel_proposal_transactions_fail_validation(self) -> None:
         with TemporaryDirectory() as tmp:

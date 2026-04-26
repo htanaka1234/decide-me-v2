@@ -4,7 +4,7 @@ from copy import deepcopy
 import unittest
 
 from decide_me.events import build_event as runtime_build_event
-from decide_me.projections import project_heads_by_event_id, rebuild_projections
+from decide_me.projections import apply_events_to_bundle, project_heads_by_event_id, rebuild_projections
 
 
 def build_event(
@@ -199,6 +199,54 @@ class ProjectionTests(unittest.TestCase):
         first = rebuild_projections(events)
         second = rebuild_projections(events)
         self.assertEqual(first, second)
+
+    def test_incremental_apply_matches_full_rebuild_project_head(self) -> None:
+        events = [
+            build_event(
+                sequence=1,
+                session_id="SYSTEM",
+                event_type="project_initialized",
+                project_version_after=1,
+                payload={
+                    "project": {
+                        "name": "Demo",
+                        "objective": "Test",
+                        "current_milestone": "MVP",
+                        "stop_rule": "Resolve blockers",
+                    }
+                },
+                timestamp="2026-04-23T12:00:00Z",
+            ),
+            build_event(
+                sequence=2,
+                session_id="S-001",
+                event_type="session_created",
+                project_version_after=2,
+                payload={
+                    "session": {
+                        "id": "S-001",
+                        "started_at": "2026-04-23T12:01:00Z",
+                        "last_seen_at": "2026-04-23T12:01:00Z",
+                        "bound_context_hint": "demo",
+                    }
+                },
+                timestamp="2026-04-23T12:01:00Z",
+            ),
+            build_event(
+                sequence=3,
+                session_id="S-001",
+                event_type="decision_discovered",
+                project_version_after=3,
+                payload={"decision": {"id": "D-001", "title": "Auth mode"}},
+                timestamp="2026-04-23T12:02:00Z",
+            ),
+        ]
+
+        full = rebuild_projections(events)
+        incremental = apply_events_to_bundle(deepcopy(rebuild_projections(events[:2])), events[2:])
+
+        self.assertEqual(full["project_state"]["state"], incremental["project_state"]["state"])
+        self.assertEqual(full, incremental)
 
     def test_proposal_accepted_without_reason_uses_answer_summary_for_session_summary(self) -> None:
         events = [
