@@ -1,4 +1,12 @@
-.ai/
+# decide-me runtime: track only the source event log and human-readable exports.
+.ai/*
+!.ai/decide-me/
+.ai/decide-me/*
+!.ai/decide-me/event-log.jsonl
+!.ai/decide-me/exports/
+.ai/decide-me/exports/**
+!.ai/decide-me/exports/**/
+!.ai/decide-me/exports/**/*.md
 .codex-runtime/
 decide-me-v2.zip
 __pycache__/
