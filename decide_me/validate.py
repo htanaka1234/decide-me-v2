@@ -6,6 +6,11 @@ from typing import Any
 
 from decide_me.constants import ACCEPTED_VIA_VALUES, DOMAIN_VALUES, EVIDENCE_SOURCES
 from decide_me.events import EVENT_TYPES, SESSION_RELATIONSHIPS, validate_event
+from decide_me.suppression import (
+    has_remaining_suppressed_scope,
+    has_suppressed_context_remainders,
+    suppressed_decision_ids,
+)
 from decide_me.taxonomy import taxonomy_by_id
 
 
@@ -372,16 +377,29 @@ def validate_projection_bundle(bundle: dict[str, Any]) -> None:
     if not isinstance(bundle["sessions"], dict):
         raise StateValidationError("projection_bundle.sessions must be a dictionary")
     decisions_by_id = _decision_index(bundle["project_state"])
+    visible_ids = _visible_decision_ids(decisions_by_id)
     taxonomy_ids = set(taxonomy_by_id(bundle["taxonomy_state"]))
-    active_proposal_targets: dict[str, list[str]] = {}
     for session_id, session in bundle["sessions"].items():
         validate_session_state(session)
-        _validate_session_integrity(session_id, session, decisions_by_id, taxonomy_ids)
+    _validate_resolved_conflict_suppression(
+        bundle["project_state"],
+        bundle["sessions"],
+        bundle["taxonomy_state"],
+    )
+
+    active_proposal_targets: dict[str, list[str]] = {}
+    for session_id, session in bundle["sessions"].items():
+        _validate_session_integrity(session_id, session, decisions_by_id, visible_ids, taxonomy_ids)
         proposal = session["working_state"]["active_proposal"]
         if proposal.get("is_active") and proposal.get("target_id"):
             active_proposal_targets.setdefault(proposal["target_id"], []).append(session_id)
     _validate_decision_references(decisions_by_id, active_proposal_targets)
-    _validate_visible_decision_bindings(bundle["sessions"], _visible_decision_ids(decisions_by_id))
+    _validate_visible_decision_bindings(
+        bundle["sessions"],
+        visible_ids,
+        # Semantic conflict suppression is session-scoped; rejected-only audit decisions may become unbound.
+        allowed_unbound_decision_ids=suppressed_decision_ids(bundle["project_state"]),
+    )
 
 
 def _decision_index(project_state: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -443,14 +461,18 @@ def _validate_decision_references(
 
 
 def _validate_visible_decision_bindings(
-    sessions: dict[str, dict[str, Any]], visible_decision_ids: set[str]
+    sessions: dict[str, dict[str, Any]],
+    visible_decision_ids: set[str],
+    *,
+    allowed_unbound_decision_ids: set[str] | None = None,
 ) -> None:
+    allowed_unbound_decision_ids = allowed_unbound_decision_ids or set()
     bound_decision_ids = {
         decision_id
         for session in sessions.values()
         for decision_id in session["session"]["decision_ids"]
     }
-    unbound = visible_decision_ids - bound_decision_ids
+    unbound = visible_decision_ids - bound_decision_ids - allowed_unbound_decision_ids
     if unbound:
         raise StateValidationError(
             f"visible decisions are not bound to any session: {sorted(unbound)}"
@@ -461,13 +483,13 @@ def _validate_session_integrity(
     session_key: str,
     session: dict[str, Any],
     decisions_by_id: dict[str, dict[str, Any]],
+    visible_ids: set[str],
     taxonomy_ids: set[str],
 ) -> None:
     session_id = session["session"]["id"]
     if session_id != session_key:
         raise StateValidationError(f"session map key {session_key} does not match session id {session_id}")
 
-    visible_ids = _visible_decision_ids(decisions_by_id)
     decision_ids = session["session"]["decision_ids"]
     if len(decision_ids) != len(set(decision_ids)):
         raise StateValidationError(f"session {session_id} contains duplicate decision_ids")
@@ -475,13 +497,13 @@ def _validate_session_integrity(
         if decision_id not in decisions_by_id:
             raise StateValidationError(f"session {session_id} references unknown decision {decision_id}")
         if decision_id not in visible_ids:
-            raise StateValidationError(f"session {session_id} references invalidated decision {decision_id}")
+            raise StateValidationError(f"session {session_id} references non-visible decision {decision_id}")
 
     active_decision_id = session["summary"].get("active_decision_id")
     if active_decision_id and active_decision_id not in set(decision_ids):
         raise StateValidationError(f"session {session_id} active_decision_id is not bound to the session")
     if active_decision_id and active_decision_id not in visible_ids:
-        raise StateValidationError(f"session {session_id} active_decision_id references invalidated decision")
+        raise StateValidationError(f"session {session_id} active_decision_id references non-visible decision")
 
     _validate_classification_refs(session_id, session, taxonomy_ids)
     _validate_active_proposal(session_id, session, decisions_by_id, visible_ids, set(decision_ids))
@@ -582,7 +604,7 @@ def _validate_active_proposal(
     if target_id not in decisions_by_id:
         raise StateValidationError(f"session {session_id} active proposal references unknown decision {target_id}")
     if target_id not in visible_ids:
-        raise StateValidationError(f"session {session_id} active proposal references invalidated decision {target_id}")
+        raise StateValidationError(f"session {session_id} active proposal references non-visible decision {target_id}")
     if target_id not in session_decision_ids:
         raise StateValidationError(f"session {session_id} active proposal target is not bound to the session")
 
@@ -1071,6 +1093,7 @@ def _validate_session_graph(session_graph: dict[str, Any]) -> None:
                 "winning_session_id",
                 "rejected_session_ids",
                 "scope",
+                "suppressed_context",
                 "reason",
                 "resolved_at",
                 "event_id",
@@ -1090,9 +1113,45 @@ def _validate_session_graph(session_graph: dict[str, Any]) -> None:
             "project_state.session_graph.resolved_conflicts[].rejected_session_ids",
         )
         _require_dict(resolved_payload["scope"], "project_state.session_graph.resolved_conflicts[].scope")
+        _validate_suppressed_context(
+            resolved_payload["suppressed_context"],
+            "project_state.session_graph.resolved_conflicts[].suppressed_context",
+        )
         _require_non_empty_string(resolved_payload["reason"], "project_state.session_graph.resolved_conflicts[].reason")
         _require_timestamp(resolved_payload["resolved_at"], "project_state.session_graph.resolved_conflicts[].resolved_at")
         _require_non_empty_string(resolved_payload["event_id"], "project_state.session_graph.resolved_conflicts[].event_id")
+
+
+def _validate_suppressed_context(context: Any, label: str) -> None:
+    context_payload = _require_dict(context, label)
+    _require_keys(
+        context_payload,
+        ("session_ids", "decision_ids", "action_slice_names", "workstream_names", "hidden_strings"),
+        label,
+    )
+    for key in ("session_ids", "decision_ids", "action_slice_names", "workstream_names", "hidden_strings"):
+        _require_list(context_payload[key], f"{label}.{key}")
+
+
+def _validate_resolved_conflict_suppression(
+    project_state: dict[str, Any],
+    sessions: dict[str, dict[str, Any]],
+    taxonomy_state: dict[str, Any],
+) -> None:
+    for resolved in project_state.get("session_graph", {}).get("resolved_conflicts", []):
+        for rejected_session_id in resolved.get("rejected_session_ids", []):
+            session = sessions.get(rejected_session_id)
+            if not session:
+                continue
+            if has_remaining_suppressed_scope(session, resolved) or has_suppressed_context_remainders(
+                session,
+                resolved.get("suppressed_context", {}),
+                taxonomy_state,
+            ):
+                raise StateValidationError(
+                    f"resolved conflict {resolved['conflict_id']} leaves rejected scope in "
+                    f"session {rejected_session_id} projection"
+                )
 
 
 def _validate_event_log_proposal_lifecycle(

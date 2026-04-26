@@ -64,12 +64,17 @@ Session graph:
   overlap, and action-slice responsibility mismatches. They are never treated as source-of-truth
   graph edges.
 - `semantic_conflict_resolved` records the user's selected winning session for a scoped
-  planner-level conflict across explicitly related sessions. It does not remove event files or
-  suppress unrelated content from the losing session.
+  conflict across explicitly related sessions. It does not remove event files, but it suppresses
+  the losing scoped content from normal projections so future search, evidence reuse, session
+  views, and plans do not reuse the rejected context. Unrelated content from the losing session
+  remains visible.
 
-Decision invalidation:
+Decision supersession:
 
-- `decision_invalidated` records project-wide replacement of an older decision by a later one.
-- Invalidated decisions remain in the event log and project projection for auditability.
-- Normal outputs must hide invalidated decisions from session views, interview turns, close
+- `resolve-decision-supersession` is the preferred public command for project-wide replacement
+  of an older decision by a later one.
+- The underlying `decision_invalidated` event remains the source-of-truth event for this
+  replacement. Invalidated decisions remain in the event log and project projection for
+  auditability.
+- Normal outputs must hide superseded decisions from session views, interview turns, close
   summaries, plans, and ADR exports.

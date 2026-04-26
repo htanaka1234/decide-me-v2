@@ -220,6 +220,12 @@ def _create_linked_session_action_conflict(ai_dir: str | Path) -> dict[str, str]
         domain="ops",
         recommendation="Move this to ops ownership.",
     )
+    classify_session(
+        str(ai_dir),
+        child_id,
+        candidate_terms=["Move this to ops ownership."],
+        source_refs=["accepted_decisions"],
+    )
     _accept_runtime_decision(
         str(ai_dir),
         child_id,
@@ -441,11 +447,126 @@ class RuntimeFlowTests(unittest.TestCase):
             )
             self.assertEqual([], after["semantic_conflicts"])
             self.assertEqual([conflict_id], [item["conflict_id"] for item in after["resolved_conflicts"]])
+            resolved_context = after["resolved_conflicts"][0]["suppressed_context"]
+            self.assertEqual([ids["child_id"]], resolved_context["session_ids"])
+            self.assertEqual(["D-child-shared"], resolved_context["decision_ids"])
+            self.assertEqual(["Shared implementation slice"], resolved_context["action_slice_names"])
+
+            child = show_session(ai_dir, ids["child_id"])["session"]
+            self.assertNotIn("D-child-shared", child["session"]["decision_ids"])
+            self.assertNotIn("Move this to ops ownership.", child["classification"]["search_terms"])
+            self.assertEqual([], child["classification"]["assigned_tags"])
+            child_close_summary = child["close_summary"]
+            self.assertEqual(
+                ["D-child-extra"],
+                [item["id"] for item in child_close_summary["accepted_decisions"]],
+            )
+            self.assertEqual(
+                ["Child-only implementation slice"],
+                [item["name"] for item in child_close_summary["candidate_action_slices"]],
+            )
+            self.assertEqual(["D-child-extra"], child_close_summary["candidate_workstreams"][0]["scope"])
+
+            graph = show_session_graph(ai_dir, include_inferred=True)["session_graph"]
+            child_node = next(item for item in graph["nodes"] if item["session_id"] == ids["child_id"])
+            self.assertNotIn("D-child-shared", child_node["decision_ids"])
+            inferred_blob = json.dumps(graph["inferred_candidates"], sort_keys=True)
+            self.assertNotIn("D-child-shared", inferred_blob)
+
+            query_listing = list_sessions(ai_dir, query="Move this to ops ownership.")
+            tag_listing = list_sessions(ai_dir, tag_terms=["Move this to ops ownership."])
+            self.assertNotIn(ids["child_id"], [item["session_id"] for item in query_listing["sessions"]])
+            self.assertNotIn(ids["child_id"], [item["session_id"] for item in tag_listing["sessions"]])
+
             plan = generate_plan(ai_dir, [ids["parent_id"], ids["child_id"]])
             self.assertEqual("action-plan", plan["status"])
             action_names = [item["name"] for item in plan["action_plan"]["action_slices"]]
             self.assertEqual(1, action_names.count("Shared implementation slice"))
             self.assertIn("Child-only implementation slice", action_names)
+
+            future_id = create_session(ai_dir, context="Future shared slice reuse")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                future_id,
+                {
+                    "id": "D-future-shared",
+                    "title": "Shared implementation slice",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "question": "Reuse the shared slice decision?",
+                },
+            )
+            advanced = advance_session(ai_dir, future_id, repo_root=tmp)
+            self.assertEqual("complete", advanced["status"])
+            self.assertEqual(
+                "Keep this in technical ownership.",
+                advanced["auto_resolved"][0]["summary"],
+            )
+            self.assertIn("Move this to ops ownership.", _raw_event_log_text(ai_dir))
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_session_scope_resolution_suppresses_session_search_surface(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Suppress session scoped conflict context",
+                current_milestone="MVP",
+            )
+            winner_id = create_session(ai_dir, context="Winner session")["session"]["id"]
+            loser_id = create_session(ai_dir, context="Loser-only Session Title")["session"]["id"]
+            close_session(ai_dir, winner_id)
+            _accept_runtime_decision(
+                ai_dir,
+                loser_id,
+                decision_id="D-loser-session",
+                title="Loser-only Session Marker",
+                domain="technical",
+                recommendation="Keep the loser-only session marker.",
+            )
+            classify_session(
+                ai_dir,
+                loser_id,
+                candidate_terms=["Loser-only Session Marker"],
+                source_refs=["accepted_decisions"],
+            )
+            close_session(ai_dir, loser_id)
+
+            now = utc_now()
+
+            def builder(_: dict[str, object]) -> list[dict[str, object]]:
+                return [
+                    {
+                        "session_id": winner_id,
+                        "event_type": "semantic_conflict_resolved",
+                        "payload": {
+                            "conflict_id": "C-session-scope",
+                            "winning_session_id": winner_id,
+                            "rejected_session_ids": [loser_id],
+                            "scope": {
+                                "kind": "session",
+                                "session_ids": [winner_id, loser_id],
+                            },
+                            "reason": "Suppress the losing session scope.",
+                            "resolved_at": now,
+                        },
+                    }
+                ]
+
+            transact(ai_dir, builder)
+
+            loser = show_session(ai_dir, loser_id)["session"]
+            self.assertNotIn("D-loser-session", loser["session"]["decision_ids"])
+            self.assertNotEqual("Loser-only Session Title", loser["close_summary"]["work_item_title"])
+            self.assertNotEqual("Loser-only Session Marker", loser["close_summary"]["work_item_statement"])
+            self.assertEqual([], loser["classification"]["search_terms"])
+            self.assertEqual([], loser["classification"]["assigned_tags"])
+            self.assertEqual(0, list_sessions(ai_dir, query="Loser-only Session Title")["count"])
+            self.assertEqual(0, list_sessions(ai_dir, query="Loser-only Session Marker")["count"])
+            self.assertEqual(0, list_sessions(ai_dir, tag_terms=["Loser-only Session Marker"])["count"])
+            self.assertIn("Loser-only Session Marker", _raw_event_log_text(ai_dir))
             self.assertEqual([], validate_runtime(ai_dir))
 
     def test_generate_plan_uses_resolved_view_for_three_session_conflict_detection(self) -> None:
@@ -2153,14 +2274,44 @@ class RuntimeFlowTests(unittest.TestCase):
             )
             close_session(ai_dir, replacement_session_id)
 
-            invalidated = invalidate_decision(
-                ai_dir,
-                replacement_session_id,
-                decision_id="D-100",
-                invalidated_by_decision_id="D-101",
-                reason="Superseded by the later auth decision.",
+            repo_root = Path(__file__).resolve().parents[2]
+            cli_help = subprocess.run(
+                [sys.executable, "scripts/decide_me.py", "-h"],
+                cwd=repo_root,
+                check=False,
+                capture_output=True,
+                text=True,
             )
-            self.assertEqual("ok", invalidated["status"])
+            self.assertEqual(0, cli_help.returncode, cli_help.stderr)
+            self.assertIn("resolve-decision-supersession", cli_help.stdout)
+            self.assertNotIn("invalidate-decision", cli_help.stdout)
+
+            resolved = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/decide_me.py",
+                    "resolve-decision-supersession",
+                    "--ai-dir",
+                    ai_dir,
+                    "--session-id",
+                    replacement_session_id,
+                    "--superseded-decision-id",
+                    "D-100",
+                    "--superseding-decision-id",
+                    "D-101",
+                    "--reason",
+                    "Superseded by the later auth decision.",
+                ],
+                cwd=repo_root,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(0, resolved.returncode, resolved.stderr)
+            resolution_payload = json.loads(resolved.stdout)
+            self.assertEqual("ok", resolution_payload["status"])
+            self.assertEqual("decision-supersession", resolution_payload["resolution"]["kind"])
+            self.assertEqual("D-101", resolution_payload["resolution"]["winning_decision_id"])
 
             rebuild_and_persist(ai_dir)
 

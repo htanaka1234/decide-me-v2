@@ -21,6 +21,7 @@ from decide_me.protocol import (
     resolve_by_evidence,
 )
 from decide_me.selector import proposal_is_stale, select_next_decision, stop_reached
+from decide_me.suppression import suppressed_decision_ids
 
 
 STOP_WORDS = {
@@ -776,12 +777,16 @@ def _runtime_evidence(
     bundle: dict[str, Any], session_id: str, decision: dict[str, Any]
 ) -> dict[str, Any] | None:
     title = _normalize(decision.get("title"))
+    suppressed_ids = suppressed_decision_ids(bundle["project_state"])
     for candidate in bundle["project_state"]["decisions"]:
         if candidate["id"] == decision["id"]:
             continue
+        if candidate["id"] in suppressed_ids:
+            continue
         if candidate["status"] not in {"accepted", "resolved-by-evidence"}:
             continue
-        if title and title == _normalize(candidate.get("title")):
+        candidate_title = _normalize(candidate.get("title"))
+        if title and title == candidate_title:
             summary = candidate["accepted_answer"]["summary"] or candidate["resolved_by_evidence"]["summary"]
             refs = candidate.get("evidence_refs", [])
             return {
@@ -798,7 +803,11 @@ def _runtime_evidence(
         close_summary = candidate_session["close_summary"]
         work_item_title = _normalize(close_summary.get("work_item_title"))
         if title and title == work_item_title:
-            accepted = close_summary.get("accepted_decisions", [])
+            accepted = [
+                item
+                for item in close_summary.get("accepted_decisions", [])
+                if item.get("id") not in suppressed_ids
+            ]
             if accepted:
                 summary = accepted[0].get("accepted_answer")
                 if summary:

@@ -368,6 +368,69 @@ def resolve_by_evidence(
     return _lookup_decision(bundle, decision_id)
 
 
+def resolve_decision_supersession(
+    ai_dir: str,
+    session_id: str,
+    *,
+    superseded_decision_id: str,
+    superseding_decision_id: str,
+    reason: str,
+) -> dict[str, Any]:
+    reason = reason.strip()
+    if not reason:
+        raise ValueError("reason must not be empty")
+    if superseded_decision_id == superseding_decision_id:
+        raise ValueError("decision cannot supersede itself")
+
+    def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
+        session = _require_session(bundle, session_id)
+        _require_bound_decision(session, superseding_decision_id)
+        target = _lookup_decision(bundle, superseded_decision_id)
+        superseding = _lookup_decision(bundle, superseding_decision_id)
+        _require_not_invalidated(superseded_decision_id, target)
+        _require_not_invalidated(superseding_decision_id, superseding)
+        if superseding["status"] not in {"accepted", "resolved-by-evidence"}:
+            raise ValueError(
+                f"superseding decision {superseding_decision_id} must be accepted or resolved-by-evidence"
+            )
+        return [
+            {
+                "session_id": session_id,
+                "event_type": "decision_invalidated",
+                "payload": {
+                    "decision_id": superseded_decision_id,
+                    "invalidated_by_decision_id": superseding_decision_id,
+                    "reason": reason,
+                },
+            }
+        ]
+
+    events, _ = transact(ai_dir, builder)
+    event = events[-1]
+    resolution = {
+        "kind": "decision-supersession",
+        "event_type": "decision_invalidated",
+        "event_id": event["event_id"],
+        "scope": {
+            "kind": "decision",
+            "decision_id": superseded_decision_id,
+        },
+        "winning_decision_id": superseding_decision_id,
+        "superseded_decision_ids": [superseded_decision_id],
+        "reason": reason,
+    }
+    return {
+        "status": "ok",
+        "resolution": resolution,
+        "decision_id": superseded_decision_id,
+        "invalidated_by_decision_id": superseding_decision_id,
+        "superseded_decision_id": superseded_decision_id,
+        "superseding_decision_id": superseding_decision_id,
+        "reason": reason,
+        "event_id": event["event_id"],
+    }
+
+
 def invalidate_decision(
     ai_dir: str,
     session_id: str,
@@ -376,44 +439,13 @@ def invalidate_decision(
     invalidated_by_decision_id: str,
     reason: str,
 ) -> dict[str, Any]:
-    reason = reason.strip()
-    if not reason:
-        raise ValueError("reason must not be empty")
-    if decision_id == invalidated_by_decision_id:
-        raise ValueError("decision cannot invalidate itself")
-
-    def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
-        session = _require_session(bundle, session_id)
-        _require_bound_decision(session, invalidated_by_decision_id)
-        target = _lookup_decision(bundle, decision_id)
-        invalidating = _lookup_decision(bundle, invalidated_by_decision_id)
-        _require_not_invalidated(decision_id, target)
-        _require_not_invalidated(invalidated_by_decision_id, invalidating)
-        if invalidating["status"] not in {"accepted", "resolved-by-evidence"}:
-            raise ValueError(
-                f"invalidating decision {invalidated_by_decision_id} must be accepted or resolved-by-evidence"
-            )
-        return [
-            {
-                "session_id": session_id,
-                "event_type": "decision_invalidated",
-                "payload": {
-                    "decision_id": decision_id,
-                    "invalidated_by_decision_id": invalidated_by_decision_id,
-                    "reason": reason,
-                },
-            }
-        ]
-
-    events, _ = transact(ai_dir, builder)
-    event = events[-1]
-    return {
-        "status": "ok",
-        "decision_id": decision_id,
-        "invalidated_by_decision_id": invalidated_by_decision_id,
-        "reason": reason,
-        "event_id": event["event_id"],
-    }
+    return resolve_decision_supersession(
+        ai_dir,
+        session_id,
+        superseded_decision_id=decision_id,
+        superseding_decision_id=invalidated_by_decision_id,
+        reason=reason,
+    )
 
 
 def update_classification(

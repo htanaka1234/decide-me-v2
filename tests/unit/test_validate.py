@@ -46,6 +46,37 @@ class ProjectionValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(StateValidationError, "not bound to any session"):
             validate_projection_bundle(bundle)
 
+    def test_resolved_conflict_does_not_hide_winning_same_decision_id(self) -> None:
+        bundle = _valid_bundle()
+        winner = default_session_state("S-winner", "2026-04-23T12:00:00Z", "winner")
+        winner["session"]["decision_ids"] = ["D-001"]
+        bundle["sessions"]["S-winner"] = winner
+        bundle["sessions"]["S-001"]["session"]["decision_ids"] = []
+        bundle["project_state"]["session_graph"]["resolved_conflicts"] = [
+            {
+                "conflict_id": "C-accepted-answer",
+                "winning_session_id": "S-winner",
+                "rejected_session_ids": ["S-001"],
+                "scope": {
+                    "kind": "accepted_decision",
+                    "decision_id": "D-001",
+                    "session_ids": ["S-001", "S-winner"],
+                },
+                "suppressed_context": {
+                    "session_ids": ["S-001"],
+                    "decision_ids": ["D-001"],
+                    "action_slice_names": [],
+                    "workstream_names": [],
+                    "hidden_strings": ["Use the losing answer."],
+                },
+                "reason": "Use the winner.",
+                "resolved_at": "2026-04-23T12:00:00Z",
+                "event_id": "E-resolution",
+            }
+        ]
+
+        validate_projection_bundle(bundle)
+
     def test_rejects_active_proposal_not_owned_by_session(self) -> None:
         bundle = _valid_bundle()
         session = bundle["sessions"]["S-001"]
@@ -181,6 +212,83 @@ class ProjectionValidationTests(unittest.TestCase):
         session["close_summary"]["accepted_decisions"] = [{"id": "D-001"}]
 
         with self.assertRaisesRegex(StateValidationError, "non-visible decision"):
+            validate_projection_bundle(bundle)
+
+    def test_rejects_resolved_conflict_scope_left_in_close_summary(self) -> None:
+        bundle = _valid_bundle()
+        decision = bundle["project_state"]["decisions"][0]
+        decision["status"] = "accepted"
+        decision["recommendation"]["proposal_id"] = "P-001"
+        decision["accepted_answer"]["summary"] = "Use the losing slice."
+        decision["accepted_answer"]["accepted_at"] = "2026-04-23T12:00:00Z"
+        decision["accepted_answer"]["accepted_via"] = "explicit"
+        decision["accepted_answer"]["proposal_id"] = "P-001"
+        session = bundle["sessions"]["S-001"]
+        session["close_summary"]["accepted_decisions"] = [
+            {
+                "id": "D-001",
+                "title": "Shared slice",
+                "kind": "choice",
+                "domain": "technical",
+                "priority": "P0",
+                "status": "accepted",
+                "resolvable_by": "human",
+                "evidence_source": None,
+                "evidence_refs": [],
+                "accepted_answer": "Use the losing slice.",
+            }
+        ]
+        session["close_summary"]["candidate_action_slices"] = [
+            {
+                "decision_id": "D-001",
+                "name": "Shared slice",
+                "summary": "Implement shared slice.",
+                "responsibility": "technical",
+                "priority": "P0",
+                "status": "accepted",
+                "kind": "choice",
+                "resolvable_by": "human",
+                "reversibility": "reversible",
+                "implementation_ready": True,
+                "evidence_backed": False,
+                "evidence_source": None,
+                "evidence_refs": [],
+                "next_step": "Drive shared slice.",
+            }
+        ]
+        session["close_summary"]["candidate_workstreams"] = [
+            {
+                "name": "technical-workstream",
+                "summary": "Advance technical decisions for the current milestone.",
+                "scope": ["D-001"],
+                "accepted_count": 1,
+                "implementation_ready_scope": ["D-001"],
+            }
+        ]
+        bundle["project_state"]["session_graph"]["resolved_conflicts"] = [
+            {
+                "conflict_id": "C-action",
+                "winning_session_id": "S-winner",
+                "rejected_session_ids": ["S-001"],
+                "scope": {
+                    "kind": "action_slice",
+                    "name": "Shared slice",
+                    "session_ids": ["S-001", "S-winner"],
+                },
+                "suppressed_context": {
+                    "session_ids": ["S-001"],
+                    "decision_ids": ["D-001"],
+                    "action_slice_names": ["Shared slice"],
+                    "workstream_names": [],
+                    "hidden_strings": ["Shared slice", "Use the losing slice."],
+                },
+                "reason": "Use the winner.",
+                "resolved_at": "2026-04-23T12:00:00Z",
+                "event_id": "E-resolution",
+            }
+        ]
+
+        with self.assertRaisesRegex(StateValidationError, "leaves rejected scope"):
             validate_projection_bundle(bundle)
 
     def test_rejects_invalidated_decision_with_non_final_invalidator(self) -> None:

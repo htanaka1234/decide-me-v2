@@ -61,6 +61,7 @@ User-facing commands:
 - `Show session graph`
 - `Detect session conflicts`
 - `Resolve session conflict by choosing session S-...`
+- `Resolve decision supersession by choosing decision D-... over D-...`
 - `Classify session S-...`
 - `Advance session S-...`
 - `Handle reply for session S-...`
@@ -75,7 +76,10 @@ Runtime invariants:
 - `session_linked` events are the source of truth for explicit session graph edges; inferred
   candidates are advisory and must not silently become graph edges.
 - `semantic_conflict_resolved` events record user-selected session-level conflict resolution and
-  suppress only the scoped planner conflict, not the losing session's unrelated content.
+  suppress the losing scoped content from normal projections, while keeping unrelated losing
+  session content available.
+- `decision_invalidated` events are emitted by the public decision-supersession resolution flow;
+  `invalidate-decision` is a compatibility command, not the preferred UX.
 - `project-state.json`, `taxonomy-state.json`, and `sessions/*.json` are rebuildable projections.
 - Human-readable plan and ADR files are exports, not runtime state.
 - Free-form answers apply only to the current active proposal in the current session.

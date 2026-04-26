@@ -118,8 +118,16 @@ Merge discovery into an execution plan:
 
 1. Close each relevant session.
 2. Generate a plan from the closed sessions.
-3. Resolve conflicts if accepted decisions disagree.
+3. Resolve conflicts or decision replacements if accepted decisions disagree.
 4. Use the generated action slices as implementation input.
+
+Resolve conflicts and replacements:
+
+- Same-session transaction conflicts use `detect-merge-conflicts` followed by
+  `resolve-merge-conflict`.
+- Related-session semantic conflicts use `detect-session-conflicts` followed by
+  `resolve-session-conflict`.
+- Project-wide decision replacements use `resolve-decision-supersession`.
 
 Resolve same-session transaction merge conflicts:
 
@@ -136,6 +144,13 @@ Resolve semantic conflicts across related sessions:
 3. Run `python3 scripts/decide_me.py detect-session-conflicts --ai-dir .ai/decide-me --session-id S-... --include-related`.
 4. Resolve the chosen semantic conflict with `python3 scripts/decide_me.py resolve-session-conflict --ai-dir .ai/decide-me --conflict-id C-... --winning-session-id S-... --reject-session-id S-... --reason "..."`.
 
+Resolve decision replacements:
+
+1. Ensure the superseding decision is accepted or resolved by evidence.
+2. Run `python3 scripts/decide_me.py resolve-decision-supersession --ai-dir .ai/decide-me --session-id S-... --superseded-decision-id D-old --superseding-decision-id D-new --reason "..."`.
+3. The legacy `invalidate-decision` command remains as a compatibility alias, but new workflows
+   should use the resolution command above.
+
 Reuse prior context:
 
 1. Search sessions by topic, domain, abstraction level, or tag.
@@ -151,8 +166,11 @@ The runtime lives under `.ai/decide-me/`.
 - `transaction_rejected` control events exclude rejected transaction IDs from
   the effective projection stream without deleting the rejected files.
 - `session_linked` records explicit semantic parent/child session graph edges.
-- `semantic_conflict_resolved` records user-selected planner-level conflict resolution across
-  explicitly related sessions without removing either session's event files.
+- `semantic_conflict_resolved` records user-selected scoped conflict resolution across
+  explicitly related sessions. Event files remain for audit, but rejected scoped content is
+  suppressed from normal session, search, evidence-reuse, and plan projections.
+- `decision_invalidated` records decision supersession from `resolve-decision-supersession`;
+  old decisions remain in events for audit and are hidden from normal projections.
 - `project-state.json`, `taxonomy-state.json`, and `sessions/*.json` are
   rebuildable projections.
 - `exports/` contains human-readable plans and ADRs.

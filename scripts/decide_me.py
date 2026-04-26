@@ -17,7 +17,7 @@ from decide_me.exports import export_adr
 from decide_me.interview import advance_session, handle_reply
 from decide_me.lifecycle import close_session, create_session, list_sessions, resume_session, show_session
 from decide_me.planner import generate_plan
-from decide_me.protocol import invalidate_decision
+from decide_me.protocol import invalidate_decision, resolve_decision_supersession
 from decide_me.session_graph import (
     detect_session_conflicts,
     link_session,
@@ -28,6 +28,10 @@ from decide_me.store import bootstrap_runtime, rebuild_and_persist, validate_run
 
 
 def main(argv: list[str] | None = None) -> int:
+    raw_argv = sys.argv[1:] if argv is None else list(argv)
+    if raw_argv and raw_argv[0] == "invalidate-decision":
+        return _run_legacy_invalidate(raw_argv[1:])
+
     parser = argparse.ArgumentParser(description="decide-me v2 runtime CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -119,6 +123,18 @@ def main(argv: list[str] | None = None) -> int:
     resolve_session.add_argument("--reject-session-id", action="append", required=True)
     resolve_session.add_argument("--reason", required=True)
 
+    resolve_supersession = subparsers.add_parser(
+        "resolve-decision-supersession",
+        aliases=["supersede-decision"],
+        help="resolve a decision replacement by choosing the superseding decision",
+    )
+    resolve_supersession.add_argument("--ai-dir", required=True)
+    resolve_supersession.add_argument("--session-id", required=True)
+    resolve_supersession.add_argument("--superseded-decision-id", required=True)
+    resolve_supersession.add_argument("--superseding-decision-id", required=True)
+    resolve_supersession.add_argument("--reason", required=True)
+    resolve_supersession.set_defaults(handler_command="resolve-decision-supersession")
+
     adr = subparsers.add_parser("export-adr", help="export an ADR markdown file")
     adr.add_argument("--ai-dir", required=True)
     adr.add_argument("--decision-id", required=True)
@@ -144,14 +160,7 @@ def main(argv: list[str] | None = None) -> int:
     reply.add_argument("--reply", required=True)
     reply.add_argument("--repo-root", default=".")
 
-    invalidate = subparsers.add_parser("invalidate-decision", help="invalidate a decision explicitly")
-    invalidate.add_argument("--ai-dir", required=True)
-    invalidate.add_argument("--session-id", required=True)
-    invalidate.add_argument("--decision-id", required=True)
-    invalidate.add_argument("--invalidated-by", required=True)
-    invalidate.add_argument("--reason", required=True)
-
-    args = parser.parse_args(argv)
+    args = parser.parse_args(raw_argv)
 
     try:
         if args.command == "bootstrap":
@@ -241,6 +250,16 @@ def main(argv: list[str] | None = None) -> int:
                     reason=args.reason,
                 )
             )
+        elif getattr(args, "handler_command", args.command) == "resolve-decision-supersession":
+            _print_json(
+                resolve_decision_supersession(
+                    args.ai_dir,
+                    args.session_id,
+                    superseded_decision_id=args.superseded_decision_id,
+                    superseding_decision_id=args.superseding_decision_id,
+                    reason=args.reason,
+                )
+            )
         elif args.command == "export-adr":
             path = export_adr(args.ai_dir, args.decision_id)
             _print_json({"path": str(path)})
@@ -274,20 +293,35 @@ def main(argv: list[str] | None = None) -> int:
                     repo_root=args.repo_root,
                 )
             )
-        elif args.command == "invalidate-decision":
-            _print_json(
-                invalidate_decision(
-                    args.ai_dir,
-                    args.session_id,
-                    decision_id=args.decision_id,
-                    invalidated_by_decision_id=args.invalidated_by,
-                    reason=args.reason,
-                )
-            )
     except Exception as exc:  # pragma: no cover - exercised via CLI integration in real use
         print(str(exc), file=sys.stderr)
         return 1
 
+    return 0
+
+
+def _run_legacy_invalidate(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(description="legacy alias for resolve-decision-supersession")
+    parser.add_argument("--ai-dir", required=True)
+    parser.add_argument("--session-id", required=True)
+    parser.add_argument("--decision-id", required=True)
+    parser.add_argument("--invalidated-by", required=True)
+    parser.add_argument("--reason", required=True)
+    args = parser.parse_args(argv)
+
+    try:
+        _print_json(
+            invalidate_decision(
+                args.ai_dir,
+                args.session_id,
+                decision_id=args.decision_id,
+                invalidated_by_decision_id=args.invalidated_by,
+                reason=args.reason,
+            )
+        )
+    except Exception as exc:  # pragma: no cover - exercised via CLI integration in real use
+        print(str(exc), file=sys.stderr)
+        return 1
     return 0
 
 
