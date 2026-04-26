@@ -61,7 +61,8 @@
   `generate-plan`, `validate-state`, `rebuild-projections`, `compact-runtime`,
   `detect-merge-conflicts`, `resolve-merge-conflict`, `link-session`,
   `detect-session-conflicts`, `resolve-session-conflict`, and
-  `resolve-decision-supersession`.
+  `resolve-decision-supersession`, plus derived export commands such as
+  `export-agent-instructions`.
 - Do not patch generated runtime projections by hand during development. Fix the source events,
   runtime code, schemas, or projection logic, then rebuild or validate through the CLI.
 

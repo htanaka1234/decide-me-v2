@@ -8,8 +8,8 @@ plan.
 
 The repository contains the v2 runtime behind that Skill: an event-sourced
 decision log, rebuildable projections, taxonomy-aware session search, close
-summaries, and local derived exports for plans, ADRs, registers, and GitHub
-issue drafts.
+summaries, and local derived exports for plans, ADRs, registers, GitHub issue
+drafts, and agent instruction fragments.
 
 ## What this Skill is for
 
@@ -179,8 +179,8 @@ The runtime lives under `.ai/decide-me/`.
 - `session-graph-cache.json` may cache full inferred graph output by
   `project_head`; persisted project state keeps inferred candidates empty until
   a command asks for them.
-- `exports/` contains human-readable plans, ADRs, structured ADRs, decision registers, and
-  local GitHub issue drafts.
+- `exports/` contains human-readable plans, ADRs, structured ADRs, decision registers, local
+  GitHub issue drafts, and agent instruction fragments.
 - `write.lock` protects runtime writes.
 
 Legacy runtimes that still have `.ai/decide-me/event-log.jsonl` are not migrated
@@ -220,6 +220,8 @@ reference. Common maintainer operations include:
 - `export-github-templates` to write local issue forms under `.github/ISSUE_TEMPLATE`
 - `export-github-issues` to write local issue body Markdown and `issues.json` from closed sessions
   Re-exporting replaces the generated `issues/` directory, so do not keep hand-edited files there.
+- `export-agent-instructions` to write derived AGENTS.md, Cursor rule, Claude fragment, or Codex
+  profile fragment files from final agent-relevant decisions
 
 Full event-log replay uses `find` for event file discovery when available. Set
 `DECIDE_ME_EVENT_DISCOVERY=python` to force pure Python discovery, or
@@ -243,7 +245,8 @@ PYTHONPATH=. python3 -m unittest discover -v
 - `references/`: protocol, lifecycle, taxonomy, event model, plan generation,
   output contract, and examples
 - `schemas/`: JSON contracts for events and projections
-- `templates/`: ADR, structured ADR, action-plan, and GitHub issue export templates
+- `templates/`: ADR, structured ADR, action-plan, GitHub issue, and agent instruction export
+  templates
 - `decide_me/`: runtime implementation
 - `scripts/decide_me.py`: deterministic CLI
 - `requirements-dev.txt`: development-only dependencies for schema validation tests

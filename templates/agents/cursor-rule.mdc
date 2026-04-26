@@ -1,0 +1,12 @@
+---
+description: Agent instructions generated from decide-me decisions
+globs:
+alwaysApply: true
+---
+
+# decide-me Agent Instructions
+
+Generated from decide-me runtime.
+Do not edit generated content manually.
+
+{{generated_block}}
