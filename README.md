@@ -211,8 +211,9 @@ reference. Common maintainer operations include:
 - `list-sessions`, `show-session`, and `resume-session`
 - `advance-session` and `handle-reply`
 - `close-session` and `generate-plan`
-- `validate-state`, `validate-state --full`, `rebuild-projections`, and
-  `compact-runtime`
+- `validate-state` / `validate-state --full` for full event-log validation,
+  `validate-state --cached` / `--fast` for projection/index validation, `rebuild-projections`,
+  and `compact-runtime`
 - `benchmark-runtime` with `DECIDE_ME_PERF=1`
 
 Full event-log replay uses `find` for event file discovery when available. Set

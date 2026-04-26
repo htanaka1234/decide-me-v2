@@ -152,6 +152,7 @@ def rejected_transaction_ids(events: list[dict[str, Any]]) -> set[str]:
 
 
 def load_runtime(paths: RuntimePaths) -> dict[str, Any]:
+    _reject_legacy_event_log(paths)
     bundle = _load_projection_bundle(paths)
     runtime_index = _load_runtime_index(paths)
     _validate_runtime_index(paths, bundle, runtime_index)
@@ -265,14 +266,21 @@ def compact_runtime(ai_dir: str | Path) -> dict[str, Any]:
     paths = runtime_paths(ai_dir)
     ensure_runtime_dirs(paths)
     with _write_lock(paths.lock_path):
-        bundle = _load_projection_bundle(paths)
-        validate_projection_bundle(bundle)
-        runtime_index = _load_runtime_index(paths)
+        raw_events = read_raw_event_log(paths)
+        events = effective_events_from_raw(raw_events)
+        validate_event_log(events)
+        rebuilt = rebuild_projections(events)
+        validate_projection_bundle(rebuilt)
+
+        issues = _projection_mismatch_issues(paths, rebuilt)
+        if issues:
+            raise StateValidationError("cannot compact invalid runtime: " + "; ".join(issues))
+
         _write_projections_and_index(
             paths,
-            bundle,
-            last_event_sort_key=runtime_index.get("last_event_sort_key"),
-            rejected_tx_ids=set(runtime_index.get("rejected_tx_ids", [])),
+            rebuilt,
+            effective_events=events,
+            rejected_tx_ids=rejected_transaction_ids(raw_events),
         )
         return _load_runtime_index(paths)
 
@@ -380,6 +388,35 @@ def _validate_runtime_full(paths: RuntimePaths) -> list[str]:
     elif _canonical_json(persisted_index) != _canonical_json(expected_index):
         issues.append("runtime-index.json does not match the event log")
 
+    return issues
+
+
+def _projection_mismatch_issues(paths: RuntimePaths, rebuilt: dict[str, Any]) -> list[str]:
+    issues: list[str] = []
+    persisted_project = load_json_if_exists(paths.project_state)
+    persisted_taxonomy = load_json_if_exists(paths.taxonomy_state)
+    if persisted_project is None:
+        issues.append("missing project-state.json")
+    elif _canonical_json(persisted_project) != _canonical_json(rebuilt["project_state"]):
+        issues.append("project-state.json does not match the event log")
+
+    if persisted_taxonomy is None:
+        issues.append("missing taxonomy-state.json")
+    elif _canonical_json(persisted_taxonomy) != _canonical_json(rebuilt["taxonomy_state"]):
+        issues.append("taxonomy-state.json does not match the event log")
+
+    session_files = {
+        path.stem: load_json(path) for path in paths.sessions_dir.glob("*.json") if path.is_file()
+    }
+    for session_id, session_state in rebuilt["sessions"].items():
+        persisted = session_files.get(session_id)
+        if persisted is None:
+            issues.append(f"missing session projection for {session_id}")
+        elif _canonical_json(persisted) != _canonical_json(session_state):
+            issues.append(f"session projection mismatch for {session_id}")
+
+    for session_id in sorted(set(session_files) - set(rebuilt["sessions"])):
+        issues.append(f"stale session projection exists for {session_id}")
     return issues
 
 

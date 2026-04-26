@@ -13,6 +13,7 @@ from decide_me.taxonomy import default_taxonomy_state, stable_unique
 OPEN_DECISION_STATUSES = {"unresolved", "proposed", "rejected", "blocked"}
 IDLE_AFTER = timedelta(hours=12)
 STALE_AFTER = timedelta(days=7)
+AUTO_PROJECT_HEAD_SENTINEL = "__AUTO_PROJECT_HEAD__"
 PROJECT_HEAD_PROPOSAL_BASE_SENTINEL = "__PROJECT_HEAD_PROPOSAL_BASE__"
 PROJECTION_SCHEMA_VERSION = 7
 
@@ -374,7 +375,8 @@ def apply_event(
     elif event_type == "proposal_issued":
         proposal = deepcopy(payload["proposal"])
         proposal.setdefault("origin_session_id", session_id)
-        proposal["based_on_project_head"] = project_head_after
+        if proposal.get("based_on_project_head") in {None, AUTO_PROJECT_HEAD_SENTINEL}:
+            proposal["based_on_project_head"] = project_head_after
         decision = _ensure_decision(project_state, proposal["target_id"])
         decision["status"] = "proposed"
         decision["question"] = proposal["question"]

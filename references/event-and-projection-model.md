@@ -31,13 +31,14 @@ Projection rules:
 - Persist normal writes as `load projections -> apply new transaction incrementally -> validate
   projection bundle -> write transaction file -> atomic replace projections and runtime index`.
 - `rebuild-projections` performs full event-log replay and regenerates `runtime-index.json`.
-- `validate-state --full` performs full event-log validation; `validate-state` validates the
-  projection checkpoint and index.
+- `validate-state` and `validate-state --full` perform full event-log validation;
+  `validate-state --cached` / `--fast` validate only the projection checkpoint and index.
 - If validation fails, reject the write and keep the previous runtime files unchanged.
 - `project_state.state.project_head` is a SHA-256 chain hash over canonical event content and the
   previous project head, replacing the old project-wide sequence number. For
   `proposal_issued`, `based_on_project_head` is normalized before hashing so the proposal's
-  own auto-filled head does not make the hash self-referential.
+  own auto-filled head does not make the hash self-referential. Projections preserve the event
+  payload value; AUTO proposal creation stores the post-event head in that payload.
 
 Legacy runtime layout:
 

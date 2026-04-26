@@ -75,7 +75,19 @@ def main(argv: list[str] | None = None) -> int:
 
     validate = subparsers.add_parser("validate-state", help="validate runtime consistency")
     validate.add_argument("--ai-dir", required=True)
-    validate.add_argument("--full", action="store_true", help="scan the full event log and compare projections")
+    validate_mode = validate.add_mutually_exclusive_group()
+    validate_mode.add_argument(
+        "--full",
+        action="store_true",
+        help="scan the full event log and compare projections (default)",
+    )
+    validate_mode.add_argument(
+        "--cached",
+        "--fast",
+        dest="cached",
+        action="store_true",
+        help="validate only the persisted projection checkpoint and runtime index",
+    )
 
     compact = subparsers.add_parser("compact-runtime", help="refresh the projection checkpoint index")
     compact.add_argument("--ai-dir", required=True)
@@ -203,7 +215,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "rebuild-projections":
             _print_json(rebuild_and_persist(args.ai_dir))
         elif args.command == "validate-state":
-            issues = validate_runtime(args.ai_dir, full=args.full)
+            issues = validate_runtime(args.ai_dir, full=not args.cached)
             _print_json({"ok": not issues, "issues": issues})
             return 0 if not issues else 1
         elif args.command == "compact-runtime":
