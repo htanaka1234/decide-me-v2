@@ -1,26 +1,35 @@
 # Event And Projection Model
 
-`event-log.jsonl` is the runtime source of truth.
+`.ai/decide-me/events/**/*.jsonl` transaction files are the runtime source of truth.
+
+Transaction file layout:
+
+- `events/system/<tx_id>.jsonl`
+- `events/sessions/<session_id>/<tx_id>.jsonl`
 
 Event envelope:
 
 ```json
 {
-  "event_id": "E-20260423-000123",
-  "ts": "2026-04-23T10:15:00Z",
+  "event_id": "E-20260423T101500123456Z-a1b2c3d4",
+  "tx_id": "T-20260423T101500123456Z-9f8e7d6c",
+  "tx_index": 1,
+  "tx_size": 2,
+  "ts": "2026-04-23T10:15:00.123456Z",
   "session_id": "S-20260423-101500-a1",
   "event_type": "proposal_issued",
-  "project_version_after": 12,
   "payload": {}
 }
 ```
 
 Projection rules:
 
-- Rebuild `project-state.json`, `taxonomy-state.json`, and `sessions/*.json` from the event log.
+- Rebuild `project-state.json`, `taxonomy-state.json`, and `sessions/*.json` from the transaction files.
 - Never mutate a projection directly without emitting an event.
-- Persist writes as `load events -> append event(s) -> rebuild -> validate -> atomic replace`.
+- Persist writes as `load events -> write transaction file -> rebuild -> validate -> atomic replace projections`.
 - If validation fails, reject the write and keep the previous runtime files unchanged.
+- `project_state.state.project_head` is a SHA-256 hash over canonical event IDs and replaces
+  the old project-wide sequence number.
 
 Decision invalidation:
 

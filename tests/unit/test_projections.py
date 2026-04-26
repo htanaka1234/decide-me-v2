@@ -2,8 +2,30 @@ from __future__ import annotations
 
 import unittest
 
-from decide_me.events import build_event
+from decide_me.events import build_event as runtime_build_event
 from decide_me.projections import rebuild_projections
+
+
+def build_event(
+    *,
+    sequence: int,
+    session_id: str,
+    event_type: str,
+    project_version_after: int,
+    payload: dict,
+    timestamp: str | None = None,
+) -> dict:
+    return runtime_build_event(
+        tx_id=f"T-test-{sequence}",
+        tx_index=1,
+        tx_size=1,
+        event_id=f"E-test-{sequence}",
+        session_id=session_id,
+        event_type=event_type,
+        payload=payload,
+        timestamp=timestamp,
+        project_head=f"H-{project_version_after}",
+    )
 
 
 class ProjectionTests(unittest.TestCase):
@@ -105,7 +127,7 @@ class ProjectionTests(unittest.TestCase):
                         "target_type": "decision",
                         "target_id": "D-001",
                         "recommendation_version": 1,
-                        "based_on_project_version": 3,
+                        "based_on_project_head": "H-4",
                         "question_id": "Q-001",
                         "question": "Use magic links?",
                         "recommendation": "Use magic links.",

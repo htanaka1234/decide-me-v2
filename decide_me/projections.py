@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -14,18 +15,18 @@ STALE_AFTER = timedelta(days=7)
 
 def default_project_state() -> dict[str, Any]:
     return {
-        "schema_version": 4,
+        "schema_version": 5,
         "project": {
             "name": None,
             "objective": None,
             "current_milestone": None,
             "stop_rule": None,
         },
-        "state": {"project_version": 0, "updated_at": None, "last_event_id": None},
+        "state": {"project_head": None, "event_count": 0, "updated_at": None, "last_event_id": None},
         "protocol": {
             "plain_ok_scope": "same-session-active-proposal-only",
             "proposal_expiry_rules": [
-                "project-version-changed",
+                "project-head-changed",
                 "session-boundary",
                 "superseded-proposal",
                 "decision-invalidated",
@@ -60,7 +61,7 @@ def default_session_state(
     session_id: str, started_at: str, bound_context_hint: str | None = None
 ) -> dict[str, Any]:
     return {
-        "schema_version": 4,
+        "schema_version": 5,
         "session": {
             "id": session_id,
             "started_at": started_at,
@@ -88,7 +89,7 @@ def default_session_state(
             "current_question_id": None,
             "current_question": None,
             "active_proposal": empty_active_proposal(),
-            "last_seen_project_version": 0,
+            "last_seen_project_head": None,
         },
     }
 
@@ -100,7 +101,7 @@ def empty_active_proposal() -> dict[str, Any]:
         "target_type": None,
         "target_id": None,
         "recommendation_version": None,
-        "based_on_project_version": None,
+        "based_on_project_head": None,
         "is_active": False,
         "activated_at": None,
         "inactive_reason": None,
@@ -135,7 +136,7 @@ def default_decision(decision_id: str, title: str | None = None) -> dict[str, An
             "rationale_short": None,
             "confidence": "medium",
             "proposed_at": None,
-            "based_on_project_version": None,
+            "based_on_project_head": None,
         },
         "accepted_answer": {
             "summary": None,
@@ -184,14 +185,32 @@ def visible_decision_ids(project_state: dict[str, Any]) -> set[str]:
     return {decision["id"] for decision in project_state["decisions"] if not decision_is_invalidated(decision)}
 
 
+def project_heads_by_event_id(events: list[dict[str, Any]]) -> dict[str, str]:
+    heads: dict[str, str] = {}
+    head_hasher = hashlib.sha256()
+    for event in events:
+        head_hasher.update(event["event_id"].encode("utf-8"))
+        head_hasher.update(b"\n")
+        heads[event["event_id"]] = head_hasher.hexdigest()
+    return heads
+
+
 def rebuild_projections(events: list[dict[str, Any]]) -> dict[str, Any]:
     initial_timestamp = events[0]["ts"] if events else None
     project_state = default_project_state()
     taxonomy_state = default_taxonomy_state(now=initial_timestamp)
     sessions: dict[str, dict[str, Any]] = {}
+    heads = project_heads_by_event_id(events)
 
-    for event in events:
-        apply_event(project_state, taxonomy_state, sessions, event)
+    for event_count, event in enumerate(events, start=1):
+        apply_event(
+            project_state,
+            taxonomy_state,
+            sessions,
+            event,
+            project_head_after=heads[event["event_id"]],
+            event_count=event_count,
+        )
 
     _recompute_counts(project_state)
     return {
@@ -206,6 +225,9 @@ def apply_event(
     taxonomy_state: dict[str, Any],
     sessions: dict[str, dict[str, Any]],
     event: dict[str, Any],
+    *,
+    project_head_after: str,
+    event_count: int,
 ) -> None:
     event_type = event["event_type"]
     payload = event["payload"]
@@ -240,7 +262,7 @@ def apply_event(
     elif event_type == "decision_discovered":
         decision = _ensure_decision(project_state, payload["decision"]["id"], payload["decision"].get("title"))
         _deep_update(decision, payload["decision"])
-        _touch_session(sessions, session_id, ts, payload["decision"]["id"], event["project_version_after"])
+        _touch_session(sessions, session_id, ts, payload["decision"]["id"], project_head_after)
     elif event_type == "decision_enriched":
         decision = _ensure_decision(project_state, payload["decision_id"])
         if payload.get("notes_append"):
@@ -259,14 +281,14 @@ def apply_event(
                 )
             else:
                 decision["context"] = context_append
-        _touch_session(sessions, session_id, ts, payload["decision_id"], event["project_version_after"])
+        _touch_session(sessions, session_id, ts, payload["decision_id"], project_head_after)
     elif event_type == "question_asked":
         session = sessions[session_id]
         session["working_state"]["current_question_id"] = payload["question_id"]
         session["working_state"]["current_question"] = payload["question"]
         session["summary"]["current_question_preview"] = payload["question"]
         session["summary"]["active_decision_id"] = payload["decision_id"]
-        _touch_session(sessions, session_id, ts, payload["decision_id"], event["project_version_after"])
+        _touch_session(sessions, session_id, ts, payload["decision_id"], project_head_after)
     elif event_type == "proposal_issued":
         proposal = deepcopy(payload["proposal"])
         proposal.setdefault("origin_session_id", session_id)
@@ -280,7 +302,7 @@ def apply_event(
             "rationale_short": proposal["why"],
             "confidence": "medium",
             "proposed_at": proposal["activated_at"],
-            "based_on_project_version": proposal["based_on_project_version"],
+            "based_on_project_head": proposal["based_on_project_head"],
         }
         session = sessions[session_id]
         session["working_state"]["active_proposal"] = proposal
@@ -289,7 +311,7 @@ def apply_event(
         session["summary"]["current_question_preview"] = proposal["question"]
         session["summary"]["active_decision_id"] = proposal["target_id"]
         session["summary"]["latest_summary"] = proposal["recommendation"]
-        _touch_session(sessions, session_id, ts, proposal["target_id"], event["project_version_after"])
+        _touch_session(sessions, session_id, ts, proposal["target_id"], project_head_after)
     elif event_type == "proposal_accepted":
         decision = _ensure_decision(project_state, payload["target_id"])
         decision["status"] = "accepted"
@@ -313,7 +335,7 @@ def apply_event(
                 origin_session_id,
                 ts,
                 payload["target_id"],
-                event["project_version_after"],
+                project_head_after,
             )
     elif event_type == "proposal_rejected":
         decision = _ensure_decision(project_state, payload["target_id"])
@@ -326,7 +348,7 @@ def apply_event(
                 origin_session_id,
                 ts,
                 payload["target_id"],
-                event["project_version_after"],
+                project_head_after,
             )
     elif event_type == "decision_deferred":
         decision = _ensure_decision(project_state, payload["decision_id"])
@@ -334,7 +356,7 @@ def apply_event(
         decision["frontier"] = "deferred"
         decision["notes"] = stable_unique([*decision["notes"], payload["reason"]])
         _clear_question_state(sessions[session_id], payload["reason"])
-        _touch_session(sessions, session_id, ts, payload["decision_id"], event["project_version_after"])
+        _touch_session(sessions, session_id, ts, payload["decision_id"], project_head_after)
     elif event_type == "decision_resolved_by_evidence":
         decision = _ensure_decision(project_state, payload["decision_id"])
         decision["status"] = "resolved-by-evidence"
@@ -352,7 +374,7 @@ def apply_event(
         }
         decision["evidence_refs"] = stable_unique([*decision["evidence_refs"], *payload["evidence_refs"]])
         _clear_question_state(sessions[session_id], payload["summary"])
-        _touch_session(sessions, session_id, ts, payload["decision_id"], event["project_version_after"])
+        _touch_session(sessions, session_id, ts, payload["decision_id"], project_head_after)
     elif event_type == "decision_invalidated":
         decision = _ensure_decision(project_state, payload["decision_id"])
         decision["status"] = "invalidated"
@@ -374,7 +396,7 @@ def apply_event(
                     candidate_session_id,
                     ts,
                     None,
-                    event["project_version_after"],
+                    project_head_after,
                     add_decision=False,
                 )
         _touch_session(
@@ -382,7 +404,7 @@ def apply_event(
             session_id,
             ts,
             None,
-            event["project_version_after"],
+            project_head_after,
             add_decision=False,
         )
     elif event_type == "classification_updated":
@@ -393,7 +415,7 @@ def apply_event(
             session_id,
             ts,
             session["summary"].get("active_decision_id"),
-            event["project_version_after"],
+            project_head_after,
         )
     elif event_type == "close_summary_generated":
         session = sessions[session_id]
@@ -404,7 +426,7 @@ def apply_event(
             session_id,
             ts,
             session["summary"].get("active_decision_id"),
-            event["project_version_after"],
+            project_head_after,
         )
     elif event_type == "session_closed":
         session = sessions[session_id]
@@ -422,7 +444,7 @@ def apply_event(
             session_id,
             ts,
             session["summary"].get("active_decision_id"),
-            event["project_version_after"],
+            project_head_after,
         )
     elif event_type == "taxonomy_extended":
         for node in payload["nodes"]:
@@ -438,13 +460,14 @@ def apply_event(
             session_id,
             ts,
             session["summary"].get("active_decision_id"),
-            event["project_version_after"],
+            project_head_after,
         )
     elif event_type == "plan_generated":
         pass
 
     project_state["state"] = {
-        "project_version": event["project_version_after"],
+        "project_head": project_head_after,
+        "event_count": event_count,
         "updated_at": ts,
         "last_event_id": event["event_id"],
     }
@@ -477,7 +500,7 @@ def _touch_session(
     session_id: str,
     timestamp: str,
     decision_id: str | None,
-    project_version: int,
+    project_head: str,
     *,
     add_decision: bool = True,
 ) -> None:
@@ -487,7 +510,7 @@ def _touch_session(
     session["session"]["last_seen_at"] = timestamp
     if session["session"]["lifecycle"]["status"] != "closed":
         session["session"]["lifecycle"]["status"] = "active"
-    session["working_state"]["last_seen_project_version"] = project_version
+    session["working_state"]["last_seen_project_head"] = project_head
     if add_decision and decision_id:
         session["session"]["decision_ids"] = stable_unique([*session["session"]["decision_ids"], decision_id])
 

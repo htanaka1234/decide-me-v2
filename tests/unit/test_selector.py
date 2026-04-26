@@ -158,16 +158,17 @@ class SelectorTests(unittest.TestCase):
 
         self.assertIsNone(selected)
 
-    def test_proposal_is_stale_on_project_version_change(self) -> None:
+    def test_proposal_is_stale_on_project_head_change(self) -> None:
         project_state = default_project_state()
-        project_state["state"]["project_version"] = 3
+        project_state["state"]["project_head"] = "H-3"
         session_state = default_session_state("S-001", "2026-04-23T12:00:00Z", "demo")
         session_state["working_state"]["active_proposal"] = {
             "proposal_id": "P-001",
+            "origin_session_id": "S-001",
             "target_type": "decision",
             "target_id": "D-001",
             "recommendation_version": 1,
-            "based_on_project_version": 2,
+            "based_on_project_head": "H-2",
             "is_active": True,
             "activated_at": "2026-04-23T12:00:00Z",
             "inactive_reason": None,
@@ -180,7 +181,7 @@ class SelectorTests(unittest.TestCase):
 
         stale, reason = proposal_is_stale(project_state, session_state)
         self.assertTrue(stale)
-        self.assertEqual("project-version-changed", reason)
+        self.assertEqual("project-head-changed", reason)
 
     def test_proposal_is_stale_on_decision_invalidation(self) -> None:
         project_state = default_project_state()
@@ -214,14 +215,15 @@ class SelectorTests(unittest.TestCase):
                 },
             }
         ]
-        project_state["state"]["project_version"] = 2
+        project_state["state"]["project_head"] = "H-2"
         session_state = default_session_state("S-001", "2026-04-23T12:00:00Z", "demo")
         session_state["working_state"]["active_proposal"] = {
             "proposal_id": "P-001",
+            "origin_session_id": "S-001",
             "target_type": "decision",
             "target_id": "D-001",
             "recommendation_version": 1,
-            "based_on_project_version": 2,
+            "based_on_project_head": "H-2",
             "is_active": True,
             "activated_at": "2026-04-23T12:00:00Z",
             "inactive_reason": None,

@@ -3,10 +3,32 @@ from __future__ import annotations
 import unittest
 from copy import deepcopy
 
-from decide_me.events import EventValidationError, build_event
+from decide_me.events import EventValidationError, build_event as runtime_build_event
 from decide_me.projections import default_decision, default_project_state, default_session_state
 from decide_me.taxonomy import default_taxonomy_state
 from decide_me.validate import StateValidationError, validate_event_log, validate_projection_bundle
+
+
+def build_event(
+    *,
+    sequence: int,
+    session_id: str,
+    event_type: str,
+    project_head_after: int,
+    payload: dict,
+    timestamp: str | None = None,
+) -> dict:
+    return runtime_build_event(
+        tx_id=f"T-test-{sequence}",
+        tx_index=1,
+        tx_size=1,
+        event_id=f"E-test-{sequence}",
+        session_id=session_id,
+        event_type=event_type,
+        payload=payload,
+        timestamp=timestamp,
+        project_head=f"H-{project_head_after}",
+    )
 
 
 class ProjectionValidationTests(unittest.TestCase):
@@ -339,7 +361,7 @@ class ProjectionValidationTests(unittest.TestCase):
             sequence=1,
             session_id="S-001",
             event_type="session_created",
-            project_version_after=1,
+            project_head_after=1,
             payload={
                 "session": {
                     "id": "S-001",
@@ -357,10 +379,12 @@ class ProjectionValidationTests(unittest.TestCase):
     def test_event_log_rejects_invalid_event_timestamp(self) -> None:
         event = {
             "event_id": "E--000001",
+            "tx_id": "T-test-1",
+            "tx_index": 1,
+            "tx_size": 1,
             "ts": "",
             "session_id": "SYSTEM",
             "event_type": "project_initialized",
-            "project_version_after": 1,
             "payload": {
                 "project": {
                     "name": "Demo",
@@ -380,12 +404,12 @@ class ProjectionValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(EventValidationError, "event.ts"):
             validate_event_log([event])
 
-    def test_event_log_rejects_mismatched_event_id_sequence(self) -> None:
-        event = build_event(
-            sequence=2,
+    def test_event_log_rejects_duplicate_tx_index(self) -> None:
+        first = build_event(
+            sequence=1,
             session_id="SYSTEM",
             event_type="project_initialized",
-            project_version_after=1,
+            project_head_after=1,
             payload={
                 "project": {
                     "name": "Demo",
@@ -396,16 +420,18 @@ class ProjectionValidationTests(unittest.TestCase):
             },
             timestamp="2026-04-23T12:00:00Z",
         )
+        second = deepcopy(first)
+        second["event_id"] = "E-test-2"
 
-        with self.assertRaisesRegex(StateValidationError, "does not match sequence"):
-            validate_event_log([event])
+        with self.assertRaisesRegex(StateValidationError, "duplicate tx_index"):
+            validate_event_log([first, second])
 
-    def test_event_log_rejects_project_version_that_does_not_match_sequence(self) -> None:
+    def test_event_log_rejects_tx_size_mismatch(self) -> None:
         event = build_event(
             sequence=1,
             session_id="SYSTEM",
             event_type="project_initialized",
-            project_version_after=10,
+            project_head_after=1,
             payload={
                 "project": {
                     "name": "Demo",
@@ -416,8 +442,9 @@ class ProjectionValidationTests(unittest.TestCase):
             },
             timestamp="2026-04-23T12:00:00Z",
         )
+        event["tx_size"] = 2
 
-        with self.assertRaisesRegex(StateValidationError, "project_version_after must equal sequence"):
+        with self.assertRaisesRegex(StateValidationError, "tx_size does not match event count"):
             validate_event_log([event])
 
     def test_event_log_rejects_duplicate_project_initialized(self) -> None:
@@ -425,7 +452,7 @@ class ProjectionValidationTests(unittest.TestCase):
             sequence=1,
             session_id="SYSTEM",
             event_type="project_initialized",
-            project_version_after=1,
+            project_head_after=1,
             payload={
                 "project": {
                     "name": "Demo",
@@ -440,7 +467,7 @@ class ProjectionValidationTests(unittest.TestCase):
             sequence=2,
             session_id="SYSTEM",
             event_type="project_initialized",
-            project_version_after=2,
+            project_head_after=2,
             payload={
                 "project": {
                     "name": "Demo 2",
@@ -510,7 +537,7 @@ class ProjectionValidationTests(unittest.TestCase):
             sequence=2,
             session_id="S-outer",
             event_type="session_created",
-            project_version_after=2,
+            project_head_after=2,
             payload={
                 "session": {
                     "id": "S-inner",
@@ -540,7 +567,7 @@ class ProjectionValidationTests(unittest.TestCase):
             sequence=3,
             session_id="S-001",
             event_type="decision_deferred",
-            project_version_after=3,
+            project_head_after=3,
             payload={"decision_id": "D-never", "reason": "Later."},
             timestamp="2026-04-23T12:02:00Z",
         )
@@ -552,7 +579,7 @@ class ProjectionValidationTests(unittest.TestCase):
             sequence=3,
             session_id="S-001",
             event_type="proposal_accepted",
-            project_version_after=3,
+            project_head_after=3,
             payload={
                 "proposal_id": "P-001",
                 "origin_session_id": "S-001",
@@ -629,7 +656,7 @@ class ProjectionValidationTests(unittest.TestCase):
             sequence=5,
             session_id="S-001",
             event_type="decision_enriched",
-            project_version_after=5,
+            project_head_after=5,
             payload={"decision_id": "D-001", "notes_append": ["not a proposal"]},
             timestamp="2026-04-23T12:04:00Z",
         )
@@ -717,7 +744,7 @@ class ProjectionValidationTests(unittest.TestCase):
             sequence=5,
             session_id="S-001",
             event_type="classification_updated",
-            project_version_after=5,
+            project_head_after=5,
             payload={
                 "classification": {
                     "domain": "technical",
@@ -755,7 +782,7 @@ class ProjectionValidationTests(unittest.TestCase):
             sequence=6,
             session_id="S-A",
             event_type="decision_invalidated",
-            project_version_after=6,
+            project_head_after=6,
             payload={
                 "decision_id": "D-old",
                 "invalidated_by_decision_id": "D-new",
@@ -902,7 +929,7 @@ class ProjectionValidationTests(unittest.TestCase):
             sequence=6,
             session_id="S-001",
             event_type="decision_enriched",
-            project_version_after=6,
+            project_head_after=6,
             payload={"decision_id": "D-001", "notes_append": ["after rejection"]},
             timestamp="2026-04-23T12:05:00Z",
         )
@@ -1008,7 +1035,7 @@ def _project_initialized(sequence: int) -> dict:
         sequence=sequence,
         session_id="SYSTEM",
         event_type="project_initialized",
-        project_version_after=sequence,
+        project_head_after=sequence,
         payload={
             "project": {
                 "name": "Demo",
@@ -1026,7 +1053,7 @@ def _session_created(sequence: int, session_id: str) -> dict:
         sequence=sequence,
         session_id=session_id,
         event_type="session_created",
-        project_version_after=sequence,
+        project_head_after=sequence,
         payload={
             "session": {
                 "id": session_id,
@@ -1047,7 +1074,7 @@ def _decision_discovered(sequence: int, session_id: str, decision_id: str, *, st
         sequence=sequence,
         session_id=session_id,
         event_type="decision_discovered",
-        project_version_after=sequence,
+        project_head_after=sequence,
         payload={"decision": decision},
         timestamp=f"2026-04-23T12:{sequence - 1:02d}:00Z",
     )
@@ -1058,7 +1085,7 @@ def _session_closed(sequence: int, session_id: str) -> dict:
         sequence=sequence,
         session_id=session_id,
         event_type="session_closed",
-        project_version_after=sequence,
+        project_head_after=sequence,
         payload={"closed_at": f"2026-04-23T12:{sequence - 1:02d}:00Z"},
         timestamp=f"2026-04-23T12:{sequence - 1:02d}:00Z",
     )
@@ -1069,7 +1096,7 @@ def _session_resumed(sequence: int, session_id: str) -> dict:
         sequence=sequence,
         session_id=session_id,
         event_type="session_resumed",
-        project_version_after=sequence,
+        project_head_after=sequence,
         payload={"resumed_at": f"2026-04-23T12:{sequence - 1:02d}:00Z"},
         timestamp=f"2026-04-23T12:{sequence - 1:02d}:00Z",
     )
@@ -1080,7 +1107,7 @@ def _close_summary_generated(sequence: int, session_id: str) -> dict:
         sequence=sequence,
         session_id=session_id,
         event_type="close_summary_generated",
-        project_version_after=sequence,
+        project_head_after=sequence,
         payload={
             "close_summary": {
                 "work_item_title": "Demo",
@@ -1106,7 +1133,7 @@ def _plan_generated(sequence: int, session_ids: list[str]) -> dict:
         sequence=sequence,
         session_id="SYSTEM",
         event_type="plan_generated",
-        project_version_after=sequence,
+        project_head_after=sequence,
         payload={"session_ids": session_ids, "status": "action-plan"},
         timestamp=f"2026-04-23T12:{sequence - 1:02d}:00Z",
     )
@@ -1124,7 +1151,7 @@ def _question_asked(
         sequence=sequence,
         session_id=session_id,
         event_type="question_asked",
-        project_version_after=sequence,
+        project_head_after=sequence,
         payload={
             "decision_id": decision_id,
             "question_id": question_id,
@@ -1141,7 +1168,7 @@ def _proposal_issued(
         sequence=sequence,
         session_id=session_id,
         event_type="proposal_issued",
-        project_version_after=sequence,
+        project_head_after=sequence,
         payload={
             "proposal": {
                 "proposal_id": proposal_id,
@@ -1149,7 +1176,7 @@ def _proposal_issued(
                 "target_type": "decision",
                 "target_id": decision_id,
                 "recommendation_version": 1,
-                "based_on_project_version": sequence - 1,
+                "based_on_project_head": f"H-{sequence - 1}",
                 "question_id": "Q-001",
                 "question": "Question?",
                 "recommendation": "Use it.",
@@ -1176,7 +1203,7 @@ def _proposal_accepted(
         sequence=sequence,
         session_id=session_id,
         event_type="proposal_accepted",
-        project_version_after=sequence,
+        project_head_after=sequence,
         payload={
             "proposal_id": proposal_id,
             "origin_session_id": session_id,
@@ -1198,7 +1225,7 @@ def _decision_deferred(sequence: int, session_id: str, decision_id: str) -> dict
         sequence=sequence,
         session_id=session_id,
         event_type="decision_deferred",
-        project_version_after=sequence,
+        project_head_after=sequence,
         payload={"decision_id": decision_id, "reason": "Later."},
         timestamp=f"2026-04-23T12:{sequence - 1:02d}:00Z",
     )
@@ -1209,7 +1236,7 @@ def _decision_resolved_by_evidence(sequence: int, session_id: str, decision_id: 
         sequence=sequence,
         session_id=session_id,
         event_type="decision_resolved_by_evidence",
-        project_version_after=sequence,
+        project_head_after=sequence,
         payload={
             "decision_id": decision_id,
             "source": "codebase",
@@ -1227,7 +1254,7 @@ def _decision_invalidated(
         sequence=sequence,
         session_id=session_id,
         event_type="decision_invalidated",
-        project_version_after=sequence,
+        project_head_after=sequence,
         payload={
             "decision_id": decision_id,
             "invalidated_by_decision_id": invalidated_by_decision_id,
@@ -1242,7 +1269,7 @@ def _proposal_rejected(sequence: int, session_id: str, decision_id: str, proposa
         sequence=sequence,
         session_id=session_id,
         event_type="proposal_rejected",
-        project_version_after=sequence,
+        project_head_after=sequence,
         payload={
             "proposal_id": proposal_id,
             "origin_session_id": session_id,
@@ -1264,9 +1291,10 @@ def _valid_bundle() -> dict:
         "stop_rule": "Resolve blockers",
     }
     project_state["state"] = {
-        "project_version": 1,
+        "project_head": "H-1",
+        "event_count": 1,
         "updated_at": now,
-        "last_event_id": "E-20260423-000001",
+        "last_event_id": "E-test-1",
     }
     project_state["decisions"] = [default_decision("D-001", "Decision")]
     session = default_session_state("S-001", now, "demo")
@@ -1287,7 +1315,7 @@ def _active_proposal(*, proposal_id: str, origin_session_id: str, decision_id: s
             "target_type": "decision",
             "target_id": decision_id,
             "recommendation_version": 1,
-            "based_on_project_version": 1,
+            "based_on_project_head": "H-1",
             "is_active": True,
             "activated_at": "2026-04-23T12:00:00Z",
             "inactive_reason": None,

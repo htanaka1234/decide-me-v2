@@ -10,7 +10,7 @@ from tempfile import TemporaryDirectory
 
 from decide_me.classification import classify_session
 from decide_me.exports import export_adr
-from decide_me.events import utc_now
+from decide_me.events import build_event, utc_now
 from decide_me.interview import advance_session, handle_reply
 from decide_me.lifecycle import close_session, create_session, list_sessions, resume_session, show_session
 from decide_me.planner import generate_plan
@@ -34,6 +34,19 @@ from decide_me.store import (
     transact,
     validate_runtime,
 )
+
+
+def _raw_event_log_text(ai_dir: str | Path) -> str:
+    events_dir = Path(ai_dir) / "events"
+    return "".join(path.read_text(encoding="utf-8") for path in sorted(events_dir.rglob("*.jsonl")))
+
+
+def _write_event_file(ai_dir: str | Path, session_id: str, tx_id: str, events: list[dict]) -> None:
+    root = Path(ai_dir) / "events"
+    directory = root / "system" if session_id == "SYSTEM" else root / "sessions" / session_id
+    directory.mkdir(parents=True, exist_ok=True)
+    body = "".join(json.dumps(event, ensure_ascii=False, sort_keys=True) + "\n" for event in events)
+    (directory / f"{tx_id}.jsonl").write_text(body, encoding="utf-8")
 
 
 class RuntimeFlowTests(unittest.TestCase):
@@ -102,6 +115,151 @@ class RuntimeFlowTests(unittest.TestCase):
 
             rebuild_and_persist(ai_dir)
             self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_runtime_writes_split_transaction_event_files(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Write split transaction logs",
+                current_milestone="MVP",
+            )
+            session_id = create_session(ai_dir, context="Auth thread")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-split",
+                    "title": "Auth mode",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "question": "How should auth work?",
+                },
+            )
+
+            root = Path(ai_dir) / "events"
+            self.assertTrue(list((root / "system").glob("*.jsonl")))
+            self.assertTrue(list((root / "sessions" / session_id).glob("*.jsonl")))
+            self.assertFalse((Path(ai_dir) / "event-log.jsonl").exists())
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_later_merged_session_transaction_files_rebuild_cleanly(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Merge independent session logs",
+                current_milestone="MVP",
+            )
+            first_session_id = create_session(ai_dir, context="Auth thread")["session"]["id"]
+            second_session_id = create_session(ai_dir, context="Audit thread")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                first_session_id,
+                {"id": "D-merge-a", "title": "Auth mode", "domain": "technical"},
+            )
+            discover_decision(
+                ai_dir,
+                second_session_id,
+                {"id": "D-merge-b", "title": "Audit sink", "domain": "ops"},
+            )
+
+            second_session_events = Path(ai_dir) / "events" / "sessions" / second_session_id
+            stash = Path(tmp) / "stashed-events"
+            second_session_events.rename(stash)
+            without_second = rebuild_and_persist(ai_dir)
+            self.assertNotIn(second_session_id, without_second["sessions"])
+            self.assertEqual([], validate_runtime(ai_dir))
+
+            stash.rename(second_session_events)
+            merged = rebuild_and_persist(ai_dir)
+            self.assertIn(first_session_id, merged["sessions"])
+            self.assertIn(second_session_id, merged["sessions"])
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_same_session_conflicting_parallel_proposal_transactions_fail_validation(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Reject semantic conflicts",
+                current_milestone="MVP",
+            )
+            session_id = create_session(ai_dir, context="Decision thread")["session"]["id"]
+            for decision_id, title in (("D-conflict-a", "Auth mode"), ("D-conflict-b", "Audit sink")):
+                discover_decision(
+                    ai_dir,
+                    session_id,
+                    {
+                        "id": decision_id,
+                        "title": title,
+                        "priority": "P0",
+                        "frontier": "now",
+                        "domain": "technical",
+                        "question": f"Resolve {title}?",
+                    },
+                )
+            issue_proposal(
+                ai_dir,
+                session_id,
+                decision_id="D-conflict-a",
+                question="Use magic links?",
+                recommendation="Use magic links.",
+                why="Smaller MVP surface area.",
+                if_not="Passwords expand auth scope.",
+            )
+
+            tx_id = "T-20990101T000000000000Z-conflict"
+            question = build_event(
+                tx_id=tx_id,
+                tx_index=1,
+                tx_size=2,
+                event_id="E-conflict-1",
+                session_id=session_id,
+                event_type="question_asked",
+                payload={
+                    "decision_id": "D-conflict-b",
+                    "question_id": "Q-conflict",
+                    "question": "Use product database?",
+                },
+                timestamp="2099-01-01T00:00:00Z",
+            )
+            proposal = build_event(
+                tx_id=tx_id,
+                tx_index=2,
+                tx_size=2,
+                event_id="E-conflict-2",
+                session_id=session_id,
+                event_type="proposal_issued",
+                payload={
+                    "proposal": {
+                        "proposal_id": "P-conflict",
+                        "origin_session_id": session_id,
+                        "target_type": "decision",
+                        "target_id": "D-conflict-b",
+                        "recommendation_version": 1,
+                        "based_on_project_head": "H-conflict",
+                        "question_id": "Q-conflict",
+                        "question": "Use product database?",
+                        "recommendation": "Use the product database.",
+                        "why": "Cheaper for the milestone.",
+                        "if_not": "A separate sink becomes in scope now.",
+                        "is_active": True,
+                        "activated_at": "2099-01-01T00:00:00Z",
+                        "inactive_reason": None,
+                    }
+                },
+                timestamp="2099-01-01T00:00:00Z",
+            )
+            _write_event_file(ai_dir, session_id, tx_id, [question, proposal])
+
+            issues = validate_runtime(ai_dir)
+            self.assertEqual(1, len(issues))
+            self.assertIn("proposal_issued while proposal", issues[0])
 
     def test_cross_session_explicit_proposal_acceptance_is_rejected(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -381,7 +539,7 @@ class RuntimeFlowTests(unittest.TestCase):
 
             self.assertEqual("stale-proposal", turn["status"])
             self.assertEqual(proposal["proposal_id"], turn["proposal_id"])
-            self.assertEqual("project-version-changed", turn["stale_reason"])
+            self.assertEqual("project-head-changed", turn["stale_reason"])
             self.assertIn("Accept P-", turn["message"])
             self.assertEqual([], validate_runtime(ai_dir))
 
@@ -832,7 +990,7 @@ class RuntimeFlowTests(unittest.TestCase):
             )
             self.assertEqual("Extra context.", enriched["context"])
 
-            event_log = (Path(ai_dir) / "event-log.jsonl").read_text(encoding="utf-8")
+            event_log = _raw_event_log_text(ai_dir)
             self.assertNotIn('"context_append": null', event_log)
             self.assertEqual([], validate_runtime(ai_dir))
 
@@ -1272,7 +1430,7 @@ class RuntimeFlowTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "not accepted"):
                 export_adr(ai_dir, "D-100")
 
-            event_log = (Path(ai_dir) / "event-log.jsonl").read_text(encoding="utf-8")
+            event_log = _raw_event_log_text(ai_dir)
             self.assertIn('"event_type": "decision_invalidated"', event_log)
             self.assertEqual([], validate_runtime(ai_dir))
 
@@ -1886,12 +2044,13 @@ class RuntimeFlowTests(unittest.TestCase):
         repo_root = Path(__file__).resolve().parents[2]
         with TemporaryDirectory() as tmp:
             ai_dir = Path(tmp) / ".ai" / "decide-me"
-            ai_dir.mkdir(parents=True)
-            (ai_dir / "event-log.jsonl").write_text("{bad json\n", encoding="utf-8")
+            event_dir = ai_dir / "events" / "system"
+            event_dir.mkdir(parents=True)
+            (event_dir / "T-bad.jsonl").write_text("{bad json\n", encoding="utf-8")
 
             issues = validate_runtime(str(ai_dir))
             self.assertEqual(1, len(issues))
-            self.assertIn("event-log.jsonl line 1 contains malformed JSON", issues[0])
+            self.assertIn("events/system/T-bad.jsonl line 1 contains malformed JSON", issues[0])
 
             completed = subprocess.run(
                 [
@@ -1910,7 +2069,17 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertEqual(1, completed.returncode)
             payload = json.loads(completed.stdout)
             self.assertFalse(payload["ok"])
-            self.assertIn("event-log.jsonl line 1 contains malformed JSON", payload["issues"][0])
+            self.assertIn("events/system/T-bad.jsonl line 1 contains malformed JSON", payload["issues"][0])
+
+    def test_validate_runtime_rejects_legacy_event_log(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = Path(tmp) / ".ai" / "decide-me"
+            ai_dir.mkdir(parents=True)
+            (ai_dir / "event-log.jsonl").write_text("", encoding="utf-8")
+
+            issues = validate_runtime(str(ai_dir))
+            self.assertEqual(1, len(issues))
+            self.assertIn("legacy event-log.jsonl is unsupported in this runtime layout", issues[0])
 
     def test_concurrent_cli_bootstrap_leaves_one_valid_runtime(self) -> None:
         repo_root = Path(__file__).resolve().parents[2]

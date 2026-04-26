@@ -16,7 +16,7 @@ If not: Separate retention, monitoring, and replay paths become in scope now.
 ## Stale proposal
 
 ```text
-The active proposal for session S-... is stale because the project version changed.
+The active proposal for session S-... is stale because the project head changed.
 Use `Accept P-0007` if you want to accept that recommendation explicitly.
 ```
 

@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Any
 
 from decide_me.constants import ACCEPTED_VIA_VALUES, DOMAIN_VALUES, EVIDENCE_SOURCES
-from decide_me.events import EVENT_TYPES, make_event_id, validate_event
+from decide_me.events import EVENT_TYPES, validate_event
 from decide_me.taxonomy import taxonomy_by_id
 
 
@@ -103,9 +103,12 @@ def validate_project_state(project_state: dict[str, Any]) -> None:
         _require_non_empty_string(project_state["project"].get(key), f"project_state.project.{key}")
     _require_keys(
         project_state["state"],
-        ("project_version", "updated_at", "last_event_id"),
+        ("project_head", "event_count", "updated_at", "last_event_id"),
         "project_state.state",
     )
+    _require_non_empty_string(project_state["state"].get("project_head"), "project_state.state.project_head")
+    if not isinstance(project_state["state"].get("event_count"), int) or project_state["state"]["event_count"] < 1:
+        raise StateValidationError("project_state.state.event_count must be a positive integer")
     _require_timestamp(project_state["state"].get("updated_at"), "project_state.state.updated_at")
     if not isinstance(project_state["decisions"], list):
         raise StateValidationError("project_state.decisions must be a list")
@@ -299,7 +302,7 @@ def validate_session_state(session_state: dict[str, Any]) -> None:
     )
     _require_keys(
         session_state["working_state"],
-        ("current_question_id", "current_question", "active_proposal", "last_seen_project_version"),
+        ("current_question_id", "current_question", "active_proposal", "last_seen_project_head"),
         "session_state.working_state",
     )
     for key in ("assigned_tags", "compatibility_tags", "search_terms", "source_refs"):
@@ -498,7 +501,7 @@ def _validate_active_proposal(
             "target_type",
             "target_id",
             "recommendation_version",
-            "based_on_project_version",
+            "based_on_project_head",
             "is_active",
             "activated_at",
             "inactive_reason",
@@ -543,6 +546,10 @@ def _validate_active_proposal(
     _require_timestamp(
         active.get("activated_at"),
         f"session {session_id} active_proposal.activated_at",
+    )
+    _require_non_empty_string(
+        active.get("based_on_project_head"),
+        f"session {session_id} active_proposal.based_on_project_head",
     )
 
     if active.get("origin_session_id") != session_id:
@@ -693,7 +700,6 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
     if first.get("session_id") != SYSTEM_SESSION_ID:
         raise StateValidationError("project_initialized event must use SYSTEM session_id")
 
-    previous_version = 0
     event_ids: set[str] = set()
     created_session_ids: set[str] = {SYSTEM_SESSION_ID}
     session_status: dict[str, str] = {SYSTEM_SESSION_ID: "active"}
@@ -710,22 +716,14 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
     pending_question: dict[str, str] | None = None
     pending_close_summary_session_id: str | None = None
     project_initialized_count = 0
-    for sequence, event in enumerate(events, start=1):
+    _validate_event_transactions(events)
+    for event in events:
         validate_event(event)
         if event["event_type"] not in EVENT_TYPES:
             raise StateValidationError(f"unsupported event type in log: {event['event_type']}")
         if event["event_id"] in event_ids:
             raise StateValidationError(f"duplicate event id: {event['event_id']}")
         event_ids.add(event["event_id"])
-        expected_event_id = make_event_id(sequence, event["ts"])
-        if event["event_id"] != expected_event_id:
-            raise StateValidationError(
-                f"event_id {event['event_id']} does not match sequence {sequence}"
-            )
-        if event["project_version_after"] != sequence:
-            raise StateValidationError(
-                f"event {event['event_id']} project_version_after must equal sequence {sequence}"
-            )
         _validate_event_log_session_scope(event, created_session_ids)
         if pending_close_summary_session_id is not None:
             if (
@@ -849,13 +847,38 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
                 if proposal_id and issued_proposals.get(proposal_id, {}).get("target_id") == invalidated_id:
                     disabled_proposals.add(proposal_id)
                     active_proposal_by_session[candidate_session_id] = None
-        if event["project_version_after"] <= previous_version:
-            raise StateValidationError("event log project_version_after must be strictly increasing")
-        previous_version = event["project_version_after"]
     if pending_question is not None:
         raise StateValidationError("question_asked must be followed by matching proposal_issued")
     if pending_close_summary_session_id is not None:
         raise StateValidationError("close_summary_generated must be followed by matching session_closed")
+
+
+def _validate_event_transactions(events: list[dict[str, Any]]) -> None:
+    by_tx_id: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    seen_tx_positions: set[tuple[str, int]] = set()
+    for event in events:
+        validate_event(event)
+        tx_id = event["tx_id"]
+        tx_index = event["tx_index"]
+        tx_position = (tx_id, tx_index)
+        if tx_position in seen_tx_positions:
+            raise StateValidationError(f"duplicate tx_index {tx_index} in transaction {tx_id}")
+        seen_tx_positions.add(tx_position)
+        by_tx_id[tx_id].append(event)
+
+    for tx_id, tx_events in by_tx_id.items():
+        tx_sizes = {event["tx_size"] for event in tx_events}
+        if len(tx_sizes) != 1:
+            raise StateValidationError(f"transaction {tx_id} has inconsistent tx_size values")
+        tx_size = tx_sizes.pop()
+        if tx_size != len(tx_events):
+            raise StateValidationError(f"transaction {tx_id} tx_size does not match event count")
+        tx_indexes = sorted(event["tx_index"] for event in tx_events)
+        if tx_indexes != list(range(1, tx_size + 1)):
+            raise StateValidationError(f"transaction {tx_id} tx_index values must be contiguous")
+        session_ids = {event["session_id"] for event in tx_events}
+        if len(session_ids) != 1:
+            raise StateValidationError(f"transaction {tx_id} contains multiple session_ids")
 
 
 def _validate_event_log_proposal_lifecycle(

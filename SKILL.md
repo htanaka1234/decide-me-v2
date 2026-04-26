@@ -10,7 +10,7 @@ bundled references only when they are needed for the current turn.
 
 Startup checklist:
 
-1. Load `.ai/decide-me/event-log.jsonl` and the derived projections when they exist.
+1. Load `.ai/decide-me/events/**/*.jsonl` transaction logs and the derived projections when they exist.
 2. If the runtime is missing, bootstrap it or tell the user to run `python3 scripts/decide_me.py bootstrap ...`.
 3. Validate event and projection consistency before trusting the current state.
 4. Create a session when the user starts a new decision thread; resume an existing one only when
@@ -54,7 +54,7 @@ User-facing commands:
 
 Runtime invariants:
 
-- `event-log.jsonl` is the source of truth.
+- `.ai/decide-me/events/**/*.jsonl` transaction files are the source of truth.
 - `project-state.json`, `taxonomy-state.json`, and `sessions/*.json` are rebuildable projections.
 - Human-readable plan and ADR files are exports, not runtime state.
 - Free-form answers apply only to the current active proposal in the current session.

@@ -3,10 +3,53 @@ from __future__ import annotations
 import unittest
 from copy import deepcopy
 
-from decide_me.events import EventValidationError, build_event, validate_event
+from decide_me.events import EventValidationError, build_event as runtime_build_event, validate_event
+
+
+def build_event(
+    *,
+    sequence: int = 1,
+    session_id: str,
+    event_type: str,
+    project_version_after: int = 1,
+    payload: dict,
+    timestamp: str | None = None,
+) -> dict:
+    return runtime_build_event(
+        tx_id=f"T-test-{sequence}",
+        tx_index=1,
+        tx_size=1,
+        event_id=f"E-test-{sequence}",
+        session_id=session_id,
+        event_type=event_type,
+        payload=payload,
+        timestamp=timestamp,
+        project_head=f"H-{project_version_after}",
+    )
 
 
 class EventTests(unittest.TestCase):
+    def test_validate_rejects_legacy_project_version_after_field(self) -> None:
+        event = build_event(
+            sequence=1,
+            session_id="SYSTEM",
+            event_type="project_initialized",
+            project_version_after=1,
+            payload={
+                "project": {
+                    "name": "Demo",
+                    "objective": "Test",
+                    "current_milestone": "MVP",
+                    "stop_rule": "Resolve blockers",
+                }
+            },
+            timestamp="2026-04-23T12:00:00Z",
+        )
+        event["project_version_after"] = 1
+
+        with self.assertRaisesRegex(EventValidationError, "unsupported fields: project_version_after"):
+            validate_event(event)
+
     def test_validate_accepts_decision_invalidated_event(self) -> None:
         event = build_event(
             sequence=1,
@@ -36,7 +79,7 @@ class EventTests(unittest.TestCase):
                         "target_type": "decision",
                         "target_id": "D-001",
                         "recommendation_version": 1,
-                        "based_on_project_version": 3,
+                        "based_on_project_head": "H-3",
                         "question_id": "Q-001",
                         "question": "Question?",
                         "recommendation": "Use it.",
@@ -58,7 +101,7 @@ class EventTests(unittest.TestCase):
                 "target_type": "decision",
                 "target_id": "D-001",
                 "recommendation_version": 1,
-                "based_on_project_version": 3,
+                "based_on_project_head": "H-3",
                 "question_id": "Q-001",
                 "question": "Question?",
                 "recommendation": "Use it.",
@@ -329,7 +372,7 @@ class EventTests(unittest.TestCase):
                 "target_type": "decision",
                 "target_id": "D-001",
                 "recommendation_version": 1,
-                "based_on_project_version": 1,
+                "based_on_project_head": "H-1",
                 "question_id": "Q-001",
                 "question": "Question?",
                 "recommendation": "Use it.",

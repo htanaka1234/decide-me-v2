@@ -15,7 +15,7 @@
   "properties": {
     "schema_version": {
       "type": "integer",
-      "const": 4
+      "const": 5
     },
     "project": {
       "type": "object",
@@ -56,14 +56,18 @@
     "state": {
       "type": "object",
       "required": [
-        "project_version",
+        "project_head",
+        "event_count",
         "updated_at",
         "last_event_id"
       ],
       "properties": {
-        "project_version": {
+        "project_head": {
+          "type": "string"
+        },
+        "event_count": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 1
         },
         "updated_at": {
           "type": [

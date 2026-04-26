@@ -132,15 +132,15 @@ Reuse prior context:
 
 The runtime lives under `.ai/decide-me/`.
 
-- `event-log.jsonl` is the source of truth.
+- `events/**/*.jsonl` transaction files are the source of truth.
 - `project-state.json`, `taxonomy-state.json`, and `sessions/*.json` are
   rebuildable projections.
 - `exports/` contains human-readable plans and ADRs.
 - `write.lock` protects runtime writes.
 
 Normal users should not edit runtime state by hand. If projections look wrong,
-rebuild them from the event log and validate state instead of patching JSON
-files directly.
+rebuild them from the transaction event files and validate state instead of
+patching JSON files directly.
 
 ## For maintainers
 
