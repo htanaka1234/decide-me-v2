@@ -2979,6 +2979,14 @@ class RuntimeFlowTests(unittest.TestCase):
             _accept_runtime_decision(
                 ai_dir,
                 session_id,
+                decision_id="D-auth-implementation",
+                title="Auth implementation",
+                domain="technical",
+                recommendation="Use the existing auth implementation.",
+            )
+            _accept_runtime_decision(
+                ai_dir,
+                session_id,
                 decision_id="D-old-security",
                 title="Old security policy",
                 domain="technical",
@@ -3055,6 +3063,8 @@ class RuntimeFlowTests(unittest.TestCase):
                 self.assertIn("Source: D-security", text)
                 self.assertIn("Source: D-product-review", text)
                 self.assertNotIn("D-release", text)
+                self.assertNotIn("D-auth-implementation", text)
+                self.assertNotIn("Use the existing auth implementation.", text)
                 self.assertNotIn("D-old-security", text)
                 if target == "agents-md":
                     self.assertIn("<!-- decide-me:start -->", text)

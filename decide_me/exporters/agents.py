@@ -63,13 +63,12 @@ SECTION_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
     (
         "Dependency Rules",
         (
-            "dependency",
+            "dependency policy",
             "dependencies",
-            "package",
-            "packages",
-            "library",
-            "libraries",
-            "new dep",
+            "new dependency",
+            "new dependencies",
+            "adding dependencies",
+            "add dependencies",
             "pnpm",
             "uv",
             "pip",
@@ -111,8 +110,8 @@ SECTION_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
         "Development Rules",
         (
             "coding convention",
+            "coding conventions",
             "code style",
-            "style",
             "typing",
             "type hint",
             "type hints",
@@ -120,9 +119,8 @@ SECTION_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
             "formatter",
             "formatting",
             "naming",
-            "architecture",
-            "implementation",
-            "code",
+            "naming convention",
+            "naming conventions",
         ),
     ),
     (
@@ -132,19 +130,20 @@ SECTION_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
             "event log",
             "events/**/*.jsonl",
             ".ai/decide-me/events",
-            "projection",
+            "source event",
+            "source events",
             "projections",
             "source of truth",
             "validate-state",
             "rebuild-projections",
             "decide-me",
-            "export",
-            "adr",
         ),
     ),
     (
         "Testing Rules",
         (
+            "testing policy",
+            "test policy",
             "test",
             "tests",
             "testing",
@@ -160,39 +159,70 @@ SECTION_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
         (
             "repository layout",
             "repo layout",
-            "directory",
-            "directories",
-            "folder",
-            "folders",
-            "path",
-            "paths",
+            "layout",
             ".ai/decide-me",
         ),
     ),
 )
-PRODUCT_AGENT_TARGET_KEYWORDS = (
+AGENT_POLICY_KEYWORDS = (
     "agent",
     "agents.md",
     "cursor",
     "claude",
     "codex",
+    "coding convention",
+    "coding conventions",
+    "code style",
+    "typing",
+    "type hint",
+    "type hints",
+    "testing policy",
+    "test policy",
+    "run tests",
+    "validate-state",
+    "dependency policy",
+    "new dependency",
+    "new dependencies",
+    "adding dependencies",
+    "add dependencies",
     "secret",
     "secrets",
     "credential",
     "credentials",
     "token",
+    "redact",
+    "redaction",
     "destructive",
     "delete",
+    "deleting",
     "overwrite",
-    "dependency",
-    "dependencies",
-    "test",
-    "tests",
-    "validate-state",
+    "overwriting",
+    "confirm before",
+    "confirmation",
+    "approval",
+    "required",
+    "require",
+    "must",
+    "always",
+    "never",
+    "do not",
+    "before opening pr",
+    "before opening prs",
+    "before merge",
+    "before merging",
+    "before commit",
+    "after changes",
+    "after code changes",
     "review",
     "pull request",
     "pr",
     "checklist",
+    "repository layout",
+    "repo layout",
+    "source of truth",
+    "event log",
+    "events/**/*.jsonl",
+    ".ai/decide-me/events",
 )
 
 
@@ -261,9 +291,7 @@ def _agent_rule(decision: dict[str, Any], index: DecisionEventIndex) -> dict[str
         return None
 
     search_text = _decision_search_text(decision, summary)
-    if decision.get("domain") == "product" and not _has_any(
-        search_text, PRODUCT_AGENT_TARGET_KEYWORDS
-    ):
+    if not _is_agent_policy_decision(search_text):
         return None
 
     section = _section_for_text(search_text)
@@ -293,6 +321,10 @@ def _section_for_text(text: str) -> str | None:
         if _has_any(text, keywords):
             return section
     return None
+
+
+def _is_agent_policy_decision(text: str) -> bool:
+    return _has_any(text, AGENT_POLICY_KEYWORDS)
 
 
 def _decision_search_text(decision: dict[str, Any], summary: str) -> str:

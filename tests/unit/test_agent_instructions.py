@@ -35,6 +35,24 @@ class AgentInstructionFilterTests(unittest.TestCase):
                     "Run `validate-state --full` before opening PRs.",
                 ),
                 _accepted(
+                    "D-auth-implementation",
+                    "Auth implementation",
+                    "technical",
+                    "Use the existing auth implementation.",
+                ),
+                _accepted(
+                    "D-audit-db",
+                    "Audit log sink",
+                    "ops",
+                    "Place audit logs in the product database.",
+                ),
+                _accepted(
+                    "D-service-architecture",
+                    "Service architecture",
+                    "technical",
+                    "Use the service-layer architecture.",
+                ),
+                _accepted(
                     "D-old",
                     "Old security policy",
                     "technical",
