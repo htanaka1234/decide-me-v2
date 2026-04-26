@@ -2995,6 +2995,14 @@ class RuntimeFlowTests(unittest.TestCase):
             _accept_runtime_decision(
                 ai_dir,
                 session_id,
+                decision_id="D-migration-fixture",
+                title="Migration test fixture",
+                domain="technical",
+                recommendation="Migration tests must use fixture X.",
+            )
+            _accept_runtime_decision(
+                ai_dir,
+                session_id,
                 decision_id="D-old-security",
                 title="Old security policy",
                 domain="technical",
@@ -3075,6 +3083,8 @@ class RuntimeFlowTests(unittest.TestCase):
                 self.assertNotIn("Use the existing auth implementation.", text)
                 self.assertNotIn("D-artifact-storage", text)
                 self.assertNotIn("Use S3; do not use local disk for production artifacts.", text)
+                self.assertNotIn("D-migration-fixture", text)
+                self.assertNotIn("Migration tests must use fixture X.", text)
                 self.assertNotIn("D-old-security", text)
                 if target == "agents-md":
                     self.assertIn("<!-- decide-me:start -->", text)

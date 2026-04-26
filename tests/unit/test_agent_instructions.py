@@ -71,6 +71,24 @@ class AgentInstructionFilterTests(unittest.TestCase):
                     "Use S3; do not use local disk for production artifacts.",
                 ),
                 _accepted(
+                    "D-test-db",
+                    "Test database",
+                    "technical",
+                    "Test database must be PostgreSQL.",
+                ),
+                _accepted(
+                    "D-migration-fixture",
+                    "Migration test fixture",
+                    "technical",
+                    "Migration tests must use fixture X.",
+                ),
+                _accepted(
+                    "D-delete-policy",
+                    "Delete policy",
+                    "technical",
+                    "Delete policy must be soft-delete.",
+                ),
+                _accepted(
                     "D-old",
                     "Old security policy",
                     "technical",
