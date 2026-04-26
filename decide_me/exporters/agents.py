@@ -194,7 +194,6 @@ AGENT_POLICY_KEYWORDS = (
     "destructive operation",
     "destructive operations",
     "confirm before",
-    "confirmation",
     "require approval",
     "requires approval",
     "approval before",
@@ -211,9 +210,26 @@ AGENT_POLICY_KEYWORDS = (
     "pr checklist",
     "repository layout",
     "repo layout",
+    "events/**/*.jsonl",
+    ".ai/decide-me/events",
+)
+RUNTIME_POLICY_KEYWORDS = (
     "source of truth",
     "event log",
+)
+RUNTIME_POLICY_CONTEXT_KEYWORDS = (
+    "agent",
+    "agents.md",
+    "codex",
+    "decide-me",
+    "runtime",
+    "repository layout",
+    "repo layout",
+    "validate-state",
+    "rebuild-projections",
+    "projections",
     "events/**/*.jsonl",
+    ".ai/decide-me",
     ".ai/decide-me/events",
 )
 POLICY_MODAL_KEYWORDS = (
@@ -266,8 +282,6 @@ POLICY_MODAL_CONTEXT_KEYWORDS = (
     "code style",
     "repository layout",
     "repo layout",
-    "source of truth",
-    "event log",
     "events/**/*.jsonl",
     ".ai/decide-me/events",
 )
@@ -371,7 +385,13 @@ def _section_for_text(text: str) -> str | None:
 
 
 def _is_agent_policy_decision(text: str) -> bool:
-    return _has_any(text, AGENT_POLICY_KEYWORDS) or (
+    return (
+        _has_any(text, AGENT_POLICY_KEYWORDS)
+        or (
+            _has_any(text, RUNTIME_POLICY_KEYWORDS)
+            and _has_any(text, RUNTIME_POLICY_CONTEXT_KEYWORDS)
+        )
+    ) or (
         _has_any(text, POLICY_MODAL_KEYWORDS)
         and _has_any(text, POLICY_MODAL_CONTEXT_KEYWORDS)
     )

@@ -89,6 +89,24 @@ class AgentInstructionFilterTests(unittest.TestCase):
                     "Delete policy must be soft-delete.",
                 ),
                 _accepted(
+                    "D-email-confirmation",
+                    "Signup confirmation",
+                    "product",
+                    "Use email confirmation for signup.",
+                ),
+                _accepted(
+                    "D-postgres-source",
+                    "Canonical database",
+                    "technical",
+                    "PostgreSQL is the source of truth.",
+                ),
+                _accepted(
+                    "D-audit-event-log",
+                    "Audit storage",
+                    "technical",
+                    "Use an event log table for audit history.",
+                ),
+                _accepted(
                     "D-old",
                     "Old security policy",
                     "technical",
