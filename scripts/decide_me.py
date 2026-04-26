@@ -15,6 +15,7 @@ from decide_me.classification import classify_session
 from decide_me.conflicts import detect_merge_conflicts, resolve_merge_conflict
 from decide_me.exports import (
     export_adr,
+    export_agent_instructions,
     export_decision_register,
     export_github_issues,
     export_github_templates,
@@ -191,6 +192,18 @@ def main(argv: list[str] | None = None) -> int:
     github_issues.add_argument("--session-id", action="append", required=True)
     github_issues.add_argument("--output-dir", required=True)
 
+    agent_instructions = subparsers.add_parser(
+        "export-agent-instructions", help="export local agent instruction files"
+    )
+    agent_instructions.add_argument("--ai-dir", required=True)
+    agent_instructions.add_argument(
+        "--target",
+        required=True,
+        choices=("agents-md", "cursor", "claude-skill-fragment", "codex-profile-fragment"),
+    )
+    agent_instructions.add_argument("--output")
+    agent_instructions.add_argument("--force", action="store_true")
+
     classify = subparsers.add_parser("classify-session", help="classify a session deterministically")
     classify.add_argument("--ai-dir", required=True)
     classify.add_argument("--session-id", required=True)
@@ -340,6 +353,20 @@ def main(argv: list[str] | None = None) -> int:
             path = export_github_issues(args.ai_dir, args.session_id, args.output_dir)
             payload = json.loads(Path(path).read_text(encoding="utf-8"))
             _print_json({"path": str(path), "issue_count": len(payload["issues"])})
+        elif args.command == "export-agent-instructions":
+            result = export_agent_instructions(
+                args.ai_dir,
+                args.target,
+                output=args.output,
+                force=args.force,
+            )
+            _print_json(
+                {
+                    "path": str(result["path"]),
+                    "target": result["target"],
+                    "rule_count": result["rule_count"],
+                }
+            )
         elif args.command == "classify-session":
             _print_json(
                 classify_session(

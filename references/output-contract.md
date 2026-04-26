@@ -57,3 +57,17 @@ runtime.
 `issues.json` and `issues/` are generated together. Re-exporting to the same output directory
 must replace the generated `issues/` directory so stale issue body drafts from prior session
 inputs are removed.
+
+Agent instruction exports are local derived outputs only. They must not call external agent
+services or record runtime events.
+
+Agent instruction export payloads must include:
+
+- `schema_version`, `generated_at`, `project_head`
+- `rules`
+
+Each rule must include the rendered instruction text, its section, and the source decision ID.
+Normal exports must exclude invalidated decisions and include only final agent-relevant decisions.
+AGENTS.md exports must use `<!-- decide-me:start -->` and `<!-- decide-me:end -->` markers when
+creating or updating managed content. Existing unmarked AGENTS.md files may be overwritten only
+when the user passes `--force`.

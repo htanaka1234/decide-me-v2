@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/decide-me/agent-instructions.schema.json",
+  "title": "Decide Me Agent Instructions Export",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generated_at",
+    "project_head",
+    "rules"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "generated_at": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "project_head": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "decision_id",
+          "section",
+          "text",
+          "source"
+        ],
+        "properties": {
+          "decision_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "section": {
+            "type": "string",
+            "enum": [
+              "Runtime Rules",
+              "Development Rules",
+              "Testing Rules",
+              "Dependency Rules",
+              "Safety Rules",
+              "Security Rules",
+              "Repository Layout",
+              "Review Checklist"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source": {
+            "type": "object",
+            "required": [
+              "decision_id",
+              "session_id",
+              "title",
+              "status",
+              "domain",
+              "kind",
+              "accepted_via",
+              "evidence_refs"
+            ],
+            "properties": {
+              "decision_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "session_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "title": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "accepted",
+                  "resolved-by-evidence"
+                ]
+              },
+              "domain": {
+                "type": "string",
+                "enum": [
+                  "product",
+                  "technical",
+                  "data",
+                  "ux",
+                  "ops",
+                  "legal",
+                  "other"
+                ]
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "choice",
+                  "constraint",
+                  "risk",
+                  "dependency"
+                ]
+              },
+              "accepted_via": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "evidence_refs": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from decide_me.events import utc_now
+from decide_me.exporters.agents import export_agent_instructions
 from decide_me.exporters.adr import export_structured_adr
 from decide_me.exporters.decision_register import export_decision_register
 from decide_me.store import load_runtime, runtime_paths

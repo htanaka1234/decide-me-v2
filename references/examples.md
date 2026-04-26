@@ -63,3 +63,18 @@ python3 scripts/decide_me.py export-github-issues \
   --session-id S-20260423-101500-a1 \
   --output-dir .ai/decide-me/exports/github
 ```
+
+## Agent instruction export
+
+```bash
+python3 scripts/decide_me.py export-agent-instructions \
+  --ai-dir .ai/decide-me \
+  --target agents-md
+```
+
+```bash
+python3 scripts/decide_me.py export-agent-instructions \
+  --ai-dir .ai/decide-me \
+  --target cursor \
+  --output .cursor/rules/decide-me-decisions.mdc
+```

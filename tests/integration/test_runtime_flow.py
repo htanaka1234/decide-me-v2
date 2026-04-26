@@ -22,11 +22,13 @@ from decide_me.classification import classify_session
 from decide_me.conflicts import detect_merge_conflicts, resolve_merge_conflict
 from decide_me.exports import (
     export_adr,
+    export_agent_instructions,
     export_decision_register,
     export_github_issues,
     export_github_templates,
     export_structured_adr,
 )
+from decide_me.exporters.agents import build_agent_instructions_payload
 from decide_me.events import build_event, utc_now
 from decide_me.interview import advance_session, handle_reply
 from decide_me.lifecycle import close_session, create_session, list_sessions, resume_session, show_session
@@ -2945,6 +2947,286 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertTrue(markdown_path.exists())
             markdown = markdown_path.read_text(encoding="utf-8")
             self.assertIn("| D-200 | invalidated | technical |", markdown)
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_agent_instruction_cli_exports_all_targets_and_is_deterministic(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Export agent instructions",
+                current_milestone="MVP",
+            )
+
+            session_id = create_session(ai_dir, context="Agent instruction decisions")["session"]["id"]
+            _accept_runtime_decision(
+                ai_dir,
+                session_id,
+                decision_id="D-runtime",
+                title="Runtime source of truth",
+                domain="technical",
+                recommendation="Treat `.ai/decide-me/events/**/*.jsonl` as the source of truth.",
+            )
+            _accept_runtime_decision(
+                ai_dir,
+                session_id,
+                decision_id="D-release",
+                title="Release shape",
+                domain="product",
+                recommendation="Ship the planner-only release first.",
+            )
+            _accept_runtime_decision(
+                ai_dir,
+                session_id,
+                decision_id="D-auth-implementation",
+                title="Auth implementation",
+                domain="technical",
+                recommendation="Use the existing auth implementation.",
+            )
+            _accept_runtime_decision(
+                ai_dir,
+                session_id,
+                decision_id="D-artifact-storage",
+                title="Production artifact storage",
+                domain="technical",
+                recommendation="Use S3; do not use local disk for production artifacts.",
+            )
+            _accept_runtime_decision(
+                ai_dir,
+                session_id,
+                decision_id="D-migration-fixture",
+                title="Migration test fixture",
+                domain="technical",
+                recommendation="Migration tests must use fixture X.",
+            )
+            _accept_runtime_decision(
+                ai_dir,
+                session_id,
+                decision_id="D-email-confirmation",
+                title="Signup confirmation",
+                domain="product",
+                recommendation="Use email confirmation for signup.",
+            )
+            _accept_runtime_decision(
+                ai_dir,
+                session_id,
+                decision_id="D-postgres-source",
+                title="Canonical database",
+                domain="technical",
+                recommendation="PostgreSQL is the source of truth.",
+            )
+            _accept_runtime_decision(
+                ai_dir,
+                session_id,
+                decision_id="D-old-security",
+                title="Old security policy",
+                domain="technical",
+                recommendation="Print secret values during debugging.",
+            )
+            _accept_runtime_decision(
+                ai_dir,
+                session_id,
+                decision_id="D-security",
+                title="Secret handling",
+                domain="technical",
+                recommendation="Never print secrets or credential values.",
+            )
+            invalidate_decision(
+                ai_dir,
+                session_id,
+                decision_id="D-old-security",
+                invalidated_by_decision_id="D-security",
+                reason="The new secret handling policy supersedes the old one.",
+            )
+            _accept_runtime_decision(
+                ai_dir,
+                session_id,
+                decision_id="D-product-review",
+                title="Codex review checks",
+                domain="product",
+                recommendation="Run `validate-state --full` before opening PRs.",
+            )
+
+            paths = runtime_paths(ai_dir)
+            normalized = build_agent_instructions_payload(load_runtime(paths), read_event_log(paths))
+            normalized_path = Path(tmp) / "agent-instructions.json"
+            normalized_path.write_text(
+                json.dumps(normalized, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            _load_json_with_schema(normalized_path, "agent-instructions.schema.json")
+
+            event_count_before = len(read_event_log(paths))
+            repo_root = Path(__file__).resolve().parents[2]
+            expected_names = {
+                "agents-md": "AGENTS.md",
+                "cursor": "cursor-decisions.mdc",
+                "claude-skill-fragment": "claude-skill-fragment.md",
+                "codex-profile-fragment": "codex-profile-fragment.md",
+            }
+            first_render: dict[str, str] = {}
+            first_payloads: dict[str, dict] = {}
+            for target, filename in expected_names.items():
+                cli = subprocess.run(
+                    [
+                        sys.executable,
+                        "scripts/decide_me.py",
+                        "export-agent-instructions",
+                        "--ai-dir",
+                        ai_dir,
+                        "--target",
+                        target,
+                    ],
+                    cwd=repo_root,
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertEqual(0, cli.returncode, cli.stderr)
+                payload = json.loads(cli.stdout)
+                first_payloads[target] = payload
+                self.assertEqual(target, payload["target"])
+                self.assertEqual(3, payload["rule_count"])
+                self.assertEqual(str(Path(ai_dir) / "exports" / "agents" / filename), payload["path"])
+                text = Path(payload["path"]).read_text(encoding="utf-8")
+                first_render[target] = text
+                self.assertIn("Source: D-runtime", text)
+                self.assertIn("Source: D-security", text)
+                self.assertIn("Source: D-product-review", text)
+                self.assertNotIn("D-release", text)
+                self.assertNotIn("D-auth-implementation", text)
+                self.assertNotIn("Use the existing auth implementation.", text)
+                self.assertNotIn("D-artifact-storage", text)
+                self.assertNotIn("Use S3; do not use local disk for production artifacts.", text)
+                self.assertNotIn("D-migration-fixture", text)
+                self.assertNotIn("Migration tests must use fixture X.", text)
+                self.assertNotIn("D-email-confirmation", text)
+                self.assertNotIn("Use email confirmation for signup.", text)
+                self.assertNotIn("D-postgres-source", text)
+                self.assertNotIn("PostgreSQL is the source of truth.", text)
+                self.assertNotIn("D-old-security", text)
+                if target == "agents-md":
+                    self.assertIn("<!-- decide-me:start -->", text)
+                    self.assertIn("<!-- decide-me:end -->", text)
+                if target == "cursor":
+                    self.assertIn("alwaysApply: true", text)
+
+            for target, first_payload in first_payloads.items():
+                cli = subprocess.run(
+                    [
+                        sys.executable,
+                        "scripts/decide_me.py",
+                        "export-agent-instructions",
+                        "--ai-dir",
+                        ai_dir,
+                        "--target",
+                        target,
+                    ],
+                    cwd=repo_root,
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertEqual(0, cli.returncode, cli.stderr)
+                second_payload = json.loads(cli.stdout)
+                self.assertEqual(first_payload, second_payload)
+                self.assertEqual(
+                    first_render[target],
+                    Path(second_payload["path"]).read_text(encoding="utf-8"),
+                )
+
+            self.assertEqual(event_count_before, len(read_event_log(paths)))
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_agent_instruction_export_handles_zero_rules(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Export no agent instructions",
+                current_milestone="MVP",
+            )
+            session_id = create_session(ai_dir, context="Product-only decision")["session"]["id"]
+            _accept_runtime_decision(
+                ai_dir,
+                session_id,
+                decision_id="D-release",
+                title="Release shape",
+                domain="product",
+                recommendation="Ship the planner-only release first.",
+            )
+
+            repo_root = Path(__file__).resolve().parents[2]
+            cli = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/decide_me.py",
+                    "export-agent-instructions",
+                    "--ai-dir",
+                    ai_dir,
+                    "--target",
+                    "codex-profile-fragment",
+                ],
+                cwd=repo_root,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(0, cli.returncode, cli.stderr)
+            payload = json.loads(cli.stdout)
+            self.assertEqual(0, payload["rule_count"])
+            self.assertIn(
+                "No agent-relevant decisions found.",
+                Path(payload["path"]).read_text(encoding="utf-8"),
+            )
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_agent_instruction_agents_md_overwrite_safety(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Export AGENTS.md safely",
+                current_milestone="MVP",
+            )
+            session_id = create_session(ai_dir, context="Runtime decision")["session"]["id"]
+            _accept_runtime_decision(
+                ai_dir,
+                session_id,
+                decision_id="D-runtime",
+                title="Runtime source of truth",
+                domain="technical",
+                recommendation="Treat `.ai/decide-me/events/**/*.jsonl` as the source of truth.",
+            )
+
+            unmanaged = Path(tmp) / "AGENTS.md"
+            unmanaged.write_text("# Existing\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "without decide-me markers"):
+                export_agent_instructions(ai_dir, "agents-md", output=unmanaged)
+
+            forced = export_agent_instructions(ai_dir, "agents-md", output=unmanaged, force=True)
+            forced_text = Path(forced["path"]).read_text(encoding="utf-8")
+            self.assertTrue(forced_text.startswith("# Agent Instructions"))
+            self.assertNotIn("# Existing", forced_text)
+
+            marked = Path(tmp) / "MARKED_AGENTS.md"
+            marked.write_text(
+                "# Existing\n\n"
+                "<!-- decide-me:start -->\n"
+                "old generated content\n"
+                "<!-- decide-me:end -->\n\n"
+                "keep this footer\n",
+                encoding="utf-8",
+            )
+            export_agent_instructions(ai_dir, "agents-md", output=marked)
+            marked_text = marked.read_text(encoding="utf-8")
+            self.assertIn("# Existing", marked_text)
+            self.assertIn("keep this footer", marked_text)
+            self.assertIn("Source: D-runtime", marked_text)
+            self.assertNotIn("old generated content", marked_text)
             self.assertEqual([], validate_runtime(ai_dir))
 
     def test_github_template_export_creates_issue_forms(self) -> None:
