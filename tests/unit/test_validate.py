@@ -46,6 +46,37 @@ class ProjectionValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(StateValidationError, "not bound to any session"):
             validate_projection_bundle(bundle)
 
+    def test_resolved_conflict_does_not_hide_winning_same_decision_id(self) -> None:
+        bundle = _valid_bundle()
+        winner = default_session_state("S-winner", "2026-04-23T12:00:00Z", "winner")
+        winner["session"]["decision_ids"] = ["D-001"]
+        bundle["sessions"]["S-winner"] = winner
+        bundle["sessions"]["S-001"]["session"]["decision_ids"] = []
+        bundle["project_state"]["session_graph"]["resolved_conflicts"] = [
+            {
+                "conflict_id": "C-accepted-answer",
+                "winning_session_id": "S-winner",
+                "rejected_session_ids": ["S-001"],
+                "scope": {
+                    "kind": "accepted_decision",
+                    "decision_id": "D-001",
+                    "session_ids": ["S-001", "S-winner"],
+                },
+                "suppressed_context": {
+                    "session_ids": ["S-001"],
+                    "decision_ids": ["D-001"],
+                    "action_slice_names": [],
+                    "workstream_names": [],
+                    "hidden_strings": ["Use the losing answer."],
+                },
+                "reason": "Use the winner.",
+                "resolved_at": "2026-04-23T12:00:00Z",
+                "event_id": "E-resolution",
+            }
+        ]
+
+        validate_projection_bundle(bundle)
+
     def test_rejects_active_proposal_not_owned_by_session(self) -> None:
         bundle = _valid_bundle()
         session = bundle["sessions"]["S-001"]

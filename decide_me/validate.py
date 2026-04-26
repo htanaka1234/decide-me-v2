@@ -377,7 +377,7 @@ def validate_projection_bundle(bundle: dict[str, Any]) -> None:
     if not isinstance(bundle["sessions"], dict):
         raise StateValidationError("projection_bundle.sessions must be a dictionary")
     decisions_by_id = _decision_index(bundle["project_state"])
-    visible_ids = _visible_decision_ids(decisions_by_id, bundle["project_state"])
+    visible_ids = _visible_decision_ids(decisions_by_id)
     taxonomy_ids = set(taxonomy_by_id(bundle["taxonomy_state"]))
     for session_id, session in bundle["sessions"].items():
         validate_session_state(session)
@@ -394,22 +394,23 @@ def validate_projection_bundle(bundle: dict[str, Any]) -> None:
         if proposal.get("is_active") and proposal.get("target_id"):
             active_proposal_targets.setdefault(proposal["target_id"], []).append(session_id)
     _validate_decision_references(decisions_by_id, active_proposal_targets)
-    _validate_visible_decision_bindings(bundle["sessions"], visible_ids)
+    _validate_visible_decision_bindings(
+        bundle["sessions"],
+        visible_ids,
+        # Semantic conflict suppression is session-scoped; rejected-only audit decisions may become unbound.
+        allowed_unbound_decision_ids=suppressed_decision_ids(bundle["project_state"]),
+    )
 
 
 def _decision_index(project_state: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {decision["id"]: decision for decision in project_state["decisions"]}
 
 
-def _visible_decision_ids(
-    decisions_by_id: dict[str, dict[str, Any]],
-    project_state: dict[str, Any],
-) -> set[str]:
-    suppressed_ids = suppressed_decision_ids(project_state)
+def _visible_decision_ids(decisions_by_id: dict[str, dict[str, Any]]) -> set[str]:
     return {
         decision_id
         for decision_id, decision in decisions_by_id.items()
-        if decision.get("status") != "invalidated" and decision_id not in suppressed_ids
+        if decision.get("status") != "invalidated"
     }
 
 
@@ -460,14 +461,18 @@ def _validate_decision_references(
 
 
 def _validate_visible_decision_bindings(
-    sessions: dict[str, dict[str, Any]], visible_decision_ids: set[str]
+    sessions: dict[str, dict[str, Any]],
+    visible_decision_ids: set[str],
+    *,
+    allowed_unbound_decision_ids: set[str] | None = None,
 ) -> None:
+    allowed_unbound_decision_ids = allowed_unbound_decision_ids or set()
     bound_decision_ids = {
         decision_id
         for session in sessions.values()
         for decision_id in session["session"]["decision_ids"]
     }
-    unbound = visible_decision_ids - bound_decision_ids
+    unbound = visible_decision_ids - bound_decision_ids - allowed_unbound_decision_ids
     if unbound:
         raise StateValidationError(
             f"visible decisions are not bound to any session: {sorted(unbound)}"
