@@ -5,6 +5,7 @@ import os
 import subprocess
 import sys
 import unittest
+from unittest import mock
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -44,6 +45,7 @@ from decide_me.store import (
     transact,
     validate_runtime,
 )
+from decide_me.validate import StateValidationError
 
 
 def _raw_event_log_text(ai_dir: str | Path) -> str:
@@ -343,6 +345,120 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertTrue(list((root / "sessions" / session_id).glob("*.jsonl")))
             self.assertFalse((Path(ai_dir) / "event-log.jsonl").exists())
             self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_shell_event_discovery_reads_jsonl_files_with_spaces_in_path(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = Path(tmp) / "runtime with spaces" / ".ai" / "decide-me"
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Discover events through find",
+                current_milestone="MVP",
+            )
+            create_session(str(ai_dir), context="Shell discovery")
+            paths = runtime_paths(ai_dir)
+            discovered = sorted(paths.events_dir.rglob("*.jsonl"))
+            stdout = b"\0".join(str(path).encode("utf-8") for path in discovered) + b"\0"
+            completed = subprocess.CompletedProcess(
+                args=[],
+                returncode=0,
+                stdout=stdout,
+                stderr=b"",
+            )
+
+            with mock.patch.dict(os.environ, {"DECIDE_ME_EVENT_DISCOVERY": "shell"}), mock.patch(
+                "decide_me.store.subprocess.run",
+                return_value=completed,
+            ) as run:
+                events = read_raw_event_log(paths)
+
+            self.assertEqual(["project_initialized", "session_created"], [event["event_type"] for event in events])
+            run.assert_called_once()
+            self.assertEqual(
+                ["find", str(paths.events_dir), "-type", "f", "-name", "*.jsonl", "-print0"],
+                run.call_args.args[0],
+            )
+
+    def test_python_event_discovery_skips_shell(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Discover events through Python",
+                current_milestone="MVP",
+            )
+            paths = runtime_paths(ai_dir)
+
+            with mock.patch.dict(os.environ, {"DECIDE_ME_EVENT_DISCOVERY": "python"}), mock.patch(
+                "decide_me.store.subprocess.run",
+            ) as run:
+                events = read_raw_event_log(paths)
+
+            self.assertEqual(["project_initialized"], [event["event_type"] for event in events])
+            run.assert_not_called()
+
+    def test_auto_event_discovery_falls_back_to_python_when_shell_fails(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Fallback event discovery",
+                current_milestone="MVP",
+            )
+            paths = runtime_paths(ai_dir)
+
+            with mock.patch.dict(os.environ, {"DECIDE_ME_EVENT_DISCOVERY": "auto"}), mock.patch(
+                "decide_me.store.subprocess.run",
+                side_effect=FileNotFoundError("find"),
+            ):
+                events = read_raw_event_log(paths)
+
+            self.assertEqual(["project_initialized"], [event["event_type"] for event in events])
+
+    def test_shell_event_discovery_reports_required_shell_failure(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Required shell discovery",
+                current_milestone="MVP",
+            )
+            paths = runtime_paths(ai_dir)
+
+            with mock.patch.dict(os.environ, {"DECIDE_ME_EVENT_DISCOVERY": "shell"}), mock.patch(
+                "decide_me.store.subprocess.run",
+                side_effect=FileNotFoundError("find"),
+            ):
+                with self.assertRaisesRegex(StateValidationError, "shell event discovery failed"):
+                    read_raw_event_log(paths)
+
+    def test_shell_event_discovery_rejects_paths_outside_events_dir(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = Path(tmp) / ".ai" / "decide-me"
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Reject unsafe shell paths",
+                current_milestone="MVP",
+            )
+            outside = Path(tmp) / "outside.jsonl"
+            outside.write_text("", encoding="utf-8")
+            completed = subprocess.CompletedProcess(
+                args=[],
+                returncode=0,
+                stdout=str(outside).encode("utf-8") + b"\0",
+                stderr=b"",
+            )
+
+            with mock.patch.dict(os.environ, {"DECIDE_ME_EVENT_DISCOVERY": "auto"}), mock.patch(
+                "decide_me.store.subprocess.run",
+                return_value=completed,
+            ):
+                with self.assertRaisesRegex(StateValidationError, "outside events"):
+                    read_raw_event_log(runtime_paths(ai_dir))
 
     def test_load_runtime_uses_projection_cache_without_reading_event_log(self) -> None:
         with TemporaryDirectory() as tmp:

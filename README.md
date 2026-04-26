@@ -215,6 +215,10 @@ reference. Common maintainer operations include:
   `compact-runtime`
 - `benchmark-runtime` with `DECIDE_ME_PERF=1`
 
+Full event-log replay uses `find` for event file discovery when available. Set
+`DECIDE_ME_EVENT_DISCOVERY=python` to force pure Python discovery, or
+`DECIDE_ME_EVENT_DISCOVERY=shell` to require shell discovery.
+
 Run the test suite with:
 
 ```bash

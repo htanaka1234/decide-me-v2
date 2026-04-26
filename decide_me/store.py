@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import hashlib
+import subprocess
 import time
 from contextlib import contextmanager
 from copy import deepcopy
@@ -29,6 +30,11 @@ except ImportError:  # pragma: no cover
 SYSTEM_SESSION_ID = "SYSTEM"
 CONTROL_EVENT_TYPES = {"transaction_rejected", "session_linked", "semantic_conflict_resolved"}
 RUNTIME_INDEX_SCHEMA_VERSION = 1
+EVENT_DISCOVERY_ENV = "DECIDE_ME_EVENT_DISCOVERY"
+
+
+class _ShellEventDiscoveryFailed(StateValidationError):
+    pass
 
 
 @dataclass(frozen=True)
@@ -92,7 +98,7 @@ def read_raw_event_log(paths: RuntimePaths) -> list[dict[str, Any]]:
     if not paths.events_dir.exists():
         return []
     events: list[dict[str, Any]] = []
-    for path in sorted(paths.events_dir.rglob("*.jsonl")):
+    for path in _event_files(paths):
         if not path.is_file():
             continue
         with path.open("r", encoding="utf-8") as handle:
@@ -516,7 +522,58 @@ def _next_transaction_timestamp(runtime_index: dict[str, Any], candidate: str) -
 def _event_files(paths: RuntimePaths) -> list[Path]:
     if not paths.events_dir.exists():
         return []
+    mode = os.environ.get(EVENT_DISCOVERY_ENV, "auto").strip().casefold() or "auto"
+    if mode == "python":
+        return _python_event_files(paths)
+    if mode == "shell":
+        return _shell_event_files(paths)
+    if mode == "auto":
+        try:
+            return _shell_event_files(paths)
+        except _ShellEventDiscoveryFailed:
+            return _python_event_files(paths)
+    raise StateValidationError(f"{EVENT_DISCOVERY_ENV} must be one of: auto, python, shell")
+
+
+def _python_event_files(paths: RuntimePaths) -> list[Path]:
     return sorted(path for path in paths.events_dir.rglob("*.jsonl") if path.is_file())
+
+
+def _shell_event_files(paths: RuntimePaths) -> list[Path]:
+    try:
+        completed = subprocess.run(
+            ["find", str(paths.events_dir), "-type", "f", "-name", "*.jsonl", "-print0"],
+            check=False,
+            capture_output=True,
+        )
+    except OSError as exc:
+        raise _ShellEventDiscoveryFailed(f"shell event discovery failed: {exc}") from exc
+
+    if completed.returncode != 0:
+        stderr = completed.stderr.decode("utf-8", errors="replace").strip()
+        detail = f": {stderr}" if stderr else ""
+        raise _ShellEventDiscoveryFailed(f"shell event discovery failed with exit code {completed.returncode}{detail}")
+
+    events_root = paths.events_dir.resolve()
+    event_files: list[Path] = []
+    for raw_path in completed.stdout.split(b"\0"):
+        if not raw_path:
+            continue
+        try:
+            discovered = Path(raw_path.decode("utf-8"))
+        except UnicodeDecodeError as exc:
+            raise StateValidationError("shell event discovery returned a non-UTF-8 path") from exc
+
+        resolved = discovered.resolve()
+        try:
+            relative = resolved.relative_to(events_root)
+        except ValueError as exc:
+            raise StateValidationError("shell event discovery returned a path outside events/") from exc
+
+        path = paths.events_dir / relative
+        if path.is_file():
+            event_files.append(path)
+    return sorted(event_files)
 
 
 def _reject_legacy_event_log(paths: RuntimePaths) -> None:
