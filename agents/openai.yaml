@@ -1,0 +1,7 @@
+interface:
+  display_name: "Decide Me"
+  short_description: "Clarify decisions into implementation plans"
+  default_prompt: "Use $decide-me to clarify this project decision and produce a plan-ready summary."
+
+policy:
+  allow_implicit_invocation: true

@@ -12,6 +12,7 @@
 !.ai/decide-me/exports/**/*.md
 .codex-runtime/
 decide-me-v2.zip
+dist/
 __pycache__/
 *.py[cod]
 .pytest_cache/
