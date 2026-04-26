@@ -788,7 +788,6 @@ def find_evidence_candidates(
     ]
 
 
-
 def _runtime_evidence(
     bundle: dict[str, Any], session_id: str, decision: dict[str, Any]
 ) -> dict[str, Any] | None:
@@ -837,7 +836,7 @@ def _runtime_evidence(
 
 def _search_repo(repo_root: Path, phrases: list[str], source: str) -> list[str]:
     rg_matches = _search_repo_with_rg(repo_root, phrases, source)
-    if rg_matches:
+    if rg_matches is not None:
         return rg_matches
 
     matches: list[str] = []
@@ -847,9 +846,7 @@ def _search_repo(repo_root: Path, phrases: list[str], source: str) -> list[str]:
             continue
         if _file_matches_phrases(path, phrases):
             matches.append(_relative_ref(repo_root, path))
-        if len(matches) >= 3:
-            break
-    return matches
+    return _stable_repo_refs(matches)
 
 
 def _search_repo_with_rg(repo_root: Path, phrases: list[str], source: str) -> list[str] | None:
@@ -897,9 +894,11 @@ def _search_repo_with_rg(repo_root: Path, phrases: list[str], source: str) -> li
         if not _file_matches_phrases(path, phrases):
             continue
         matches.append(_relative_ref(repo_root, path))
-        if len(matches) >= 3:
-            break
-    return matches
+    return _stable_repo_refs(matches)
+
+
+def _stable_repo_refs(refs: Iterable[str]) -> list[str]:
+    return sorted(set(refs))[:3]
 
 
 def _rg_patterns(terms: list[str]) -> list[str]:
@@ -1132,11 +1131,11 @@ def _render_auto_resolved(auto_resolved: list[dict[str, Any]]) -> str:
 
 
 def _render_evidence_candidates(evidence_candidates: list[dict[str, Any]]) -> str:
-    lines = ["Evidence candidates:"]
+    lines = ["Evidence candidates (not applied automatically):"]
     for item in evidence_candidates:
         refs = ", ".join(item["evidence_refs"]) if item["evidence_refs"] else "no refs recorded"
         lines.append(
-            f"- {item['decision_id']} ({item['source']}: {refs}) -> {item['candidate_answer']}"
+            f"- {item['decision_id']} ({item['source']}: {refs}) -> candidate answer: {item['candidate_answer']}"
         )
     return "\n".join(lines)
 

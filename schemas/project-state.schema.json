@@ -56,17 +56,16 @@
       ],
       "properties": {
         "project_head": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "event_count": {
           "type": "integer",
           "minimum": 1
         },
         "updated_at": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "type": "string",
+          "format": "date-time"
         },
         "last_event_id": {
           "type": [
@@ -475,7 +474,134 @@
             "additionalProperties": false
           }
         },
-        "additionalProperties": true
+        "additionalProperties": true,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "accepted"
+                }
+              },
+              "required": [
+                "status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "accepted_answer": {
+                  "properties": {
+                    "summary": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "accepted_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "accepted_via": {
+                      "type": "string",
+                      "enum": [
+                        "ok",
+                        "explicit"
+                      ]
+                    },
+                    "proposal_id": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "resolved-by-evidence"
+                }
+              },
+              "required": [
+                "status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "accepted_answer": {
+                  "properties": {
+                    "summary": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "accepted_via": {
+                      "const": "evidence"
+                    }
+                  }
+                },
+                "resolved_by_evidence": {
+                  "properties": {
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "codebase",
+                        "docs",
+                        "tests",
+                        "external",
+                        "existing-decisions",
+                        "close-summaries"
+                      ]
+                    },
+                    "summary": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "resolved_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "enum": [
+                    "unresolved",
+                    "proposed",
+                    "rejected",
+                    "deferred",
+                    "blocked"
+                  ]
+                }
+              },
+              "required": [
+                "status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "accepted_answer": {
+                  "properties": {
+                    "summary": {
+                      "type": "null"
+                    }
+                  }
+                },
+                "resolved_by_evidence": {
+                  "properties": {
+                    "summary": {
+                      "type": "null"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
       }
     }
   },

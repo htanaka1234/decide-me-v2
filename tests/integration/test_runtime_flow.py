@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from copy import deepcopy
+from datetime import datetime
 import json
 import os
 import subprocess
@@ -8,6 +10,8 @@ import unittest
 from unittest import mock
 from pathlib import Path
 from tempfile import TemporaryDirectory
+
+from jsonschema import Draft202012Validator, FormatChecker
 
 from decide_me.classification import classify_session
 from decide_me.conflicts import detect_merge_conflicts, resolve_merge_conflict
@@ -652,6 +656,42 @@ class RuntimeFlowTests(unittest.TestCase):
 
             self.assertNotEqual(before, linked)
             self.assertEqual(linked, _raw_event_log_text(ai_dir))
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_link_session_allows_same_pair_with_different_relationship(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Typed session graph links",
+                current_milestone="MVP",
+            )
+            parent_id = create_session(ai_dir, context="Parent")["session"]["id"]
+            child_id = create_session(ai_dir, context="Child")["session"]["id"]
+
+            link_session(
+                ai_dir,
+                parent_session_id=parent_id,
+                child_session_id=child_id,
+                relationship="refines",
+                reason="Child refines parent.",
+            )
+            link_session(
+                ai_dir,
+                parent_session_id=parent_id,
+                child_session_id=child_id,
+                relationship="depends_on",
+                reason="Child also depends on parent.",
+            )
+
+            graph = show_session_graph(ai_dir)["session_graph"]
+            relationships = sorted(
+                edge["relationship"]
+                for edge in graph["edges"]
+                if edge["parent_session_id"] == parent_id and edge["child_session_id"] == child_id
+            )
+            self.assertEqual(["depends_on", "refines"], relationships)
             self.assertEqual([], validate_runtime(ai_dir))
 
     def test_link_session_rejects_cycle_before_write_but_allows_contradicts(self) -> None:
@@ -3126,8 +3166,21 @@ class RuntimeFlowTests(unittest.TestCase):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / "app").mkdir()
+            (root / "app" / "nested").mkdir()
             (root / "app" / "auth.py").write_text(
                 "def login():\n    return 'magic link auth flow'\n",
+                encoding="utf-8",
+            )
+            (root / "app" / "z_auth.py").write_text(
+                "def login_backup():\n    return 'magic link auth flow'\n",
+                encoding="utf-8",
+            )
+            (root / "app" / "nested" / "magic.py").write_text(
+                "def nested_login():\n    return 'magic link auth flow'\n",
+                encoding="utf-8",
+            )
+            (root / "app" / "other.py").write_text(
+                "def other_login():\n    return 'magic link auth flow'\n",
                 encoding="utf-8",
             )
             ai_dir = str(root / ".ai" / "decide-me")
@@ -3177,9 +3230,19 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertEqual(1, len(turn["evidence_candidates"]))
             self.assertEqual("D-001", turn["evidence_candidates"][0]["decision_id"])
             self.assertEqual("codebase", turn["evidence_candidates"][0]["source"])
-            self.assertIn("app/auth.py", turn["evidence_candidates"][0]["evidence_refs"])
-            self.assertIn("Evidence candidates:", turn["message"])
+            self.assertEqual(
+                ["app/auth.py", "app/nested/magic.py", "app/other.py"],
+                turn["evidence_candidates"][0]["evidence_refs"],
+            )
+            self.assertIn("Evidence candidates (not applied automatically):", turn["message"])
+            self.assertIn("candidate answer:", turn["message"])
             self.assertNotIn("Resolved by evidence: D-001", turn["message"])
+
+            event_count = len(read_event_log(runtime_paths(ai_dir)))
+            repeated_turn = advance_session(ai_dir, session_id, repo_root=root)
+            self.assertTrue(repeated_turn["reused_active_proposal"])
+            self.assertEqual(turn["evidence_candidates"], repeated_turn["evidence_candidates"])
+            self.assertEqual(event_count, len(read_event_log(runtime_paths(ai_dir))))
 
             reply = handle_reply(ai_dir, session_id, "OK", repo_root=root)
             self.assertEqual("accepted", reply["status"])
@@ -3228,25 +3291,156 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertEqual("proposed", turn["decision"]["status"])
             self.assertEqual([], validate_runtime(ai_dir))
 
-    def test_project_state_schema_rejects_null_project_fields(self) -> None:
+    def test_project_state_schema_matches_runtime_validation_contract(self) -> None:
         schema_path = Path(__file__).resolve().parents[2] / "schemas" / "project-state.schema.json"
         schema = json.loads(schema_path.read_text(encoding="utf-8"))
+        Draft202012Validator.check_schema(schema)
+        format_checker = FormatChecker()
 
-        project_properties = schema["properties"]["project"]["properties"]
-        for key in ("name", "objective", "current_milestone", "stop_rule"):
-            self.assertEqual("string", project_properties[key]["type"])
-            self.assertEqual(1, project_properties[key]["minLength"])
+        @format_checker.checks("date-time")
+        def is_date_time(value: object) -> bool:
+            if not isinstance(value, str):
+                return False
+            try:
+                datetime.fromisoformat(value.replace("Z", "+00:00"))
+            except ValueError:
+                return False
+            return True
 
-        decision_properties = schema["properties"]["decisions"]["items"]["properties"]
-        self.assertEqual(
-            ["choice", "constraint", "risk", "dependency"],
-            decision_properties["kind"]["enum"],
-        )
-        self.assertIn("technical", decision_properties["domain"]["enum"])
-        self.assertIn("codebase", decision_properties["resolvable_by"]["enum"])
-        self.assertIn("hard-to-reverse", decision_properties["reversibility"]["enum"])
-        self.assertEqual("string", decision_properties["depends_on"]["items"]["type"])
-        self.assertEqual("string", decision_properties["resolved_by_evidence"]["properties"]["evidence_refs"]["items"]["type"])
+        validator = Draft202012Validator(schema, format_checker=format_checker)
+
+        def errors_for(project_state: dict) -> list[str]:
+            errors = sorted(
+                validator.iter_errors(project_state),
+                key=lambda error: "/".join(str(part) for part in error.absolute_path),
+            )
+            return [error.message for error in errors]
+
+        def assert_valid(project_state: dict) -> None:
+            self.assertEqual([], errors_for(project_state))
+
+        def assert_invalid(project_state: dict) -> None:
+            self.assertTrue(errors_for(project_state))
+
+        def decision_by_id(project_state: dict, decision_id: str) -> dict:
+            return next(decision for decision in project_state["decisions"] if decision["id"] == decision_id)
+
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            ai_dir = str(root / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Validate project state schema",
+                current_milestone="MVP",
+            )
+            project_state = load_runtime(runtime_paths(ai_dir))["project_state"]
+            assert_valid(project_state)
+
+            invalid = deepcopy(project_state)
+            invalid["project"]["name"] = None
+            assert_invalid(invalid)
+
+            invalid = deepcopy(project_state)
+            invalid["state"]["project_head"] = ""
+            assert_invalid(invalid)
+
+            invalid = deepcopy(project_state)
+            invalid["state"]["updated_at"] = None
+            assert_invalid(invalid)
+
+            invalid = deepcopy(project_state)
+            invalid["state"]["updated_at"] = "not-time"
+            assert_invalid(invalid)
+
+            session_id = create_session(ai_dir, context="Schema decision")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-open",
+                    "title": "Open schema decision",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "resolvable_by": "human",
+                    "question": "Which option should be used?",
+                    "options": [{"summary": "Use the default option."}],
+                },
+            )
+            open_state = load_runtime(runtime_paths(ai_dir))["project_state"]
+            assert_valid(open_state)
+
+            invalid = deepcopy(open_state)
+            decision_by_id(invalid, "D-open")["accepted_answer"]["summary"] = "Accepted too early."
+            assert_invalid(invalid)
+
+            invalid = deepcopy(open_state)
+            decision_by_id(invalid, "D-open")["resolved_by_evidence"]["summary"] = "Evidence too early."
+            assert_invalid(invalid)
+
+            advance_session(ai_dir, session_id, repo_root=root)
+            accept_proposal(ai_dir, session_id)
+            accepted_state = load_runtime(runtime_paths(ai_dir))["project_state"]
+            assert_valid(accepted_state)
+
+            invalid = deepcopy(accepted_state)
+            decision_by_id(invalid, "D-open")["accepted_answer"]["summary"] = None
+            assert_invalid(invalid)
+
+            invalid = deepcopy(accepted_state)
+            decision_by_id(invalid, "D-open")["accepted_answer"]["accepted_at"] = "not-time"
+            assert_invalid(invalid)
+
+            invalid = deepcopy(accepted_state)
+            decision_by_id(invalid, "D-open")["accepted_answer"]["accepted_via"] = "evidence"
+            assert_invalid(invalid)
+
+            invalid = deepcopy(accepted_state)
+            decision_by_id(invalid, "D-open")["accepted_answer"]["proposal_id"] = ""
+            assert_invalid(invalid)
+
+            evidence_session_id = create_session(ai_dir, context="Evidence schema decision")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                evidence_session_id,
+                {
+                    "id": "D-evidence",
+                    "title": "Evidence schema decision",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "resolvable_by": "codebase",
+                    "question": "Can this be resolved from evidence?",
+                    "options": [{"summary": "Use the evidence-backed option."}],
+                },
+            )
+            resolve_by_evidence(
+                ai_dir,
+                evidence_session_id,
+                decision_id="D-evidence",
+                source="existing-decisions",
+                summary="Use the evidence-backed option.",
+                evidence_refs=["D-open"],
+            )
+            evidence_state = load_runtime(runtime_paths(ai_dir))["project_state"]
+            assert_valid(evidence_state)
+
+            invalid = deepcopy(evidence_state)
+            decision_by_id(invalid, "D-evidence")["resolved_by_evidence"]["summary"] = None
+            assert_invalid(invalid)
+
+            invalid = deepcopy(evidence_state)
+            del decision_by_id(invalid, "D-evidence")["resolved_by_evidence"]["source"]
+            assert_invalid(invalid)
+
+            invalid = deepcopy(evidence_state)
+            decision_by_id(invalid, "D-evidence")["resolved_by_evidence"]["resolved_at"] = "not-time"
+            assert_invalid(invalid)
+
+            invalid = deepcopy(evidence_state)
+            decision_by_id(invalid, "D-evidence")["accepted_answer"]["accepted_via"] = "explicit"
+            assert_invalid(invalid)
 
     def test_cli_bootstrap_works_with_pythonpath_repo_root(self) -> None:
         repo_root = Path(__file__).resolve().parents[2]
@@ -3672,7 +3866,8 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertEqual(discovered["id"], reply["next_turn"]["evidence_candidates"][0]["decision_id"])
             self.assertEqual("codebase", reply["next_turn"]["evidence_candidates"][0]["source"])
             self.assertIn("app/auth.py", reply["next_turn"]["evidence_candidates"][0]["evidence_refs"])
-            self.assertIn("Evidence candidates:", reply["message"])
+            self.assertIn("Evidence candidates (not applied automatically):", reply["message"])
+            self.assertIn("candidate answer:", reply["message"])
             self.assertNotIn("Resolved by evidence:", reply["message"])
             self.assertEqual([], validate_runtime(ai_dir))
 
