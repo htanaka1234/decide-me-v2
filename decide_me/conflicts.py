@@ -19,7 +19,12 @@ from decide_me.store import (
     rejected_transaction_ids,
     runtime_paths,
 )
-from decide_me.validate import StateValidationError, validate_event_log, validate_projection_bundle
+from decide_me.validate import (
+    SESSION_MUTATION_EVENT_TYPES,
+    StateValidationError,
+    validate_event_log,
+    validate_projection_bundle,
+)
 
 
 MAX_REJECTION_SET_SIZE = 2
@@ -53,12 +58,15 @@ def _detect_merge_conflicts_from_invalid_events(
         )
         if not resolution_options:
             continue
-        candidate_ids = _conflict_participant_tx_ids(
+        candidate_ids, option_payloads = _resolution_options_with_participants(
             conflict_message,
+            effective_events,
             transactions,
             candidate_tx_ids,
             resolution_options,
         )
+        if not option_payloads:
+            continue
         conflicts.append(
             {
                 "session_id": session_id,
@@ -67,10 +75,7 @@ def _detect_merge_conflicts_from_invalid_events(
                 "candidate_transactions": [
                     _summarize_transaction(tx_id, transactions[tx_id]) for tx_id in candidate_ids
                 ],
-                "resolution_options": _resolution_option_payloads(
-                    resolution_options,
-                    candidate_ids,
-                ),
+                "resolution_options": option_payloads,
             }
         )
         break
@@ -172,13 +177,58 @@ def _valid_resolution_options(
     return options
 
 
-def _conflict_participant_tx_ids(
+def _resolution_options_with_participants(
     conflict_message: str,
+    events: list[dict[str, Any]],
     transactions: dict[str, list[dict[str, Any]]],
     candidate_tx_ids: list[str],
     resolution_options: list[tuple[str, ...]],
-) -> list[str]:
-    participants = {tx_id for option in resolution_options for tx_id in option}
+) -> tuple[list[str], list[dict[str, list[str]]]]:
+    conflict_kind = _classify_conflict(conflict_message)
+    all_option_tx_ids = {tx_id for option in resolution_options for tx_id in option}
+    entity_tx_ids = _entity_participant_tx_ids(conflict_message, transactions, candidate_tx_ids)
+    lifecycle_tx_ids = (
+        _session_lifecycle_participant_tx_ids(events, transactions, candidate_tx_ids)
+        if conflict_kind == "session-lifecycle-conflict"
+        else set()
+    )
+    allow_option_union_fallback = conflict_kind in {
+        "competing-active-proposals",
+        "proposal-response-conflict",
+        "duplicate-decision-discovery",
+        "session-lifecycle-conflict",
+    }
+
+    candidate_ids: set[str] = set()
+    payloads: list[dict[str, list[str]]] = []
+    for option in resolution_options:
+        rejected = set(option)
+        participants = set(rejected) | entity_tx_ids | lifecycle_tx_ids
+        if len(participants) < 2 and allow_option_union_fallback:
+            participants |= all_option_tx_ids
+        if len(participants) < 2:
+            continue
+        reject_tx_ids = list(option)
+        surviving_tx_ids = sorted(participants - rejected)
+        if not surviving_tx_ids:
+            continue
+        candidate_ids.update(participants)
+        payloads.append(
+            {
+                "reject_tx_ids": reject_tx_ids,
+                "surviving_tx_ids": surviving_tx_ids,
+                "keep_tx_ids": list(surviving_tx_ids),
+            }
+        )
+    return sorted(candidate_ids), payloads
+
+
+def _entity_participant_tx_ids(
+    conflict_message: str,
+    transactions: dict[str, list[dict[str, Any]]],
+    candidate_tx_ids: list[str],
+) -> set[str]:
+    participants: set[str] = set()
     proposal_ids = {
         entity_id for entity_id in ENTITY_ID_PATTERN.findall(conflict_message) if entity_id.startswith("P-")
     }
@@ -191,28 +241,31 @@ def _conflict_participant_tx_ids(
         tx_decision_ids = {decision_id for event in tx_events for decision_id in _decision_ids(event)}
         if proposal_ids & tx_proposal_ids or decision_ids & tx_decision_ids:
             participants.add(tx_id)
-    if len(participants) < 2:
-        return sorted(candidate_tx_ids)
-    return sorted(participants)
+    return participants
 
 
-def _resolution_option_payloads(
-    resolution_options: list[tuple[str, ...]],
+def _session_lifecycle_participant_tx_ids(
+    events: list[dict[str, Any]],
+    transactions: dict[str, list[dict[str, Any]]],
     candidate_tx_ids: list[str],
-) -> list[dict[str, list[str]]]:
-    payloads: list[dict[str, list[str]]] = []
-    for option in resolution_options:
-        reject_tx_ids = list(option)
-        rejected = set(reject_tx_ids)
-        surviving_tx_ids = [tx_id for tx_id in candidate_tx_ids if tx_id not in rejected]
-        payloads.append(
-            {
-                "reject_tx_ids": reject_tx_ids,
-                "surviving_tx_ids": surviving_tx_ids,
-                "keep_tx_ids": list(surviving_tx_ids),
-            }
-        )
-    return payloads
+) -> set[str]:
+    candidate_set = set(candidate_tx_ids)
+    close_tx_ids = {
+        tx_id
+        for tx_id in candidate_set
+        if any(event["event_type"] == "session_closed" for event in transactions[tx_id])
+    }
+    late_mutation_tx_ids: set[str] = set()
+    closed_sessions: set[str] = set()
+    for event in canonicalize_events(events):
+        session_id = event["session_id"]
+        tx_id = event["tx_id"]
+        if session_id in closed_sessions and tx_id in candidate_set:
+            if event["event_type"] in SESSION_MUTATION_EVENT_TYPES or event["event_type"] == "session_closed":
+                late_mutation_tx_ids.add(tx_id)
+        if event["event_type"] == "session_closed":
+            closed_sessions.add(session_id)
+    return close_tx_ids | late_mutation_tx_ids
 
 
 def _validate_resolution_option(

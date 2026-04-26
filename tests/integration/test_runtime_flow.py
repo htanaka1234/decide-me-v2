@@ -885,6 +885,90 @@ class RuntimeFlowTests(unittest.TestCase):
                     reason="Invalid target.",
                 )
 
+    def test_lifecycle_merge_conflict_candidates_exclude_unrelated_keep_transaction(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Resolve lifecycle conflicts",
+                current_milestone="MVP",
+            )
+            session_id = create_session(ai_dir, context="Lifecycle thread")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-lifecycle",
+                    "title": "Lifecycle decision",
+                    "priority": "P0",
+                    "frontier": "now",
+                },
+            )
+            unrelated_tx_id = next(
+                event["tx_id"]
+                for event in read_event_log(runtime_paths(ai_dir))
+                if event["event_type"] == "decision_discovered"
+                and event["payload"]["decision"]["id"] == "D-lifecycle"
+            )
+            close_session(ai_dir, session_id)
+            close_tx_id = next(
+                event["tx_id"]
+                for event in read_event_log(runtime_paths(ai_dir))
+                if event["event_type"] == "session_closed"
+            )
+            late_tx_id = "T-20990101T000004000000Z-late-classification"
+            late_event = build_event(
+                tx_id=late_tx_id,
+                tx_index=1,
+                tx_size=1,
+                event_id="E-late-classification",
+                session_id=session_id,
+                event_type="classification_updated",
+                payload={
+                    "classification": {
+                        "domain": "technical",
+                        "abstraction_level": "architecture",
+                        "assigned_tags": [],
+                        "compatibility_tags": [],
+                        "search_terms": ["lifecycle"],
+                        "source_refs": [],
+                        "updated_at": "2099-01-01T00:00:04Z",
+                    }
+                },
+                timestamp="2099-01-01T00:00:04Z",
+            )
+            _write_event_file(ai_dir, session_id, late_tx_id, [late_event])
+
+            conflicts = detect_merge_conflicts(ai_dir)
+            self.assertEqual(1, len(conflicts))
+            self.assertEqual("session-lifecycle-conflict", conflicts[0]["kind"])
+            candidate_tx_ids = {item["tx_id"] for item in conflicts[0]["candidate_transactions"]}
+            self.assertEqual({close_tx_id, late_tx_id}, candidate_tx_ids)
+            reject_late_option = next(
+                option for option in conflicts[0]["resolution_options"] if option["reject_tx_ids"] == [late_tx_id]
+            )
+            self.assertEqual([close_tx_id], reject_late_option["surviving_tx_ids"])
+            self.assertNotIn(unrelated_tx_id, reject_late_option["surviving_tx_ids"])
+
+            with self.assertRaisesRegex(ValueError, "not part of the unresolved merge conflict"):
+                resolve_merge_conflict(
+                    ai_dir,
+                    session_id=session_id,
+                    keep_tx_id=unrelated_tx_id,
+                    reject_tx_ids=[late_tx_id],
+                    reason="Invalid keep target.",
+                )
+
+            resolve_merge_conflict(
+                ai_dir,
+                session_id=session_id,
+                keep_tx_id=close_tx_id,
+                reject_tx_ids=[late_tx_id],
+                reason="Keep the session close and reject the late mutation.",
+            )
+            self.assertEqual([], validate_runtime(ai_dir))
+
     def test_transaction_rejection_does_not_hide_raw_structure_errors(self) -> None:
         with TemporaryDirectory() as tmp:
             ai_dir = str(Path(tmp) / ".ai" / "decide-me")
