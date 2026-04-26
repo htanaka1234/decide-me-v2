@@ -9,6 +9,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from decide_me.classification import classify_session
+from decide_me.conflicts import detect_merge_conflicts, resolve_merge_conflict
 from decide_me.exports import export_adr
 from decide_me.events import build_event, utc_now
 from decide_me.interview import advance_session, handle_reply
@@ -28,6 +29,7 @@ from decide_me.protocol import (
 )
 from decide_me.store import (
     bootstrap_runtime,
+    read_raw_event_log,
     read_event_log,
     rebuild_and_persist,
     runtime_paths,
@@ -47,6 +49,111 @@ def _write_event_file(ai_dir: str | Path, session_id: str, tx_id: str, events: l
     directory.mkdir(parents=True, exist_ok=True)
     body = "".join(json.dumps(event, ensure_ascii=False, sort_keys=True) + "\n" for event in events)
     (directory / f"{tx_id}.jsonl").write_text(body, encoding="utf-8")
+
+
+def _create_parallel_proposal_conflict(
+    ai_dir: str | Path, *, include_other_session: bool = False
+) -> dict[str, str]:
+    bootstrap_runtime(
+        ai_dir,
+        project_name="Demo",
+        objective="Reject semantic conflicts",
+        current_milestone="MVP",
+    )
+    session_id = create_session(str(ai_dir), context="Decision thread")["session"]["id"]
+    other_tx_id = ""
+    if include_other_session:
+        other_session_id = create_session(str(ai_dir), context="Other thread")["session"]["id"]
+        discover_decision(
+            str(ai_dir),
+            other_session_id,
+            {"id": "D-other", "title": "Other decision", "priority": "P0", "frontier": "now"},
+        )
+        other_tx_id = next(
+            event["tx_id"]
+            for event in read_event_log(runtime_paths(ai_dir))
+            if event["event_type"] == "decision_discovered"
+            and event["payload"]["decision"]["id"] == "D-other"
+        )
+
+    for decision_id, title in (("D-conflict-a", "Auth mode"), ("D-conflict-b", "Audit sink")):
+        discover_decision(
+            str(ai_dir),
+            session_id,
+            {
+                "id": decision_id,
+                "title": title,
+                "priority": "P0",
+                "frontier": "now",
+                "domain": "technical",
+                "question": f"Resolve {title}?",
+            },
+        )
+    first_proposal = issue_proposal(
+        str(ai_dir),
+        session_id,
+        decision_id="D-conflict-a",
+        question="Use magic links?",
+        recommendation="Use magic links.",
+        why="Smaller MVP surface area.",
+        if_not="Passwords expand auth scope.",
+    )
+    first_tx_id = next(
+        event["tx_id"]
+        for event in read_event_log(runtime_paths(ai_dir))
+        if event["event_type"] == "proposal_issued"
+        and event["payload"]["proposal"]["proposal_id"] == first_proposal["proposal_id"]
+    )
+
+    conflict_tx_id = "T-20990101T000000000000Z-conflict"
+    question = build_event(
+        tx_id=conflict_tx_id,
+        tx_index=1,
+        tx_size=2,
+        event_id="E-conflict-1",
+        session_id=session_id,
+        event_type="question_asked",
+        payload={
+            "decision_id": "D-conflict-b",
+            "question_id": "Q-conflict",
+            "question": "Use product database?",
+        },
+        timestamp="2099-01-01T00:00:00Z",
+    )
+    proposal = build_event(
+        tx_id=conflict_tx_id,
+        tx_index=2,
+        tx_size=2,
+        event_id="E-conflict-2",
+        session_id=session_id,
+        event_type="proposal_issued",
+        payload={
+            "proposal": {
+                "proposal_id": "P-conflict",
+                "origin_session_id": session_id,
+                "target_type": "decision",
+                "target_id": "D-conflict-b",
+                "recommendation_version": 1,
+                "based_on_project_head": "H-conflict",
+                "question_id": "Q-conflict",
+                "question": "Use product database?",
+                "recommendation": "Use the product database.",
+                "why": "Cheaper for the milestone.",
+                "if_not": "A separate sink becomes in scope now.",
+                "is_active": True,
+                "activated_at": "2099-01-01T00:00:00Z",
+                "inactive_reason": None,
+            }
+        },
+        timestamp="2099-01-01T00:00:00Z",
+    )
+    _write_event_file(ai_dir, session_id, conflict_tx_id, [question, proposal])
+    return {
+        "session_id": session_id,
+        "first_tx_id": first_tx_id,
+        "conflict_tx_id": conflict_tx_id,
+        "other_tx_id": other_tx_id,
+    }
 
 
 class RuntimeFlowTests(unittest.TestCase):
@@ -183,83 +290,253 @@ class RuntimeFlowTests(unittest.TestCase):
     def test_same_session_conflicting_parallel_proposal_transactions_fail_validation(self) -> None:
         with TemporaryDirectory() as tmp:
             ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            _create_parallel_proposal_conflict(ai_dir)
+
+            issues = validate_runtime(ai_dir)
+            self.assertGreaterEqual(len(issues), 1)
+            self.assertIn("proposal_issued while proposal", issues[0])
+
+    def test_detects_same_session_merge_conflict_candidates(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            ids = _create_parallel_proposal_conflict(ai_dir)
+
+            conflicts = detect_merge_conflicts(ai_dir)
+
+            self.assertEqual(1, len(conflicts))
+            self.assertEqual(ids["session_id"], conflicts[0]["session_id"])
+            self.assertEqual("competing-active-proposals", conflicts[0]["kind"])
+            candidate_tx_ids = {item["tx_id"] for item in conflicts[0]["candidate_transactions"]}
+            self.assertEqual({ids["first_tx_id"], ids["conflict_tx_id"]}, candidate_tx_ids)
+
+    def test_cli_detects_and_resolves_same_session_merge_conflict(self) -> None:
+        repo_root = Path(__file__).resolve().parents[2]
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            ids = _create_parallel_proposal_conflict(ai_dir)
+
+            detected = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/decide_me.py",
+                    "detect-merge-conflicts",
+                    "--ai-dir",
+                    ai_dir,
+                ],
+                cwd=repo_root,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(0, detected.returncode, detected.stderr)
+            payload = json.loads(detected.stdout)
+            self.assertFalse(payload["ok"])
+            self.assertEqual(1, len(payload["conflicts"]))
+
+            resolved = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/decide_me.py",
+                    "resolve-merge-conflict",
+                    "--ai-dir",
+                    ai_dir,
+                    "--session-id",
+                    ids["session_id"],
+                    "--keep-tx-id",
+                    ids["first_tx_id"],
+                    "--reject-tx-id",
+                    ids["conflict_tx_id"],
+                    "--reason",
+                    "Keep the earlier branch.",
+                ],
+                cwd=repo_root,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(0, resolved.returncode, resolved.stderr)
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_resolves_same_session_conflict_by_rejecting_later_transaction(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            ids = _create_parallel_proposal_conflict(ai_dir)
+
+            result = resolve_merge_conflict(
+                ai_dir,
+                session_id=ids["session_id"],
+                keep_tx_id=ids["first_tx_id"],
+                reject_tx_ids=[ids["conflict_tx_id"]],
+                reason="Keep the earlier proposal branch.",
+            )
+
+            self.assertEqual(ids["first_tx_id"], result["kept_tx_id"])
+            self.assertEqual([ids["conflict_tx_id"]], result["rejected_tx_ids"])
+            self.assertEqual([], validate_runtime(ai_dir))
+            raw_tx_ids = {event["tx_id"] for event in read_raw_event_log(runtime_paths(ai_dir))}
+            effective_events = read_event_log(runtime_paths(ai_dir))
+            effective_tx_ids = {event["tx_id"] for event in effective_events}
+            self.assertIn(ids["conflict_tx_id"], raw_tx_ids)
+            self.assertNotIn(ids["conflict_tx_id"], effective_tx_ids)
+            self.assertIn(result["resolution_event"]["tx_id"], effective_tx_ids)
+
+    def test_resolves_same_session_conflict_by_rejecting_earlier_transaction(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            ids = _create_parallel_proposal_conflict(ai_dir)
+
+            resolve_merge_conflict(
+                ai_dir,
+                session_id=ids["session_id"],
+                keep_tx_id=ids["conflict_tx_id"],
+                reject_tx_ids=[ids["first_tx_id"]],
+                reason="Keep the merged-in proposal branch.",
+            )
+
+            bundle = rebuild_and_persist(ai_dir)
+            active = bundle["sessions"][ids["session_id"]]["working_state"]["active_proposal"]
+            self.assertEqual("P-conflict", active["proposal_id"])
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_resolves_accept_reject_response_conflict(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
             bootstrap_runtime(
                 ai_dir,
                 project_name="Demo",
-                objective="Reject semantic conflicts",
+                objective="Resolve response conflicts",
                 current_milestone="MVP",
             )
             session_id = create_session(ai_dir, context="Decision thread")["session"]["id"]
-            for decision_id, title in (("D-conflict-a", "Auth mode"), ("D-conflict-b", "Audit sink")):
-                discover_decision(
-                    ai_dir,
-                    session_id,
-                    {
-                        "id": decision_id,
-                        "title": title,
-                        "priority": "P0",
-                        "frontier": "now",
-                        "domain": "technical",
-                        "question": f"Resolve {title}?",
-                    },
-                )
-            issue_proposal(
+            discover_decision(
                 ai_dir,
                 session_id,
-                decision_id="D-conflict-a",
-                question="Use magic links?",
-                recommendation="Use magic links.",
-                why="Smaller MVP surface area.",
-                if_not="Passwords expand auth scope.",
+                {"id": "D-response", "title": "Response decision", "priority": "P0", "frontier": "now"},
+            )
+            proposal = issue_proposal(
+                ai_dir,
+                session_id,
+                decision_id="D-response",
+                question="Use the recommendation?",
+                recommendation="Use the recommendation.",
+                why="It is enough for the milestone.",
+                if_not="The scope expands.",
+            )
+            accept_proposal(ai_dir, session_id)
+            accept_tx_id = next(
+                event["tx_id"]
+                for event in read_event_log(runtime_paths(ai_dir))
+                if event["event_type"] == "proposal_accepted"
+                and event["payload"]["proposal_id"] == proposal["proposal_id"]
+            )
+            reject_tx_id = "T-20990101T000001000000Z-reject"
+            rejection = build_event(
+                tx_id=reject_tx_id,
+                tx_index=1,
+                tx_size=1,
+                event_id="E-response-reject",
+                session_id=session_id,
+                event_type="proposal_rejected",
+                payload={
+                    "proposal_id": proposal["proposal_id"],
+                    "origin_session_id": session_id,
+                    "target_type": "decision",
+                    "target_id": "D-response",
+                    "reason": "Reject from the parallel branch.",
+                },
+                timestamp="2099-01-01T00:00:01Z",
+            )
+            _write_event_file(ai_dir, session_id, reject_tx_id, [rejection])
+
+            conflicts = detect_merge_conflicts(ai_dir)
+            self.assertEqual(1, len(conflicts))
+            self.assertEqual("proposal-response-conflict", conflicts[0]["kind"])
+
+            resolve_merge_conflict(
+                ai_dir,
+                session_id=session_id,
+                keep_tx_id=accept_tx_id,
+                reject_tx_ids=[reject_tx_id],
+                reason="Keep the accepted response.",
             )
 
-            tx_id = "T-20990101T000000000000Z-conflict"
-            question = build_event(
-                tx_id=tx_id,
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_rejects_invalid_merge_resolution_targets(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            ids = _create_parallel_proposal_conflict(ai_dir, include_other_session=True)
+            system_tx_id = next(
+                event["tx_id"]
+                for event in read_raw_event_log(runtime_paths(ai_dir))
+                if event["event_type"] == "project_initialized"
+            )
+
+            with self.assertRaisesRegex(ValueError, "unknown transaction"):
+                resolve_merge_conflict(
+                    ai_dir,
+                    session_id=ids["session_id"],
+                    keep_tx_id=ids["first_tx_id"],
+                    reject_tx_ids=["T-missing"],
+                    reason="Invalid target.",
+                )
+            with self.assertRaisesRegex(ValueError, "does not belong"):
+                resolve_merge_conflict(
+                    ai_dir,
+                    session_id=ids["session_id"],
+                    keep_tx_id=ids["first_tx_id"],
+                    reject_tx_ids=[ids["other_tx_id"]],
+                    reason="Invalid target.",
+                )
+            with self.assertRaisesRegex(ValueError, "cannot be selected"):
+                resolve_merge_conflict(
+                    ai_dir,
+                    session_id=ids["session_id"],
+                    keep_tx_id=ids["first_tx_id"],
+                    reject_tx_ids=[system_tx_id],
+                    reason="Invalid target.",
+                )
+
+    def test_transaction_rejection_does_not_hide_raw_structure_errors(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            ids = _create_parallel_proposal_conflict(ai_dir)
+            bad_tx_id = "T-20990101T000002000000Z-bad"
+            bad_event = build_event(
+                tx_id=bad_tx_id,
                 tx_index=1,
-                tx_size=2,
-                event_id="E-conflict-1",
-                session_id=session_id,
-                event_type="question_asked",
-                payload={
-                    "decision_id": "D-conflict-b",
-                    "question_id": "Q-conflict",
-                    "question": "Use product database?",
-                },
-                timestamp="2099-01-01T00:00:00Z",
+                tx_size=1,
+                event_id="E-bad-structure",
+                session_id=ids["session_id"],
+                event_type="decision_enriched",
+                payload={"decision_id": "D-conflict-a", "notes_append": ["bad branch"]},
+                timestamp="2099-01-01T00:00:02Z",
             )
-            proposal = build_event(
-                tx_id=tx_id,
-                tx_index=2,
-                tx_size=2,
-                event_id="E-conflict-2",
-                session_id=session_id,
-                event_type="proposal_issued",
+            bad_event["tx_size"] = 2
+            _write_event_file(ai_dir, ids["session_id"], bad_tx_id, [bad_event])
+            resolution_tx_id = "T-20990101T000003000000Z-resolution"
+            resolution = build_event(
+                tx_id=resolution_tx_id,
+                tx_index=1,
+                tx_size=1,
+                event_id="E-resolution-bad-structure",
+                session_id=ids["session_id"],
+                event_type="transaction_rejected",
                 payload={
-                    "proposal": {
-                        "proposal_id": "P-conflict",
-                        "origin_session_id": session_id,
-                        "target_type": "decision",
-                        "target_id": "D-conflict-b",
-                        "recommendation_version": 1,
-                        "based_on_project_head": "H-conflict",
-                        "question_id": "Q-conflict",
-                        "question": "Use product database?",
-                        "recommendation": "Use the product database.",
-                        "why": "Cheaper for the milestone.",
-                        "if_not": "A separate sink becomes in scope now.",
-                        "is_active": True,
-                        "activated_at": "2099-01-01T00:00:00Z",
-                        "inactive_reason": None,
-                    }
+                    "kept_tx_id": ids["first_tx_id"],
+                    "rejected_tx_ids": [bad_tx_id],
+                    "reason": "Try to hide malformed transaction.",
+                    "resolved_at": "2099-01-01T00:00:03Z",
+                    "conflict_kind": "same-session-semantic-conflict",
+                    "conflict_summary": "bad structure",
                 },
-                timestamp="2099-01-01T00:00:00Z",
+                timestamp="2099-01-01T00:00:03Z",
             )
-            _write_event_file(ai_dir, session_id, tx_id, [question, proposal])
+            _write_event_file(ai_dir, ids["session_id"], resolution_tx_id, [resolution])
 
             issues = validate_runtime(ai_dir)
             self.assertEqual(1, len(issues))
-            self.assertIn("proposal_issued while proposal", issues[0])
+            self.assertIn("tx_size does not match event count", issues[0])
 
     def test_cross_session_explicit_proposal_acceptance_is_rejected(self) -> None:
         with TemporaryDirectory() as tmp:

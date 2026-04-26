@@ -54,7 +54,8 @@
         "session_closed",
         "plan_generated",
         "taxonomy_extended",
-        "compatibility_backfilled"
+        "compatibility_backfilled",
+        "transaction_rejected"
       ]
     },
     "payload": {

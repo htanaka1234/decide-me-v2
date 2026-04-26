@@ -13,6 +13,9 @@ Startup checklist:
 1. Load `.ai/decide-me/events/**/*.jsonl` transaction logs and the derived projections when they exist.
 2. If the runtime is missing, bootstrap it or tell the user to run `python3 scripts/decide_me.py bootstrap ...`.
 3. Validate event and projection consistency before trusting the current state.
+   If validation reports an unresolved same-session merge conflict, run
+   `python3 scripts/decide_me.py detect-merge-conflicts --ai-dir .ai/decide-me` and ask the user
+   which candidate transaction to keep before resolving it.
 4. Create a session when the user starts a new decision thread; resume an existing one only when
    the user explicitly asks or the runtime already identifies the current session.
 5. Before asking a question, scan the codebase, docs, tests, existing sessions, and prior close
@@ -48,6 +51,8 @@ User-facing commands:
 - `Resume session S-...`
 - `Close session S-...`
 - `Generate plan from sessions S-..., S-...`
+- `Detect merge conflicts`
+- `Resolve merge conflict by keeping tx T-... and rejecting tx T-...`
 - `Classify session S-...`
 - `Advance session S-...`
 - `Handle reply for session S-...`
@@ -55,6 +60,8 @@ User-facing commands:
 Runtime invariants:
 
 - `.ai/decide-me/events/**/*.jsonl` transaction files are the source of truth.
+- `transaction_rejected` events record user-selected transaction rejection; rejected transaction
+  files remain on disk for audit and are ignored only in the effective projection stream.
 - `project-state.json`, `taxonomy-state.json`, and `sessions/*.json` are rebuildable projections.
 - Human-readable plan and ADR files are exports, not runtime state.
 - Free-form answers apply only to the current active proposal in the current session.

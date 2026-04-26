@@ -121,6 +121,13 @@ Merge discovery into an execution plan:
 3. Resolve conflicts if accepted decisions disagree.
 4. Use the generated action slices as implementation input.
 
+Resolve same-session transaction merge conflicts:
+
+1. Run `python3 scripts/decide_me.py detect-merge-conflicts --ai-dir .ai/decide-me`.
+2. Pick the `tx_id` to keep and the `tx_id` or IDs to reject from the returned candidates.
+3. Run `python3 scripts/decide_me.py resolve-merge-conflict --ai-dir .ai/decide-me --session-id S-... --keep-tx-id T-... --reject-tx-id T-... --reason "..."`.
+4. Rebuild or validate state. Rejected transaction files remain in `events/` for audit, but are excluded from normal projections.
+
 Reuse prior context:
 
 1. Search sessions by topic, domain, abstraction level, or tag.
@@ -133,6 +140,8 @@ Reuse prior context:
 The runtime lives under `.ai/decide-me/`.
 
 - `events/**/*.jsonl` transaction files are the source of truth.
+- `transaction_rejected` control events exclude rejected transaction IDs from
+  the effective projection stream without deleting the rejected files.
 - `project-state.json`, `taxonomy-state.json`, and `sessions/*.json` are
   rebuildable projections.
 - `exports/` contains human-readable plans and ADRs.

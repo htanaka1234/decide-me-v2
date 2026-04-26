@@ -9,7 +9,12 @@ from typing import Any, Callable
 
 from decide_me.events import AUTO_PROJECT_HEAD, build_event, new_tx_id, utc_now, validate_event
 from decide_me.projections import project_heads_by_event_id, rebuild_projections
-from decide_me.validate import StateValidationError, validate_event_log, validate_projection_bundle
+from decide_me.validate import (
+    StateValidationError,
+    validate_event_log,
+    validate_event_log_structure,
+    validate_projection_bundle,
+)
 
 try:
     import fcntl
@@ -18,6 +23,7 @@ except ImportError:  # pragma: no cover
 
 
 SYSTEM_SESSION_ID = "SYSTEM"
+CONTROL_EVENT_TYPES = {"transaction_rejected"}
 
 
 @dataclass(frozen=True)
@@ -72,7 +78,7 @@ def load_json_if_exists(path: Path) -> Any | None:
     return load_json(path)
 
 
-def read_event_log(paths: RuntimePaths) -> list[dict[str, Any]]:
+def read_raw_event_log(paths: RuntimePaths) -> list[dict[str, Any]]:
     _reject_legacy_event_log(paths)
     if not paths.events_dir.exists():
         return []
@@ -94,7 +100,40 @@ def read_event_log(paths: RuntimePaths) -> list[dict[str, Any]]:
                     ) from exc
                 _validate_event_file_location(paths, path, event)
                 events.append(event)
-    return canonicalize_events(events)
+    raw_events = canonicalize_events(events)
+    validate_event_log_structure(raw_events)
+    _validate_transaction_rejection_controls(raw_events)
+    return raw_events
+
+
+def read_event_log(paths: RuntimePaths) -> list[dict[str, Any]]:
+    return effective_events_from_raw(read_raw_event_log(paths))
+
+
+def effective_events_from_raw(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    raw_events = canonicalize_events(events)
+    validate_event_log_structure(raw_events)
+    _validate_transaction_rejection_controls(raw_events)
+    rejected_tx_ids = rejected_transaction_ids(raw_events)
+    return canonicalize_events(
+        [
+            event
+            for event in raw_events
+            if event["tx_id"] not in rejected_tx_ids or event["event_type"] == "transaction_rejected"
+        ]
+    )
+
+
+def rejected_transaction_ids(events: list[dict[str, Any]]) -> set[str]:
+    rejected: set[str] = set()
+    for event in events:
+        if event.get("event_type") != "transaction_rejected":
+            continue
+        for tx_id in event["payload"]["rejected_tx_ids"]:
+            if tx_id in rejected:
+                raise StateValidationError(f"transaction {tx_id} is rejected more than once")
+            rejected.add(tx_id)
+    return rejected
 
 
 def load_runtime(paths: RuntimePaths) -> dict[str, Any]:
@@ -181,6 +220,13 @@ def validate_runtime(ai_dir: str | Path) -> list[str]:
         validate_event_log(events)
     except (StateValidationError, ValueError) as exc:
         issues.append(str(exc))
+        try:
+            from decide_me.conflicts import detect_merge_conflicts
+
+            if detect_merge_conflicts(str(paths.ai_dir)):
+                issues.append("unresolved same-session merge conflict; run detect-merge-conflicts")
+        except (StateValidationError, ValueError):
+            pass
         return issues
 
     rebuilt = rebuild_projections(events)
@@ -308,6 +354,49 @@ def _reject_legacy_event_log(paths: RuntimePaths) -> None:
     legacy_path = paths.ai_dir / "event-log.jsonl"
     if legacy_path.exists():
         raise StateValidationError("legacy event-log.jsonl is unsupported in this runtime layout")
+
+
+def _validate_transaction_rejection_controls(events: list[dict[str, Any]]) -> None:
+    by_tx_id: dict[str, list[dict[str, Any]]] = {}
+    for event in events:
+        by_tx_id.setdefault(event["tx_id"], []).append(event)
+
+    rejected_tx_ids: set[str] = set()
+    control_events = [event for event in events if event["event_type"] == "transaction_rejected"]
+    for event in control_events:
+        tx_id = event["tx_id"]
+        tx_events = by_tx_id[tx_id]
+        if len(tx_events) != 1:
+            raise StateValidationError("transaction_rejected must be the only event in its transaction")
+        session_id = event["session_id"]
+        if session_id == SYSTEM_SESSION_ID:
+            raise StateValidationError("transaction_rejected must use a non-SYSTEM session_id")
+
+        payload = event["payload"]
+        target_tx_ids = [payload["kept_tx_id"], *payload["rejected_tx_ids"]]
+        for target_tx_id in target_tx_ids:
+            target_events = by_tx_id.get(target_tx_id)
+            if target_events is None:
+                raise StateValidationError(f"transaction_rejected references unknown transaction {target_tx_id}")
+            if target_tx_id == tx_id:
+                raise StateValidationError("transaction_rejected must not target its own transaction")
+            target_session_ids = {target["session_id"] for target in target_events}
+            if target_session_ids != {session_id}:
+                raise StateValidationError(
+                    f"transaction_rejected target {target_tx_id} must belong to session {session_id}"
+                )
+            if any(target["event_type"] in CONTROL_EVENT_TYPES for target in target_events):
+                raise StateValidationError("transaction_rejected must not target control transactions")
+            if any(target["event_type"] in {"project_initialized", "session_created"} for target in target_events):
+                raise StateValidationError("transaction_rejected must not target initialization transactions")
+
+        kept_tx_id = payload["kept_tx_id"]
+        if kept_tx_id in rejected_tx_ids:
+            raise StateValidationError(f"kept transaction {kept_tx_id} is rejected by another transaction_rejected")
+        for rejected_tx_id in payload["rejected_tx_ids"]:
+            if rejected_tx_id in rejected_tx_ids:
+                raise StateValidationError(f"transaction {rejected_tx_id} is rejected more than once")
+            rejected_tx_ids.add(rejected_tx_id)
 
 
 def _validate_event_file_location(paths: RuntimePaths, path: Path, event: dict[str, Any]) -> None:

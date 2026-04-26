@@ -47,6 +47,7 @@ SESSION_SCOPED_EVENT_TYPES = {
     "session_closed",
     "taxonomy_extended",
     "compatibility_backfilled",
+    "transaction_rejected",
 }
 SESSION_MUTATION_EVENT_TYPES = {
     "session_resumed",
@@ -692,6 +693,7 @@ def _close_summary_readiness(close_summary: dict[str, Any]) -> str:
 
 
 def validate_event_log(events: list[dict[str, Any]]) -> None:
+    validate_event_log_structure(events)
     if not events:
         return
     first = events[0]
@@ -700,7 +702,6 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
     if first.get("session_id") != SYSTEM_SESSION_ID:
         raise StateValidationError("project_initialized event must use SYSTEM session_id")
 
-    event_ids: set[str] = set()
     created_session_ids: set[str] = {SYSTEM_SESSION_ID}
     session_status: dict[str, str] = {SYSTEM_SESSION_ID: "active"}
     session_decision_ids: dict[str, set[str]] = defaultdict(set)
@@ -716,14 +717,7 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
     pending_question: dict[str, str] | None = None
     pending_close_summary_session_id: str | None = None
     project_initialized_count = 0
-    _validate_event_transactions(events)
     for event in events:
-        validate_event(event)
-        if event["event_type"] not in EVENT_TYPES:
-            raise StateValidationError(f"unsupported event type in log: {event['event_type']}")
-        if event["event_id"] in event_ids:
-            raise StateValidationError(f"duplicate event id: {event['event_id']}")
-        event_ids.add(event["event_id"])
         _validate_event_log_session_scope(event, created_session_ids)
         if pending_close_summary_session_id is not None:
             if (
@@ -851,6 +845,33 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
         raise StateValidationError("question_asked must be followed by matching proposal_issued")
     if pending_close_summary_session_id is not None:
         raise StateValidationError("close_summary_generated must be followed by matching session_closed")
+
+
+def validate_event_log_structure(events: list[dict[str, Any]]) -> None:
+    if not events:
+        return
+    first = events[0]
+    if first.get("event_type") != "project_initialized":
+        raise StateValidationError("event log must start with project_initialized")
+    if first.get("session_id") != SYSTEM_SESSION_ID:
+        raise StateValidationError("project_initialized event must use SYSTEM session_id")
+
+    _validate_event_transactions(events)
+    event_ids: set[str] = set()
+    project_initialized_count = 0
+    for event in events:
+        validate_event(event)
+        if event["event_type"] not in EVENT_TYPES:
+            raise StateValidationError(f"unsupported event type in log: {event['event_type']}")
+        if event["event_id"] in event_ids:
+            raise StateValidationError(f"duplicate event id: {event['event_id']}")
+        event_ids.add(event["event_id"])
+        if event["event_type"] == "project_initialized":
+            if event["session_id"] != SYSTEM_SESSION_ID:
+                raise StateValidationError("project_initialized event must use SYSTEM session_id")
+            project_initialized_count += 1
+            if project_initialized_count > 1:
+                raise StateValidationError("event log must contain exactly one project_initialized event")
 
 
 def _validate_event_transactions(events: list[dict[str, Any]]) -> None:

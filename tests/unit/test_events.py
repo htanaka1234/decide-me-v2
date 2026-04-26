@@ -66,6 +66,56 @@ class EventTests(unittest.TestCase):
 
         validate_event(event)
 
+    def test_validate_accepts_transaction_rejected_event(self) -> None:
+        event = build_event(
+            sequence=1,
+            session_id="S-001",
+            event_type="transaction_rejected",
+            project_version_after=4,
+            payload={
+                "kept_tx_id": "T-keep",
+                "rejected_tx_ids": ["T-reject"],
+                "reason": "User selected the first transaction.",
+                "resolved_at": "2026-04-23T12:00:00Z",
+                "conflict_kind": "competing-active-proposals",
+                "conflict_summary": "proposal_issued while proposal P-001 is still active",
+            },
+            timestamp="2026-04-23T12:00:00Z",
+        )
+
+        validate_event(event)
+
+    def test_transaction_rejected_rejects_empty_and_self_references(self) -> None:
+        payload = {
+            "kept_tx_id": "T-keep",
+            "rejected_tx_ids": [],
+            "reason": "Resolve conflict.",
+            "resolved_at": "2026-04-23T12:00:00Z",
+            "conflict_kind": "competing-active-proposals",
+            "conflict_summary": "summary",
+        }
+
+        with self.assertRaisesRegex(EventValidationError, "rejected_tx_ids"):
+            build_event(
+                sequence=1,
+                session_id="S-001",
+                event_type="transaction_rejected",
+                project_version_after=4,
+                payload=payload,
+                timestamp="2026-04-23T12:00:00Z",
+            )
+
+        payload["rejected_tx_ids"] = ["T-keep"]
+        with self.assertRaisesRegex(EventValidationError, "kept_tx_id"):
+            build_event(
+                sequence=1,
+                session_id="S-001",
+                event_type="transaction_rejected",
+                project_version_after=4,
+                payload=payload,
+                timestamp="2026-04-23T12:00:00Z",
+            )
+
     def test_proposal_issued_requires_origin_session_id(self) -> None:
         with self.assertRaisesRegex(EventValidationError, "origin_session_id"):
             build_event(

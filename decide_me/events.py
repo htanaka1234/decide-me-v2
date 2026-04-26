@@ -36,6 +36,7 @@ EVENT_TYPES = {
     "plan_generated",
     "taxonomy_extended",
     "compatibility_backfilled",
+    "transaction_rejected",
 }
 
 REQUIRED_PAYLOAD_KEYS: dict[str, tuple[str, ...]] = {
@@ -63,6 +64,14 @@ REQUIRED_PAYLOAD_KEYS: dict[str, tuple[str, ...]] = {
     "plan_generated": ("session_ids", "status"),
     "taxonomy_extended": ("nodes",),
     "compatibility_backfilled": ("additions",),
+    "transaction_rejected": (
+        "kept_tx_id",
+        "rejected_tx_ids",
+        "reason",
+        "resolved_at",
+        "conflict_kind",
+        "conflict_summary",
+    ),
 }
 
 
@@ -327,6 +336,23 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
             _require_non_empty_string(session_id, "plan_generated.payload.session_ids[]")
         if payload["status"] not in PLAN_STATUSES:
             raise EventValidationError("plan_generated.payload.status must be action-plan or conflicts")
+    elif event_type == "transaction_rejected":
+        for key in ("kept_tx_id", "reason", "conflict_kind", "conflict_summary"):
+            _require_non_empty_string(payload.get(key), f"transaction_rejected.payload.{key}")
+        _require_timestamp(payload.get("resolved_at"), "transaction_rejected.payload.resolved_at")
+        rejected_tx_ids = payload["rejected_tx_ids"]
+        if not isinstance(rejected_tx_ids, list) or not rejected_tx_ids:
+            raise EventValidationError("transaction_rejected.payload.rejected_tx_ids must be a non-empty list")
+        seen: set[str] = set()
+        for rejected_tx_id in rejected_tx_ids:
+            _require_non_empty_string(rejected_tx_id, "transaction_rejected.payload.rejected_tx_ids[]")
+            if rejected_tx_id in seen:
+                raise EventValidationError(
+                    f"transaction_rejected.payload.rejected_tx_ids contains duplicate tx_id: {rejected_tx_id}"
+                )
+            seen.add(rejected_tx_id)
+        if payload["kept_tx_id"] in seen:
+            raise EventValidationError("transaction_rejected kept_tx_id must not be rejected")
 
 
 def validate_event(event: dict[str, Any]) -> None:
