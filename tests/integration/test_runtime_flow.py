@@ -12,9 +12,11 @@ from tempfile import TemporaryDirectory
 try:
     import yaml
     from jsonschema import Draft202012Validator
-except ImportError:  # pragma: no cover - optional schema tooling may be absent locally.
-    yaml = None
-    Draft202012Validator = None
+except ImportError as exc:  # pragma: no cover - exercised only in incomplete dev environments.
+    raise ImportError(
+        "Structured export schema tests require PyYAML and jsonschema. "
+        "Install development dependencies with: python3 -m pip install -r requirements-dev.txt"
+    ) from exc
 
 from decide_me.classification import classify_session
 from decide_me.conflicts import detect_merge_conflicts, resolve_merge_conflict
@@ -69,8 +71,6 @@ def _write_event_file(ai_dir: str | Path, session_id: str, tx_id: str, events: l
 
 
 def _load_yaml_with_schema(text: str, schema_name: str) -> dict:
-    if yaml is None or Draft202012Validator is None:
-        raise unittest.SkipTest("PyYAML and jsonschema are required for export schema validation")
     schema_path = Path(__file__).resolve().parents[2] / "schemas" / schema_name
     schema = json.loads(schema_path.read_text(encoding="utf-8"))
     payload = yaml.safe_load(text)

@@ -191,8 +191,8 @@ patching JSON files directly.
 
 ## For maintainers
 
-Python 3.11 or newer is enough for the included runtime and tests. No third-party
-Python dependencies are required.
+Python 3.11 or newer is enough for the included runtime. The runtime has no third-party
+Python dependency requirement.
 
 Bootstrap a runtime only when one does not exist:
 
@@ -220,6 +220,12 @@ Full event-log replay uses `find` for event file discovery when available. Set
 `DECIDE_ME_EVENT_DISCOVERY=python` to force pure Python discovery, or
 `DECIDE_ME_EVENT_DISCOVERY=shell` to require shell discovery.
 
+Install development test dependencies before running the full test suite:
+
+```bash
+python3 -m pip install -r requirements-dev.txt
+```
+
 Run the test suite with:
 
 ```bash
@@ -235,4 +241,5 @@ PYTHONPATH=. python3 -m unittest discover -v
 - `templates/`: ADR, structured ADR, and action-plan export templates
 - `decide_me/`: runtime implementation
 - `scripts/decide_me.py`: deterministic CLI
+- `requirements-dev.txt`: development-only dependencies for schema validation tests
 - `tests/`: unit and integration coverage
