@@ -18,6 +18,7 @@ INCLUDE_FILES = (
     "scripts/decide_me.py",
     "templates/adr-template.md",
     "templates/plan-template.md",
+    "templates/structured-adr-template.md",
 )
 
 INCLUDE_DIRS = (

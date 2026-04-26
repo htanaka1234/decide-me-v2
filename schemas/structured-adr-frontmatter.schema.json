@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/decide-me/structured-adr-frontmatter.schema.json",
+  "title": "Decide Me Structured ADR Frontmatter",
+  "type": "object",
+  "required": [
+    "id",
+    "title",
+    "status",
+    "domain",
+    "kind",
+    "priority",
+    "frontier",
+    "session_id",
+    "accepted_via",
+    "supersedes",
+    "superseded_by",
+    "depends_on",
+    "evidence_refs",
+    "risk",
+    "audit"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "title": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "accepted",
+        "resolved-by-evidence",
+        "invalidated"
+      ]
+    },
+    "domain": {
+      "type": "string",
+      "enum": [
+        "product",
+        "technical",
+        "data",
+        "ux",
+        "ops",
+        "legal",
+        "other"
+      ]
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "choice",
+        "constraint",
+        "risk",
+        "dependency"
+      ]
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "P0",
+        "P1",
+        "P2"
+      ]
+    },
+    "frontier": {
+      "type": "string",
+      "enum": [
+        "now",
+        "later",
+        "discovered-later",
+        "deferred"
+      ]
+    },
+    "session_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "accepted_via": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "ok",
+        "explicit",
+        "evidence",
+        null
+      ]
+    },
+    "supersedes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "superseded_by": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "depends_on": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "risk": {
+      "type": "object",
+      "description": "Reserved for future risk projection support. Null values mean the current decision model has no risk evaluation available.",
+      "required": [
+        "technical",
+        "operational"
+      ],
+      "properties": {
+        "technical": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Reserved. Null means unavailable in the current decision model."
+        },
+        "operational": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Reserved. Null means unavailable in the current decision model."
+        }
+      },
+      "additionalProperties": false
+    },
+    "audit": {
+      "type": "object",
+      "required": [
+        "generated_at",
+        "source",
+        "project_head"
+      ],
+      "properties": {
+        "generated_at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source": {
+          "type": "string",
+          "const": "decide-me"
+        },
+        "project_head": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

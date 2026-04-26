@@ -9,9 +9,18 @@ from unittest import mock
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+try:
+    import yaml
+    from jsonschema import Draft202012Validator
+except ImportError as exc:  # pragma: no cover - exercised only in incomplete dev environments.
+    raise ImportError(
+        "Structured export schema tests require PyYAML and jsonschema. "
+        "Install development dependencies with: python3 -m pip install -r requirements-dev.txt"
+    ) from exc
+
 from decide_me.classification import classify_session
 from decide_me.conflicts import detect_merge_conflicts, resolve_merge_conflict
-from decide_me.exports import export_adr
+from decide_me.exports import export_adr, export_decision_register, export_structured_adr
 from decide_me.events import build_event, utc_now
 from decide_me.interview import advance_session, handle_reply
 from decide_me.lifecycle import close_session, create_session, list_sessions, resume_session, show_session
@@ -59,6 +68,25 @@ def _write_event_file(ai_dir: str | Path, session_id: str, tx_id: str, events: l
     directory.mkdir(parents=True, exist_ok=True)
     body = "".join(json.dumps(event, ensure_ascii=False, sort_keys=True) + "\n" for event in events)
     (directory / f"{tx_id}.jsonl").write_text(body, encoding="utf-8")
+
+
+def _load_yaml_with_schema(text: str, schema_name: str) -> dict:
+    schema_path = Path(__file__).resolve().parents[2] / "schemas" / schema_name
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    payload = yaml.safe_load(text)
+    Draft202012Validator(schema).validate(payload)
+    return payload
+
+
+def _extract_frontmatter(markdown: str) -> str:
+    lines = markdown.splitlines()
+    if not lines or lines[0] != "---":
+        raise AssertionError("markdown does not start with YAML frontmatter")
+    try:
+        end = lines.index("---", 1)
+    except ValueError as exc:
+        raise AssertionError("markdown frontmatter is not closed") from exc
+    return "\n".join(lines[1:end])
 
 
 def _create_parallel_proposal_conflict(
@@ -2563,6 +2591,346 @@ class RuntimeFlowTests(unittest.TestCase):
 
             adr_path = export_adr(ai_dir, "D-001")
             self.assertTrue(adr_path.exists())
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_structured_adr_exports_accepted_and_evidence_decisions_across_domains(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Export structured ADRs",
+                current_milestone="MVP",
+            )
+
+            ops_session_id = create_session(ai_dir, context="Ops decision")["session"]["id"]
+            _accept_runtime_decision(
+                ai_dir,
+                ops_session_id,
+                decision_id="D-ops",
+                title="Audit sink",
+                domain="ops",
+                recommendation="Use the product database.",
+            )
+
+            ops_adr_path = export_structured_adr(ai_dir, "D-ops")
+            self.assertEqual("structured", ops_adr_path.parent.name)
+            ops_adr = ops_adr_path.read_text(encoding="utf-8")
+            self.assertIn("# ADR D-ops: Audit sink", ops_adr)
+            self.assertIn('domain: "ops"', ops_adr)
+            self.assertIn('accepted_via: "ok"', ops_adr)
+            self.assertIn("## Alternatives\n\n- none recorded", ops_adr)
+            ops_frontmatter = _load_yaml_with_schema(
+                _extract_frontmatter(ops_adr),
+                "structured-adr-frontmatter.schema.json",
+            )
+            self.assertEqual([], ops_frontmatter["depends_on"])
+            self.assertEqual([], ops_frontmatter["supersedes"])
+
+            data_session_id = create_session(ai_dir, context="Data evidence")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                data_session_id,
+                {
+                    "id": "D-data",
+                    "title": "Warehouse source",
+                    "priority": "P1",
+                    "frontier": "later",
+                    "domain": "data",
+                    "kind": "choice",
+                    "question": "Where should warehouse facts come from?",
+                },
+            )
+            resolve_by_evidence(
+                ai_dir,
+                data_session_id,
+                decision_id="D-data",
+                source="docs",
+                summary="Use the existing warehouse extract.",
+                evidence_refs=["docs/warehouse.md"],
+            )
+
+            data_adr = export_structured_adr(ai_dir, "D-data").read_text(encoding="utf-8")
+            self.assertIn('status: "resolved-by-evidence"', data_adr)
+            self.assertIn('accepted_via: "evidence"', data_adr)
+            self.assertIn("- docs/warehouse.md", data_adr)
+            _load_yaml_with_schema(
+                _extract_frontmatter(data_adr),
+                "structured-adr-frontmatter.schema.json",
+            )
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_structured_adr_frontmatter_schema_handles_yaml_edge_cases(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Validate structured ADR frontmatter",
+                current_milestone="MVP",
+            )
+
+            session_id = create_session(ai_dir, context="Structured ADR schema")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-prereq",
+                    "title": "前提: config [base]",
+                    "priority": "P2",
+                    "frontier": "later",
+                    "domain": "technical",
+                    "kind": "dependency",
+                    "question": "What prerequisite is needed?",
+                },
+            )
+            defer_decision(
+                ai_dir,
+                session_id,
+                decision_id="D-prereq",
+                reason="Track the prerequisite in the register.",
+            )
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-old",
+                    "title": "Old ADR",
+                    "priority": "P1",
+                    "frontier": "later",
+                    "domain": "technical",
+                    "kind": "choice",
+                    "question": "What old ADR should be replaced?",
+                },
+            )
+            resolve_by_evidence(
+                ai_dir,
+                session_id,
+                decision_id="D-old",
+                source="docs",
+                summary="Use the old ADR shape.",
+                evidence_refs=["docs/old.md"],
+            )
+
+            title = "構造化: ADR #1 \"quote\" 'single' [array] | pipe"
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-weird",
+                    "title": title,
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "kind": "choice",
+                    "question": "How should structured ADR YAML render?",
+                    "context": "First line of context.\nSecond line with 日本語 and : # [ ] |.",
+                    "depends_on": ["D-prereq"],
+                },
+            )
+            resolve_by_evidence(
+                ai_dir,
+                session_id,
+                decision_id="D-weird",
+                source="docs",
+                summary="Use structured ADR.\nKeep YAML machine readable.",
+                evidence_refs=["docs/adr.md", "docs/adr:edge#case.md"],
+            )
+            invalidate_decision(
+                ai_dir,
+                session_id,
+                decision_id="D-old",
+                invalidated_by_decision_id="D-weird",
+                reason="Structured ADR supersedes the old ADR.",
+            )
+
+            adr_path = export_structured_adr(ai_dir, "D-weird")
+            adr_text = adr_path.read_text(encoding="utf-8")
+            frontmatter = _load_yaml_with_schema(
+                _extract_frontmatter(adr_text),
+                "structured-adr-frontmatter.schema.json",
+            )
+            self.assertEqual(title, frontmatter["title"])
+            self.assertEqual(["D-prereq"], frontmatter["depends_on"])
+            self.assertEqual(["D-old"], frontmatter["supersedes"])
+            self.assertEqual(["docs/adr.md", "docs/adr:edge#case.md"], frontmatter["evidence_refs"])
+            self.assertIsNone(frontmatter["risk"]["technical"])
+            self.assertIsNone(frontmatter["risk"]["operational"])
+            self.assertEqual("decide-me", frontmatter["audit"]["source"])
+            self.assertIn("Use structured ADR.\nKeep YAML machine readable.", adr_text)
+
+            register_path = export_decision_register(ai_dir)
+            register_payload = _load_yaml_with_schema(
+                register_path.read_text(encoding="utf-8"),
+                "decision-register.schema.json",
+            )
+            by_id = {decision["id"]: decision for decision in register_payload["decisions"]}
+            self.assertEqual(
+                "Use structured ADR.\nKeep YAML machine readable.",
+                by_id["D-weird"]["summary"],
+            )
+
+            before_validate = adr_path.read_text(encoding="utf-8")
+            repo_root = Path(__file__).resolve().parents[2]
+            validate_cli = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/decide_me.py",
+                    "validate-state",
+                    "--ai-dir",
+                    ai_dir,
+                    "--full",
+                ],
+                cwd=repo_root,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(0, validate_cli.returncode, validate_cli.stderr)
+            after_validate = export_structured_adr(ai_dir, "D-weird").read_text(encoding="utf-8")
+            self.assertEqual(before_validate, after_validate)
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_decision_register_and_structured_adr_handle_invalidated_and_stable_output(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Export decision register",
+                current_milestone="MVP",
+            )
+
+            accepted_session_id = create_session(ai_dir, context="Accepted product decision")[
+                "session"
+            ]["id"]
+            _accept_runtime_decision(
+                ai_dir,
+                accepted_session_id,
+                decision_id="D-001",
+                title="Release shape",
+                domain="product",
+                recommendation="Ship the planner-only release first.",
+            )
+
+            deferred_session_id = create_session(ai_dir, context="Deferred UX decision")["session"][
+                "id"
+            ]
+            discover_decision(
+                ai_dir,
+                deferred_session_id,
+                {
+                    "id": "D-050",
+                    "title": "Visual theme",
+                    "priority": "P2",
+                    "frontier": "later",
+                    "domain": "ux",
+                    "kind": "choice",
+                    "question": "Which visual theme should exports use?",
+                },
+            )
+            defer_decision(
+                ai_dir,
+                deferred_session_id,
+                decision_id="D-050",
+                reason="Defer visual polish until export contracts settle.",
+            )
+
+            old_session_id = create_session(ai_dir, context="Old technical decision")["session"]["id"]
+            _accept_runtime_decision(
+                ai_dir,
+                old_session_id,
+                decision_id="D-200",
+                title="Legacy ADR shape",
+                domain="technical",
+                recommendation="Use the legacy ADR shape.",
+            )
+
+            replacement_session_id = create_session(ai_dir, context="Replacement decision")[
+                "session"
+            ]["id"]
+            _accept_runtime_decision(
+                ai_dir,
+                replacement_session_id,
+                decision_id="D-100",
+                title="Structured ADR shape",
+                domain="technical",
+                recommendation="Use the structured ADR shape.",
+            )
+            invalidate_decision(
+                ai_dir,
+                replacement_session_id,
+                decision_id="D-200",
+                invalidated_by_decision_id="D-100",
+                reason="Structured ADR supersedes the legacy ADR shape.",
+            )
+
+            with self.assertRaisesRegex(ValueError, "invalidated"):
+                export_structured_adr(ai_dir, "D-200")
+
+            invalidated_adr = export_structured_adr(
+                ai_dir, "D-200", include_invalidated=True
+            ).read_text(encoding="utf-8")
+            self.assertIn('status: "invalidated"', invalidated_adr)
+            self.assertIn('superseded_by: "D-100"', invalidated_adr)
+            self.assertIn("Use the legacy ADR shape.", invalidated_adr)
+
+            register_path = export_decision_register(ai_dir)
+            register_text = register_path.read_text(encoding="utf-8")
+            self.assertNotIn('id: "D-200"', register_text)
+            self.assertLess(register_text.index('id: "D-001"'), register_text.index('id: "D-050"'))
+            self.assertLess(register_text.index('id: "D-050"'), register_text.index('id: "D-100"'))
+
+            repo_root = Path(__file__).resolve().parents[2]
+            validate_cli = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/decide_me.py",
+                    "validate-state",
+                    "--ai-dir",
+                    ai_dir,
+                    "--full",
+                ],
+                cwd=repo_root,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(0, validate_cli.returncode, validate_cli.stderr)
+
+            rerendered_register = export_decision_register(ai_dir).read_text(encoding="utf-8")
+            self.assertEqual(register_text, rerendered_register)
+
+            register_with_invalidated = export_decision_register(
+                ai_dir, include_invalidated=True
+            ).read_text(encoding="utf-8")
+            self.assertIn('id: "D-200"', register_with_invalidated)
+            self.assertIn('superseded_by: "D-100"', register_with_invalidated)
+
+            cli_markdown = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/decide_me.py",
+                    "export-decision-register",
+                    "--ai-dir",
+                    ai_dir,
+                    "--format",
+                    "markdown",
+                    "--include-invalidated",
+                ],
+                cwd=repo_root,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(0, cli_markdown.returncode, cli_markdown.stderr)
+            markdown_payload = json.loads(cli_markdown.stdout)
+            markdown_path = Path(markdown_payload["path"])
+            self.assertTrue(markdown_path.exists())
+            markdown = markdown_path.read_text(encoding="utf-8")
+            self.assertIn("| D-200 | invalidated | technical |", markdown)
             self.assertEqual([], validate_runtime(ai_dir))
 
     def test_project_wide_invalidation_hides_closed_decision_outputs(self) -> None:

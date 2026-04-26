@@ -86,5 +86,5 @@ Runtime invariants:
   and the normal hot-path read cache.
 - `runtime-index.json` checkpoints projection freshness; refresh it with `compact-runtime` only
   after it verifies projections against the event log, or regenerate it with `rebuild-projections`.
-- Human-readable plan and ADR files are exports, not runtime state.
+- Human-readable plan, ADR, structured ADR, and decision register files are exports, not runtime state.
 - Free-form answers apply only to the current active proposal in the current session.
