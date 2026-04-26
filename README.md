@@ -178,7 +178,7 @@ The runtime lives under `.ai/decide-me/`.
 - `session-graph-cache.json` may cache full inferred graph output by
   `project_head`; persisted project state keeps inferred candidates empty until
   a command asks for them.
-- `exports/` contains human-readable plans and ADRs.
+- `exports/` contains human-readable plans, ADRs, structured ADRs, and decision registers.
 - `write.lock` protects runtime writes.
 
 Legacy runtimes that still have `.ai/decide-me/event-log.jsonl` are not migrated
@@ -232,7 +232,7 @@ PYTHONPATH=. python3 -m unittest discover -v
 - `references/`: protocol, lifecycle, taxonomy, event model, plan generation,
   output contract, and examples
 - `schemas/`: JSON contracts for events and projections
-- `templates/`: ADR and action-plan export templates
+- `templates/`: ADR, structured ADR, and action-plan export templates
 - `decide_me/`: runtime implementation
 - `scripts/decide_me.py`: deterministic CLI
 - `tests/`: unit and integration coverage

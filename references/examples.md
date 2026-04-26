@@ -30,3 +30,19 @@ Accepted decisions:
 Unresolved blockers:
 - D-004: Compliance hosting region is still undecided.
 ```
+
+## Structured ADR export
+
+```bash
+python3 scripts/decide_me.py export-structured-adr \
+  --ai-dir .ai/decide-me \
+  --decision-id D-012
+```
+
+## Decision register export
+
+```bash
+python3 scripts/decide_me.py export-decision-register \
+  --ai-dir .ai/decide-me \
+  --format yaml
+```

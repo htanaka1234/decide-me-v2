@@ -13,7 +13,7 @@ sys.path.insert(0, REPO_ROOT_STR)
 
 from decide_me.classification import classify_session
 from decide_me.conflicts import detect_merge_conflicts, resolve_merge_conflict
-from decide_me.exports import export_adr
+from decide_me.exports import export_adr, export_decision_register, export_structured_adr
 from decide_me.interview import advance_session, handle_reply
 from decide_me.lifecycle import close_session, create_session, list_sessions, resume_session, show_session
 from decide_me.planner import generate_plan
@@ -158,6 +158,20 @@ def main(argv: list[str] | None = None) -> int:
     adr.add_argument("--ai-dir", required=True)
     adr.add_argument("--decision-id", required=True)
 
+    structured_adr = subparsers.add_parser(
+        "export-structured-adr", help="export a structured ADR markdown file"
+    )
+    structured_adr.add_argument("--ai-dir", required=True)
+    structured_adr.add_argument("--decision-id", required=True)
+    structured_adr.add_argument("--include-invalidated", action="store_true")
+
+    decision_register = subparsers.add_parser(
+        "export-decision-register", help="export the decision register"
+    )
+    decision_register.add_argument("--ai-dir", required=True)
+    decision_register.add_argument("--format", choices=("yaml", "markdown"), default="yaml")
+    decision_register.add_argument("--include-invalidated", action="store_true")
+
     classify = subparsers.add_parser("classify-session", help="classify a session deterministically")
     classify.add_argument("--ai-dir", required=True)
     classify.add_argument("--session-id", required=True)
@@ -285,6 +299,20 @@ def main(argv: list[str] | None = None) -> int:
             )
         elif args.command == "export-adr":
             path = export_adr(args.ai_dir, args.decision_id)
+            _print_json({"path": str(path)})
+        elif args.command == "export-structured-adr":
+            path = export_structured_adr(
+                args.ai_dir,
+                args.decision_id,
+                include_invalidated=args.include_invalidated,
+            )
+            _print_json({"path": str(path)})
+        elif args.command == "export-decision-register":
+            path = export_decision_register(
+                args.ai_dir,
+                format=args.format,
+                include_invalidated=args.include_invalidated,
+            )
             _print_json({"path": str(path)})
         elif args.command == "classify-session":
             _print_json(

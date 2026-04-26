@@ -22,3 +22,16 @@ Plan-generation turns must include one of:
 
 - `Conflicts:`
 - `Action Plan:`
+
+Exported files are derived outputs, not runtime state.
+
+Structured ADR exports must include stable YAML frontmatter with:
+
+- `id`, `title`, `status`, `domain`, `kind`, `priority`, `frontier`
+- `session_id`, `accepted_via`, `supersedes`, `superseded_by`, `depends_on`
+- `evidence_refs`
+- `risk`
+- `audit`
+
+Decision register exports must include `schema_version`, `generated_at`, `project_head`,
+and a decision list sorted by decision ID.
