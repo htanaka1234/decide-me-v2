@@ -5,15 +5,28 @@
   "type": "object",
   "required": [
     "event_id",
+    "tx_id",
+    "tx_index",
+    "tx_size",
     "ts",
     "session_id",
     "event_type",
-    "project_version_after",
     "payload"
   ],
   "properties": {
     "event_id": {
       "type": "string"
+    },
+    "tx_id": {
+      "type": "string"
+    },
+    "tx_index": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "tx_size": {
+      "type": "integer",
+      "minimum": 1
     },
     "ts": {
       "type": "string"
@@ -41,12 +54,11 @@
         "session_closed",
         "plan_generated",
         "taxonomy_extended",
-        "compatibility_backfilled"
+        "compatibility_backfilled",
+        "transaction_rejected",
+        "session_linked",
+        "semantic_conflict_resolved"
       ]
-    },
-    "project_version_after": {
-      "type": "integer",
-      "minimum": 1
     },
     "payload": {
       "type": "object"

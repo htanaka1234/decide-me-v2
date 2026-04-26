@@ -15,7 +15,7 @@ def create_session(ai_dir: str, context: str | None = None) -> dict[str, Any]:
     now = utc_now()
 
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
-        if bundle["project_state"]["state"]["project_version"] == 0:
+        if bundle["project_state"]["state"]["event_count"] == 0:
             raise ValueError("runtime is not bootstrapped")
         return [
             {

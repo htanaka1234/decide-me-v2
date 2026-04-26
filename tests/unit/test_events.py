@@ -3,10 +3,53 @@ from __future__ import annotations
 import unittest
 from copy import deepcopy
 
-from decide_me.events import EventValidationError, build_event, validate_event
+from decide_me.events import EventValidationError, build_event as runtime_build_event, validate_event
+
+
+def build_event(
+    *,
+    sequence: int = 1,
+    session_id: str,
+    event_type: str,
+    project_version_after: int = 1,
+    payload: dict,
+    timestamp: str | None = None,
+) -> dict:
+    return runtime_build_event(
+        tx_id=f"T-test-{sequence}",
+        tx_index=1,
+        tx_size=1,
+        event_id=f"E-test-{sequence}",
+        session_id=session_id,
+        event_type=event_type,
+        payload=payload,
+        timestamp=timestamp,
+        project_head=f"H-{project_version_after}",
+    )
 
 
 class EventTests(unittest.TestCase):
+    def test_validate_rejects_legacy_project_version_after_field(self) -> None:
+        event = build_event(
+            sequence=1,
+            session_id="SYSTEM",
+            event_type="project_initialized",
+            project_version_after=1,
+            payload={
+                "project": {
+                    "name": "Demo",
+                    "objective": "Test",
+                    "current_milestone": "MVP",
+                    "stop_rule": "Resolve blockers",
+                }
+            },
+            timestamp="2026-04-23T12:00:00Z",
+        )
+        event["project_version_after"] = 1
+
+        with self.assertRaisesRegex(EventValidationError, "unsupported fields: project_version_after"):
+            validate_event(event)
+
     def test_validate_accepts_decision_invalidated_event(self) -> None:
         event = build_event(
             sequence=1,
@@ -23,6 +66,159 @@ class EventTests(unittest.TestCase):
 
         validate_event(event)
 
+    def test_validate_accepts_transaction_rejected_event(self) -> None:
+        event = build_event(
+            sequence=1,
+            session_id="S-001",
+            event_type="transaction_rejected",
+            project_version_after=4,
+            payload={
+                "kept_tx_id": "T-keep",
+                "rejected_tx_ids": ["T-reject"],
+                "reason": "User selected the first transaction.",
+                "resolved_at": "2026-04-23T12:00:00Z",
+                "conflict_kind": "competing-active-proposals",
+                "conflict_summary": "proposal_issued while proposal P-001 is still active",
+            },
+            timestamp="2026-04-23T12:00:00Z",
+        )
+
+        validate_event(event)
+
+    def test_transaction_rejected_rejects_empty_and_self_references(self) -> None:
+        payload = {
+            "kept_tx_id": "T-keep",
+            "rejected_tx_ids": [],
+            "reason": "Resolve conflict.",
+            "resolved_at": "2026-04-23T12:00:00Z",
+            "conflict_kind": "competing-active-proposals",
+            "conflict_summary": "summary",
+        }
+
+        with self.assertRaisesRegex(EventValidationError, "rejected_tx_ids"):
+            build_event(
+                sequence=1,
+                session_id="S-001",
+                event_type="transaction_rejected",
+                project_version_after=4,
+                payload=payload,
+                timestamp="2026-04-23T12:00:00Z",
+            )
+
+        payload["rejected_tx_ids"] = ["T-keep"]
+        with self.assertRaisesRegex(EventValidationError, "kept_tx_id"):
+            build_event(
+                sequence=1,
+                session_id="S-001",
+                event_type="transaction_rejected",
+                project_version_after=4,
+                payload=payload,
+                timestamp="2026-04-23T12:00:00Z",
+            )
+
+    def test_validate_accepts_session_linked_event(self) -> None:
+        event = build_event(
+            sequence=1,
+            session_id="S-child",
+            event_type="session_linked",
+            project_version_after=4,
+            payload={
+                "parent_session_id": "S-parent",
+                "child_session_id": "S-child",
+                "relationship": "refines",
+                "reason": "Child refines the parent discussion.",
+                "linked_at": "2026-04-23T12:00:00Z",
+                "evidence_refs": ["session:S-parent"],
+            },
+            timestamp="2026-04-23T12:00:00Z",
+        )
+
+        validate_event(event)
+
+    def test_session_linked_rejects_invalid_relationship_and_self_reference(self) -> None:
+        payload = {
+            "parent_session_id": "S-parent",
+            "child_session_id": "S-child",
+            "relationship": "unknown",
+            "reason": "Reason.",
+            "linked_at": "2026-04-23T12:00:00Z",
+            "evidence_refs": [],
+        }
+        with self.assertRaisesRegex(EventValidationError, "relationship"):
+            build_event(
+                sequence=1,
+                session_id="S-child",
+                event_type="session_linked",
+                project_version_after=4,
+                payload=payload,
+                timestamp="2026-04-23T12:00:00Z",
+            )
+
+        payload["relationship"] = "refines"
+        payload["child_session_id"] = "S-parent"
+        with self.assertRaisesRegex(EventValidationError, "self-reference"):
+            build_event(
+                sequence=1,
+                session_id="S-parent",
+                event_type="session_linked",
+                project_version_after=4,
+                payload=payload,
+                timestamp="2026-04-23T12:00:00Z",
+            )
+
+    def test_validate_accepts_semantic_conflict_resolved_event(self) -> None:
+        event = build_event(
+            sequence=1,
+            session_id="S-winner",
+            event_type="semantic_conflict_resolved",
+            project_version_after=4,
+            payload={
+                "conflict_id": "C-test",
+                "winning_session_id": "S-winner",
+                "rejected_session_ids": ["S-loser"],
+                "scope": {
+                    "kind": "accepted_decision",
+                    "decision_id": "D-001",
+                    "session_ids": ["S-loser", "S-winner"],
+                },
+                "reason": "Winner is more current.",
+                "resolved_at": "2026-04-23T12:00:00Z",
+            },
+            timestamp="2026-04-23T12:00:00Z",
+        )
+
+        validate_event(event)
+
+    def test_semantic_conflict_resolved_rejects_empty_and_self_references(self) -> None:
+        payload = {
+            "conflict_id": "C-test",
+            "winning_session_id": "S-winner",
+            "rejected_session_ids": [],
+            "scope": {"kind": "accepted_decision", "session_ids": ["S-winner"]},
+            "reason": "Resolve.",
+            "resolved_at": "2026-04-23T12:00:00Z",
+        }
+        with self.assertRaisesRegex(EventValidationError, "rejected_session_ids"):
+            build_event(
+                sequence=1,
+                session_id="S-winner",
+                event_type="semantic_conflict_resolved",
+                project_version_after=4,
+                payload=payload,
+                timestamp="2026-04-23T12:00:00Z",
+            )
+
+        payload["rejected_session_ids"] = ["S-winner"]
+        with self.assertRaisesRegex(EventValidationError, "winning_session_id"):
+            build_event(
+                sequence=1,
+                session_id="S-winner",
+                event_type="semantic_conflict_resolved",
+                project_version_after=4,
+                payload=payload,
+                timestamp="2026-04-23T12:00:00Z",
+            )
+
     def test_proposal_issued_requires_origin_session_id(self) -> None:
         with self.assertRaisesRegex(EventValidationError, "origin_session_id"):
             build_event(
@@ -36,7 +232,7 @@ class EventTests(unittest.TestCase):
                         "target_type": "decision",
                         "target_id": "D-001",
                         "recommendation_version": 1,
-                        "based_on_project_version": 3,
+                        "based_on_project_head": "H-3",
                         "question_id": "Q-001",
                         "question": "Question?",
                         "recommendation": "Use it.",
@@ -58,7 +254,7 @@ class EventTests(unittest.TestCase):
                 "target_type": "decision",
                 "target_id": "D-001",
                 "recommendation_version": 1,
-                "based_on_project_version": 3,
+                "based_on_project_head": "H-3",
                 "question_id": "Q-001",
                 "question": "Question?",
                 "recommendation": "Use it.",
@@ -329,7 +525,7 @@ class EventTests(unittest.TestCase):
                 "target_type": "decision",
                 "target_id": "D-001",
                 "recommendation_version": 1,
-                "based_on_project_version": 1,
+                "based_on_project_head": "H-1",
                 "question_id": "Q-001",
                 "question": "Question?",
                 "recommendation": "Use it.",

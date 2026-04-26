@@ -12,11 +12,18 @@ sys.path = [entry for entry in sys.path if entry != REPO_ROOT_STR]
 sys.path.insert(0, REPO_ROOT_STR)
 
 from decide_me.classification import classify_session
+from decide_me.conflicts import detect_merge_conflicts, resolve_merge_conflict
 from decide_me.exports import export_adr
 from decide_me.interview import advance_session, handle_reply
 from decide_me.lifecycle import close_session, create_session, list_sessions, resume_session, show_session
 from decide_me.planner import generate_plan
 from decide_me.protocol import invalidate_decision
+from decide_me.session_graph import (
+    detect_session_conflicts,
+    link_session,
+    resolve_session_conflict,
+    show_session_graph,
+)
 from decide_me.store import bootstrap_runtime, rebuild_and_persist, validate_runtime
 
 
@@ -64,6 +71,53 @@ def main(argv: list[str] | None = None) -> int:
 
     validate = subparsers.add_parser("validate-state", help="validate runtime consistency")
     validate.add_argument("--ai-dir", required=True)
+
+    detect_conflicts = subparsers.add_parser(
+        "detect-merge-conflicts",
+        help="detect unresolved same-session transaction merge conflicts",
+    )
+    detect_conflicts.add_argument("--ai-dir", required=True)
+
+    resolve_conflict = subparsers.add_parser(
+        "resolve-merge-conflict",
+        help="resolve a same-session transaction merge conflict by rejecting selected transactions",
+    )
+    resolve_conflict.add_argument("--ai-dir", required=True)
+    resolve_conflict.add_argument("--session-id", required=True)
+    resolve_conflict.add_argument("--keep-tx-id", required=True)
+    resolve_conflict.add_argument("--reject-tx-id", action="append", required=True)
+    resolve_conflict.add_argument("--reason", required=True)
+
+    link = subparsers.add_parser("link-session", help="record an explicit semantic parent-child session link")
+    link.add_argument("--ai-dir", required=True)
+    link.add_argument("--parent-session-id", required=True)
+    link.add_argument("--child-session-id", required=True)
+    link.add_argument("--relationship", required=True)
+    link.add_argument("--reason", required=True)
+    link.add_argument("--evidence-ref", action="append", default=[])
+
+    show_graph = subparsers.add_parser("show-session-graph", help="show explicit and inferred session graph context")
+    show_graph.add_argument("--ai-dir", required=True)
+    show_graph.add_argument("--session-id")
+    show_graph.add_argument("--include-inferred", action="store_true")
+
+    detect_session = subparsers.add_parser(
+        "detect-session-conflicts",
+        help="detect semantic conflicts across explicitly related sessions",
+    )
+    detect_session.add_argument("--ai-dir", required=True)
+    detect_session.add_argument("--session-id", action="append", required=True)
+    detect_session.add_argument("--include-related", action="store_true")
+
+    resolve_session = subparsers.add_parser(
+        "resolve-session-conflict",
+        help="resolve a semantic conflict across explicitly related sessions",
+    )
+    resolve_session.add_argument("--ai-dir", required=True)
+    resolve_session.add_argument("--conflict-id", required=True)
+    resolve_session.add_argument("--winning-session-id", required=True)
+    resolve_session.add_argument("--reject-session-id", action="append", required=True)
+    resolve_session.add_argument("--reason", required=True)
 
     adr = subparsers.add_parser("export-adr", help="export an ADR markdown file")
     adr.add_argument("--ai-dir", required=True)
@@ -136,6 +190,57 @@ def main(argv: list[str] | None = None) -> int:
             issues = validate_runtime(args.ai_dir)
             _print_json({"ok": not issues, "issues": issues})
             return 0 if not issues else 1
+        elif args.command == "detect-merge-conflicts":
+            conflicts = detect_merge_conflicts(args.ai_dir)
+            _print_json({"ok": not conflicts, "conflicts": conflicts})
+            return 0
+        elif args.command == "resolve-merge-conflict":
+            _print_json(
+                resolve_merge_conflict(
+                    args.ai_dir,
+                    session_id=args.session_id,
+                    keep_tx_id=args.keep_tx_id,
+                    reject_tx_ids=args.reject_tx_id,
+                    reason=args.reason,
+                )
+            )
+        elif args.command == "link-session":
+            _print_json(
+                link_session(
+                    args.ai_dir,
+                    parent_session_id=args.parent_session_id,
+                    child_session_id=args.child_session_id,
+                    relationship=args.relationship,
+                    reason=args.reason,
+                    evidence_refs=args.evidence_ref,
+                )
+            )
+        elif args.command == "show-session-graph":
+            _print_json(
+                show_session_graph(
+                    args.ai_dir,
+                    session_id=args.session_id,
+                    include_inferred=args.include_inferred,
+                )
+            )
+        elif args.command == "detect-session-conflicts":
+            _print_json(
+                detect_session_conflicts(
+                    args.ai_dir,
+                    session_ids=args.session_id,
+                    include_related=args.include_related,
+                )
+            )
+        elif args.command == "resolve-session-conflict":
+            _print_json(
+                resolve_session_conflict(
+                    args.ai_dir,
+                    conflict_id=args.conflict_id,
+                    winning_session_id=args.winning_session_id,
+                    rejected_session_ids=args.reject_session_id,
+                    reason=args.reason,
+                )
+            )
         elif args.command == "export-adr":
             path = export_adr(args.ai_dir, args.decision_id)
             _print_json({"path": str(path)})

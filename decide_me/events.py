@@ -14,8 +14,9 @@ from decide_me.constants import (
 )
 
 
-AUTO_PROJECT_VERSION = "__AUTO_PROJECT_VERSION__"
+AUTO_PROJECT_HEAD = "__AUTO_PROJECT_HEAD__"
 PLAN_STATUSES = {"action-plan", "conflicts"}
+SESSION_RELATIONSHIPS = {"derived_from", "refines", "supersedes", "depends_on", "contradicts"}
 
 EVENT_TYPES = {
     "project_initialized",
@@ -36,6 +37,9 @@ EVENT_TYPES = {
     "plan_generated",
     "taxonomy_extended",
     "compatibility_backfilled",
+    "transaction_rejected",
+    "session_linked",
+    "semantic_conflict_resolved",
 }
 
 REQUIRED_PAYLOAD_KEYS: dict[str, tuple[str, ...]] = {
@@ -63,6 +67,30 @@ REQUIRED_PAYLOAD_KEYS: dict[str, tuple[str, ...]] = {
     "plan_generated": ("session_ids", "status"),
     "taxonomy_extended": ("nodes",),
     "compatibility_backfilled": ("additions",),
+    "transaction_rejected": (
+        "kept_tx_id",
+        "rejected_tx_ids",
+        "reason",
+        "resolved_at",
+        "conflict_kind",
+        "conflict_summary",
+    ),
+    "session_linked": (
+        "parent_session_id",
+        "child_session_id",
+        "relationship",
+        "reason",
+        "linked_at",
+        "evidence_refs",
+    ),
+    "semantic_conflict_resolved": (
+        "conflict_id",
+        "winning_session_id",
+        "rejected_session_ids",
+        "scope",
+        "reason",
+        "resolved_at",
+    ),
 }
 
 
@@ -71,7 +99,7 @@ class EventValidationError(ValueError):
 
 
 def utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+    return datetime.now(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z")
 
 
 def new_entity_id(prefix: str) -> str:
@@ -79,9 +107,16 @@ def new_entity_id(prefix: str) -> str:
     return f"{prefix}-{stamp}-{uuid4().hex[:4]}"
 
 
-def make_event_id(sequence: int, timestamp: str) -> str:
-    date = timestamp[:10].replace("-", "")
-    return f"E-{date}-{sequence:06d}"
+def new_event_id() -> str:
+    return f"E-{_id_timestamp()}-{uuid4().hex[:8]}"
+
+
+def new_tx_id() -> str:
+    return f"T-{_id_timestamp()}-{uuid4().hex[:8]}"
+
+
+def _id_timestamp() -> str:
+    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
 
 
 def _require_dict(value: Any, label: str) -> dict[str, Any]:
@@ -111,14 +146,12 @@ def _require_timestamp(value: Any, label: str) -> None:
         raise EventValidationError(f"{label} must be ISO-8601/RFC3339-like") from exc
 
 
-def prepare_payload(
-    event_type: str, payload: dict[str, Any], project_version_after: int
-) -> dict[str, Any]:
+def prepare_payload(event_type: str, payload: dict[str, Any], project_head: str | None) -> dict[str, Any]:
     prepared = deepcopy(payload)
     if event_type == "proposal_issued":
         proposal = _require_dict(prepared.get("proposal"), "proposal_issued.payload.proposal")
-        if proposal.get("based_on_project_version") in {None, AUTO_PROJECT_VERSION}:
-            proposal["based_on_project_version"] = project_version_after
+        if proposal.get("based_on_project_head") in {None, AUTO_PROJECT_HEAD}:
+            proposal["based_on_project_head"] = project_head
     return prepared
 
 
@@ -197,7 +230,7 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
                 "target_type",
                 "target_id",
                 "recommendation_version",
-                "based_on_project_version",
+                "based_on_project_head",
                 "question_id",
                 "question",
                 "recommendation",
@@ -214,6 +247,7 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
             "origin_session_id",
             "target_type",
             "target_id",
+            "based_on_project_head",
             "question_id",
             "question",
             "recommendation",
@@ -321,20 +355,90 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
             _require_non_empty_string(session_id, "plan_generated.payload.session_ids[]")
         if payload["status"] not in PLAN_STATUSES:
             raise EventValidationError("plan_generated.payload.status must be action-plan or conflicts")
+    elif event_type == "transaction_rejected":
+        for key in ("kept_tx_id", "reason", "conflict_kind", "conflict_summary"):
+            _require_non_empty_string(payload.get(key), f"transaction_rejected.payload.{key}")
+        _require_timestamp(payload.get("resolved_at"), "transaction_rejected.payload.resolved_at")
+        rejected_tx_ids = payload["rejected_tx_ids"]
+        if not isinstance(rejected_tx_ids, list) or not rejected_tx_ids:
+            raise EventValidationError("transaction_rejected.payload.rejected_tx_ids must be a non-empty list")
+        seen: set[str] = set()
+        for rejected_tx_id in rejected_tx_ids:
+            _require_non_empty_string(rejected_tx_id, "transaction_rejected.payload.rejected_tx_ids[]")
+            if rejected_tx_id in seen:
+                raise EventValidationError(
+                    f"transaction_rejected.payload.rejected_tx_ids contains duplicate tx_id: {rejected_tx_id}"
+                )
+            seen.add(rejected_tx_id)
+        if payload["kept_tx_id"] in seen:
+            raise EventValidationError("transaction_rejected kept_tx_id must not be rejected")
+    elif event_type == "session_linked":
+        for key in ("parent_session_id", "child_session_id", "relationship", "reason"):
+            _require_non_empty_string(payload.get(key), f"session_linked.payload.{key}")
+        _require_timestamp(payload.get("linked_at"), "session_linked.payload.linked_at")
+        if payload["relationship"] not in SESSION_RELATIONSHIPS:
+            allowed = ", ".join(sorted(SESSION_RELATIONSHIPS))
+            raise EventValidationError(f"session_linked.payload.relationship must be one of: {allowed}")
+        if payload["parent_session_id"] == payload["child_session_id"]:
+            raise EventValidationError("session_linked must not self-reference")
+        evidence_refs = payload["evidence_refs"]
+        if not isinstance(evidence_refs, list):
+            raise EventValidationError("session_linked.payload.evidence_refs must be a list")
+        for evidence_ref in evidence_refs:
+            _require_non_empty_string(evidence_ref, "session_linked.payload.evidence_refs[]")
+    elif event_type == "semantic_conflict_resolved":
+        for key in ("conflict_id", "winning_session_id", "reason"):
+            _require_non_empty_string(payload.get(key), f"semantic_conflict_resolved.payload.{key}")
+        _require_timestamp(payload.get("resolved_at"), "semantic_conflict_resolved.payload.resolved_at")
+        rejected_session_ids = payload["rejected_session_ids"]
+        if not isinstance(rejected_session_ids, list) or not rejected_session_ids:
+            raise EventValidationError(
+                "semantic_conflict_resolved.payload.rejected_session_ids must be a non-empty list"
+            )
+        seen_sessions: set[str] = set()
+        for rejected_session_id in rejected_session_ids:
+            _require_non_empty_string(
+                rejected_session_id,
+                "semantic_conflict_resolved.payload.rejected_session_ids[]",
+            )
+            if rejected_session_id in seen_sessions:
+                raise EventValidationError(
+                    "semantic_conflict_resolved.payload.rejected_session_ids contains duplicate session_id: "
+                    f"{rejected_session_id}"
+                )
+            seen_sessions.add(rejected_session_id)
+        if payload["winning_session_id"] in seen_sessions:
+            raise EventValidationError("semantic_conflict_resolved winning_session_id must not be rejected")
+        scope = _require_dict(payload["scope"], "semantic_conflict_resolved.payload.scope")
+        _require_keys(scope, ("kind", "session_ids"), "semantic_conflict_resolved.payload.scope")
+        _require_non_empty_string(scope.get("kind"), "semantic_conflict_resolved.payload.scope.kind")
+        session_ids = scope["session_ids"]
+        if not isinstance(session_ids, list) or not session_ids:
+            raise EventValidationError(
+                "semantic_conflict_resolved.payload.scope.session_ids must be a non-empty list"
+            )
+        for session_id in session_ids:
+            _require_non_empty_string(session_id, "semantic_conflict_resolved.payload.scope.session_ids[]")
 
 
 def validate_event(event: dict[str, Any]) -> None:
-    _require_keys(
-        event,
-        ("event_id", "ts", "session_id", "event_type", "project_version_after", "payload"),
-        "event",
-    )
+    envelope_keys = ("event_id", "tx_id", "tx_index", "tx_size", "ts", "session_id", "event_type", "payload")
+    _require_keys(event, envelope_keys, "event")
+    unsupported = sorted(set(event) - set(envelope_keys))
+    if unsupported:
+        raise EventValidationError(f"event contains unsupported fields: {', '.join(unsupported)}")
+    _require_non_empty_string(event["event_id"], "event.event_id")
+    _require_non_empty_string(event["tx_id"], "event.tx_id")
+    if not isinstance(event["tx_index"], int) or event["tx_index"] < 1:
+        raise EventValidationError("event.tx_index must be a positive integer")
+    if not isinstance(event["tx_size"], int) or event["tx_size"] < 1:
+        raise EventValidationError("event.tx_size must be a positive integer")
+    if event["tx_index"] > event["tx_size"]:
+        raise EventValidationError("event.tx_index must not exceed event.tx_size")
     _require_timestamp(event["ts"], "event.ts")
     _require_non_empty_string(event["session_id"], "event.session_id")
     if event["event_type"] not in EVENT_TYPES:
         raise EventValidationError(f"unsupported event_type: {event['event_type']}")
-    if not isinstance(event["project_version_after"], int) or event["project_version_after"] < 1:
-        raise EventValidationError("project_version_after must be a positive integer")
     payload = _require_dict(event["payload"], "event.payload")
     validate_payload(event["event_type"], payload)
     if event["event_type"] == "proposal_issued":
@@ -344,25 +448,38 @@ def validate_event(event: dict[str, Any]) -> None:
     elif event["event_type"] in {"proposal_accepted", "proposal_rejected"}:
         if payload["origin_session_id"] != event["session_id"]:
             raise EventValidationError(f"{event['event_type']} origin_session_id must match event.session_id")
+    elif event["event_type"] == "session_linked":
+        if payload["child_session_id"] != event["session_id"]:
+            raise EventValidationError("session_linked child_session_id must match event.session_id")
+    elif event["event_type"] == "semantic_conflict_resolved":
+        if payload["winning_session_id"] != event["session_id"]:
+            raise EventValidationError(
+                "semantic_conflict_resolved winning_session_id must match event.session_id"
+            )
 
 
 def build_event(
     *,
-    sequence: int,
+    tx_id: str,
+    tx_index: int,
+    tx_size: int,
     session_id: str,
     event_type: str,
-    project_version_after: int,
     payload: dict[str, Any],
     timestamp: str | None = None,
+    event_id: str | None = None,
+    project_head: str | None = None,
 ) -> dict[str, Any]:
     ts = timestamp or utc_now()
-    prepared = prepare_payload(event_type, payload, project_version_after)
+    prepared = prepare_payload(event_type, payload, project_head)
     event = {
-        "event_id": make_event_id(sequence, ts),
+        "event_id": event_id or new_event_id(),
+        "tx_id": tx_id,
+        "tx_index": tx_index,
+        "tx_size": tx_size,
         "ts": ts,
         "session_id": session_id,
         "event_type": event_type,
-        "project_version_after": project_version_after,
         "payload": prepared,
     }
     validate_event(event)

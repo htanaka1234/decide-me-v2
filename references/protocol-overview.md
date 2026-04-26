@@ -28,5 +28,5 @@ Acceptance rules:
 
 - `Accept P-0007` always wins over plain `OK`.
 - Plain `OK` is valid only for the immediate next reply in the same session and only when the
-  proposal's `based_on_project_version` still matches the current project version.
+  proposal's `based_on_project_head` still matches the current project head.
 - If the proposal is stale or ambiguous, restate that and require explicit acceptance.

@@ -11,7 +11,7 @@ from decide_me.constants import (
     EVIDENCE_SOURCES,
     FORBIDDEN_DISCOVERED_DECISION_FIELDS,
 )
-from decide_me.events import AUTO_PROJECT_VERSION, new_entity_id, utc_now
+from decide_me.events import AUTO_PROJECT_HEAD, new_entity_id, utc_now
 from decide_me.selector import proposal_is_stale
 from decide_me.store import load_runtime, runtime_paths, transact
 
@@ -131,7 +131,7 @@ def issue_proposal(
                         "target_type": "decision",
                         "target_id": decision_id,
                         "recommendation_version": next_version,
-                        "based_on_project_version": AUTO_PROJECT_VERSION,
+                        "based_on_project_head": AUTO_PROJECT_HEAD,
                         "question_id": question_id,
                         "question": question,
                         "recommendation": recommendation,

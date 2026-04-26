@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Any
 
 from decide_me.constants import ACCEPTED_VIA_VALUES, DOMAIN_VALUES, EVIDENCE_SOURCES
-from decide_me.events import EVENT_TYPES, make_event_id, validate_event
+from decide_me.events import EVENT_TYPES, SESSION_RELATIONSHIPS, validate_event
 from decide_me.taxonomy import taxonomy_by_id
 
 
@@ -47,6 +47,9 @@ SESSION_SCOPED_EVENT_TYPES = {
     "session_closed",
     "taxonomy_extended",
     "compatibility_backfilled",
+    "transaction_rejected",
+    "session_linked",
+    "semantic_conflict_resolved",
 }
 SESSION_MUTATION_EVENT_TYPES = {
     "session_resumed",
@@ -91,9 +94,20 @@ def _require_optional_timestamp(value: Any, label: str) -> None:
 def validate_project_state(project_state: dict[str, Any]) -> None:
     _require_keys(
         project_state,
-        ("schema_version", "project", "state", "protocol", "counts", "default_bundles", "decisions"),
+        (
+            "schema_version",
+            "project",
+            "state",
+            "protocol",
+            "counts",
+            "default_bundles",
+            "session_graph",
+            "decisions",
+        ),
         "project_state",
     )
+    if project_state.get("schema_version") != 6:
+        raise StateValidationError("project_state.schema_version must be 6")
     _require_keys(
         project_state["project"],
         ("name", "objective", "current_milestone", "stop_rule"),
@@ -103,9 +117,12 @@ def validate_project_state(project_state: dict[str, Any]) -> None:
         _require_non_empty_string(project_state["project"].get(key), f"project_state.project.{key}")
     _require_keys(
         project_state["state"],
-        ("project_version", "updated_at", "last_event_id"),
+        ("project_head", "event_count", "updated_at", "last_event_id"),
         "project_state.state",
     )
+    _require_non_empty_string(project_state["state"].get("project_head"), "project_state.state.project_head")
+    if not isinstance(project_state["state"].get("event_count"), int) or project_state["state"]["event_count"] < 1:
+        raise StateValidationError("project_state.state.event_count must be a positive integer")
     _require_timestamp(project_state["state"].get("updated_at"), "project_state.state.updated_at")
     if not isinstance(project_state["decisions"], list):
         raise StateValidationError("project_state.decisions must be a list")
@@ -174,6 +191,7 @@ def validate_project_state(project_state: dict[str, Any]) -> None:
     expected_counts = _recomputed_counts(project_state["decisions"])
     if project_state["counts"] != expected_counts:
         raise StateValidationError("project_state.counts does not match decision state")
+    _validate_session_graph(project_state["session_graph"])
 
 
 def _validate_decision_status_payload(decision: dict[str, Any]) -> None:
@@ -246,6 +264,8 @@ def validate_session_state(session_state: dict[str, Any]) -> None:
         ("schema_version", "session", "summary", "classification", "close_summary", "working_state"),
         "session_state",
     )
+    if session_state.get("schema_version") != 6:
+        raise StateValidationError("session_state.schema_version must be 6")
     _require_keys(
         session_state["session"],
         ("id", "started_at", "last_seen_at", "bound_context_hint", "decision_ids", "lifecycle"),
@@ -299,7 +319,7 @@ def validate_session_state(session_state: dict[str, Any]) -> None:
     )
     _require_keys(
         session_state["working_state"],
-        ("current_question_id", "current_question", "active_proposal", "last_seen_project_version"),
+        ("current_question_id", "current_question", "active_proposal", "last_seen_project_head"),
         "session_state.working_state",
     )
     for key in ("assigned_tags", "compatibility_tags", "search_terms", "source_refs"):
@@ -498,7 +518,7 @@ def _validate_active_proposal(
             "target_type",
             "target_id",
             "recommendation_version",
-            "based_on_project_version",
+            "based_on_project_head",
             "is_active",
             "activated_at",
             "inactive_reason",
@@ -543,6 +563,10 @@ def _validate_active_proposal(
     _require_timestamp(
         active.get("activated_at"),
         f"session {session_id} active_proposal.activated_at",
+    )
+    _require_non_empty_string(
+        active.get("based_on_project_head"),
+        f"session {session_id} active_proposal.based_on_project_head",
     )
 
     if active.get("origin_session_id") != session_id:
@@ -685,6 +709,7 @@ def _close_summary_readiness(close_summary: dict[str, Any]) -> str:
 
 
 def validate_event_log(events: list[dict[str, Any]]) -> None:
+    validate_event_log_structure(events)
     if not events:
         return
     first = events[0]
@@ -693,8 +718,6 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
     if first.get("session_id") != SYSTEM_SESSION_ID:
         raise StateValidationError("project_initialized event must use SYSTEM session_id")
 
-    previous_version = 0
-    event_ids: set[str] = set()
     created_session_ids: set[str] = {SYSTEM_SESSION_ID}
     session_status: dict[str, str] = {SYSTEM_SESSION_ID: "active"}
     session_decision_ids: dict[str, set[str]] = defaultdict(set)
@@ -710,22 +733,10 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
     pending_question: dict[str, str] | None = None
     pending_close_summary_session_id: str | None = None
     project_initialized_count = 0
-    for sequence, event in enumerate(events, start=1):
-        validate_event(event)
-        if event["event_type"] not in EVENT_TYPES:
-            raise StateValidationError(f"unsupported event type in log: {event['event_type']}")
-        if event["event_id"] in event_ids:
-            raise StateValidationError(f"duplicate event id: {event['event_id']}")
-        event_ids.add(event["event_id"])
-        expected_event_id = make_event_id(sequence, event["ts"])
-        if event["event_id"] != expected_event_id:
-            raise StateValidationError(
-                f"event_id {event['event_id']} does not match sequence {sequence}"
-            )
-        if event["project_version_after"] != sequence:
-            raise StateValidationError(
-                f"event {event['event_id']} project_version_after must equal sequence {sequence}"
-            )
+    linked_edges: list[tuple[str, str, str]] = []
+    seen_link_keys: set[tuple[str, str, str]] = set()
+    resolved_conflict_ids: set[str] = set()
+    for event in events:
         _validate_event_log_session_scope(event, created_session_ids)
         if pending_close_summary_session_id is not None:
             if (
@@ -784,6 +795,19 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
                     raise StateValidationError(
                         f"{event['event_type']} references undiscovered decision {decision_id}"
                     )
+        if event["event_type"] == "session_linked":
+            _validate_session_linked_event(
+                event,
+                created_session_ids,
+                linked_edges,
+                seen_link_keys,
+            )
+        elif event["event_type"] == "semantic_conflict_resolved":
+            _validate_semantic_conflict_resolved_event(
+                event,
+                created_session_ids,
+                resolved_conflict_ids,
+            )
         pending_rejected_proposal_id = _expire_pending_rejected_proposal(
             event,
             pending_rejected_proposal_id,
@@ -849,13 +873,226 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
                 if proposal_id and issued_proposals.get(proposal_id, {}).get("target_id") == invalidated_id:
                     disabled_proposals.add(proposal_id)
                     active_proposal_by_session[candidate_session_id] = None
-        if event["project_version_after"] <= previous_version:
-            raise StateValidationError("event log project_version_after must be strictly increasing")
-        previous_version = event["project_version_after"]
     if pending_question is not None:
         raise StateValidationError("question_asked must be followed by matching proposal_issued")
     if pending_close_summary_session_id is not None:
         raise StateValidationError("close_summary_generated must be followed by matching session_closed")
+
+
+def validate_event_log_structure(events: list[dict[str, Any]]) -> None:
+    if not events:
+        return
+    first = events[0]
+    if first.get("event_type") != "project_initialized":
+        raise StateValidationError("event log must start with project_initialized")
+    if first.get("session_id") != SYSTEM_SESSION_ID:
+        raise StateValidationError("project_initialized event must use SYSTEM session_id")
+
+    _validate_event_transactions(events)
+    event_ids: set[str] = set()
+    project_initialized_count = 0
+    for event in events:
+        validate_event(event)
+        if event["event_type"] not in EVENT_TYPES:
+            raise StateValidationError(f"unsupported event type in log: {event['event_type']}")
+        if event["event_id"] in event_ids:
+            raise StateValidationError(f"duplicate event id: {event['event_id']}")
+        event_ids.add(event["event_id"])
+        if event["event_type"] == "project_initialized":
+            if event["session_id"] != SYSTEM_SESSION_ID:
+                raise StateValidationError("project_initialized event must use SYSTEM session_id")
+            project_initialized_count += 1
+            if project_initialized_count > 1:
+                raise StateValidationError("event log must contain exactly one project_initialized event")
+
+
+def _validate_event_transactions(events: list[dict[str, Any]]) -> None:
+    by_tx_id: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    seen_tx_positions: set[tuple[str, int]] = set()
+    for event in events:
+        validate_event(event)
+        tx_id = event["tx_id"]
+        tx_index = event["tx_index"]
+        tx_position = (tx_id, tx_index)
+        if tx_position in seen_tx_positions:
+            raise StateValidationError(f"duplicate tx_index {tx_index} in transaction {tx_id}")
+        seen_tx_positions.add(tx_position)
+        by_tx_id[tx_id].append(event)
+
+    for tx_id, tx_events in by_tx_id.items():
+        tx_sizes = {event["tx_size"] for event in tx_events}
+        if len(tx_sizes) != 1:
+            raise StateValidationError(f"transaction {tx_id} has inconsistent tx_size values")
+        tx_size = tx_sizes.pop()
+        if tx_size != len(tx_events):
+            raise StateValidationError(f"transaction {tx_id} tx_size does not match event count")
+        tx_indexes = sorted(event["tx_index"] for event in tx_events)
+        if tx_indexes != list(range(1, tx_size + 1)):
+            raise StateValidationError(f"transaction {tx_id} tx_index values must be contiguous")
+        session_ids = {event["session_id"] for event in tx_events}
+        if len(session_ids) != 1:
+            raise StateValidationError(f"transaction {tx_id} contains multiple session_ids")
+
+
+def _validate_session_linked_event(
+    event: dict[str, Any],
+    created_session_ids: set[str],
+    linked_edges: list[tuple[str, str, str]],
+    seen_link_keys: set[tuple[str, str, str]],
+) -> None:
+    payload = event["payload"]
+    parent_session_id = payload["parent_session_id"]
+    child_session_id = payload["child_session_id"]
+    relationship = payload["relationship"]
+    if parent_session_id not in created_session_ids:
+        raise StateValidationError(f"session_linked references unknown parent session: {parent_session_id}")
+    if child_session_id not in created_session_ids:
+        raise StateValidationError(f"session_linked references unknown child session: {child_session_id}")
+    if event["session_id"] != child_session_id:
+        raise StateValidationError("session_linked event.session_id must match child_session_id")
+    link_key = (parent_session_id, child_session_id, relationship)
+    if link_key in seen_link_keys:
+        raise StateValidationError("duplicate session_linked relationship")
+    seen_link_keys.add(link_key)
+    if relationship != "contradicts" and _would_create_session_graph_cycle(
+        linked_edges,
+        parent_session_id,
+        child_session_id,
+    ):
+        raise StateValidationError("session_linked would create a session graph cycle")
+    linked_edges.append(link_key)
+
+
+def _would_create_session_graph_cycle(
+    linked_edges: list[tuple[str, str, str]],
+    parent_session_id: str,
+    child_session_id: str,
+) -> bool:
+    adjacency: dict[str, set[str]] = defaultdict(set)
+    for parent, child, relationship in linked_edges:
+        if relationship == "contradicts":
+            continue
+        adjacency[parent].add(child)
+    stack = [child_session_id]
+    visited: set[str] = set()
+    while stack:
+        current = stack.pop()
+        if current == parent_session_id:
+            return True
+        if current in visited:
+            continue
+        visited.add(current)
+        stack.extend(sorted(adjacency.get(current, set()), reverse=True))
+    return False
+
+
+def _validate_semantic_conflict_resolved_event(
+    event: dict[str, Any],
+    created_session_ids: set[str],
+    resolved_conflict_ids: set[str],
+) -> None:
+    payload = event["payload"]
+    conflict_id = payload["conflict_id"]
+    if conflict_id in resolved_conflict_ids:
+        raise StateValidationError(f"duplicate semantic_conflict_resolved conflict_id: {conflict_id}")
+    resolved_conflict_ids.add(conflict_id)
+    winning_session_id = payload["winning_session_id"]
+    rejected_session_ids = payload["rejected_session_ids"]
+    scope_session_ids = set(payload["scope"]["session_ids"])
+    if winning_session_id not in created_session_ids:
+        raise StateValidationError(f"semantic_conflict_resolved references unknown winning session: {winning_session_id}")
+    if event["session_id"] != winning_session_id:
+        raise StateValidationError("semantic_conflict_resolved event.session_id must match winning_session_id")
+    if winning_session_id not in scope_session_ids:
+        raise StateValidationError("semantic_conflict_resolved winning_session_id must be in scope")
+    for rejected_session_id in rejected_session_ids:
+        if rejected_session_id not in created_session_ids:
+            raise StateValidationError(
+                f"semantic_conflict_resolved references unknown rejected session: {rejected_session_id}"
+            )
+        if rejected_session_id not in scope_session_ids:
+            raise StateValidationError("semantic_conflict_resolved rejected_session_ids must be in scope")
+
+
+def _validate_session_graph(session_graph: dict[str, Any]) -> None:
+    graph = _require_dict(session_graph, "project_state.session_graph")
+    _require_keys(
+        graph,
+        ("nodes", "edges", "inferred_candidates", "resolved_conflicts"),
+        "project_state.session_graph",
+    )
+    for key in ("nodes", "edges", "inferred_candidates", "resolved_conflicts"):
+        _require_list(graph[key], f"project_state.session_graph.{key}")
+    node_ids: set[str] = set()
+    for node in graph["nodes"]:
+        node_payload = _require_dict(node, "project_state.session_graph.nodes[]")
+        _require_keys(
+            node_payload,
+            ("session_id", "status", "decision_ids", "close_summary_preview"),
+            "project_state.session_graph.nodes[]",
+        )
+        _require_non_empty_string(node_payload.get("session_id"), "project_state.session_graph.nodes[].session_id")
+        if node_payload["session_id"] in node_ids:
+            raise StateValidationError(f"duplicate session graph node: {node_payload['session_id']}")
+        node_ids.add(node_payload["session_id"])
+        _require_list(node_payload["decision_ids"], "project_state.session_graph.nodes[].decision_ids")
+        _require_dict(
+            node_payload["close_summary_preview"],
+            "project_state.session_graph.nodes[].close_summary_preview",
+        )
+    for edge in graph["edges"]:
+        edge_payload = _require_dict(edge, "project_state.session_graph.edges[]")
+        _require_keys(
+            edge_payload,
+            (
+                "parent_session_id",
+                "child_session_id",
+                "relationship",
+                "reason",
+                "linked_at",
+                "evidence_refs",
+                "event_id",
+            ),
+            "project_state.session_graph.edges[]",
+        )
+        _require_non_empty_string(edge_payload["parent_session_id"], "project_state.session_graph.edges[].parent_session_id")
+        _require_non_empty_string(edge_payload["child_session_id"], "project_state.session_graph.edges[].child_session_id")
+        _require_enum(edge_payload["relationship"], SESSION_RELATIONSHIPS, "project_state.session_graph.edges[].relationship")
+        _require_non_empty_string(edge_payload["reason"], "project_state.session_graph.edges[].reason")
+        _require_timestamp(edge_payload["linked_at"], "project_state.session_graph.edges[].linked_at")
+        _require_list(edge_payload["evidence_refs"], "project_state.session_graph.edges[].evidence_refs")
+        _require_non_empty_string(edge_payload["event_id"], "project_state.session_graph.edges[].event_id")
+    for resolved in graph["resolved_conflicts"]:
+        resolved_payload = _require_dict(resolved, "project_state.session_graph.resolved_conflicts[]")
+        _require_keys(
+            resolved_payload,
+            (
+                "conflict_id",
+                "winning_session_id",
+                "rejected_session_ids",
+                "scope",
+                "reason",
+                "resolved_at",
+                "event_id",
+            ),
+            "project_state.session_graph.resolved_conflicts[]",
+        )
+        _require_non_empty_string(
+            resolved_payload["conflict_id"],
+            "project_state.session_graph.resolved_conflicts[].conflict_id",
+        )
+        _require_non_empty_string(
+            resolved_payload["winning_session_id"],
+            "project_state.session_graph.resolved_conflicts[].winning_session_id",
+        )
+        _require_list(
+            resolved_payload["rejected_session_ids"],
+            "project_state.session_graph.resolved_conflicts[].rejected_session_ids",
+        )
+        _require_dict(resolved_payload["scope"], "project_state.session_graph.resolved_conflicts[].scope")
+        _require_non_empty_string(resolved_payload["reason"], "project_state.session_graph.resolved_conflicts[].reason")
+        _require_timestamp(resolved_payload["resolved_at"], "project_state.session_graph.resolved_conflicts[].resolved_at")
+        _require_non_empty_string(resolved_payload["event_id"], "project_state.session_graph.resolved_conflicts[].event_id")
 
 
 def _validate_event_log_proposal_lifecycle(

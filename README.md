@@ -121,6 +121,21 @@ Merge discovery into an execution plan:
 3. Resolve conflicts if accepted decisions disagree.
 4. Use the generated action slices as implementation input.
 
+Resolve same-session transaction merge conflicts:
+
+1. Run `python3 scripts/decide_me.py detect-merge-conflicts --ai-dir .ai/decide-me`.
+2. Pick the `tx_id` to keep from the chosen option's `surviving_tx_ids`, and the `tx_id` or IDs
+   to reject from that option's `reject_tx_ids`.
+3. Run `python3 scripts/decide_me.py resolve-merge-conflict --ai-dir .ai/decide-me --session-id S-... --keep-tx-id T-... --reject-tx-id T-... --reason "..."`.
+4. Rebuild or validate state. Rejected transaction files remain in `events/` for audit, but are excluded from normal projections.
+
+Resolve semantic conflicts across related sessions:
+
+1. Link explicit parent/child context with `python3 scripts/decide_me.py link-session --ai-dir .ai/decide-me --parent-session-id S-... --child-session-id S-... --relationship refines --reason "..."`.
+2. Inspect graph context with `python3 scripts/decide_me.py show-session-graph --ai-dir .ai/decide-me --session-id S-... --include-inferred`.
+3. Run `python3 scripts/decide_me.py detect-session-conflicts --ai-dir .ai/decide-me --session-id S-... --include-related`.
+4. Resolve the chosen semantic conflict with `python3 scripts/decide_me.py resolve-session-conflict --ai-dir .ai/decide-me --conflict-id C-... --winning-session-id S-... --reject-session-id S-... --reason "..."`.
+
 Reuse prior context:
 
 1. Search sessions by topic, domain, abstraction level, or tag.
@@ -132,15 +147,24 @@ Reuse prior context:
 
 The runtime lives under `.ai/decide-me/`.
 
-- `event-log.jsonl` is the source of truth.
+- `events/**/*.jsonl` transaction files are the source of truth.
+- `transaction_rejected` control events exclude rejected transaction IDs from
+  the effective projection stream without deleting the rejected files.
+- `session_linked` records explicit semantic parent/child session graph edges.
+- `semantic_conflict_resolved` records user-selected planner-level conflict resolution across
+  explicitly related sessions without removing either session's event files.
 - `project-state.json`, `taxonomy-state.json`, and `sessions/*.json` are
   rebuildable projections.
 - `exports/` contains human-readable plans and ADRs.
 - `write.lock` protects runtime writes.
 
+Legacy runtimes that still have `.ai/decide-me/event-log.jsonl` are not migrated
+automatically by this version. Rebootstrap the runtime, or export the old state
+with the previous runtime and recreate it under the transaction-file layout.
+
 Normal users should not edit runtime state by hand. If projections look wrong,
-rebuild them from the event log and validate state instead of patching JSON
-files directly.
+rebuild them from the transaction event files and validate state instead of
+patching JSON files directly.
 
 ## For maintainers
 
