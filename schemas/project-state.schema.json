@@ -7,15 +7,16 @@
     "schema_version",
     "project",
     "state",
-    "protocol",
-    "counts",
-    "default_bundles",
-    "decisions"
+      "protocol",
+      "counts",
+      "default_bundles",
+      "session_graph",
+      "decisions"
   ],
   "properties": {
     "schema_version": {
       "type": "integer",
-      "const": 5
+      "const": 6
     },
     "project": {
       "type": "object",
@@ -92,6 +93,30 @@
     },
     "default_bundles": {
       "type": "array"
+    },
+    "session_graph": {
+      "type": "object",
+      "required": [
+        "nodes",
+        "edges",
+        "inferred_candidates",
+        "resolved_conflicts"
+      ],
+      "properties": {
+        "nodes": {
+          "type": "array"
+        },
+        "edges": {
+          "type": "array"
+        },
+        "inferred_candidates": {
+          "type": "array"
+        },
+        "resolved_conflicts": {
+          "type": "array"
+        }
+      },
+      "additionalProperties": false
     },
     "decisions": {
       "type": "array",

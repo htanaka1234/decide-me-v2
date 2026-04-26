@@ -16,6 +16,7 @@ from decide_me.constants import (
 
 AUTO_PROJECT_HEAD = "__AUTO_PROJECT_HEAD__"
 PLAN_STATUSES = {"action-plan", "conflicts"}
+SESSION_RELATIONSHIPS = {"derived_from", "refines", "supersedes", "depends_on", "contradicts"}
 
 EVENT_TYPES = {
     "project_initialized",
@@ -37,6 +38,8 @@ EVENT_TYPES = {
     "taxonomy_extended",
     "compatibility_backfilled",
     "transaction_rejected",
+    "session_linked",
+    "semantic_conflict_resolved",
 }
 
 REQUIRED_PAYLOAD_KEYS: dict[str, tuple[str, ...]] = {
@@ -71,6 +74,22 @@ REQUIRED_PAYLOAD_KEYS: dict[str, tuple[str, ...]] = {
         "resolved_at",
         "conflict_kind",
         "conflict_summary",
+    ),
+    "session_linked": (
+        "parent_session_id",
+        "child_session_id",
+        "relationship",
+        "reason",
+        "linked_at",
+        "evidence_refs",
+    ),
+    "semantic_conflict_resolved": (
+        "conflict_id",
+        "winning_session_id",
+        "rejected_session_ids",
+        "scope",
+        "reason",
+        "resolved_at",
     ),
 }
 
@@ -353,6 +372,53 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
             seen.add(rejected_tx_id)
         if payload["kept_tx_id"] in seen:
             raise EventValidationError("transaction_rejected kept_tx_id must not be rejected")
+    elif event_type == "session_linked":
+        for key in ("parent_session_id", "child_session_id", "relationship", "reason"):
+            _require_non_empty_string(payload.get(key), f"session_linked.payload.{key}")
+        _require_timestamp(payload.get("linked_at"), "session_linked.payload.linked_at")
+        if payload["relationship"] not in SESSION_RELATIONSHIPS:
+            allowed = ", ".join(sorted(SESSION_RELATIONSHIPS))
+            raise EventValidationError(f"session_linked.payload.relationship must be one of: {allowed}")
+        if payload["parent_session_id"] == payload["child_session_id"]:
+            raise EventValidationError("session_linked must not self-reference")
+        evidence_refs = payload["evidence_refs"]
+        if not isinstance(evidence_refs, list):
+            raise EventValidationError("session_linked.payload.evidence_refs must be a list")
+        for evidence_ref in evidence_refs:
+            _require_non_empty_string(evidence_ref, "session_linked.payload.evidence_refs[]")
+    elif event_type == "semantic_conflict_resolved":
+        for key in ("conflict_id", "winning_session_id", "reason"):
+            _require_non_empty_string(payload.get(key), f"semantic_conflict_resolved.payload.{key}")
+        _require_timestamp(payload.get("resolved_at"), "semantic_conflict_resolved.payload.resolved_at")
+        rejected_session_ids = payload["rejected_session_ids"]
+        if not isinstance(rejected_session_ids, list) or not rejected_session_ids:
+            raise EventValidationError(
+                "semantic_conflict_resolved.payload.rejected_session_ids must be a non-empty list"
+            )
+        seen_sessions: set[str] = set()
+        for rejected_session_id in rejected_session_ids:
+            _require_non_empty_string(
+                rejected_session_id,
+                "semantic_conflict_resolved.payload.rejected_session_ids[]",
+            )
+            if rejected_session_id in seen_sessions:
+                raise EventValidationError(
+                    "semantic_conflict_resolved.payload.rejected_session_ids contains duplicate session_id: "
+                    f"{rejected_session_id}"
+                )
+            seen_sessions.add(rejected_session_id)
+        if payload["winning_session_id"] in seen_sessions:
+            raise EventValidationError("semantic_conflict_resolved winning_session_id must not be rejected")
+        scope = _require_dict(payload["scope"], "semantic_conflict_resolved.payload.scope")
+        _require_keys(scope, ("kind", "session_ids"), "semantic_conflict_resolved.payload.scope")
+        _require_non_empty_string(scope.get("kind"), "semantic_conflict_resolved.payload.scope.kind")
+        session_ids = scope["session_ids"]
+        if not isinstance(session_ids, list) or not session_ids:
+            raise EventValidationError(
+                "semantic_conflict_resolved.payload.scope.session_ids must be a non-empty list"
+            )
+        for session_id in session_ids:
+            _require_non_empty_string(session_id, "semantic_conflict_resolved.payload.scope.session_ids[]")
 
 
 def validate_event(event: dict[str, Any]) -> None:
@@ -382,6 +448,14 @@ def validate_event(event: dict[str, Any]) -> None:
     elif event["event_type"] in {"proposal_accepted", "proposal_rejected"}:
         if payload["origin_session_id"] != event["session_id"]:
             raise EventValidationError(f"{event['event_type']} origin_session_id must match event.session_id")
+    elif event["event_type"] == "session_linked":
+        if payload["child_session_id"] != event["session_id"]:
+            raise EventValidationError("session_linked child_session_id must match event.session_id")
+    elif event["event_type"] == "semantic_conflict_resolved":
+        if payload["winning_session_id"] != event["session_id"]:
+            raise EventValidationError(
+                "semantic_conflict_resolved winning_session_id must match event.session_id"
+            )
 
 
 def build_event(

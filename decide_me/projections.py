@@ -15,7 +15,7 @@ STALE_AFTER = timedelta(days=7)
 
 def default_project_state() -> dict[str, Any]:
     return {
-        "schema_version": 5,
+        "schema_version": 6,
         "project": {
             "name": None,
             "objective": None,
@@ -36,6 +36,12 @@ def default_project_state() -> dict[str, Any]:
         },
         "counts": {"p0_now_open": 0, "p1_now_open": 0, "p2_open": 0, "blocked": 0, "deferred": 0},
         "default_bundles": [],
+        "session_graph": {
+            "nodes": [],
+            "edges": [],
+            "inferred_candidates": [],
+            "resolved_conflicts": [],
+        },
         "decisions": [],
     }
 
@@ -61,7 +67,7 @@ def default_session_state(
     session_id: str, started_at: str, bound_context_hint: str | None = None
 ) -> dict[str, Any]:
     return {
-        "schema_version": 5,
+        "schema_version": 6,
         "session": {
             "id": session_id,
             "started_at": started_at,
@@ -213,10 +219,18 @@ def rebuild_projections(events: list[dict[str, Any]]) -> dict[str, Any]:
         )
 
     _recompute_counts(project_state)
-    return {
+    bundle = {
         "project_state": project_state,
         "taxonomy_state": taxonomy_state,
         "sessions": {session_id: sessions[session_id] for session_id in sorted(sessions)},
+    }
+    from decide_me.session_graph import build_session_graph
+
+    project_state["session_graph"] = build_session_graph(bundle)
+    return {
+        "project_state": project_state,
+        "taxonomy_state": taxonomy_state,
+        "sessions": bundle["sessions"],
     }
 
 
@@ -461,6 +475,32 @@ def apply_event(
             ts,
             session["summary"].get("active_decision_id"),
             project_head_after,
+        )
+    elif event_type == "session_linked":
+        graph = project_state["session_graph"]
+        graph["edges"].append(
+            {
+                "parent_session_id": payload["parent_session_id"],
+                "child_session_id": payload["child_session_id"],
+                "relationship": payload["relationship"],
+                "reason": payload["reason"],
+                "linked_at": payload["linked_at"],
+                "evidence_refs": deepcopy(payload["evidence_refs"]),
+                "event_id": event["event_id"],
+            }
+        )
+    elif event_type == "semantic_conflict_resolved":
+        graph = project_state["session_graph"]
+        graph["resolved_conflicts"].append(
+            {
+                "conflict_id": payload["conflict_id"],
+                "winning_session_id": payload["winning_session_id"],
+                "rejected_session_ids": deepcopy(payload["rejected_session_ids"]),
+                "scope": deepcopy(payload["scope"]),
+                "reason": payload["reason"],
+                "resolved_at": payload["resolved_at"],
+                "event_id": event["event_id"],
+            }
         )
     elif event_type == "plan_generated":
         pass

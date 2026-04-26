@@ -552,6 +552,50 @@ class ProjectionValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(StateValidationError, "must match"):
             validate_event_log([initialized, mismatched])
 
+    def test_event_log_accepts_session_linked_relationship(self) -> None:
+        initialized = _project_initialized(1)
+        parent = _session_created(2, "S-parent")
+        child = _session_created(3, "S-child")
+        linked = _session_linked(4, "S-parent", "S-child", "refines")
+
+        validate_event_log([initialized, parent, child, linked])
+
+    def test_event_log_rejects_session_linked_unknown_session(self) -> None:
+        initialized = _project_initialized(1)
+        child = _session_created(2, "S-child")
+        linked = _session_linked(3, "S-parent", "S-child", "refines")
+
+        with self.assertRaisesRegex(StateValidationError, "unknown parent session"):
+            validate_event_log([initialized, child, linked])
+
+    def test_event_log_rejects_session_linked_cycle(self) -> None:
+        initialized = _project_initialized(1)
+        first = _session_created(2, "S-first")
+        second = _session_created(3, "S-second")
+        first_link = _session_linked(4, "S-first", "S-second", "refines")
+        cycle = _session_linked(5, "S-second", "S-first", "depends_on")
+
+        with self.assertRaisesRegex(StateValidationError, "cycle"):
+            validate_event_log([initialized, first, second, first_link, cycle])
+
+    def test_event_log_allows_contradicts_cycle(self) -> None:
+        initialized = _project_initialized(1)
+        first = _session_created(2, "S-first")
+        second = _session_created(3, "S-second")
+        first_link = _session_linked(4, "S-first", "S-second", "refines")
+        contradiction = _session_linked(5, "S-second", "S-first", "contradicts")
+
+        validate_event_log([initialized, first, second, first_link, contradiction])
+
+    def test_event_log_rejects_semantic_conflict_resolution_out_of_scope(self) -> None:
+        initialized = _project_initialized(1)
+        winner = _session_created(2, "S-winner")
+        loser = _session_created(3, "S-loser")
+        resolved = _semantic_conflict_resolved(4, "S-winner", ["S-loser"], ["S-winner"])
+
+        with self.assertRaisesRegex(StateValidationError, "rejected_session_ids must be in scope"):
+            validate_event_log([initialized, winner, loser, resolved])
+
     def test_event_log_rejects_decision_refs_before_discovery(self) -> None:
         initialized = _project_initialized(1)
         session = _session_created(2, "S-001")
@@ -1098,6 +1142,47 @@ def _session_resumed(sequence: int, session_id: str) -> dict:
         event_type="session_resumed",
         project_head_after=sequence,
         payload={"resumed_at": f"2026-04-23T12:{sequence - 1:02d}:00Z"},
+        timestamp=f"2026-04-23T12:{sequence - 1:02d}:00Z",
+    )
+
+
+def _session_linked(sequence: int, parent_session_id: str, child_session_id: str, relationship: str) -> dict:
+    return build_event(
+        sequence=sequence,
+        session_id=child_session_id,
+        event_type="session_linked",
+        project_head_after=sequence,
+        payload={
+            "parent_session_id": parent_session_id,
+            "child_session_id": child_session_id,
+            "relationship": relationship,
+            "reason": "Related sessions.",
+            "linked_at": f"2026-04-23T12:{sequence - 1:02d}:00Z",
+            "evidence_refs": [],
+        },
+        timestamp=f"2026-04-23T12:{sequence - 1:02d}:00Z",
+    )
+
+
+def _semantic_conflict_resolved(
+    sequence: int,
+    winning_session_id: str,
+    rejected_session_ids: list[str],
+    scope_session_ids: list[str],
+) -> dict:
+    return build_event(
+        sequence=sequence,
+        session_id=winning_session_id,
+        event_type="semantic_conflict_resolved",
+        project_head_after=sequence,
+        payload={
+            "conflict_id": "C-test",
+            "winning_session_id": winning_session_id,
+            "rejected_session_ids": rejected_session_ids,
+            "scope": {"kind": "accepted_decision", "decision_id": "D-test", "session_ids": scope_session_ids},
+            "reason": "Resolve conflict.",
+            "resolved_at": f"2026-04-23T12:{sequence - 1:02d}:00Z",
+        },
         timestamp=f"2026-04-23T12:{sequence - 1:02d}:00Z",
     )
 

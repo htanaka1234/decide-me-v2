@@ -116,6 +116,109 @@ class EventTests(unittest.TestCase):
                 timestamp="2026-04-23T12:00:00Z",
             )
 
+    def test_validate_accepts_session_linked_event(self) -> None:
+        event = build_event(
+            sequence=1,
+            session_id="S-child",
+            event_type="session_linked",
+            project_version_after=4,
+            payload={
+                "parent_session_id": "S-parent",
+                "child_session_id": "S-child",
+                "relationship": "refines",
+                "reason": "Child refines the parent discussion.",
+                "linked_at": "2026-04-23T12:00:00Z",
+                "evidence_refs": ["session:S-parent"],
+            },
+            timestamp="2026-04-23T12:00:00Z",
+        )
+
+        validate_event(event)
+
+    def test_session_linked_rejects_invalid_relationship_and_self_reference(self) -> None:
+        payload = {
+            "parent_session_id": "S-parent",
+            "child_session_id": "S-child",
+            "relationship": "unknown",
+            "reason": "Reason.",
+            "linked_at": "2026-04-23T12:00:00Z",
+            "evidence_refs": [],
+        }
+        with self.assertRaisesRegex(EventValidationError, "relationship"):
+            build_event(
+                sequence=1,
+                session_id="S-child",
+                event_type="session_linked",
+                project_version_after=4,
+                payload=payload,
+                timestamp="2026-04-23T12:00:00Z",
+            )
+
+        payload["relationship"] = "refines"
+        payload["child_session_id"] = "S-parent"
+        with self.assertRaisesRegex(EventValidationError, "self-reference"):
+            build_event(
+                sequence=1,
+                session_id="S-parent",
+                event_type="session_linked",
+                project_version_after=4,
+                payload=payload,
+                timestamp="2026-04-23T12:00:00Z",
+            )
+
+    def test_validate_accepts_semantic_conflict_resolved_event(self) -> None:
+        event = build_event(
+            sequence=1,
+            session_id="S-winner",
+            event_type="semantic_conflict_resolved",
+            project_version_after=4,
+            payload={
+                "conflict_id": "C-test",
+                "winning_session_id": "S-winner",
+                "rejected_session_ids": ["S-loser"],
+                "scope": {
+                    "kind": "accepted_decision",
+                    "decision_id": "D-001",
+                    "session_ids": ["S-loser", "S-winner"],
+                },
+                "reason": "Winner is more current.",
+                "resolved_at": "2026-04-23T12:00:00Z",
+            },
+            timestamp="2026-04-23T12:00:00Z",
+        )
+
+        validate_event(event)
+
+    def test_semantic_conflict_resolved_rejects_empty_and_self_references(self) -> None:
+        payload = {
+            "conflict_id": "C-test",
+            "winning_session_id": "S-winner",
+            "rejected_session_ids": [],
+            "scope": {"kind": "accepted_decision", "session_ids": ["S-winner"]},
+            "reason": "Resolve.",
+            "resolved_at": "2026-04-23T12:00:00Z",
+        }
+        with self.assertRaisesRegex(EventValidationError, "rejected_session_ids"):
+            build_event(
+                sequence=1,
+                session_id="S-winner",
+                event_type="semantic_conflict_resolved",
+                project_version_after=4,
+                payload=payload,
+                timestamp="2026-04-23T12:00:00Z",
+            )
+
+        payload["rejected_session_ids"] = ["S-winner"]
+        with self.assertRaisesRegex(EventValidationError, "winning_session_id"):
+            build_event(
+                sequence=1,
+                session_id="S-winner",
+                event_type="semantic_conflict_resolved",
+                project_version_after=4,
+                payload=payload,
+                timestamp="2026-04-23T12:00:00Z",
+            )
+
     def test_proposal_issued_requires_origin_session_id(self) -> None:
         with self.assertRaisesRegex(EventValidationError, "origin_session_id"):
             build_event(

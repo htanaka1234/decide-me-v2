@@ -16,6 +16,9 @@ Startup checklist:
    If validation reports an unresolved same-session merge conflict, run
    `python3 scripts/decide_me.py detect-merge-conflicts --ai-dir .ai/decide-me` and ask the user
    which candidate transaction to keep before resolving it.
+   If plan generation reports semantic conflicts across related sessions, inspect
+   `show-session-graph` and use `detect-session-conflicts --include-related` before asking the
+   user which session's scoped answer should win.
 4. Create a session when the user starts a new decision thread; resume an existing one only when
    the user explicitly asks or the runtime already identifies the current session.
 5. Before asking a question, scan the codebase, docs, tests, existing sessions, and prior close
@@ -53,6 +56,10 @@ User-facing commands:
 - `Generate plan from sessions S-..., S-...`
 - `Detect merge conflicts`
 - `Resolve merge conflict by keeping tx T-... and rejecting tx T-...`
+- `Link session S-child to parent S-parent`
+- `Show session graph`
+- `Detect session conflicts`
+- `Resolve session conflict by choosing session S-...`
 - `Classify session S-...`
 - `Advance session S-...`
 - `Handle reply for session S-...`
@@ -62,6 +69,10 @@ Runtime invariants:
 - `.ai/decide-me/events/**/*.jsonl` transaction files are the source of truth.
 - `transaction_rejected` events record user-selected transaction rejection; rejected transaction
   files remain on disk for audit and are ignored only in the effective projection stream.
+- `session_linked` events are the source of truth for explicit session graph edges; inferred
+  candidates are advisory and must not silently become graph edges.
+- `semantic_conflict_resolved` events record user-selected session-level conflict resolution and
+  suppress only the scoped planner conflict, not the losing session's unrelated content.
 - `project-state.json`, `taxonomy-state.json`, and `sessions/*.json` are rebuildable projections.
 - Human-readable plan and ADR files are exports, not runtime state.
 - Free-form answers apply only to the current active proposal in the current session.

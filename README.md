@@ -128,6 +128,13 @@ Resolve same-session transaction merge conflicts:
 3. Run `python3 scripts/decide_me.py resolve-merge-conflict --ai-dir .ai/decide-me --session-id S-... --keep-tx-id T-... --reject-tx-id T-... --reason "..."`.
 4. Rebuild or validate state. Rejected transaction files remain in `events/` for audit, but are excluded from normal projections.
 
+Resolve semantic conflicts across related sessions:
+
+1. Link explicit parent/child context with `python3 scripts/decide_me.py link-session --ai-dir .ai/decide-me --parent-session-id S-... --child-session-id S-... --relationship refines --reason "..."`.
+2. Inspect graph context with `python3 scripts/decide_me.py show-session-graph --ai-dir .ai/decide-me --session-id S-... --include-inferred`.
+3. Run `python3 scripts/decide_me.py detect-session-conflicts --ai-dir .ai/decide-me --session-id S-... --include-related`.
+4. Resolve the chosen semantic conflict with `python3 scripts/decide_me.py resolve-session-conflict --ai-dir .ai/decide-me --conflict-id C-... --winning-session-id S-... --reject-session-id S-... --reason "..."`.
+
 Reuse prior context:
 
 1. Search sessions by topic, domain, abstraction level, or tag.
@@ -142,6 +149,9 @@ The runtime lives under `.ai/decide-me/`.
 - `events/**/*.jsonl` transaction files are the source of truth.
 - `transaction_rejected` control events exclude rejected transaction IDs from
   the effective projection stream without deleting the rejected files.
+- `session_linked` records explicit semantic parent/child session graph edges.
+- `semantic_conflict_resolved` records user-selected planner-level conflict resolution across
+  explicitly related sessions without removing either session's event files.
 - `project-state.json`, `taxonomy-state.json`, and `sessions/*.json` are
   rebuildable projections.
 - `exports/` contains human-readable plans and ADRs.

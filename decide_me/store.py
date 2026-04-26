@@ -23,7 +23,7 @@ except ImportError:  # pragma: no cover
 
 
 SYSTEM_SESSION_ID = "SYSTEM"
-CONTROL_EVENT_TYPES = {"transaction_rejected"}
+CONTROL_EVENT_TYPES = {"transaction_rejected", "session_linked", "semantic_conflict_resolved"}
 
 
 @dataclass(frozen=True)

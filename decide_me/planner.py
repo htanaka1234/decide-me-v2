@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from copy import deepcopy
 from typing import Any
 
@@ -31,13 +33,14 @@ def generate_plan(ai_dir: str, session_ids: list[str]) -> dict[str, Any]:
         "action_plan": None,
     }
 
-    conflicts = detect_conflicts(sessions)
+    resolved_conflicts = bundle["project_state"].get("session_graph", {}).get("resolved_conflicts", [])
+    conflicts = detect_conflicts(sessions, resolved_conflicts=resolved_conflicts)
     if conflicts:
         plan["status"] = "conflicts"
         plan["conflicts"] = conflicts
     else:
         plan["status"] = "action-plan"
-        plan["action_plan"] = assemble_action_plan(sessions)
+        plan["action_plan"] = assemble_action_plan(sessions, resolved_conflicts=resolved_conflicts)
 
     output = export_plan(ai_dir, plan)
     plan["export_path"] = str(output)
@@ -45,11 +48,20 @@ def generate_plan(ai_dir: str, session_ids: list[str]) -> dict[str, Any]:
     return plan
 
 
-def detect_conflicts(sessions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def detect_conflicts(
+    sessions: list[dict[str, Any]],
+    *,
+    resolved_conflicts: list[dict[str, Any]] | None = None,
+    include_resolved: bool = False,
+) -> list[dict[str, Any]]:
     conflicts: list[dict[str, Any]] = []
     accepted_by_id: dict[str, tuple[str | None, str]] = {}
     workstreams_by_name: dict[str, tuple[set[str], str]] = {}
     actions_by_name: dict[str, tuple[str, str]] = {}
+    resolved_by_id = {
+        resolved["conflict_id"]: resolved
+        for resolved in (resolved_conflicts or [])
+    }
 
     for session in sessions:
         close_summary = session["close_summary"]
@@ -59,13 +71,21 @@ def detect_conflicts(sessions: list[dict[str, Any]]) -> list[dict[str, Any]]:
             previous = accepted_by_id.get(decision["id"])
             current_answer = decision.get("accepted_answer")
             if previous and previous[0] != current_answer:
+                scope = {
+                    "kind": "accepted_decision",
+                    "decision_id": decision["id"],
+                    "session_ids": sorted([previous[1], session_id]),
+                }
                 conflicts.append(
-                    {
-                        "kind": "accepted-answer-mismatch",
-                        "decision_id": decision["id"],
-                        "session_ids": [previous[1], session_id],
-                        "summary": "Accepted answers differ for the same decision.",
-                    }
+                    _conflict(
+                        "accepted-answer-mismatch",
+                        sorted([previous[1], session_id]),
+                        scope,
+                        "Accepted answers differ for the same decision.",
+                        resolved_by_id,
+                        include_resolved,
+                        decision_id=decision["id"],
+                    )
                 )
             else:
                 accepted_by_id[decision["id"]] = (current_answer, session_id)
@@ -75,13 +95,21 @@ def detect_conflicts(sessions: list[dict[str, Any]]) -> list[dict[str, Any]]:
             scope = set(workstream.get("scope", []))
             previous = workstreams_by_name.get(name)
             if previous and previous[0] & scope and previous[0] != scope:
+                conflict_scope = {
+                    "kind": "workstream",
+                    "name": name,
+                    "session_ids": sorted([previous[1], session_id]),
+                }
                 conflicts.append(
-                    {
-                        "kind": "workstream-scope-mismatch",
-                        "name": name,
-                        "session_ids": [previous[1], session_id],
-                        "summary": "Workstream scope differs across sessions.",
-                    }
+                    _conflict(
+                        "workstream-scope-mismatch",
+                        sorted([previous[1], session_id]),
+                        conflict_scope,
+                        "Workstream scope differs across sessions.",
+                        resolved_by_id,
+                        include_resolved,
+                        name=name,
+                    )
                 )
             else:
                 merged = set(previous[0]) if previous else set()
@@ -93,22 +121,34 @@ def detect_conflicts(sessions: list[dict[str, Any]]) -> list[dict[str, Any]]:
             responsibility = action_slice.get("responsibility")
             previous = actions_by_name.get(name)
             if previous and previous[0] != responsibility:
+                scope = {
+                    "kind": "action_slice",
+                    "name": name,
+                    "session_ids": sorted([previous[1], session_id]),
+                }
                 conflicts.append(
-                    {
-                        "kind": "action-slice-responsibility-mismatch",
-                        "name": name,
-                        "session_ids": [previous[1], session_id],
-                        "summary": "Action-slice responsibility differs across sessions.",
-                    }
+                    _conflict(
+                        "action-slice-responsibility-mismatch",
+                        sorted([previous[1], session_id]),
+                        scope,
+                        "Action-slice responsibility differs across sessions.",
+                        resolved_by_id,
+                        include_resolved,
+                        name=name,
+                    )
                 )
             else:
                 actions_by_name[name] = (responsibility, session_id)
 
-    return conflicts
+    return [conflict for conflict in conflicts if conflict is not None]
 
 
-def assemble_action_plan(sessions: list[dict[str, Any]]) -> dict[str, Any]:
-    close_summaries = [session["close_summary"] for session in sessions]
+def assemble_action_plan(
+    sessions: list[dict[str, Any]],
+    *,
+    resolved_conflicts: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    close_summaries = _close_summaries_after_resolutions(sessions, resolved_conflicts or [])
     readiness = "ready"
     blockers: list[dict[str, Any]] = []
     risks: list[dict[str, Any]] = []
@@ -235,6 +275,125 @@ def _dedupe_by_id(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
         seen.add(item_id)
         ordered.append(item)
     return ordered
+
+
+def _conflict(
+    kind: str,
+    session_ids: list[str],
+    scope: dict[str, Any],
+    summary: str,
+    resolved_by_id: dict[str, dict[str, Any]],
+    include_resolved: bool,
+    **extra: Any,
+) -> dict[str, Any] | None:
+    conflict_id = _conflict_id(kind, session_ids, scope)
+    resolved = resolved_by_id.get(conflict_id)
+    if resolved and not include_resolved:
+        return None
+    conflict = {
+        "id": conflict_id,
+        "conflict_id": conflict_id,
+        "kind": kind,
+        "session_ids": session_ids,
+        "scope": scope,
+        "summary": summary,
+        "requires_resolution": resolved is None,
+    }
+    conflict.update(extra)
+    if resolved:
+        conflict["resolution"] = deepcopy(resolved)
+    return conflict
+
+
+def _conflict_id(kind: str, session_ids: list[str], scope: dict[str, Any]) -> str:
+    material = json.dumps(
+        {"kind": kind, "session_ids": sorted(session_ids), "scope": scope},
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return f"C-{kind}-{hashlib.sha256(material.encode('utf-8')).hexdigest()[:12]}"
+
+
+def _close_summaries_after_resolutions(
+    sessions: list[dict[str, Any]],
+    resolved_conflicts: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    selected_session_ids = {session["session"]["id"] for session in sessions}
+    removals: dict[str, dict[str, set[str]]] = {}
+    for resolution in resolved_conflicts:
+        scope = resolution["scope"]
+        if resolution["winning_session_id"] not in selected_session_ids:
+            continue
+        for rejected_session_id in resolution["rejected_session_ids"]:
+            if rejected_session_id not in selected_session_ids:
+                continue
+            session_removals = removals.setdefault(
+                rejected_session_id,
+                {"accepted_decisions": set(), "workstreams": set(), "action_slices": set()},
+            )
+            if scope["kind"] == "accepted_decision":
+                decision_id = scope.get("decision_id")
+                if decision_id:
+                    session_removals["accepted_decisions"].add(decision_id)
+                    session_removals["action_slices"].add(decision_id)
+            elif scope["kind"] == "workstream":
+                name = scope.get("name")
+                if name:
+                    session_removals["workstreams"].add(name)
+            elif scope["kind"] == "action_slice":
+                name = scope.get("name")
+                if name:
+                    session_removals["action_slices"].add(name)
+
+    close_summaries: list[dict[str, Any]] = []
+    for session in sessions:
+        session_id = session["session"]["id"]
+        close_summary = deepcopy(session["close_summary"])
+        session_removals = removals.get(session_id)
+        if session_removals:
+            _apply_close_summary_removals(close_summary, session_removals)
+        close_summaries.append(close_summary)
+    return close_summaries
+
+
+def _apply_close_summary_removals(
+    close_summary: dict[str, Any],
+    removals: dict[str, set[str]],
+) -> None:
+    accepted_decisions = removals["accepted_decisions"]
+    if accepted_decisions:
+        close_summary["accepted_decisions"] = [
+            item for item in close_summary["accepted_decisions"] if item.get("id") not in accepted_decisions
+        ]
+        for key in ("deferred_decisions", "unresolved_blockers", "unresolved_risks"):
+            close_summary[key] = [item for item in close_summary[key] if item.get("id") not in accepted_decisions]
+
+    action_slices = removals["action_slices"]
+    if action_slices:
+        close_summary["candidate_action_slices"] = [
+            item
+            for item in close_summary["candidate_action_slices"]
+            if item.get("name") not in action_slices and item.get("decision_id") not in action_slices
+        ]
+
+    workstreams = removals["workstreams"]
+    filtered_workstreams: list[dict[str, Any]] = []
+    for workstream in close_summary["candidate_workstreams"]:
+        if workstream.get("name") in workstreams:
+            continue
+        updated = deepcopy(workstream)
+        if accepted_decisions:
+            updated["scope"] = [item for item in updated.get("scope", []) if item not in accepted_decisions]
+            updated["implementation_ready_scope"] = [
+                item for item in updated.get("implementation_ready_scope", []) if item not in accepted_decisions
+            ]
+            updated["accepted_count"] = len(
+                [item for item in updated.get("scope", []) if item not in accepted_decisions]
+            )
+        if updated.get("scope"):
+            filtered_workstreams.append(updated)
+    close_summary["candidate_workstreams"] = filtered_workstreams
 
 
 def _record_plan_generated(ai_dir: str, plan: dict[str, Any]) -> None:

@@ -44,6 +44,21 @@ Raw and effective streams:
 - Same-session semantic merge conflicts are resolved with
   `detect-merge-conflicts` followed by `resolve-merge-conflict --keep-tx-id ... --reject-tx-id ...`.
 
+Session graph:
+
+- `session_linked` records explicit parent/child graph edges. Supported relationships are
+  `derived_from`, `refines`, `supersedes`, `depends_on`, and `contradicts`.
+- `derived_from`, `refines`, `supersedes`, and `depends_on` edges must stay acyclic.
+  `contradicts` is allowed to point back across the graph because it is not a lineage edge.
+- `project_state.session_graph` contains deterministic `nodes`, explicit `edges`, advisory
+  `inferred_candidates`, and `resolved_conflicts`.
+- Inferred candidates are derived from shared decision ids, accepted-answer mismatches, workstream
+  overlap, and action-slice responsibility mismatches. They are never treated as source-of-truth
+  graph edges.
+- `semantic_conflict_resolved` records the user's selected winning session for a scoped
+  planner-level conflict across explicitly related sessions. It does not remove event files or
+  suppress unrelated content from the losing session.
+
 Decision invalidation:
 
 - `decision_invalidated` records project-wide replacement of an older decision by a later one.
