@@ -6,6 +6,7 @@ from typing import Any
 
 from decide_me.constants import ACCEPTED_VIA_VALUES, DOMAIN_VALUES, EVIDENCE_SOURCES
 from decide_me.events import EVENT_TYPES, SESSION_RELATIONSHIPS, validate_event
+from decide_me.projections import PROJECTION_SCHEMA_VERSION
 from decide_me.suppression import (
     has_remaining_suppressed_scope,
     has_suppressed_context_remainders,
@@ -111,8 +112,8 @@ def validate_project_state(project_state: dict[str, Any]) -> None:
         ),
         "project_state",
     )
-    if project_state.get("schema_version") != 6:
-        raise StateValidationError("project_state.schema_version must be 6")
+    if project_state.get("schema_version") != PROJECTION_SCHEMA_VERSION:
+        raise StateValidationError(f"project_state.schema_version must be {PROJECTION_SCHEMA_VERSION}")
     _require_keys(
         project_state["project"],
         ("name", "objective", "current_milestone", "stop_rule"),
@@ -269,8 +270,8 @@ def validate_session_state(session_state: dict[str, Any]) -> None:
         ("schema_version", "session", "summary", "classification", "close_summary", "working_state"),
         "session_state",
     )
-    if session_state.get("schema_version") != 6:
-        raise StateValidationError("session_state.schema_version must be 6")
+    if session_state.get("schema_version") != PROJECTION_SCHEMA_VERSION:
+        raise StateValidationError(f"session_state.schema_version must be {PROJECTION_SCHEMA_VERSION}")
     _require_keys(
         session_state["session"],
         ("id", "started_at", "last_seen_at", "bound_context_hint", "decision_ids", "lifecycle"),

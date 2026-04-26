@@ -443,7 +443,7 @@ v2 の完成判定は次です。
 
 次のリスクは taxonomy drift です。対処として、taxonomy は additive evolution のみ許可し、closed session には lazy compatibility backfill を適用します。
 
-もう一つは、Skill が projection と event を不整合に書く危険です。対処として、書き込みは常に `append event → rebuild affected projection → validate → atomic rename` の順に固定し、`validate-state` を必須にします。
+もう一つは、Skill が projection と event を不整合に書く危険です。対処として、通常書き込みは `load projection checkpoint → incremental apply → validate → atomic projection/index replace` の順に固定し、必要に応じて `validate-state --full` と `rebuild-projections` で event log から再検証・再生成できるようにします。
 
 ## 実装順序の推奨
 

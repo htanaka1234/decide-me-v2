@@ -10,7 +10,9 @@ bundled references only when they are needed for the current turn.
 
 Startup checklist:
 
-1. Load `.ai/decide-me/events/**/*.jsonl` transaction logs and the derived projections when they exist.
+1. Load the derived projections and `.ai/decide-me/runtime-index.json` when they exist. Use full
+   event-log replay only for `validate-state`, `validate-state --full`, conflict detection,
+   `compact-runtime`, or `rebuild-projections`.
 2. If the runtime is missing, bootstrap it or tell the user to run `python3 scripts/decide_me.py bootstrap ...`.
 3. Validate event and projection consistency before trusting the current state.
    If validation reports an unresolved same-session merge conflict, run
@@ -80,6 +82,9 @@ Runtime invariants:
   session content available.
 - `decision_invalidated` events are emitted by the public decision-supersession resolution flow;
   `invalidate-decision` is a compatibility command, not the preferred UX.
-- `project-state.json`, `taxonomy-state.json`, and `sessions/*.json` are rebuildable projections.
+- `project-state.json`, `taxonomy-state.json`, and `sessions/*.json` are rebuildable projections
+  and the normal hot-path read cache.
+- `runtime-index.json` checkpoints projection freshness; refresh it with `compact-runtime` only
+  after it verifies projections against the event log, or regenerate it with `rebuild-projections`.
 - Human-readable plan and ADR files are exports, not runtime state.
 - Free-form answers apply only to the current active proposal in the current session.

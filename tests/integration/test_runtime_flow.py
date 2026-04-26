@@ -5,6 +5,7 @@ import os
 import subprocess
 import sys
 import unittest
+from unittest import mock
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -34,7 +35,9 @@ from decide_me.session_graph import (
     show_session_graph,
 )
 from decide_me.store import (
+    compact_runtime,
     bootstrap_runtime,
+    load_runtime,
     read_raw_event_log,
     read_event_log,
     rebuild_and_persist,
@@ -42,6 +45,7 @@ from decide_me.store import (
     transact,
     validate_runtime,
 )
+from decide_me.validate import StateValidationError
 
 
 def _raw_event_log_text(ai_dir: str | Path) -> str:
@@ -340,6 +344,206 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertTrue(list((root / "system").glob("*.jsonl")))
             self.assertTrue(list((root / "sessions" / session_id).glob("*.jsonl")))
             self.assertFalse((Path(ai_dir) / "event-log.jsonl").exists())
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_shell_event_discovery_reads_jsonl_files_with_spaces_in_path(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = Path(tmp) / "runtime with spaces" / ".ai" / "decide-me"
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Discover events through find",
+                current_milestone="MVP",
+            )
+            create_session(str(ai_dir), context="Shell discovery")
+            paths = runtime_paths(ai_dir)
+            discovered = sorted(paths.events_dir.rglob("*.jsonl"))
+            stdout = b"\0".join(str(path).encode("utf-8") for path in discovered) + b"\0"
+            completed = subprocess.CompletedProcess(
+                args=[],
+                returncode=0,
+                stdout=stdout,
+                stderr=b"",
+            )
+
+            with mock.patch.dict(os.environ, {"DECIDE_ME_EVENT_DISCOVERY": "shell"}), mock.patch(
+                "decide_me.store.subprocess.run",
+                return_value=completed,
+            ) as run:
+                events = read_raw_event_log(paths)
+
+            self.assertEqual(["project_initialized", "session_created"], [event["event_type"] for event in events])
+            run.assert_called_once()
+            self.assertEqual(
+                ["find", str(paths.events_dir), "-type", "f", "-name", "*.jsonl", "-print0"],
+                run.call_args.args[0],
+            )
+
+    def test_python_event_discovery_skips_shell(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Discover events through Python",
+                current_milestone="MVP",
+            )
+            paths = runtime_paths(ai_dir)
+
+            with mock.patch.dict(os.environ, {"DECIDE_ME_EVENT_DISCOVERY": "python"}), mock.patch(
+                "decide_me.store.subprocess.run",
+            ) as run:
+                events = read_raw_event_log(paths)
+
+            self.assertEqual(["project_initialized"], [event["event_type"] for event in events])
+            run.assert_not_called()
+
+    def test_auto_event_discovery_falls_back_to_python_when_shell_fails(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Fallback event discovery",
+                current_milestone="MVP",
+            )
+            paths = runtime_paths(ai_dir)
+
+            with mock.patch.dict(os.environ, {"DECIDE_ME_EVENT_DISCOVERY": "auto"}), mock.patch(
+                "decide_me.store.subprocess.run",
+                side_effect=FileNotFoundError("find"),
+            ):
+                events = read_raw_event_log(paths)
+
+            self.assertEqual(["project_initialized"], [event["event_type"] for event in events])
+
+    def test_shell_event_discovery_reports_required_shell_failure(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Required shell discovery",
+                current_milestone="MVP",
+            )
+            paths = runtime_paths(ai_dir)
+
+            with mock.patch.dict(os.environ, {"DECIDE_ME_EVENT_DISCOVERY": "shell"}), mock.patch(
+                "decide_me.store.subprocess.run",
+                side_effect=FileNotFoundError("find"),
+            ):
+                with self.assertRaisesRegex(StateValidationError, "shell event discovery failed"):
+                    read_raw_event_log(paths)
+
+    def test_shell_event_discovery_rejects_paths_outside_events_dir(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = Path(tmp) / ".ai" / "decide-me"
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Reject unsafe shell paths",
+                current_milestone="MVP",
+            )
+            outside = Path(tmp) / "outside.jsonl"
+            outside.write_text("", encoding="utf-8")
+            completed = subprocess.CompletedProcess(
+                args=[],
+                returncode=0,
+                stdout=str(outside).encode("utf-8") + b"\0",
+                stderr=b"",
+            )
+
+            with mock.patch.dict(os.environ, {"DECIDE_ME_EVENT_DISCOVERY": "auto"}), mock.patch(
+                "decide_me.store.subprocess.run",
+                return_value=completed,
+            ):
+                with self.assertRaisesRegex(StateValidationError, "outside events"):
+                    read_raw_event_log(runtime_paths(ai_dir))
+
+    def test_load_runtime_uses_projection_cache_without_reading_event_log(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Use projection cache",
+                current_milestone="MVP",
+            )
+            session_id = create_session(ai_dir, context="Cached session")["session"]["id"]
+            bad_dir = Path(ai_dir) / "events" / "system"
+            bad_dir.mkdir(parents=True, exist_ok=True)
+            (bad_dir / "T-bad.jsonl").write_text("{bad json\n", encoding="utf-8")
+
+            bundle = load_runtime(runtime_paths(ai_dir))
+            self.assertIn(session_id, bundle["sessions"])
+            self.assertEqual([], validate_runtime(ai_dir, full=False))
+            self.assertIn("malformed JSON", validate_runtime(ai_dir)[0])
+
+    def test_incremental_transact_updates_runtime_index(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Update checkpoint",
+                current_milestone="MVP",
+            )
+            paths = runtime_paths(ai_dir)
+            before = json.loads(paths.runtime_index.read_text(encoding="utf-8"))
+
+            create_session(ai_dir, context="Index update")
+
+            after = json.loads(paths.runtime_index.read_text(encoding="utf-8"))
+            self.assertEqual(before["event_count"] + 1, after["event_count"])
+            self.assertNotEqual(before["project_head"], after["project_head"])
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_compact_runtime_refreshes_projection_manifest(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Refresh checkpoint",
+                current_milestone="MVP",
+            )
+            paths = runtime_paths(ai_dir)
+            index = json.loads(paths.runtime_index.read_text(encoding="utf-8"))
+            index["projection_files"] = {}
+            paths.runtime_index.write_text(json.dumps(index), encoding="utf-8")
+
+            refreshed = compact_runtime(ai_dir)
+
+            self.assertTrue(refreshed["projection_files"])
+            self.assertEqual([], validate_runtime(ai_dir, full=False))
+
+    def test_compact_runtime_rejects_projection_divergence_without_writing(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Reject divergent cache",
+                current_milestone="MVP",
+            )
+            paths = runtime_paths(ai_dir)
+            project_state = json.loads(paths.project_state.read_text(encoding="utf-8"))
+            project_state["project"]["objective"] = "Diverged cache"
+            paths.project_state.write_text(json.dumps(project_state), encoding="utf-8")
+            index_before = paths.runtime_index.read_text(encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                StateValidationError,
+                "cannot compact invalid runtime: project-state.json does not match the event log",
+            ):
+                compact_runtime(ai_dir)
+
+            self.assertEqual(index_before, paths.runtime_index.read_text(encoding="utf-8"))
+            persisted = json.loads(paths.project_state.read_text(encoding="utf-8"))
+            self.assertEqual("Diverged cache", persisted["project"]["objective"])
+
+            rebuilt = rebuild_and_persist(ai_dir)
+            self.assertEqual("Reject divergent cache", rebuilt["project_state"]["project"]["objective"])
             self.assertEqual([], validate_runtime(ai_dir))
 
     def test_later_merged_session_transaction_files_rebuild_cleanly(self) -> None:
@@ -777,6 +981,43 @@ class RuntimeFlowTests(unittest.TestCase):
             detected = detect_session_conflicts(ai_dir, session_ids=[first_id], include_related=True)
             self.assertEqual([first_id], [item["session_id"] for item in detected["related_sessions"]])
             self.assertEqual([], detected["semantic_conflicts"])
+
+    def test_inferred_session_candidates_are_on_demand_only(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Infer on demand",
+                current_milestone="MVP",
+            )
+            first_id = create_session(ai_dir, context="First")["session"]["id"]
+            second_id = create_session(ai_dir, context="Second")["session"]["id"]
+            _accept_runtime_decision(
+                ai_dir,
+                first_id,
+                decision_id="D-first-shared",
+                title="Shared decision",
+                domain="technical",
+                recommendation="Keep technical ownership.",
+            )
+            _accept_runtime_decision(
+                ai_dir,
+                second_id,
+                decision_id="D-second-shared",
+                title="Shared decision",
+                domain="ops",
+                recommendation="Move to ops ownership.",
+            )
+            close_session(ai_dir, first_id)
+            close_session(ai_dir, second_id)
+
+            persisted = json.loads((Path(ai_dir) / "project-state.json").read_text(encoding="utf-8"))
+            self.assertEqual([], persisted["session_graph"]["inferred_candidates"])
+            without_inferred = show_session_graph(ai_dir, include_inferred=False)
+            self.assertEqual([], without_inferred["session_graph"]["inferred_candidates"])
+            with_inferred = show_session_graph(ai_dir, session_id=first_id, include_inferred=True)
+            self.assertTrue(with_inferred["session_graph"]["inferred_candidates"])
 
     def test_same_session_conflicting_parallel_proposal_transactions_fail_validation(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -2971,6 +3212,51 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertFalse(payload["ok"])
             self.assertIn("events/system/T-bad.jsonl line 1 contains malformed JSON", payload["issues"][0])
 
+    def test_cli_validate_state_cached_is_explicit_opt_in(self) -> None:
+        repo_root = Path(__file__).resolve().parents[2]
+        with TemporaryDirectory() as tmp:
+            ai_dir = Path(tmp) / ".ai" / "decide-me"
+            bootstrap_runtime(
+                str(ai_dir),
+                project_name="Demo",
+                objective="Validate default mode",
+                current_milestone="MVP",
+            )
+            event_dir = ai_dir / "events" / "system"
+            (event_dir / "T-bad.jsonl").write_text("{bad json\n", encoding="utf-8")
+
+            def run_validate(*mode: str) -> subprocess.CompletedProcess[str]:
+                return subprocess.run(
+                    [
+                        sys.executable,
+                        "scripts/decide_me.py",
+                        "validate-state",
+                        "--ai-dir",
+                        str(ai_dir),
+                        *mode,
+                    ],
+                    cwd=repo_root,
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                )
+
+            for mode in ((), ("--full",)):
+                with self.subTest(mode=mode):
+                    completed = run_validate(*mode)
+                    self.assertEqual(1, completed.returncode)
+                    payload = json.loads(completed.stdout)
+                    self.assertFalse(payload["ok"])
+                    self.assertIn("events/system/T-bad.jsonl line 1 contains malformed JSON", payload["issues"][0])
+
+            for mode in (("--cached",), ("--fast",)):
+                with self.subTest(mode=mode):
+                    completed = run_validate(*mode)
+                    self.assertEqual(0, completed.returncode, completed.stderr)
+                    payload = json.loads(completed.stdout)
+                    self.assertTrue(payload["ok"])
+                    self.assertEqual([], payload["issues"])
+
     def test_validate_runtime_rejects_legacy_event_log(self) -> None:
         with TemporaryDirectory() as tmp:
             ai_dir = Path(tmp) / ".ai" / "decide-me"
@@ -2981,6 +3267,23 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertEqual(1, len(issues))
             self.assertIn("legacy event-log.jsonl is unsupported in this runtime layout", issues[0])
             self.assertIn("automatic migration is not available", issues[0])
+
+    def test_load_runtime_rejects_legacy_event_log_even_with_valid_cache(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = Path(tmp) / ".ai" / "decide-me"
+            bootstrap_runtime(
+                str(ai_dir),
+                project_name="Demo",
+                objective="Reject legacy source",
+                current_milestone="MVP",
+            )
+            (ai_dir / "event-log.jsonl").write_text("", encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                StateValidationError,
+                "legacy event-log.jsonl is unsupported in this runtime layout",
+            ):
+                load_runtime(runtime_paths(ai_dir))
 
     def test_auto_project_head_proposal_is_not_immediately_stale(self) -> None:
         with TemporaryDirectory() as tmp:

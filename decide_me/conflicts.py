@@ -10,7 +10,7 @@ from decide_me.store import (
     CONTROL_EVENT_TYPES,
     SYSTEM_SESSION_ID,
     _write_lock,
-    _write_projections,
+    _write_projections_and_index,
     _write_transaction,
     canonicalize_events,
     effective_events_from_raw,
@@ -146,7 +146,12 @@ def resolve_merge_conflict(
         validate_projection_bundle(bundle)
 
         _write_transaction(paths, [event])
-        _write_projections(paths, bundle)
+        _write_projections_and_index(
+            paths,
+            bundle,
+            effective_events=proposed_effective_events,
+            rejected_tx_ids=rejected_transaction_ids(proposed_raw_events),
+        )
         state = bundle["project_state"]["state"]
         return {
             "resolution_event": event,

@@ -172,7 +172,12 @@ The runtime lives under `.ai/decide-me/`.
 - `decision_invalidated` records decision supersession from `resolve-decision-supersession`;
   old decisions remain in events for audit and are hidden from normal projections.
 - `project-state.json`, `taxonomy-state.json`, and `sessions/*.json` are
-  rebuildable projections.
+  rebuildable projections and the normal hot-path read cache.
+- `runtime-index.json` checkpoints the current projection head, event count,
+  rejected transaction IDs, last event sort key, and projection file manifest.
+- `session-graph-cache.json` may cache full inferred graph output by
+  `project_head`; persisted project state keeps inferred candidates empty until
+  a command asks for them.
 - `exports/` contains human-readable plans and ADRs.
 - `write.lock` protects runtime writes.
 
@@ -206,7 +211,14 @@ reference. Common maintainer operations include:
 - `list-sessions`, `show-session`, and `resume-session`
 - `advance-session` and `handle-reply`
 - `close-session` and `generate-plan`
-- `validate-state` and `rebuild-projections`
+- `validate-state` / `validate-state --full` for full event-log validation,
+  `validate-state --cached` / `--fast` for projection/index validation, `rebuild-projections`,
+  and `compact-runtime`
+- `benchmark-runtime` with `DECIDE_ME_PERF=1`
+
+Full event-log replay uses `find` for event file discovery when available. Set
+`DECIDE_ME_EVENT_DISCOVERY=python` to force pure Python discovery, or
+`DECIDE_ME_EVENT_DISCOVERY=shell` to require shell discovery.
 
 Run the test suite with:
 

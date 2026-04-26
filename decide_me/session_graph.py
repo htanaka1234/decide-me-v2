@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
+import os
 from copy import deepcopy
+from pathlib import Path
 from typing import Any
 
 from decide_me.events import SESSION_RELATIONSHIPS, utc_now
@@ -10,7 +13,12 @@ from decide_me.store import load_runtime, runtime_paths, transact
 ACYCLIC_RELATIONSHIPS = {"derived_from", "refines", "supersedes", "depends_on"}
 
 
-def build_session_graph(bundle: dict[str, Any]) -> dict[str, Any]:
+def build_session_graph(
+    bundle: dict[str, Any],
+    *,
+    include_inferred: bool = False,
+    seed_session_ids: list[str] | None = None,
+) -> dict[str, Any]:
     sessions = bundle.get("sessions", {})
     graph = bundle.get("project_state", {}).get("session_graph", {})
     edges = sorted(
@@ -28,9 +36,32 @@ def build_session_graph(bundle: dict[str, Any]) -> dict[str, Any]:
     return {
         "nodes": [_session_node(session_id, sessions[session_id]) for session_id in sorted(sessions)],
         "edges": edges,
-        "inferred_candidates": _infer_relationship_candidates(sessions, explicit_pairs),
+        "inferred_candidates": (
+            infer_relationship_candidates(bundle, seed_session_ids=seed_session_ids)
+            if include_inferred
+            else []
+        ),
         "resolved_conflicts": resolved_conflicts,
     }
+
+
+def infer_relationship_candidates(
+    bundle: dict[str, Any],
+    *,
+    seed_session_ids: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    sessions = bundle.get("sessions", {})
+    graph = bundle.get("project_state", {}).get("session_graph", {})
+    edges = graph.get("edges", [])
+    explicit_pairs = {
+        frozenset((edge["parent_session_id"], edge["child_session_id"]))
+        for edge in edges
+    }
+    return _infer_relationship_candidates(
+        sessions,
+        explicit_pairs,
+        seed_session_ids=set(seed_session_ids or []) or None,
+    )
 
 
 def link_session(
@@ -81,8 +112,10 @@ def show_session_graph(
     include_inferred: bool = False,
 ) -> dict[str, Any]:
     bundle = load_runtime(runtime_paths(ai_dir))
-    graph = deepcopy(bundle["project_state"]["session_graph"])
-    if not include_inferred:
+    if include_inferred:
+        graph = _session_graph_with_inferred(ai_dir, bundle, seed_session_ids=[session_id] if session_id else None)
+    else:
+        graph = deepcopy(bundle["project_state"]["session_graph"])
         graph["inferred_candidates"] = []
     result: dict[str, Any] = {"status": "ok", "session_graph": graph}
     if session_id:
@@ -115,7 +148,8 @@ def detect_session_conflicts(
     sessions = [bundle["sessions"][session_id] for session_id in related_ids]
     from decide_me.planner import detect_conflicts
 
-    graph = bundle["project_state"]["session_graph"]
+    graph = deepcopy(bundle["project_state"]["session_graph"])
+    graph["inferred_candidates"] = infer_relationship_candidates(bundle, seed_session_ids=related_ids)
     semantic_conflicts = detect_conflicts(
         sessions,
         resolved_conflicts=graph["resolved_conflicts"],
@@ -308,11 +342,15 @@ def _session_node(session_id: str, session: dict[str, Any]) -> dict[str, Any]:
 def _infer_relationship_candidates(
     sessions: dict[str, dict[str, Any]],
     explicit_pairs: set[frozenset[str]],
+    *,
+    seed_session_ids: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     candidates: list[dict[str, Any]] = []
     session_ids = sorted(sessions)
     for index, left_id in enumerate(session_ids):
         for right_id in session_ids[index + 1 :]:
+            if seed_session_ids is not None and left_id not in seed_session_ids and right_id not in seed_session_ids:
+                continue
             if frozenset((left_id, right_id)) in explicit_pairs:
                 continue
             left = sessions[left_id]
@@ -333,6 +371,57 @@ def _infer_relationship_candidates(
             candidates.extend(_workstream_candidates(left_id, left, right_id, right))
             candidates.extend(_action_slice_candidates(left_id, left, right_id, right))
     return sorted(candidates, key=lambda item: item["candidate_id"])
+
+
+def _session_graph_with_inferred(
+    ai_dir: str,
+    bundle: dict[str, Any],
+    *,
+    seed_session_ids: list[str] | None,
+) -> dict[str, Any]:
+    if seed_session_ids:
+        return build_session_graph(bundle, include_inferred=True, seed_session_ids=seed_session_ids)
+
+    paths = runtime_paths(ai_dir)
+    project_head = bundle["project_state"]["state"].get("project_head")
+    cached = _load_graph_cache(paths.session_graph_cache, project_head)
+    if cached is not None:
+        return cached
+
+    graph = build_session_graph(bundle, include_inferred=True)
+    _write_graph_cache(paths.session_graph_cache, project_head, graph)
+    return graph
+
+
+def _load_graph_cache(path: Path, project_head: str | None) -> dict[str, Any] | None:
+    if not project_head or not path.exists():
+        return None
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+    except (OSError, json.JSONDecodeError):
+        return None
+    if payload.get("project_head") != project_head:
+        return None
+    graph = payload.get("session_graph")
+    return deepcopy(graph) if isinstance(graph, dict) else None
+
+
+def _write_graph_cache(path: Path, project_head: str | None, graph: dict[str, Any]) -> None:
+    if not project_head:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    payload = {"project_head": project_head, "session_graph": graph}
+    try:
+        with temporary.open("w", encoding="utf-8") as handle:
+            json.dump(payload, handle, ensure_ascii=False, indent=2)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    except OSError:
+        temporary.unlink(missing_ok=True)
 
 
 def _accepted_answer_candidates(

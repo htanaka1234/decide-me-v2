@@ -13,12 +13,14 @@ from decide_me.taxonomy import default_taxonomy_state, stable_unique
 OPEN_DECISION_STATUSES = {"unresolved", "proposed", "rejected", "blocked"}
 IDLE_AFTER = timedelta(hours=12)
 STALE_AFTER = timedelta(days=7)
+AUTO_PROJECT_HEAD_SENTINEL = "__AUTO_PROJECT_HEAD__"
 PROJECT_HEAD_PROPOSAL_BASE_SENTINEL = "__PROJECT_HEAD_PROPOSAL_BASE__"
+PROJECTION_SCHEMA_VERSION = 7
 
 
 def default_project_state() -> dict[str, Any]:
     return {
-        "schema_version": 6,
+        "schema_version": PROJECTION_SCHEMA_VERSION,
         "project": {
             "name": None,
             "objective": None,
@@ -70,7 +72,7 @@ def default_session_state(
     session_id: str, started_at: str, bound_context_hint: str | None = None
 ) -> dict[str, Any]:
     return {
-        "schema_version": 6,
+        "schema_version": PROJECTION_SCHEMA_VERSION,
         "session": {
             "id": session_id,
             "started_at": started_at,
@@ -196,26 +198,42 @@ def visible_decision_ids(project_state: dict[str, Any]) -> set[str]:
 
 def project_heads_by_event_id(events: list[dict[str, Any]]) -> dict[str, str]:
     heads: dict[str, str] = {}
-    head_hasher = hashlib.sha256()
+    previous_head: str | None = None
     for event in events:
-        head_hasher.update(_project_head_hash_material(event).encode("utf-8"))
-        head_hasher.update(b"\n")
-        heads[event["event_id"]] = head_hasher.hexdigest()
+        previous_head = project_head_after_event(previous_head, event)
+        heads[event["event_id"]] = previous_head
     return heads
 
 
+def project_head_after_event(previous_head: str | None, event: dict[str, Any]) -> str:
+    material = json.dumps(
+        {
+            "previous_project_head": previous_head,
+            "event": _normalized_project_head_event(event),
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
+
+
 def _project_head_hash_material(event: dict[str, Any]) -> str:
+    return json.dumps(
+        _normalized_project_head_event(event),
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+
+
+def _normalized_project_head_event(event: dict[str, Any]) -> dict[str, Any]:
     normalized = deepcopy(event)
     if normalized.get("event_type") == "proposal_issued":
         proposal = normalized.get("payload", {}).get("proposal")
         if isinstance(proposal, dict):
             proposal["based_on_project_head"] = PROJECT_HEAD_PROPOSAL_BASE_SENTINEL
-    return json.dumps(
-        normalized,
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-    )
+    return normalized
 
 
 def rebuild_projections(events: list[dict[str, Any]]) -> dict[str, Any]:
@@ -249,6 +267,40 @@ def rebuild_projections(events: list[dict[str, Any]]) -> dict[str, Any]:
         "taxonomy_state": taxonomy_state,
         "sessions": bundle["sessions"],
     }
+
+
+def apply_events_to_bundle(bundle: dict[str, Any], events: list[dict[str, Any]]) -> dict[str, Any]:
+    project_state = bundle["project_state"]
+    taxonomy_state = bundle["taxonomy_state"]
+    sessions = bundle["sessions"]
+    previous_head = project_state["state"].get("project_head")
+    event_count = int(project_state["state"].get("event_count") or 0)
+
+    for event in events:
+        previous_head = project_head_after_event(previous_head, event)
+        event_count += 1
+        apply_event(
+            project_state,
+            taxonomy_state,
+            sessions,
+            event,
+            project_head_after=previous_head,
+            event_count=event_count,
+        )
+
+    _recompute_counts(project_state)
+    normalized_sessions = {session_id: sessions[session_id] for session_id in sorted(sessions)}
+    bundle["sessions"] = normalized_sessions
+    from decide_me.session_graph import build_session_graph
+
+    project_state["session_graph"] = build_session_graph(
+        {
+            "project_state": project_state,
+            "taxonomy_state": taxonomy_state,
+            "sessions": normalized_sessions,
+        }
+    )
+    return bundle
 
 
 def apply_event(
@@ -323,6 +375,8 @@ def apply_event(
     elif event_type == "proposal_issued":
         proposal = deepcopy(payload["proposal"])
         proposal.setdefault("origin_session_id", session_id)
+        if proposal.get("based_on_project_head") in {None, AUTO_PROJECT_HEAD_SENTINEL}:
+            proposal["based_on_project_head"] = project_head_after
         decision = _ensure_decision(project_state, proposal["target_id"])
         decision["status"] = "proposed"
         decision["question"] = proposal["question"]

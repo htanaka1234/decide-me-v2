@@ -16,7 +16,7 @@
   "properties": {
     "schema_version": {
       "type": "integer",
-      "const": 6
+      "const": 7
     },
     "project": {
       "type": "object",

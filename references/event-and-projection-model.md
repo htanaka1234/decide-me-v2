@@ -26,12 +26,19 @@ Projection rules:
 
 - Rebuild `project-state.json`, `taxonomy-state.json`, and `sessions/*.json` from the transaction files.
 - Never mutate a projection directly without emitting an event.
-- Persist writes as `load events -> write transaction file -> rebuild -> validate -> atomic replace projections`.
+- Normal reads load the persisted projections plus `runtime-index.json`; they do not replay the
+  event log.
+- Persist normal writes as `load projections -> apply new transaction incrementally -> validate
+  projection bundle -> write transaction file -> atomic replace projections and runtime index`.
+- `rebuild-projections` performs full event-log replay and regenerates `runtime-index.json`.
+- `validate-state` and `validate-state --full` perform full event-log validation;
+  `validate-state --cached` / `--fast` validate only the projection checkpoint and index.
 - If validation fails, reject the write and keep the previous runtime files unchanged.
-- `project_state.state.project_head` is a SHA-256 hash over canonical event content in
-  canonical order and replaces the old project-wide sequence number. For
+- `project_state.state.project_head` is a SHA-256 chain hash over canonical event content and the
+  previous project head, replacing the old project-wide sequence number. For
   `proposal_issued`, `based_on_project_head` is normalized before hashing so the proposal's
-  own auto-filled head does not make the hash self-referential.
+  own auto-filled head does not make the hash self-referential. Projections preserve the event
+  payload value; AUTO proposal creation stores the post-event head in that payload.
 
 Legacy runtime layout:
 
@@ -58,11 +65,12 @@ Session graph:
   `derived_from`, `refines`, `supersedes`, `depends_on`, and `contradicts`.
 - `derived_from`, `refines`, `supersedes`, and `depends_on` edges must stay acyclic.
   `contradicts` is allowed to point back across the graph because it is not a lineage edge.
-- `project_state.session_graph` contains deterministic `nodes`, explicit `edges`, advisory
-  `inferred_candidates`, and `resolved_conflicts`.
+- `project_state.session_graph` contains deterministic `nodes`, explicit `edges`,
+  `resolved_conflicts`, and an empty `inferred_candidates` list in persisted projections.
 - Inferred candidates are derived from shared decision ids, accepted-answer mismatches, workstream
-  overlap, and action-slice responsibility mismatches. They are never treated as source-of-truth
-  graph edges.
+  overlap, and action-slice responsibility mismatches. They are generated on demand for graph
+  inspection and conflict detection, may be cached by `project_head`, and are never treated as
+  source-of-truth graph edges.
 - `semantic_conflict_resolved` records the user's selected winning session for a scoped
   conflict across explicitly related sessions. It does not remove event files, but it suppresses
   the losing scoped content from normal projections so future search, evidence reuse, session
