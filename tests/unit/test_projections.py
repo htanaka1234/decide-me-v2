@@ -29,6 +29,72 @@ def build_event(
     )
 
 
+def close_summary_with_slices(
+    *,
+    title: str = "Shared slice",
+    statement: str = "Shared slice",
+    decisions: list[tuple[str, str, str]],
+    workstream_name: str = "technical-workstream",
+) -> dict:
+    accepted = [
+        {
+            "id": decision_id,
+            "title": decision_title,
+            "kind": "choice",
+            "domain": "technical",
+            "priority": "P0",
+            "status": "accepted",
+            "resolvable_by": "human",
+            "evidence_source": None,
+            "evidence_refs": [evidence_ref],
+            "accepted_answer": f"Accept {decision_title}.",
+        }
+        for decision_id, decision_title, evidence_ref in decisions
+    ]
+    action_slices = [
+        {
+            "decision_id": decision_id,
+            "name": decision_title,
+            "summary": f"Implement {decision_title}.",
+            "responsibility": "technical",
+            "priority": "P0",
+            "status": "accepted",
+            "kind": "choice",
+            "resolvable_by": "human",
+            "reversibility": "reversible",
+            "implementation_ready": True,
+            "evidence_backed": True,
+            "evidence_source": None,
+            "evidence_refs": [evidence_ref],
+            "next_step": f"Drive {decision_title} to completion.",
+        }
+        for decision_id, decision_title, evidence_ref in decisions
+    ]
+    decision_ids = [decision_id for decision_id, _, _ in decisions]
+    return {
+        "work_item_title": title,
+        "work_item_statement": statement,
+        "goal": "Test conflict suppression",
+        "readiness": "ready",
+        "accepted_decisions": accepted,
+        "deferred_decisions": [],
+        "unresolved_blockers": [],
+        "unresolved_risks": [],
+        "candidate_workstreams": [
+            {
+                "name": workstream_name,
+                "summary": "Advance technical decisions for the current milestone.",
+                "scope": decision_ids,
+                "accepted_count": len(decision_ids),
+                "implementation_ready_scope": decision_ids,
+            }
+        ],
+        "candidate_action_slices": action_slices,
+        "evidence_refs": [evidence_ref for _, _, evidence_ref in decisions],
+        "generated_at": "2026-04-23T12:04:00Z",
+    }
+
+
 class ProjectionTests(unittest.TestCase):
     def test_project_head_changes_when_payload_changes_with_same_event_id(self) -> None:
         event = build_event(
@@ -223,6 +289,216 @@ class ProjectionTests(unittest.TestCase):
         bundle = rebuild_projections(events)
 
         self.assertEqual("Use passwords.", bundle["sessions"]["S-001"]["summary"]["latest_summary"])
+
+    def test_semantic_conflict_resolution_suppresses_losing_action_slice_context(self) -> None:
+        events = [
+            build_event(
+                sequence=1,
+                session_id="SYSTEM",
+                event_type="project_initialized",
+                project_version_after=1,
+                payload={
+                    "project": {
+                        "name": "Demo",
+                        "objective": "Test",
+                        "current_milestone": "MVP",
+                        "stop_rule": "Resolve blockers",
+                    }
+                },
+                timestamp="2026-04-23T12:00:00Z",
+            ),
+            build_event(
+                sequence=2,
+                session_id="S-winner",
+                event_type="session_created",
+                project_version_after=2,
+                payload={
+                    "session": {
+                        "id": "S-winner",
+                        "started_at": "2026-04-23T12:01:00Z",
+                        "last_seen_at": "2026-04-23T12:01:00Z",
+                        "bound_context_hint": "Winner thread",
+                    }
+                },
+                timestamp="2026-04-23T12:01:00Z",
+            ),
+            build_event(
+                sequence=3,
+                session_id="S-loser",
+                event_type="session_created",
+                project_version_after=3,
+                payload={
+                    "session": {
+                        "id": "S-loser",
+                        "started_at": "2026-04-23T12:02:00Z",
+                        "last_seen_at": "2026-04-23T12:02:00Z",
+                        "bound_context_hint": "Loser thread",
+                    }
+                },
+                timestamp="2026-04-23T12:02:00Z",
+            ),
+            build_event(
+                sequence=4,
+                session_id="S-loser",
+                event_type="close_summary_generated",
+                project_version_after=4,
+                payload={
+                    "close_summary": close_summary_with_slices(
+                        title="Shared slice",
+                        statement="Shared slice",
+                        decisions=[
+                            ("D-shared", "Shared slice", "ref:shared"),
+                            ("D-extra", "Extra slice", "ref:extra"),
+                        ],
+                    )
+                },
+                timestamp="2026-04-23T12:04:00Z",
+            ),
+            build_event(
+                sequence=5,
+                session_id="S-loser",
+                event_type="session_closed",
+                project_version_after=5,
+                payload={"closed_at": "2026-04-23T12:05:00Z"},
+                timestamp="2026-04-23T12:05:00Z",
+            ),
+            build_event(
+                sequence=6,
+                session_id="S-winner",
+                event_type="semantic_conflict_resolved",
+                project_version_after=6,
+                payload={
+                    "conflict_id": "C-action",
+                    "winning_session_id": "S-winner",
+                    "rejected_session_ids": ["S-loser"],
+                    "scope": {
+                        "kind": "action_slice",
+                        "name": "Shared slice",
+                        "session_ids": ["S-loser", "S-winner"],
+                    },
+                    "reason": "Keep winner slice.",
+                    "resolved_at": "2026-04-23T12:06:00Z",
+                },
+                timestamp="2026-04-23T12:06:00Z",
+            ),
+        ]
+
+        bundle = rebuild_projections(events)
+        loser = bundle["sessions"]["S-loser"]
+        close_summary = loser["close_summary"]
+
+        self.assertEqual("Loser thread", close_summary["work_item_title"])
+        self.assertNotEqual("Shared slice", loser["summary"]["latest_summary"])
+        self.assertEqual(["D-extra"], [item["id"] for item in close_summary["accepted_decisions"]])
+        self.assertEqual(["Extra slice"], [item["name"] for item in close_summary["candidate_action_slices"]])
+        self.assertEqual(["D-extra"], close_summary["candidate_workstreams"][0]["scope"])
+        self.assertEqual(["D-extra"], close_summary["candidate_workstreams"][0]["implementation_ready_scope"])
+        self.assertEqual(["ref:extra"], close_summary["evidence_refs"])
+        self.assertEqual("ready", close_summary["readiness"])
+
+        resolved = bundle["project_state"]["session_graph"]["resolved_conflicts"][0]
+        self.assertEqual(["S-loser"], resolved["suppressed_context"]["session_ids"])
+        self.assertEqual(["D-shared"], resolved["suppressed_context"]["decision_ids"])
+        self.assertEqual(["Shared slice"], resolved["suppressed_context"]["action_slice_names"])
+        self.assertIn("Accept Shared slice.", resolved["suppressed_context"]["hidden_strings"])
+
+    def test_semantic_conflict_resolution_suppresses_losing_workstream_only(self) -> None:
+        events = [
+            build_event(
+                sequence=1,
+                session_id="SYSTEM",
+                event_type="project_initialized",
+                project_version_after=1,
+                payload={
+                    "project": {
+                        "name": "Demo",
+                        "objective": "Test",
+                        "current_milestone": "MVP",
+                        "stop_rule": "Resolve blockers",
+                    }
+                },
+                timestamp="2026-04-23T12:00:00Z",
+            ),
+            build_event(
+                sequence=2,
+                session_id="S-winner",
+                event_type="session_created",
+                project_version_after=2,
+                payload={
+                    "session": {
+                        "id": "S-winner",
+                        "started_at": "2026-04-23T12:01:00Z",
+                        "last_seen_at": "2026-04-23T12:01:00Z",
+                        "bound_context_hint": "Winner thread",
+                    }
+                },
+                timestamp="2026-04-23T12:01:00Z",
+            ),
+            build_event(
+                sequence=3,
+                session_id="S-loser",
+                event_type="session_created",
+                project_version_after=3,
+                payload={
+                    "session": {
+                        "id": "S-loser",
+                        "started_at": "2026-04-23T12:02:00Z",
+                        "last_seen_at": "2026-04-23T12:02:00Z",
+                        "bound_context_hint": "Loser thread",
+                    }
+                },
+                timestamp="2026-04-23T12:02:00Z",
+            ),
+            build_event(
+                sequence=4,
+                session_id="S-loser",
+                event_type="close_summary_generated",
+                project_version_after=4,
+                payload={
+                    "close_summary": close_summary_with_slices(
+                        decisions=[("D-shared", "Shared slice", "ref:shared")],
+                        workstream_name="ops-workstream",
+                    )
+                },
+                timestamp="2026-04-23T12:04:00Z",
+            ),
+            build_event(
+                sequence=5,
+                session_id="S-loser",
+                event_type="session_closed",
+                project_version_after=5,
+                payload={"closed_at": "2026-04-23T12:05:00Z"},
+                timestamp="2026-04-23T12:05:00Z",
+            ),
+            build_event(
+                sequence=6,
+                session_id="S-winner",
+                event_type="semantic_conflict_resolved",
+                project_version_after=6,
+                payload={
+                    "conflict_id": "C-workstream",
+                    "winning_session_id": "S-winner",
+                    "rejected_session_ids": ["S-loser"],
+                    "scope": {
+                        "kind": "workstream",
+                        "name": "ops-workstream",
+                        "session_ids": ["S-loser", "S-winner"],
+                    },
+                    "reason": "Keep winner workstream.",
+                    "resolved_at": "2026-04-23T12:06:00Z",
+                },
+                timestamp="2026-04-23T12:06:00Z",
+            ),
+        ]
+
+        bundle = rebuild_projections(events)
+        close_summary = bundle["sessions"]["S-loser"]["close_summary"]
+
+        self.assertEqual(["D-shared"], [item["id"] for item in close_summary["accepted_decisions"]])
+        self.assertEqual(["Shared slice"], [item["name"] for item in close_summary["candidate_action_slices"]])
+        self.assertEqual([], close_summary["candidate_workstreams"])
+        resolved = bundle["project_state"]["session_graph"]["resolved_conflicts"][0]
+        self.assertEqual(["ops-workstream"], resolved["suppressed_context"]["workstream_names"])
 
 
 if __name__ == "__main__":

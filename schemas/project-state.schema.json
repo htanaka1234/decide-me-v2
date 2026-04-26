@@ -113,7 +113,51 @@
           "type": "array"
         },
         "resolved_conflicts": {
-          "type": "array"
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "conflict_id",
+              "winning_session_id",
+              "rejected_session_ids",
+              "scope",
+              "suppressed_context",
+              "reason",
+              "resolved_at",
+              "event_id"
+            ],
+            "properties": {
+              "suppressed_context": {
+                "type": "object",
+                "required": [
+                  "session_ids",
+                  "decision_ids",
+                  "action_slice_names",
+                  "workstream_names",
+                  "hidden_strings"
+                ],
+                "properties": {
+                  "session_ids": {
+                    "type": "array"
+                  },
+                  "decision_ids": {
+                    "type": "array"
+                  },
+                  "action_slice_names": {
+                    "type": "array"
+                  },
+                  "workstream_names": {
+                    "type": "array"
+                  },
+                  "hidden_strings": {
+                    "type": "array"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": true
+          }
         }
       },
       "additionalProperties": false

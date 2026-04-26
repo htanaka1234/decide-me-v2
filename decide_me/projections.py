@@ -6,6 +6,7 @@ from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from decide_me.suppression import apply_semantic_suppression_to_session, merge_suppressed_contexts
 from decide_me.taxonomy import default_taxonomy_state, stable_unique
 
 
@@ -507,16 +508,34 @@ def apply_event(
         )
     elif event_type == "semantic_conflict_resolved":
         graph = project_state["session_graph"]
+        resolution = {
+            "conflict_id": payload["conflict_id"],
+            "winning_session_id": payload["winning_session_id"],
+            "rejected_session_ids": deepcopy(payload["rejected_session_ids"]),
+            "scope": deepcopy(payload["scope"]),
+            "reason": payload["reason"],
+            "resolved_at": payload["resolved_at"],
+            "event_id": event["event_id"],
+        }
+        suppressed_contexts = []
+        for rejected_session_id in payload["rejected_session_ids"]:
+            rejected_session = sessions.get(rejected_session_id)
+            if not rejected_session:
+                continue
+            context = apply_semantic_suppression_to_session(rejected_session, resolution)
+            suppressed_contexts.append(context)
+            if context.get("session_ids"):
+                _touch_session(
+                    sessions,
+                    rejected_session_id,
+                    ts,
+                    None,
+                    project_head_after,
+                    add_decision=False,
+                )
+        resolution["suppressed_context"] = merge_suppressed_contexts(suppressed_contexts)
         graph["resolved_conflicts"].append(
-            {
-                "conflict_id": payload["conflict_id"],
-                "winning_session_id": payload["winning_session_id"],
-                "rejected_session_ids": deepcopy(payload["rejected_session_ids"]),
-                "scope": deepcopy(payload["scope"]),
-                "reason": payload["reason"],
-                "resolved_at": payload["resolved_at"],
-                "event_id": event["event_id"],
-            }
+            resolution
         )
     elif event_type == "plan_generated":
         pass

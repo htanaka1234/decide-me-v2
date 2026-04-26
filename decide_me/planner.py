@@ -8,6 +8,7 @@ from typing import Any
 from decide_me.events import utc_now
 from decide_me.exports import export_plan
 from decide_me.store import load_runtime, runtime_paths, transact
+from decide_me.suppression import apply_semantic_suppression_to_session
 from decide_me.taxonomy import stable_unique
 
 
@@ -330,83 +331,13 @@ def _sessions_after_resolutions(
     sessions: list[dict[str, Any]],
     resolved_conflicts: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    selected_session_ids = {session["session"]["id"] for session in sessions}
-    removals: dict[str, dict[str, set[str]]] = {}
-    for resolution in resolved_conflicts:
-        scope = resolution["scope"]
-        if resolution["winning_session_id"] not in selected_session_ids:
-            continue
-        for rejected_session_id in resolution["rejected_session_ids"]:
-            if rejected_session_id not in selected_session_ids:
-                continue
-            session_removals = removals.setdefault(
-                rejected_session_id,
-                {"accepted_decisions": set(), "workstreams": set(), "action_slices": set()},
-            )
-            if scope["kind"] == "accepted_decision":
-                decision_id = scope.get("decision_id")
-                if decision_id:
-                    session_removals["accepted_decisions"].add(decision_id)
-                    session_removals["action_slices"].add(decision_id)
-            elif scope["kind"] == "workstream":
-                name = scope.get("name")
-                if name:
-                    session_removals["workstreams"].add(name)
-            elif scope["kind"] == "action_slice":
-                name = scope.get("name")
-                if name:
-                    session_removals["action_slices"].add(name)
-
     normalized_sessions: list[dict[str, Any]] = []
     for session in sessions:
-        session_id = session["session"]["id"]
         normalized_session = deepcopy(session)
-        close_summary = deepcopy(session["close_summary"])
-        session_removals = removals.get(session_id)
-        if session_removals:
-            _apply_close_summary_removals(close_summary, session_removals)
-        normalized_session["close_summary"] = close_summary
+        for resolution in resolved_conflicts:
+            apply_semantic_suppression_to_session(normalized_session, resolution)
         normalized_sessions.append(normalized_session)
     return normalized_sessions
-
-
-def _apply_close_summary_removals(
-    close_summary: dict[str, Any],
-    removals: dict[str, set[str]],
-) -> None:
-    accepted_decisions = removals["accepted_decisions"]
-    if accepted_decisions:
-        close_summary["accepted_decisions"] = [
-            item for item in close_summary["accepted_decisions"] if item.get("id") not in accepted_decisions
-        ]
-        for key in ("deferred_decisions", "unresolved_blockers", "unresolved_risks"):
-            close_summary[key] = [item for item in close_summary[key] if item.get("id") not in accepted_decisions]
-
-    action_slices = removals["action_slices"]
-    if action_slices:
-        close_summary["candidate_action_slices"] = [
-            item
-            for item in close_summary["candidate_action_slices"]
-            if item.get("name") not in action_slices and item.get("decision_id") not in action_slices
-        ]
-
-    workstreams = removals["workstreams"]
-    filtered_workstreams: list[dict[str, Any]] = []
-    for workstream in close_summary["candidate_workstreams"]:
-        if workstream.get("name") in workstreams:
-            continue
-        updated = deepcopy(workstream)
-        if accepted_decisions:
-            updated["scope"] = [item for item in updated.get("scope", []) if item not in accepted_decisions]
-            updated["implementation_ready_scope"] = [
-                item for item in updated.get("implementation_ready_scope", []) if item not in accepted_decisions
-            ]
-            updated["accepted_count"] = len(
-                [item for item in updated.get("scope", []) if item not in accepted_decisions]
-            )
-        if updated.get("scope"):
-            filtered_workstreams.append(updated)
-    close_summary["candidate_workstreams"] = filtered_workstreams
 
 
 def _record_plan_generated(ai_dir: str, plan: dict[str, Any]) -> None:

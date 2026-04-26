@@ -6,6 +6,7 @@ from typing import Any
 
 from decide_me.constants import ACCEPTED_VIA_VALUES, DOMAIN_VALUES, EVIDENCE_SOURCES
 from decide_me.events import EVENT_TYPES, SESSION_RELATIONSHIPS, validate_event
+from decide_me.suppression import has_remaining_suppressed_scope, has_suppressed_context_remainders
 from decide_me.taxonomy import taxonomy_by_id
 
 
@@ -382,6 +383,7 @@ def validate_projection_bundle(bundle: dict[str, Any]) -> None:
             active_proposal_targets.setdefault(proposal["target_id"], []).append(session_id)
     _validate_decision_references(decisions_by_id, active_proposal_targets)
     _validate_visible_decision_bindings(bundle["sessions"], _visible_decision_ids(decisions_by_id))
+    _validate_resolved_conflict_suppression(bundle["project_state"], bundle["sessions"])
 
 
 def _decision_index(project_state: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -1071,6 +1073,7 @@ def _validate_session_graph(session_graph: dict[str, Any]) -> None:
                 "winning_session_id",
                 "rejected_session_ids",
                 "scope",
+                "suppressed_context",
                 "reason",
                 "resolved_at",
                 "event_id",
@@ -1090,9 +1093,41 @@ def _validate_session_graph(session_graph: dict[str, Any]) -> None:
             "project_state.session_graph.resolved_conflicts[].rejected_session_ids",
         )
         _require_dict(resolved_payload["scope"], "project_state.session_graph.resolved_conflicts[].scope")
+        _validate_suppressed_context(
+            resolved_payload["suppressed_context"],
+            "project_state.session_graph.resolved_conflicts[].suppressed_context",
+        )
         _require_non_empty_string(resolved_payload["reason"], "project_state.session_graph.resolved_conflicts[].reason")
         _require_timestamp(resolved_payload["resolved_at"], "project_state.session_graph.resolved_conflicts[].resolved_at")
         _require_non_empty_string(resolved_payload["event_id"], "project_state.session_graph.resolved_conflicts[].event_id")
+
+
+def _validate_suppressed_context(context: Any, label: str) -> None:
+    context_payload = _require_dict(context, label)
+    _require_keys(
+        context_payload,
+        ("session_ids", "decision_ids", "action_slice_names", "workstream_names", "hidden_strings"),
+        label,
+    )
+    for key in ("session_ids", "decision_ids", "action_slice_names", "workstream_names", "hidden_strings"):
+        _require_list(context_payload[key], f"{label}.{key}")
+
+
+def _validate_resolved_conflict_suppression(
+    project_state: dict[str, Any], sessions: dict[str, dict[str, Any]]
+) -> None:
+    for resolved in project_state.get("session_graph", {}).get("resolved_conflicts", []):
+        for rejected_session_id in resolved.get("rejected_session_ids", []):
+            session = sessions.get(rejected_session_id)
+            if not session:
+                continue
+            if has_remaining_suppressed_scope(session, resolved) or has_suppressed_context_remainders(
+                session, resolved.get("suppressed_context", {})
+            ):
+                raise StateValidationError(
+                    f"resolved conflict {resolved['conflict_id']} leaves rejected scope in "
+                    f"session {rejected_session_id} close_summary"
+                )
 
 
 def _validate_event_log_proposal_lifecycle(
