@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -10,32 +11,44 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from zipfile import ZipFile
 
+from tests.helpers.legacy_term_policy import format_findings, zip_legacy_term_findings
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-BANNED_TERMS = (
-    "accepted" + "_decisions",
-    "deferred" + "_decisions",
-    "evidence" + "_refs",
-    "proposal" + "_issued",
-    "proposal" + "_accepted",
-    "decision" + "_discovered",
-    "decision" + "_resolved_by_evidence",
-    "compatibility" + "_backfilled",
-    "action" + "_slices",
-    "candidate" + "_action" + "_slices",
-    "implementation" + "_ready_slices",
-    "candidate" + "_workstreams",
-    "unresolved" + "_blockers",
-    "unresolved" + "_risks",
-    "action" + "_slice",
-    "action" + "-slice",
-    "Action " + "Slices",
-    "Implementation-ready " + "Slices",
-    "Implementation-Ready " + "Slices",
-)
 
 
 class DistributionArtifactObjectNativeTests(unittest.TestCase):
+    def test_distribution_contains_only_installable_skill_surface(self) -> None:
+        with _built_artifact() as archive:
+            names = set(archive.namelist())
+
+        required = {
+            "decide-me/SKILL.md",
+            "decide-me/agents/openai.yaml",
+            "decide-me/decide_me/__init__.py",
+            "decide-me/decide_me/events.py",
+            "decide-me/decide_me/interview.py",
+            "decide-me/decide_me/lifecycle.py",
+            "decide-me/decide_me/planner.py",
+            "decide-me/decide_me/projections.py",
+            "decide-me/decide_me/store.py",
+            "decide-me/decide_me/validate.py",
+            "decide-me/scripts/decide_me.py",
+            "decide-me/schemas/close-summary.schema.json",
+            "decide-me/schemas/plan.schema.json",
+            "decide-me/templates/plan-template.md",
+        }
+        self.assertTrue(required.issubset(names))
+        for forbidden in {
+            "decide-me/README.md",
+            "decide-me/AGENTS.md",
+            "decide-me/references/migration-from-legacy-model.md",
+        }:
+            self.assertNotIn(forbidden, names)
+        self.assertFalse(any(name.startswith("decide-me/tests/") for name in names))
+        self.assertFalse(any("/.ai/" in name or name.startswith("decide-me/.ai/") for name in names))
+        self.assertFalse(any("/.git/" in name or name.startswith("decide-me/.git/") for name in names))
+
     def test_distribution_documents_object_native_contracts(self) -> None:
         with _built_artifact() as archive:
             skill = _read_text(archive, "decide-me/SKILL.md")
@@ -49,21 +62,57 @@ class DistributionArtifactObjectNativeTests(unittest.TestCase):
         self.assertIn("## Implementation-Ready Actions", plan_template)
 
     def test_distribution_text_files_do_not_expose_legacy_terms(self) -> None:
-        findings = []
         with _built_artifact() as archive:
-            for name in archive.namelist():
-                if not _is_text_file(name):
-                    continue
-                text = archive.read(name).decode("utf-8")
-                for term in BANNED_TERMS:
-                    if term in text:
-                        findings.append(f"{name} contains {term!r}")
+            findings = zip_legacy_term_findings(archive)
 
-        self.assertEqual([], findings)
+        self.assertEqual([], format_findings(findings))
+
+    def test_distribution_excludes_migration_reference(self) -> None:
+        with _built_artifact() as archive:
+            self.assertNotIn("decide-me/references/migration-from-legacy-model.md", archive.namelist())
+
+    def test_distribution_schemas_are_object_native(self) -> None:
+        with _built_artifact() as archive:
+            close_schema = json.loads(_read_text(archive, "decide-me/schemas/close-summary.schema.json"))
+            plan_schema = json.loads(_read_text(archive, "decide-me/schemas/plan.schema.json"))
+
+        self.assertEqual(
+            {"work_item", "readiness", "object_ids", "link_ids", "generated_at"},
+            set(close_schema["required"]),
+        )
+        self.assertFalse(close_schema.get("additionalProperties", True))
+
+        action_plan_schema = _action_plan_object_schema(plan_schema)
+        self.assertTrue(
+            {
+                "actions",
+                "implementation_ready_actions",
+                "evidence",
+                "source_object_ids",
+                "source_link_ids",
+            }.issubset(set(action_plan_schema["required"]))
+        )
+        self.assertFalse(action_plan_schema.get("additionalProperties", True))
+        action_plan_props = action_plan_schema["properties"]
+        self.assertIn("actions", action_plan_props)
+        self.assertIn("implementation_ready_actions", action_plan_props)
+        self.assertIn("evidence", action_plan_props)
+        self.assertIn("source_object_ids", action_plan_props)
+        self.assertIn("source_link_ids", action_plan_props)
+        self.assertNotIn("action" + "_slices", action_plan_props)
+        self.assertNotIn("implementation" + "_ready_slices", action_plan_props)
 
 
 def _read_text(archive: ZipFile, name: str) -> str:
     return archive.read(name).decode("utf-8")
+
+
+def _action_plan_object_schema(plan_schema: dict) -> dict:
+    return next(
+        option
+        for option in plan_schema["properties"]["action_plan"]["oneOf"]
+        if option.get("type") == "object"
+    )
 
 
 @contextmanager
@@ -83,18 +132,6 @@ def _built_artifact() -> Iterator[ZipFile]:
         )
         with ZipFile(dist_dir / "decide-me.zip") as archive:
             yield archive
-
-
-def _is_text_file(name: str) -> bool:
-    return Path(name).suffix in {
-        ".json",
-        ".md",
-        ".mdc",
-        ".py",
-        ".txt",
-        ".yaml",
-        ".yml",
-    }
 
 
 if __name__ == "__main__":

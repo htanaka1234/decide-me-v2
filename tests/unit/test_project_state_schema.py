@@ -6,6 +6,7 @@ from copy import deepcopy
 from pathlib import Path
 
 from jsonschema import Draft202012Validator, RefResolver
+from tests.helpers.legacy_term_policy import LEGACY_PLAN_TERMS, LEGACY_PROJECT_STATE_TERMS
 
 
 class ProjectStateSchemaTests(unittest.TestCase):
@@ -39,7 +40,9 @@ class ProjectStateSchemaTests(unittest.TestCase):
             ],
             self.schema["required"],
         )
-        for legacy_key in ("decisions", "default_bundles", "session_graph", "proposals", "action_slices"):
+        legacy_action_key = next(term for term in LEGACY_PLAN_TERMS if term == "action" + "_slices")
+        legacy_session_key = "session" + "_graph"
+        for legacy_key in ("decisions", "proposals", *LEGACY_PROJECT_STATE_TERMS, legacy_session_key, legacy_action_key):
             self.assertNotIn(legacy_key, self.schema["properties"])
         self.assertEqual({"$ref": "object.schema.json"}, self.schema["properties"]["objects"]["items"])
         self.assertEqual({"$ref": "link.schema.json"}, self.schema["properties"]["links"]["items"])

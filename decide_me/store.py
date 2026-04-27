@@ -195,7 +195,6 @@ def bootstrap_runtime(
     objective: str,
     current_milestone: str,
     stop_rule: str | None = None,
-    default_bundles: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     paths = runtime_paths(ai_dir)
     ensure_runtime_dirs(paths)
@@ -225,7 +224,6 @@ def bootstrap_runtime(
                 ],
                 "close_policy": "generate-close-summary-on-close",
             },
-            "default_bundles": default_bundles or [],
         }
         tx_id = new_tx_id()
         event = build_event(

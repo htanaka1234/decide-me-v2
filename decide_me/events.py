@@ -270,6 +270,12 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
     _require_keys(payload, REQUIRED_PAYLOAD_KEYS.get(event_type, ()), f"{event_type}.payload")
 
     if event_type == "project_initialized":
+        unsupported = sorted(set(payload) - {"project", "protocol"})
+        if unsupported:
+            raise EventValidationError(
+                "project_initialized.payload contains unsupported fields: "
+                + ", ".join(unsupported)
+            )
         project = _require_dict(payload["project"], "project_initialized.payload.project")
         _require_keys(project, ("name", "objective", "current_milestone", "stop_rule"), "project")
     elif event_type == "session_created":
