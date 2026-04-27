@@ -64,6 +64,39 @@ python3 scripts/decide_me.py export-github-issues \
   --output-dir .ai/decide-me/exports/github
 ```
 
+## arc42 architecture export
+
+```bash
+python3 scripts/decide_me.py export-architecture-doc \
+  --ai-dir .ai/decide-me \
+  --format arc42 \
+  --output docs/architecture/arc42.md
+```
+
+## Traceability matrix export
+
+```bash
+python3 scripts/decide_me.py export-traceability \
+  --ai-dir .ai/decide-me \
+  --format csv \
+  --output docs/traceability/traceability.csv
+```
+
+```bash
+python3 scripts/decide_me.py export-traceability \
+  --ai-dir .ai/decide-me \
+  --format markdown \
+  --output docs/traceability/traceability.md
+```
+
+## Verification gap export
+
+```bash
+python3 scripts/decide_me.py export-verification-gaps \
+  --ai-dir .ai/decide-me \
+  --output docs/traceability/verification-gaps.md
+```
+
 ## Agent instruction export
 
 ```bash

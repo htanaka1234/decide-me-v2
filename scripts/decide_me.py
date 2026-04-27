@@ -16,10 +16,13 @@ from decide_me.conflicts import detect_merge_conflicts, resolve_merge_conflict
 from decide_me.exports import (
     export_adr,
     export_agent_instructions,
+    export_architecture_doc,
     export_decision_register,
     export_github_issues,
     export_github_templates,
     export_structured_adr,
+    export_traceability,
+    export_verification_gaps,
 )
 from decide_me.interview import advance_session, handle_reply
 from decide_me.lifecycle import close_session, create_session, list_sessions, resume_session, show_session
@@ -204,6 +207,32 @@ def main(argv: list[str] | None = None) -> int:
     agent_instructions.add_argument("--output")
     agent_instructions.add_argument("--force", action="store_true")
 
+    architecture_doc = subparsers.add_parser(
+        "export-architecture-doc",
+        help="export an architecture documentation markdown file",
+    )
+    architecture_doc.add_argument("--ai-dir", required=True)
+    architecture_doc.add_argument("--format", choices=("arc42",), required=True)
+    architecture_doc.add_argument("--output", required=True)
+    architecture_doc.add_argument("--session-id", action="append")
+
+    traceability = subparsers.add_parser(
+        "export-traceability",
+        help="export a traceability matrix",
+    )
+    traceability.add_argument("--ai-dir", required=True)
+    traceability.add_argument("--format", choices=("csv", "markdown"), required=True)
+    traceability.add_argument("--output", required=True)
+    traceability.add_argument("--session-id", action="append")
+
+    verification_gaps = subparsers.add_parser(
+        "export-verification-gaps",
+        help="export a verification gap report",
+    )
+    verification_gaps.add_argument("--ai-dir", required=True)
+    verification_gaps.add_argument("--output", required=True)
+    verification_gaps.add_argument("--session-id", action="append")
+
     classify = subparsers.add_parser("classify-session", help="classify a session deterministically")
     classify.add_argument("--ai-dir", required=True)
     classify.add_argument("--session-id", required=True)
@@ -367,6 +396,29 @@ def main(argv: list[str] | None = None) -> int:
                     "rule_count": result["rule_count"],
                 }
             )
+        elif args.command == "export-architecture-doc":
+            path = export_architecture_doc(
+                args.ai_dir,
+                format=args.format,
+                output=args.output,
+                session_ids=args.session_id,
+            )
+            _print_json({"path": str(path), "format": args.format})
+        elif args.command == "export-traceability":
+            path = export_traceability(
+                args.ai_dir,
+                format=args.format,
+                output=args.output,
+                session_ids=args.session_id,
+            )
+            _print_json({"path": str(path), "format": args.format})
+        elif args.command == "export-verification-gaps":
+            path = export_verification_gaps(
+                args.ai_dir,
+                output=args.output,
+                session_ids=args.session_id,
+            )
+            _print_json({"path": str(path)})
         elif args.command == "classify-session":
             _print_json(
                 classify_session(

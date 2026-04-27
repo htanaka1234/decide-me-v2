@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import csv
+import io
 import json
 import os
 import subprocess
@@ -23,12 +25,16 @@ from decide_me.conflicts import detect_merge_conflicts, resolve_merge_conflict
 from decide_me.exports import (
     export_adr,
     export_agent_instructions,
+    export_architecture_doc,
     export_decision_register,
     export_github_issues,
     export_github_templates,
     export_structured_adr,
+    export_traceability,
+    export_verification_gaps,
 )
 from decide_me.exporters.agents import build_agent_instructions_payload
+from decide_me.exporters.traceability import build_traceability_payload_for_runtime
 from decide_me.events import build_event, utc_now
 from decide_me.interview import advance_session, handle_reply
 from decide_me.lifecycle import close_session, create_session, list_sessions, resume_session, show_session
@@ -3244,6 +3250,479 @@ class RuntimeFlowTests(unittest.TestCase):
             )
             for name in ("decide-decision.yml", "decide-task.yml", "decide-conflict.yml", "decide-risk.yml"):
                 self.assertTrue((output_dir / name).exists())
+
+    def test_architecture_traceability_and_gap_exports_are_deterministic(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Export architecture and traceability",
+                current_milestone="MVP",
+            )
+
+            design_session_id = create_session(ai_dir, context="Architecture exports")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                design_session_id,
+                {
+                    "id": "D-constraint",
+                    "title": "Audit retention constraint",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "kind": "constraint",
+                    "question": "What retention constraint applies?",
+                },
+            )
+            issue_proposal(
+                ai_dir,
+                design_session_id,
+                decision_id="D-constraint",
+                question="Keep audit records for the MVP?",
+                recommendation="Keep audit records for the MVP.",
+                why="This preserves auditability.",
+                if_not="The compliance story remains unclear.",
+            )
+            accept_proposal(ai_dir, design_session_id)
+            discover_decision(
+                ai_dir,
+                design_session_id,
+                {
+                    "id": "D-export",
+                    "title": "Add arc42 export",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "kind": "choice",
+                    "resolvable_by": "codebase",
+                    "question": "How should architecture docs be generated?",
+                },
+            )
+            resolve_by_evidence(
+                ai_dir,
+                design_session_id,
+                decision_id="D-export",
+                source="codebase",
+                summary="Generate arc42 Markdown from closed session projections.",
+                evidence_refs=["decide_me/exporters/architecture.py"],
+            )
+            discover_decision(
+                ai_dir,
+                design_session_id,
+                {
+                    "id": "D-tests",
+                    "title": "Traceability CLI test",
+                    "priority": "P1",
+                    "frontier": "later",
+                    "domain": "technical",
+                    "kind": "choice",
+                    "resolvable_by": "tests",
+                    "question": "How should the traceability export be verified?",
+                },
+            )
+            resolve_by_evidence(
+                ai_dir,
+                design_session_id,
+                decision_id="D-tests",
+                source="tests",
+                summary="Verify traceability export through CLI and schema tests.",
+                evidence_refs=["tests/integration/test_runtime_flow.py"],
+            )
+            discover_decision(
+                ai_dir,
+                design_session_id,
+                {
+                    "id": "D-test-plan",
+                    "title": "Parser regression coverage",
+                    "priority": "P1",
+                    "frontier": "later",
+                    "domain": "technical",
+                    "kind": "choice",
+                    "resolvable_by": "tests",
+                    "question": "How should parser regressions be verified?",
+                },
+            )
+            issue_proposal(
+                ai_dir,
+                design_session_id,
+                decision_id="D-test-plan",
+                question="Add parser regression coverage?",
+                recommendation="Add parser regression coverage.",
+                why="The behavior should be executable before implementation proceeds.",
+                if_not="The implementation-ready slice has no explicit verification evidence.",
+            )
+            accept_proposal(ai_dir, design_session_id)
+            close_session(ai_dir, design_session_id)
+
+            ops_session_id = create_session(ai_dir, context="Deployment operations")["session"]["id"]
+            _accept_runtime_decision(
+                ai_dir,
+                ops_session_id,
+                decision_id="D-ops",
+                title="Deployment runbook",
+                domain="ops",
+                recommendation="Document the deployment runbook as derived Markdown.",
+            )
+            close_session(ai_dir, ops_session_id)
+
+            risk_session_id = create_session(ai_dir, context="Open risks")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                risk_session_id,
+                {
+                    "id": "D-blocker",
+                    "title": "Hosting region",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "ops",
+                    "kind": "choice",
+                    "question": "Which hosting region should be used?",
+                },
+            )
+            discover_decision(
+                ai_dir,
+                risk_session_id,
+                {
+                    "id": "D-risk-open",
+                    "title": "Vendor quota risk",
+                    "priority": "P1",
+                    "frontier": "now",
+                    "domain": "ops",
+                    "kind": "risk",
+                    "question": "How should quota risk be handled?",
+                },
+            )
+            discover_decision(
+                ai_dir,
+                risk_session_id,
+                {
+                    "id": "D-risk-deferred",
+                    "title": "Long-term retention risk",
+                    "priority": "P2",
+                    "frontier": "later",
+                    "domain": "legal",
+                    "kind": "risk",
+                    "question": "How should retention risk be handled?",
+                },
+            )
+            defer_decision(
+                ai_dir,
+                risk_session_id,
+                decision_id="D-risk-deferred",
+                reason="Defer until retention policy work starts.",
+            )
+            close_session(ai_dir, risk_session_id)
+
+            event_count_before = len(read_event_log(runtime_paths(ai_dir)))
+            output_root = Path(ai_dir) / "exports" / "phase4"
+            arc42_path = export_architecture_doc(
+                ai_dir,
+                format="arc42",
+                output=output_root / "arc42.md",
+            )
+            csv_path = export_traceability(
+                ai_dir,
+                format="csv",
+                output=output_root / "traceability.csv",
+            )
+            markdown_path = export_traceability(
+                ai_dir,
+                format="markdown",
+                output=output_root / "traceability.md",
+            )
+            gaps_path = export_verification_gaps(
+                ai_dir,
+                output=output_root / "verification-gaps.md",
+            )
+            self.assertEqual(event_count_before, len(read_event_log(runtime_paths(ai_dir))))
+
+            payload = build_traceability_payload_for_runtime(ai_dir)
+            schema_path = Path(__file__).resolve().parents[2] / "schemas" / "traceability.schema.json"
+            Draft202012Validator(json.loads(schema_path.read_text(encoding="utf-8"))).validate(payload)
+            rows_by_decision = {row["decision_id"]: row for row in payload["rows"]}
+            self.assertEqual("R-002", rows_by_decision["D-export"]["requirement_id"])
+            self.assertTrue(rows_by_decision["D-export"]["implementation_ready"])
+            self.assertFalse(rows_by_decision["D-export"]["verification_defined"])
+            self.assertTrue(rows_by_decision["D-test-plan"]["implementation_ready"])
+            self.assertFalse(rows_by_decision["D-test-plan"]["verification_defined"])
+            self.assertEqual("regression test", rows_by_decision["D-test-plan"]["suggested_verification"])
+            self.assertTrue(rows_by_decision["D-tests"]["verification_defined"])
+            self.assertEqual("tests", rows_by_decision["D-tests"]["evidence_source"])
+            self.assertEqual("blocker", rows_by_decision["D-blocker"]["risk"])
+            self.assertEqual("risk", rows_by_decision["D-risk-open"]["risk"])
+            self.assertEqual(
+                ["D-export", "D-test-plan"],
+                [
+                    gap["decision_id"]
+                    for gap in payload["verification_gaps"]["missing_tests"]
+                    if gap["decision_id"] in {"D-export", "D-test-plan"}
+                ],
+            )
+
+            arc42 = arc42_path.read_text(encoding="utf-8")
+            self.assertIn("# Architecture Documentation", arc42)
+            self.assertIn("## 7. Deployment View / Operations", arc42)
+            self.assertIn("D-ops", arc42)
+            self.assertIn("D-risk-open", arc42)
+            self.assertIn("D-risk-deferred", arc42)
+            self.assertIn("domain:technical", arc42)
+
+            csv_rows = list(csv.DictReader(io.StringIO(csv_path.read_text(encoding="utf-8"))))
+            self.assertEqual(
+                [
+                    "Requirement ID",
+                    "Decision ID",
+                    "Session ID",
+                    "Action Slice",
+                    "Implementation Ready",
+                    "Evidence Source",
+                    "Risk",
+                    "Test / Verification",
+                    "Status",
+                ],
+                list(csv_rows[0].keys()),
+            )
+            self.assertEqual("R-002", [row for row in csv_rows if row["Decision ID"] == "D-export"][0]["Requirement ID"])
+            self.assertIn("| Requirement ID | Decision ID |", markdown_path.read_text(encoding="utf-8"))
+            gaps = gaps_path.read_text(encoding="utf-8")
+            self.assertIn("## Missing tests", gaps)
+            self.assertIn("D-export: Add arc42 export", gaps)
+            self.assertIn("D-test-plan: Parser regression coverage", gaps)
+            self.assertIn("snapshot test plus schema validation", gaps)
+            self.assertIn("regression test", gaps)
+            self.assertIn("D-ops: Deployment runbook", gaps)
+
+            first_render = {
+                path.relative_to(output_root).as_posix(): path.read_text(encoding="utf-8")
+                for path in sorted(output_root.rglob("*"))
+                if path.is_file()
+            }
+            export_architecture_doc(ai_dir, format="arc42", output=arc42_path)
+            export_traceability(ai_dir, format="csv", output=csv_path)
+            export_traceability(ai_dir, format="markdown", output=markdown_path)
+            export_verification_gaps(ai_dir, output=gaps_path)
+            second_render = {
+                path.relative_to(output_root).as_posix(): path.read_text(encoding="utf-8")
+                for path in sorted(output_root.rglob("*"))
+                if path.is_file()
+            }
+            self.assertEqual(first_render, second_render)
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_phase4_export_cli_and_errors(self) -> None:
+        repo_root = Path(__file__).resolve().parents[2]
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Export through CLI",
+                current_milestone="MVP",
+            )
+            session_id = create_session(ai_dir, context="CLI export")["session"]["id"]
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-cli-export",
+                    "title": "Export traceability CLI",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "domain": "technical",
+                    "kind": "choice",
+                    "resolvable_by": "codebase",
+                    "question": "How should traceability be exported?",
+                },
+            )
+            resolve_by_evidence(
+                ai_dir,
+                session_id,
+                decision_id="D-cli-export",
+                source="codebase",
+                summary="Use local Markdown and CSV export commands.",
+                evidence_refs=["scripts/decide_me.py"],
+            )
+            close_session(ai_dir, session_id)
+            active_session_id = create_session(ai_dir, context="Active session")["session"]["id"]
+
+            output_root = Path(tmp) / "docs"
+            commands = [
+                [
+                    "export-architecture-doc",
+                    "--format",
+                    "arc42",
+                    "--output",
+                    str(output_root / "architecture" / "arc42.md"),
+                ],
+                [
+                    "export-traceability",
+                    "--format",
+                    "csv",
+                    "--output",
+                    str(output_root / "traceability" / "traceability.csv"),
+                ],
+                [
+                    "export-verification-gaps",
+                    "--output",
+                    str(output_root / "traceability" / "verification-gaps.md"),
+                ],
+            ]
+            for command in commands:
+                completed = subprocess.run(
+                    [
+                        sys.executable,
+                        "scripts/decide_me.py",
+                        command[0],
+                        "--ai-dir",
+                        ai_dir,
+                        *command[1:],
+                    ],
+                    cwd=repo_root,
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertEqual(0, completed.returncode, completed.stderr)
+                payload = json.loads(completed.stdout)
+                self.assertTrue(Path(payload["path"]).exists())
+
+            first_traceability = (output_root / "traceability" / "traceability.csv").read_text(
+                encoding="utf-8"
+            )
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/decide_me.py",
+                    "export-traceability",
+                    "--ai-dir",
+                    ai_dir,
+                    "--format",
+                    "csv",
+                    "--output",
+                    str(output_root / "traceability" / "traceability.csv"),
+                ],
+                cwd=repo_root,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(0, completed.returncode, completed.stderr)
+            self.assertEqual(
+                first_traceability,
+                (output_root / "traceability" / "traceability.csv").read_text(encoding="utf-8"),
+            )
+
+            invalid_format = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/decide_me.py",
+                    "export-traceability",
+                    "--ai-dir",
+                    ai_dir,
+                    "--format",
+                    "json",
+                    "--output",
+                    str(output_root / "bad.csv"),
+                ],
+                cwd=repo_root,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(0, invalid_format.returncode)
+
+            unknown = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/decide_me.py",
+                    "export-architecture-doc",
+                    "--ai-dir",
+                    ai_dir,
+                    "--format",
+                    "arc42",
+                    "--output",
+                    str(output_root / "unknown.md"),
+                    "--session-id",
+                    "S-unknown",
+                ],
+                cwd=repo_root,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(1, unknown.returncode)
+            self.assertIn("unknown session", unknown.stderr)
+
+            non_closed = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/decide_me.py",
+                    "export-verification-gaps",
+                    "--ai-dir",
+                    ai_dir,
+                    "--output",
+                    str(output_root / "non-closed.md"),
+                    "--session-id",
+                    active_session_id,
+                ],
+                cwd=repo_root,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(1, non_closed.returncode)
+            self.assertIn("must be closed", non_closed.stderr)
+
+            conflict_ai_dir = str(Path(tmp) / ".ai" / "conflict-decide-me")
+            bootstrap_runtime(
+                conflict_ai_dir,
+                project_name="Demo",
+                objective="Conflict export",
+                current_milestone="MVP",
+            )
+            first_id = create_session(conflict_ai_dir, context="First conflict")["session"]["id"]
+            second_id = create_session(conflict_ai_dir, context="Second conflict")["session"]["id"]
+            _accept_runtime_decision(
+                conflict_ai_dir,
+                first_id,
+                decision_id="D-conflict-a",
+                title="Shared export choice",
+                domain="technical",
+                recommendation="Use Markdown.",
+            )
+            _accept_runtime_decision(
+                conflict_ai_dir,
+                second_id,
+                decision_id="D-conflict-b",
+                title="Shared export choice",
+                domain="ops",
+                recommendation="Use JSON.",
+            )
+            close_session(conflict_ai_dir, first_id)
+            close_session(conflict_ai_dir, second_id)
+            conflict_output = output_root / "conflict.csv"
+            conflict = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/decide_me.py",
+                    "export-traceability",
+                    "--ai-dir",
+                    conflict_ai_dir,
+                    "--format",
+                    "csv",
+                    "--output",
+                    str(conflict_output),
+                ],
+                cwd=repo_root,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(1, conflict.returncode)
+            self.assertIn("unresolved session conflicts", conflict.stderr)
+            self.assertFalse(conflict_output.exists())
+            self.assertEqual([], validate_runtime(ai_dir))
 
     def test_github_issue_export_maps_plan_items_and_is_deterministic(self) -> None:
         with TemporaryDirectory() as tmp:

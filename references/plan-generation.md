@@ -13,6 +13,9 @@ For `Action Plan:` output:
 - surface `implementation_ready_slices` separately when slices are already evidence-backed or
   otherwise ready to execute
 - keep evidence-backed slices near the top of the merged action list
+- support derived architecture and traceability exports from the same closed-session inputs
+- treat generated arc42 docs, traceability matrices, and verification gap reports as exports,
+  never as runtime state
 
 Minimum conflict checks:
 
@@ -35,3 +38,16 @@ Conflict ids and resolution:
 
 If unresolved `P0` decisions with `frontier=now` remain, the planner must return a conditional
 plan instead of claiming the work is ready.
+
+Phase 4 derived exports:
+
+- `export-architecture-doc --format arc42` renders a Markdown architecture skeleton from closed
+  sessions, action slices, final decisions, risks, blockers, and taxonomy terms.
+- `export-traceability --format csv|markdown` renders action slices and unresolved blocker/risk
+  rows with stable derived `R-###` requirement IDs.
+- `export-verification-gaps` reports implementation-ready rows with no explicit test evidence and
+  rows with no recorded evidence refs.
+- The explicit verification rule is conservative: only `evidence_source=tests` or test-file
+  evidence refs count as verification already defined. `resolvable_by=tests` is only used for
+  suggested verification.
+- Unresolved planner conflicts must fail these exports before writing output.

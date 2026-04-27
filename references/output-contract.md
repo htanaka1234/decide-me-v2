@@ -71,3 +71,34 @@ Normal exports must exclude invalidated decisions and include only final agent-r
 AGENTS.md exports must use `<!-- decide-me:start -->` and `<!-- decide-me:end -->` markers when
 creating or updating managed content. Existing unmarked AGENTS.md files may be overwritten only
 when the user passes `--force`.
+
+Architecture documentation, traceability matrix, and verification gap reports are local derived
+outputs only. They must not record runtime events or call external services.
+
+Phase 4 export commands:
+
+- `export-architecture-doc --format arc42`
+- `export-traceability --format csv|markdown`
+- `export-verification-gaps`
+
+When `--session-id` is omitted, Phase 4 exports use all closed sessions sorted by session ID.
+Repeated `--session-id` narrows the closed-session set. Unknown or non-closed sessions must fail.
+
+Phase 4 exports must fail before writing output when unresolved planner conflicts exist.
+
+Traceability rows must include these matrix columns:
+
+- `Requirement ID`
+- `Decision ID`
+- `Session ID`
+- `Action Slice`
+- `Implementation Ready`
+- `Evidence Source`
+- `Risk`
+- `Test / Verification`
+- `Status`
+
+`Requirement ID` is a stable derived `R-###` value from sorted export rows. Only
+`evidence_source=tests` or test-file evidence refs count as explicit verification.
+`resolvable_by=tests` is only a basis for suggested verification. Missing verification and missing
+evidence are reported in the verification gap export.
