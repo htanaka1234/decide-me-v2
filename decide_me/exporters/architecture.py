@@ -52,7 +52,7 @@ def render_arc42_document(context: dict[str, Any]) -> str:
     sessions = context["sessions"]
     action_plan = context["action_plan"]
     traceability = build_traceability_payload_from_context(context)
-    final_decisions = _final_decisions(sessions)
+    final_decisions = _final_decisions(sessions, bundle["project_state"], action_plan)
 
     template = (ARCHITECTURE_TEMPLATE_DIR / "arc42.md").read_text(encoding="utf-8")
     return (
@@ -76,12 +76,38 @@ def render_arc42_document(context: dict[str, Any]) -> str:
     ).rstrip() + "\n"
 
 
-def _final_decisions(sessions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _final_decisions(
+    sessions: list[dict[str, Any]],
+    project_state: dict[str, Any],
+    action_plan: dict[str, Any],
+) -> list[dict[str, Any]]:
+    objects = {obj["id"]: obj for obj in project_state.get("objects", [])}
+    actions_by_decision = {
+        action.get("decision_id"): action
+        for action in action_plan.get("actions", [])
+        if action.get("decision_id")
+    }
     decisions: dict[str, dict[str, Any]] = {}
     for session in sessions:
         session_id = session["session"]["id"]
-        for decision in session["close_summary"].get("accepted_decisions", []):
-            item = dict(decision)
+        for decision_id in session["close_summary"].get("object_ids", {}).get("accepted_decisions", []):
+            decision = objects.get(decision_id)
+            if not decision or decision.get("type") != "decision":
+                continue
+            metadata = decision.get("metadata", {})
+            action = actions_by_decision.get(decision_id, {})
+            item = {
+                "id": decision_id,
+                "title": decision.get("title"),
+                "context": decision.get("body"),
+                "accepted_answer": action.get("summary"),
+                "status": decision.get("status"),
+                "domain": metadata.get("domain"),
+                "kind": metadata.get("kind"),
+                "priority": metadata.get("priority"),
+                "resolvable_by": metadata.get("resolvable_by"),
+                "evidence_refs": action.get("evidence_refs", []),
+            }
             item["session_id"] = session_id
             decisions.setdefault(item["id"], item)
     return sorted(decisions.values(), key=lambda item: item["id"])
@@ -129,8 +155,8 @@ def _render_session_goals(sessions: list[dict[str, Any]]) -> str:
         goal
         for session in sessions
         for goal in (
-            session["close_summary"].get("goal"),
-            session["close_summary"].get("work_item_title"),
+            session["close_summary"].get("work_item", {}).get("statement"),
+            session["close_summary"].get("work_item", {}).get("title"),
         )
         if goal
     )
@@ -153,8 +179,8 @@ def _render_building_blocks(action_plan: dict[str, Any]) -> str:
         "Workstreams:",
         _render_workstreams(action_plan.get("workstreams", [])),
         "",
-        "Action slices:",
-        _render_action_slices(action_plan.get("action_slices", [])),
+        "Actions:",
+        _render_actions(action_plan.get("actions", [])),
     ]
     return "\n".join(lines)
 
@@ -163,17 +189,17 @@ def _render_deployment_operations(
     decisions: list[dict[str, Any]], action_plan: dict[str, Any]
 ) -> str:
     ops_decisions = [decision for decision in decisions if decision.get("domain") == "ops"]
-    ops_slices = [
-        action_slice
-        for action_slice in action_plan.get("action_slices", [])
-        if action_slice.get("responsibility") == "ops"
+    ops_actions = [
+        action
+        for action in action_plan.get("actions", [])
+        if action.get("responsibility") == "ops"
     ]
     lines = [
         "Ops decisions:",
         _render_decisions(ops_decisions),
         "",
-        "Ops action slices:",
-        _render_action_slices(ops_slices),
+        "Ops actions:",
+        _render_actions(ops_actions),
     ]
     return "\n".join(lines)
 
@@ -197,15 +223,6 @@ def _render_quality_requirements(traceability: dict[str, Any]) -> str:
 
 
 def _render_risks_and_debt(sessions: list[dict[str, Any]], action_plan: dict[str, Any]) -> str:
-    deferred_risks = []
-    for session in sessions:
-        session_id = session["session"]["id"]
-        for decision in session["close_summary"].get("deferred_decisions", []):
-            if decision.get("kind") == "risk":
-                item = dict(decision)
-                item["session_id"] = session_id
-                deferred_risks.append(item)
-
     lines = [
         "Unresolved blockers:",
         _render_decisions(action_plan.get("blockers", [])),
@@ -214,7 +231,7 @@ def _render_risks_and_debt(sessions: list[dict[str, Any]], action_plan: dict[str
         _render_decisions(action_plan.get("risks", [])),
         "",
         "Deferred risks:",
-        _render_decisions(sorted(deferred_risks, key=lambda item: item["id"])),
+        "- none",
     ]
     return "\n".join(lines)
 
@@ -254,18 +271,18 @@ def _render_workstreams(workstreams: list[dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
-def _render_action_slices(action_slices: list[dict[str, Any]]) -> str:
-    if not action_slices:
+def _render_actions(actions: list[dict[str, Any]]) -> str:
+    if not actions:
         return "- none"
     lines = []
-    for action_slice in action_slices:
-        ready = "yes" if action_slice.get("implementation_ready") else "no"
-        evidence = ", ".join(action_slice.get("evidence_refs", [])) or "none recorded"
+    for action in actions:
+        ready = "yes" if action.get("implementation_ready") else "no"
+        evidence = ", ".join(action.get("evidence_refs", [])) or "none recorded"
         lines.append(
-            f"- {action_slice.get('decision_id') or 'unknown'}: "
-            f"{action_slice.get('name') or 'Action slice'} "
-            f"(ready: {ready}; owner: {action_slice.get('responsibility') or 'unknown'}). "
-            f"{render_markdown_text(action_slice.get('summary'))} Evidence: {evidence}."
+            f"- {action.get('decision_id') or 'unknown'}: "
+            f"{action.get('name') or 'Action'} "
+            f"(ready: {ready}; owner: {action.get('responsibility') or 'unknown'}). "
+            f"{render_markdown_text(action.get('summary'))} Evidence: {evidence}."
         )
     return "\n".join(lines)
 

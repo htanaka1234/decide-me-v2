@@ -1,5 +1,5 @@
 name: Decide task
-description: Track an implementation-ready decide-me action slice.
+description: Track an implementation-ready decide-me action.
 title: "[task] "
 labels:
   - decide-me

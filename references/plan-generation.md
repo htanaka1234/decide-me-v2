@@ -4,15 +4,17 @@ Only closed sessions can feed the planner.
 
 The planner returns one of two shapes:
 
-- `Conflicts:` when accepted decisions or workstream scopes disagree
+- `Conflicts:` when accepted answers or generated actions disagree
 - `Action Plan:` when sessions can be merged into a coherent plan
 
 For `Action Plan:` output:
 
-- preserve merged `action_slices`
-- surface `implementation_ready_slices` separately when slices are already evidence-backed or
+- resolve plan content from `close_summary.object_ids`, `close_summary.link_ids`,
+  `project_state.objects`, and `project_state.links`
+- preserve merged `actions`
+- surface `implementation_ready_actions` separately when actions are already evidence-backed or
   otherwise ready to execute
-- keep evidence-backed slices near the top of the merged action list
+- keep evidence-backed actions near the top of the merged action list
 - support derived architecture and traceability exports from the same closed-session inputs
 - treat generated arc42 docs, traceability matrices, and verification gap reports as exports,
   never as runtime state
@@ -20,8 +22,7 @@ For `Action Plan:` output:
 Minimum conflict checks:
 
 - same decision ID with different accepted answers
-- mutually exclusive workstream scopes
-- same action-slice name with different responsibilities
+- same action name with different responsibilities
 
 Conflict ids and resolution:
 
@@ -30,7 +31,7 @@ Conflict ids and resolution:
 - Phase 5-3 does not persist explicit semantic conflict resolution events; plan generation should
   surface unresolved conflicts rather than silently choosing between incompatible closed sessions.
 - When assembling an action plan after resolution, remove only the losing session's scoped item.
-  Other accepted decisions, action slices, and workstreams from the losing session remain eligible.
+  Other object/link references from the losing session remain eligible.
 - `detect-session-conflicts --include-related` lists explicit graph relatives first, then reports
   unresolved and resolved semantic conflicts for that graph scope.
 - Decision replacements are resolved with `resolve-decision-supersession`, which emits the
@@ -43,8 +44,8 @@ plan instead of claiming the work is ready.
 Phase 4 derived exports:
 
 - `export-architecture-doc --format arc42` renders a Markdown architecture skeleton from closed
-  sessions, action slices, final decisions, risks, blockers, and taxonomy terms.
-- `export-traceability --format csv|markdown` renders action slices and unresolved blocker/risk
+  sessions, actions, final decisions, risks, blockers, and taxonomy terms.
+- `export-traceability --format csv|markdown` renders action and unresolved blocker/risk
   rows with stable derived `R-###` requirement IDs.
 - `export-verification-gaps` reports implementation-ready rows with no explicit test evidence and
   rows with no recorded evidence refs.

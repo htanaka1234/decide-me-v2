@@ -11,8 +11,7 @@ def _suppressed_context() -> dict[str, list[str]]:
     return {
         "session_ids": ["S-loser"],
         "related_object_ids": ["D-hidden", "P-hidden"],
-        "action_slice_names": [],
-        "workstream_names": [],
+        "link_ids": [],
         "hidden_strings": ["Hidden Tag"],
     }
 
@@ -73,7 +72,9 @@ class SuppressionTests(unittest.TestCase):
         session["working_state"]["active_proposal_id"] = "P-hidden"
         session["classification"]["search_terms"] = ["Hidden Tag", "visible"]
         session["classification"]["assigned_tags"] = ["tag:hidden"]
-        session["close_summary"]["accepted_decisions"] = [{"id": "D-hidden", "title": "Hidden Tag"}]
+        session["close_summary"]["object_ids"]["decisions"] = ["D-hidden"]
+        session["close_summary"]["object_ids"]["accepted_decisions"] = ["D-hidden"]
+        session["close_summary"]["work_item"]["title"] = "Hidden Tag"
 
         resolution = {
             "winning_session_id": "S-winner",

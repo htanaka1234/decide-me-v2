@@ -71,7 +71,11 @@ def build_github_issues_export(
     index = build_decision_event_index(events)
     generated_at = snapshot_generated_at(bundle, events)
     current_project_head = project_head(bundle)
-    conflicts = detect_conflicts(sessions, resolved_conflicts=resolved_conflicts)
+    conflicts = detect_conflicts(
+        sessions,
+        bundle["project_state"],
+        resolved_conflicts=resolved_conflicts,
+    )
 
     if conflicts:
         plan_status = "conflicts"
@@ -82,7 +86,11 @@ def build_github_issues_export(
         )
     else:
         plan_status = "action-plan"
-        action_plan = assemble_action_plan(sessions, resolved_conflicts=resolved_conflicts)
+        action_plan = assemble_action_plan(
+            sessions,
+            bundle["project_state"],
+            resolved_conflicts=resolved_conflicts,
+        )
         normalized_sessions = _sessions_after_resolutions(sessions, resolved_conflicts)
         issues, bodies = _action_plan_issues(
             action_plan,
@@ -174,7 +182,7 @@ def _action_plan_issues(
         bodies[body_path] = body
         emitted_decision_ids.add(blocker["id"])
 
-    for action_slice in action_plan.get("implementation_ready_slices", []):
+    for action_slice in action_plan.get("implementation_ready_actions", []):
         issue, body_path, body = _task_issue(
             action_slice,
             session_id=session_ids_by_decision_id.get(action_slice.get("decision_id", "")),
@@ -375,13 +383,10 @@ def _conflict_issues(
 
 
 def _risk_candidates(action_plan: dict[str, Any], sessions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    _ = sessions
     by_id: dict[str, dict[str, Any]] = {}
     for risk in action_plan.get("risks", []):
         by_id.setdefault(risk["id"], risk)
-    for session in sessions:
-        for decision in session["close_summary"].get("deferred_decisions", []):
-            if decision.get("kind") == "risk":
-                by_id.setdefault(decision["id"], decision)
     return [by_id[key] for key in sorted(by_id)]
 
 

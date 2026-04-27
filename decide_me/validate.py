@@ -71,6 +71,29 @@ SESSION_MUTATION_EVENT_TYPES = {
     "taxonomy_extended",
     "close_summary_generated",
 }
+LEGACY_CLOSE_SUMMARY_KEYS = {
+    "accepted_decisions",
+    "deferred_decisions",
+    "unresolved_blockers",
+    "unresolved_risks",
+    "candidate_workstreams",
+    "candidate_action_slices",
+    "evidence_refs",
+    "work_item_title",
+    "work_item_statement",
+    "goal",
+}
+CLOSE_SUMMARY_OBJECT_ID_KEYS = (
+    "decisions",
+    "accepted_decisions",
+    "deferred_decisions",
+    "blockers",
+    "risks",
+    "actions",
+    "evidence",
+    "verifications",
+    "revisit_triggers",
+)
 
 
 class StateValidationError(ValueError):
@@ -462,24 +485,57 @@ def validate_session_state(session_state: dict[str, Any]) -> None:
             "session_state.classification contains unsupported fields: "
             + ", ".join(unsupported_classification_keys)
         )
+    close_summary = session_state["close_summary"]
+    legacy_keys = sorted(set(close_summary) & LEGACY_CLOSE_SUMMARY_KEYS)
+    if legacy_keys:
+        raise StateValidationError(
+            "session_state.close_summary contains legacy fields: " + ", ".join(legacy_keys)
+        )
     _require_keys(
-        session_state["close_summary"],
-        (
-            "work_item_title",
-            "work_item_statement",
-            "goal",
-            "readiness",
-            "accepted_decisions",
-            "deferred_decisions",
-            "unresolved_blockers",
-            "unresolved_risks",
-            "candidate_workstreams",
-            "candidate_action_slices",
-            "evidence_refs",
-            "generated_at",
-        ),
+        close_summary,
+        ("work_item", "readiness", "object_ids", "link_ids", "generated_at"),
         "session_state.close_summary",
     )
+    unsupported_close_summary_keys = sorted(
+        set(close_summary) - {"work_item", "readiness", "object_ids", "link_ids", "generated_at"}
+    )
+    if unsupported_close_summary_keys:
+        raise StateValidationError(
+            "session_state.close_summary contains unsupported fields: "
+            + ", ".join(unsupported_close_summary_keys)
+        )
+    work_item = _require_dict(close_summary["work_item"], "session_state.close_summary.work_item")
+    _require_keys(work_item, ("title", "statement", "objective_object_id"), "session_state.close_summary.work_item")
+    unsupported_work_item_keys = sorted(set(work_item) - {"title", "statement", "objective_object_id"})
+    if unsupported_work_item_keys:
+        raise StateValidationError(
+            "session_state.close_summary.work_item contains unsupported fields: "
+            + ", ".join(unsupported_work_item_keys)
+        )
+    for key in ("title", "statement", "objective_object_id"):
+        value = work_item.get(key)
+        if value is not None and not isinstance(value, str):
+            raise StateValidationError(f"session_state.close_summary.work_item.{key} must be a string or null")
+    _require_enum(close_summary["readiness"], {"ready", "conditional", "blocked"}, "session_state.close_summary.readiness")
+    object_ids = _require_dict(close_summary["object_ids"], "session_state.close_summary.object_ids")
+    _require_keys(object_ids, CLOSE_SUMMARY_OBJECT_ID_KEYS, "session_state.close_summary.object_ids")
+    unsupported_object_id_keys = sorted(set(object_ids) - set(CLOSE_SUMMARY_OBJECT_ID_KEYS))
+    if unsupported_object_id_keys:
+        raise StateValidationError(
+            "session_state.close_summary.object_ids contains unsupported fields: "
+            + ", ".join(unsupported_object_id_keys)
+        )
+    for key in CLOSE_SUMMARY_OBJECT_ID_KEYS:
+        _require_list(object_ids[key], f"session_state.close_summary.object_ids.{key}")
+        if len(object_ids[key]) != len(set(object_ids[key])):
+            raise StateValidationError(f"session_state.close_summary.object_ids.{key} contains duplicate ids")
+        for object_id in object_ids[key]:
+            _require_non_empty_string(object_id, f"session_state.close_summary.object_ids.{key}[]")
+    _require_list(close_summary["link_ids"], "session_state.close_summary.link_ids")
+    if len(close_summary["link_ids"]) != len(set(close_summary["link_ids"])):
+        raise StateValidationError("session_state.close_summary.link_ids contains duplicate ids")
+    for link_id in close_summary["link_ids"]:
+        _require_non_empty_string(link_id, "session_state.close_summary.link_ids[]")
     _require_keys(
         session_state["working_state"],
         ("active_question_id", "active_proposal_id", "last_seen_project_head"),
@@ -492,19 +548,9 @@ def validate_session_state(session_state: dict[str, Any]) -> None:
         "session_state.classification.updated_at",
     )
     _require_optional_timestamp(
-        session_state["close_summary"].get("generated_at"),
+        close_summary.get("generated_at"),
         "session_state.close_summary.generated_at",
     )
-    for key in (
-        "accepted_decisions",
-        "deferred_decisions",
-        "unresolved_blockers",
-        "unresolved_risks",
-        "candidate_workstreams",
-        "candidate_action_slices",
-        "evidence_refs",
-    ):
-        _require_list(session_state["close_summary"][key], f"session_state.close_summary.{key}")
 
 
 def validate_taxonomy_state(taxonomy_state: dict[str, Any]) -> None:
@@ -672,7 +718,14 @@ def _validate_session_integrity(
 
     _validate_classification_refs(session_id, session, taxonomy_ids)
     _validate_active_proposal(session_id, session, project_state, decisions_by_id, visible_ids, session_decision_ids)
-    _validate_close_summary(session_id, session, decisions_by_id, visible_ids, session_decision_ids)
+    _validate_close_summary(
+        session_id,
+        session,
+        project_state,
+        decisions_by_id,
+        visible_ids,
+        session_decision_ids,
+    )
 
 
 def _validate_classification_refs(
@@ -754,69 +807,93 @@ def _validate_question_state(session_id: str, session: dict[str, Any]) -> None:
 def _validate_close_summary(
     session_id: str,
     session: dict[str, Any],
+    project_state: dict[str, Any],
     decisions_by_id: dict[str, dict[str, Any]],
     visible_ids: set[str],
     session_decision_ids: set[str],
 ) -> None:
     close_summary = session["close_summary"]
+    legacy_keys = sorted(set(close_summary) & LEGACY_CLOSE_SUMMARY_KEYS)
+    if legacy_keys:
+        raise StateValidationError(
+            f"session {session_id} close_summary contains legacy fields: " + ", ".join(legacy_keys)
+        )
     expected_readiness = _close_summary_readiness(close_summary)
     if close_summary.get("readiness") != expected_readiness:
         raise StateValidationError(
             f"session {session_id} close_summary.readiness must be {expected_readiness}"
         )
     visible_session_ids = session_decision_ids & visible_ids
-    for key in (
-        "accepted_decisions",
-        "deferred_decisions",
-        "unresolved_blockers",
-        "unresolved_risks",
+    object_ids = close_summary["object_ids"]
+    objects_by_id = {obj["id"]: obj for obj in project_state["objects"]}
+    links_by_id = {link["id"]: link for link in project_state["links"]}
+    objective_id = close_summary["work_item"].get("objective_object_id")
+    if objective_id is not None and objective_id not in objects_by_id:
+        raise StateValidationError(f"session {session_id} close_summary.work_item references unknown objective")
+    for section, expected_type in (
+        ("decisions", "decision"),
+        ("accepted_decisions", "decision"),
+        ("deferred_decisions", "decision"),
+        ("blockers", "decision"),
+        ("actions", "action"),
+        ("evidence", "evidence"),
+        ("verifications", "verification"),
+        ("revisit_triggers", "revisit_trigger"),
     ):
-        for item in close_summary.get(key, []):
-            decision_id = item.get("id")
-            _require_visible_summary_decision(session_id, key, decision_id, visible_session_ids)
-
-    action_decision_ids: set[str] = set()
-    for action_slice in close_summary.get("candidate_action_slices", []):
-        decision_id = action_slice.get("decision_id")
-        _require_visible_summary_decision(
-            session_id, "candidate_action_slices", decision_id, visible_session_ids
-        )
+        for object_id in object_ids.get(section, []):
+            obj = objects_by_id.get(object_id)
+            if obj is None:
+                raise StateValidationError(f"session {session_id} close_summary.object_ids.{section} references unknown object {object_id}")
+            if obj.get("type") != expected_type:
+                raise StateValidationError(f"session {session_id} close_summary.object_ids.{section} references non-{expected_type} object {object_id}")
+    for object_id in object_ids.get("risks", []):
+        obj = objects_by_id.get(object_id)
+        if obj is None:
+            raise StateValidationError(f"session {session_id} close_summary.object_ids.risks references unknown object {object_id}")
+        if obj.get("type") != "risk" and not (obj.get("type") == "decision" and obj.get("metadata", {}).get("kind") == "risk"):
+            raise StateValidationError(f"session {session_id} close_summary.object_ids.risks references non-risk object {object_id}")
+    for decision_id in object_ids.get("decisions", []):
+        if decision_id not in visible_session_ids:
+            raise StateValidationError(f"session {session_id} close_summary.object_ids.decisions references non-visible decision {decision_id}")
+    for decision_id in object_ids.get("accepted_decisions", []):
+        if decision_id not in visible_session_ids:
+            raise StateValidationError(f"session {session_id} close_summary.object_ids.accepted_decisions references non-visible decision {decision_id}")
+        if decisions_by_id[decision_id]["status"] not in {"accepted", "resolved-by-evidence"}:
+            raise StateValidationError(f"session {session_id} close_summary.object_ids.accepted_decisions references non-accepted decision {decision_id}")
+    for decision_id in object_ids.get("deferred_decisions", []):
+        if decision_id not in visible_session_ids:
+            raise StateValidationError(f"session {session_id} close_summary.object_ids.deferred_decisions references non-visible decision {decision_id}")
+        if decisions_by_id[decision_id]["status"] != "deferred":
+            raise StateValidationError(f"session {session_id} close_summary.object_ids.deferred_decisions references non-deferred decision {decision_id}")
+    for decision_id in object_ids.get("blockers", []):
+        if decision_id not in visible_session_ids:
+            raise StateValidationError(f"session {session_id} close_summary.object_ids.blockers references non-visible decision {decision_id}")
         decision = decisions_by_id[decision_id]
-        if decision["status"] not in {"accepted", "resolved-by-evidence"}:
+        if decision.get("status") not in OPEN_DECISION_STATUSES:
+            raise StateValidationError(f"session {session_id} close_summary.object_ids.blockers references non-open decision {decision_id}")
+    accepted_ids = set(object_ids.get("accepted_decisions", []))
+    for action_id in object_ids.get("actions", []):
+        addresses = [
+            link
+            for link in project_state["links"]
+            if link.get("source_object_id") == action_id
+            and link.get("relation") == "addresses"
+            and link.get("target_object_id") in accepted_ids
+        ]
+        if not addresses:
             raise StateValidationError(
-                f"session {session_id} candidate_action_slices references non-accepted decision {decision_id}"
+                f"session {session_id} close_summary action {action_id} does not address an accepted decision"
             )
-        action_decision_ids.add(decision_id)
-
-    for workstream in close_summary.get("candidate_workstreams", []):
-        for key in ("scope", "implementation_ready_scope"):
-            for decision_id in workstream.get(key, []):
-                _require_visible_summary_decision(
-                    session_id,
-                    f"candidate_workstreams.{key}",
-                    decision_id,
-                    visible_session_ids,
-                )
-        for decision_id in workstream.get("implementation_ready_scope", []):
-            if decision_id not in action_decision_ids:
-                raise StateValidationError(
-                    f"session {session_id} workstream implementation_ready_scope is missing action slice {decision_id}"
-                )
-
-
-def _require_visible_summary_decision(
-    session_id: str, section: str, decision_id: str | None, visible_session_ids: set[str]
-) -> None:
-    if not decision_id:
-        raise StateValidationError(f"session {session_id} {section} item is missing a decision id")
-    if decision_id not in visible_session_ids:
-        raise StateValidationError(f"session {session_id} {section} references non-visible decision {decision_id}")
+    for link_id in close_summary.get("link_ids", []):
+        if link_id not in links_by_id:
+            raise StateValidationError(f"session {session_id} close_summary.link_ids references unknown link {link_id}")
 
 
 def _close_summary_readiness(close_summary: dict[str, Any]) -> str:
-    if close_summary.get("unresolved_blockers"):
+    object_ids = close_summary.get("object_ids", {})
+    if object_ids.get("blockers"):
         return "blocked"
-    if close_summary.get("unresolved_risks"):
+    if object_ids.get("risks"):
         return "conditional"
     return "ready"
 

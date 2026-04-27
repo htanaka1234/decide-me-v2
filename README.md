@@ -129,7 +129,7 @@ Merge discovery into an execution plan:
 1. Close each relevant session.
 2. Generate a plan from the closed sessions.
 3. Resolve conflicts or decision replacements if accepted decisions disagree.
-4. Use the generated action slices as implementation input.
+4. Use the generated actions as implementation input.
 
 Resolve conflicts and replacements:
 

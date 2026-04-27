@@ -19,7 +19,7 @@ MATRIX_COLUMNS = [
     "Requirement ID",
     "Decision ID",
     "Session ID",
-    "Action Slice",
+    "Action",
     "Implementation Ready",
     "Evidence Source",
     "Risk",
@@ -98,7 +98,11 @@ def build_action_export_context_from_bundle(
     resolved_conflicts = graph.get("resolved_conflicts", [])
     from decide_me.planner import assemble_action_plan, detect_conflicts
 
-    conflicts = detect_conflicts(sessions, resolved_conflicts=resolved_conflicts)
+    conflicts = detect_conflicts(
+        sessions,
+        bundle["project_state"],
+        resolved_conflicts=resolved_conflicts,
+    )
     if conflicts:
         conflict_ids = ", ".join(conflict["conflict_id"] for conflict in conflicts)
         raise ValueError(f"unresolved session conflicts block {export_name}: {conflict_ids}")
@@ -109,7 +113,11 @@ def build_action_export_context_from_bundle(
         "events": events,
         "source_session_ids": source_session_ids,
         "sessions": normalized_sessions,
-        "action_plan": assemble_action_plan(sessions, resolved_conflicts=resolved_conflicts),
+        "action_plan": assemble_action_plan(
+            sessions,
+            bundle["project_state"],
+            resolved_conflicts=resolved_conflicts,
+        ),
         "generated_at": snapshot_generated_at(bundle, events),
         "project_head": project_head(bundle),
     }
@@ -211,20 +219,20 @@ def _traceability_rows(
     session_ids_by_decision_id = _session_ids_by_decision_id(sessions)
     rows: list[dict[str, Any]] = []
 
-    for action_slice in action_plan.get("action_slices", []):
-        decision_id = action_slice.get("decision_id")
+    for action in action_plan.get("actions", []):
+        decision_id = action.get("decision_id")
         rows.append(
             _row(
-                row_type="action-slice",
+                row_type="action",
                 decision_id=decision_id,
                 session_id=session_ids_by_decision_id.get(decision_id),
-                action_slice=action_slice.get("name") or decision_id or "Action slice",
-                implementation_ready=bool(action_slice.get("implementation_ready")),
-                evidence_source=action_slice.get("evidence_source"),
-                risk=_risk_label(action_slice),
-                status=action_slice.get("status") or "unknown",
-                evidence_refs=action_slice.get("evidence_refs", []),
-                source=action_slice,
+                action_slice=action.get("name") or decision_id or "Action",
+                implementation_ready=bool(action.get("implementation_ready")),
+                evidence_source=action.get("evidence_source"),
+                risk=_risk_label(action),
+                status=action.get("status") or "unknown",
+                evidence_refs=action.get("evidence_refs", []),
+                source=action,
             )
         )
 
@@ -308,19 +316,11 @@ def _session_ids_by_decision_id(sessions: list[dict[str, Any]]) -> dict[str, str
     by_id: dict[str, str] = {}
     for session in sessions:
         session_id = session["session"]["id"]
-        close_summary = session["close_summary"]
-        for section in (
-            "accepted_decisions",
-            "deferred_decisions",
-            "unresolved_blockers",
-            "unresolved_risks",
-        ):
-            for item in close_summary.get(section, []):
-                by_id.setdefault(item["id"], session_id)
-        for action_slice in close_summary.get("candidate_action_slices", []):
-            decision_id = action_slice.get("decision_id")
-            if decision_id:
-                by_id.setdefault(decision_id, session_id)
+        object_ids = session["close_summary"].get("object_ids", {})
+        for section in ("decisions", "accepted_decisions", "deferred_decisions", "blockers", "risks"):
+            for object_id in object_ids.get(section, []):
+                if str(object_id).startswith("D-"):
+                    by_id.setdefault(object_id, session_id)
     return by_id
 
 
@@ -455,7 +455,7 @@ def _is_test_ref(ref: str) -> bool:
 
 
 def _row_sort_key(row: dict[str, Any]) -> tuple[int, str, str, str]:
-    row_type_rank = {"action-slice": 0, "blocker": 1, "risk": 2}
+    row_type_rank = {"action": 0, "blocker": 1, "risk": 2}
     return (
         row_type_rank.get(row["row_type"], 99),
         row.get("decision_id") or "",
@@ -469,7 +469,7 @@ def _matrix_row(row: dict[str, Any]) -> dict[str, str]:
         "Requirement ID": row["requirement_id"] or "",
         "Decision ID": row["decision_id"] or "",
         "Session ID": row["session_id"] or "",
-        "Action Slice": row["action_slice"],
+        "Action": row["action_slice"],
         "Implementation Ready": "true" if row["implementation_ready"] else "false",
         "Evidence Source": row["evidence_source"],
         "Risk": row["risk"],

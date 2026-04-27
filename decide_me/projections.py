@@ -13,7 +13,7 @@ OPEN_DECISION_STATUSES = {"unresolved", "proposed", "blocked"}
 IDLE_AFTER = timedelta(hours=12)
 STALE_AFTER = timedelta(days=7)
 PROJECT_STATE_SCHEMA_VERSION = 11
-SESSION_STATE_SCHEMA_VERSION = 10
+SESSION_STATE_SCHEMA_VERSION = 11
 PROJECTION_SCHEMA_VERSION = PROJECT_STATE_SCHEMA_VERSION
 
 OBJECT_TYPES = {
@@ -87,17 +87,24 @@ def default_project_state() -> dict[str, Any]:
 
 def default_close_summary() -> dict[str, Any]:
     return {
-        "work_item_title": None,
-        "work_item_statement": None,
-        "goal": None,
+        "work_item": {
+            "title": None,
+            "statement": None,
+            "objective_object_id": None,
+        },
         "readiness": "ready",
-        "accepted_decisions": [],
-        "deferred_decisions": [],
-        "unresolved_blockers": [],
-        "unresolved_risks": [],
-        "candidate_workstreams": [],
-        "candidate_action_slices": [],
-        "evidence_refs": [],
+        "object_ids": {
+            "decisions": [],
+            "accepted_decisions": [],
+            "deferred_decisions": [],
+            "blockers": [],
+            "risks": [],
+            "actions": [],
+            "evidence": [],
+            "verifications": [],
+            "revisit_triggers": [],
+        },
+        "link_ids": [],
         "generated_at": None,
     }
 
@@ -372,8 +379,7 @@ def apply_event(
     elif event_type == "close_summary_generated":
         session = sessions[session_id]
         session["close_summary"] = deepcopy(payload["close_summary"])
-        session["summary"]["latest_summary"] = payload["close_summary"]["work_item_title"]
-        _project_close_summary_objects(project_state, session_id, payload["close_summary"], ts, event["event_id"])
+        session["summary"]["latest_summary"] = payload["close_summary"]["work_item"]["title"]
         _touch_session(
             sessions,
             session_id,
@@ -565,59 +571,6 @@ def _touch_session_for_object(
         [object_id] if obj else [],
         project_head,
     )
-
-
-def _project_close_summary_objects(
-    project_state: dict[str, Any],
-    session_id: str,
-    close_summary: dict[str, Any],
-    timestamp: str,
-    event_id: str,
-) -> None:
-    for action_slice in close_summary.get("candidate_action_slices", []):
-        decision_id = action_slice.get("decision_id")
-        if not decision_id:
-            continue
-        action_id = f"O-action-{_short_hash(session_id, decision_id, action_slice.get('name'))}"
-        _ensure_object(
-            project_state,
-            object_id=action_id,
-            object_type="action",
-            title=action_slice.get("name") or decision_id,
-            body=action_slice.get("summary"),
-            status=action_slice.get("status") or "active",
-            timestamp=timestamp,
-            event_id=event_id,
-            metadata={
-                key: deepcopy(value)
-                for key, value in action_slice.items()
-                if key not in {"decision_id", "name", "summary", "status"}
-            },
-        )
-        _ensure_link(
-            project_state,
-            link_id=f"L-{action_id}-addresses-{decision_id}",
-            source_object_id=action_id,
-            relation="addresses",
-            target_object_id=decision_id,
-            rationale=action_slice.get("summary"),
-            timestamp=timestamp,
-            event_id=event_id,
-        )
-    for risk in close_summary.get("unresolved_risks", []):
-        title = risk.get("title") or risk.get("summary") or risk.get("id") or "Unresolved risk"
-        risk_id = f"O-risk-{_short_hash(session_id, title)}"
-        _ensure_object(
-            project_state,
-            object_id=risk_id,
-            object_type="risk",
-            title=title,
-            body=risk.get("summary"),
-            status=risk.get("status") or "open",
-            timestamp=timestamp,
-            event_id=event_id,
-            metadata={key: deepcopy(value) for key, value in risk.items() if key not in {"title", "summary", "status"}},
-        )
 
 
 def _finalize_project_state(bundle: dict[str, Any]) -> None:

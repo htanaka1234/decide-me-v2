@@ -62,10 +62,10 @@ def export_plan(ai_dir: str, plan: dict[str, Any]) -> Path:
             .replace("{{goals}}", _render_list(action_plan["goals"]))
             .replace("{{workstreams}}", _render_dict_list(action_plan["workstreams"]))
             .replace(
-                "{{implementation_ready_slices}}",
-                _render_action_slices(action_plan.get("implementation_ready_slices", [])),
+                "{{implementation_ready_actions}}",
+                _render_actions(action_plan.get("implementation_ready_actions", [])),
             )
-            .replace("{{action_slices}}", _render_action_slices(action_plan["action_slices"]))
+            .replace("{{actions}}", _render_actions(action_plan["actions"]))
             .replace("{{blockers}}", _render_dict_list(action_plan["blockers"]))
             .replace("{{risks}}", _render_dict_list(action_plan["risks"]))
         )
@@ -117,7 +117,7 @@ def _render_dict_list(values: list[dict[str, Any]]) -> str:
     return "\n".join(rendered)
 
 
-def _render_action_slices(values: list[dict[str, Any]]) -> str:
+def _render_actions(values: list[dict[str, Any]]) -> str:
     if not values:
         return "- none"
     rendered = []

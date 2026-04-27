@@ -34,15 +34,20 @@ def generate_plan(ai_dir: str, session_ids: list[str]) -> dict[str, Any]:
         "action_plan": None,
     }
 
-    graph = bundle["project_state"]["graph"]
+    project_state = bundle["project_state"]
+    graph = project_state["graph"]
     resolved_conflicts = graph.get("resolved_conflicts", [])
-    conflicts = detect_conflicts(sessions, resolved_conflicts=resolved_conflicts)
+    conflicts = detect_conflicts(sessions, project_state, resolved_conflicts=resolved_conflicts)
     if conflicts:
         plan["status"] = "conflicts"
         plan["conflicts"] = conflicts
     else:
         plan["status"] = "action-plan"
-        plan["action_plan"] = assemble_action_plan(sessions, resolved_conflicts=resolved_conflicts)
+        plan["action_plan"] = assemble_action_plan(
+            sessions,
+            project_state,
+            resolved_conflicts=resolved_conflicts,
+        )
 
     output = export_plan(ai_dir, plan)
     plan["export_path"] = str(output)
@@ -52,14 +57,14 @@ def generate_plan(ai_dir: str, session_ids: list[str]) -> dict[str, Any]:
 
 def detect_conflicts(
     sessions: list[dict[str, Any]],
+    project_state: dict[str, Any],
     *,
     resolved_conflicts: list[dict[str, Any]] | None = None,
     include_resolved: bool = False,
 ) -> list[dict[str, Any]]:
     conflicts: list[dict[str, Any]] = []
     accepted_by_id: dict[str, tuple[str | None, str]] = {}
-    workstreams_by_name: dict[str, tuple[set[str], str]] = {}
-    actions_by_name: dict[str, tuple[str, str]] = {}
+    actions_by_name: dict[str, tuple[str | None, str]] = {}
     normalized_sessions = _sessions_after_resolutions(sessions, resolved_conflicts or [])
     resolved_by_id = {
         resolved["conflict_id"]: resolved
@@ -70,13 +75,13 @@ def detect_conflicts(
         close_summary = session["close_summary"]
         session_id = session["session"]["id"]
 
-        for decision in close_summary["accepted_decisions"]:
-            previous = accepted_by_id.get(decision["id"])
-            current_answer = decision.get("accepted_answer")
+        for decision_id in close_summary["object_ids"].get("accepted_decisions", []):
+            current_answer = _accepted_answer_for_session(project_state, close_summary, decision_id)
+            previous = accepted_by_id.get(decision_id)
             if previous and previous[0] != current_answer:
                 scope = {
                     "kind": "accepted_decision",
-                    "decision_id": decision["id"],
+                    "decision_id": decision_id,
                     "session_ids": sorted([previous[1], session_id]),
                 }
                 conflicts.append(
@@ -87,56 +92,35 @@ def detect_conflicts(
                         "Accepted answers differ for the same decision.",
                         resolved_by_id,
                         include_resolved,
-                        decision_id=decision["id"],
+                        decision_id=decision_id,
                     )
                 )
             else:
-                accepted_by_id[decision["id"]] = (current_answer, session_id)
+                accepted_by_id[decision_id] = (current_answer, session_id)
 
-        for workstream in close_summary["candidate_workstreams"]:
-            name = workstream["name"]
-            scope = set(workstream.get("scope", []))
-            previous = workstreams_by_name.get(name)
-            if previous and previous[0] & scope and previous[0] != scope:
-                conflict_scope = {
-                    "kind": "workstream",
-                    "name": name,
-                    "session_ids": sorted([previous[1], session_id]),
-                }
-                conflicts.append(
-                    _conflict(
-                        "workstream-scope-mismatch",
-                        sorted([previous[1], session_id]),
-                        conflict_scope,
-                        "Workstream scope differs across sessions.",
-                        resolved_by_id,
-                        include_resolved,
-                        name=name,
-                    )
-                )
-            else:
-                merged = set(previous[0]) if previous else set()
-                merged.update(scope)
-                workstreams_by_name[name] = (merged, session_id)
-
-        for action_slice in close_summary["candidate_action_slices"]:
-            name = action_slice["name"]
-            responsibility = action_slice.get("responsibility")
+        for action_id in close_summary["object_ids"].get("actions", []):
+            action = _objects_by_id(project_state).get(action_id)
+            if not action:
+                continue
+            name = action.get("title") or action_id
+            responsibility = action.get("metadata", {}).get("responsibility")
             previous = actions_by_name.get(name)
             if previous and previous[0] != responsibility:
                 scope = {
-                    "kind": "action_slice",
+                    "kind": "action",
+                    "action_id": action_id,
                     "name": name,
                     "session_ids": sorted([previous[1], session_id]),
                 }
                 conflicts.append(
                     _conflict(
-                        "action-slice-responsibility-mismatch",
+                        "action-responsibility-mismatch",
                         sorted([previous[1], session_id]),
                         scope,
-                        "Action-slice responsibility differs across sessions.",
+                        "Action responsibility differs across sessions.",
                         resolved_by_id,
                         include_resolved,
+                        action_id=action_id,
                         name=name,
                     )
                 )
@@ -148,38 +132,53 @@ def detect_conflicts(
 
 def assemble_action_plan(
     sessions: list[dict[str, Any]],
+    project_state: dict[str, Any],
     *,
     resolved_conflicts: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    close_summaries = [
-        session["close_summary"]
-        for session in _sessions_after_resolutions(sessions, resolved_conflicts or [])
-    ]
+    normalized_sessions = _sessions_after_resolutions(sessions, resolved_conflicts or [])
     readiness = "ready"
+    goals: list[str] = []
+    actions: list[dict[str, Any]] = []
     blockers: list[dict[str, Any]] = []
     risks: list[dict[str, Any]] = []
-    workstreams: list[dict[str, Any]] = []
-    action_slices: list[dict[str, Any]] = []
     evidence_refs: list[str] = []
-    goals: list[str] = []
+    workstream_inputs: list[dict[str, Any]] = []
 
-    for close_summary in close_summaries:
+    for session in normalized_sessions:
+        close_summary = session["close_summary"]
+        object_ids = close_summary["object_ids"]
         readiness = _merge_readiness(readiness, close_summary["readiness"])
-        blockers.extend(deepcopy(close_summary["unresolved_blockers"]))
-        risks.extend(deepcopy(close_summary["unresolved_risks"]))
-        workstreams.extend(deepcopy(close_summary["candidate_workstreams"]))
-        action_slices.extend(deepcopy(close_summary["candidate_action_slices"]))
-        evidence_refs.extend(close_summary["evidence_refs"])
-        if close_summary.get("goal"):
-            goals.append(close_summary["goal"])
+        work_item = close_summary.get("work_item", {})
+        goals.extend(value for value in (work_item.get("title"), work_item.get("statement")) if value)
 
-    merged_action_slices = _merge_action_slices(action_slices)
+        for action_id in object_ids.get("actions", []):
+            action = _action_item(project_state, close_summary, action_id)
+            if action:
+                actions.append(action)
+                evidence_refs.extend(action.get("evidence_refs", []))
+
+        for decision_id in object_ids.get("blockers", []):
+            item = _decision_item(project_state, close_summary, decision_id)
+            if item:
+                blockers.append(item)
+                evidence_refs.extend(item.get("evidence_refs", []))
+
+        for object_id in object_ids.get("risks", []):
+            item = _risk_item(project_state, close_summary, object_id)
+            if item:
+                risks.append(item)
+                evidence_refs.extend(item.get("evidence_refs", []))
+
+        workstream_inputs.extend(_workstream_inputs(project_state, close_summary))
+
+    merged_actions = _merge_actions(actions)
     return {
         "readiness": readiness,
         "goals": stable_unique(goals),
-        "workstreams": _merge_workstreams(workstreams),
-        "action_slices": merged_action_slices,
-        "implementation_ready_slices": [item for item in merged_action_slices if item.get("implementation_ready")],
+        "workstreams": _merge_workstreams(workstream_inputs),
+        "actions": merged_actions,
+        "implementation_ready_actions": [item for item in merged_actions if item.get("implementation_ready")],
         "blockers": _dedupe_by_id(blockers),
         "risks": _dedupe_by_id(risks),
         "evidence_refs": stable_unique(evidence_refs),
@@ -188,60 +187,267 @@ def assemble_action_plan(
 
 def _merge_readiness(current: str, other: str) -> str:
     rank = {"ready": 0, "conditional": 1, "blocked": 2}
-    worst = max(current, other, key=lambda value: rank[value])
-    return worst
+    return max(current, other, key=lambda value: rank[value])
 
 
-def _dedupe_by_name(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    seen: set[str] = set()
-    ordered: list[dict[str, Any]] = []
-    for item in items:
-        name = item.get("name")
-        if name in seen:
+def _objects_by_id(project_state: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {obj["id"]: obj for obj in project_state.get("objects", [])}
+
+
+def _links_by_id(project_state: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {link["id"]: link for link in project_state.get("links", [])}
+
+
+def _summary_links(project_state: dict[str, Any], close_summary: dict[str, Any]) -> list[dict[str, Any]]:
+    by_id = _links_by_id(project_state)
+    return [by_id[link_id] for link_id in close_summary.get("link_ids", []) if link_id in by_id]
+
+
+def _accepted_answer_for_session(
+    project_state: dict[str, Any],
+    close_summary: dict[str, Any],
+    decision_id: str,
+) -> str | None:
+    by_id = _objects_by_id(project_state)
+    for link in _summary_links(project_state, close_summary):
+        if (
+            link.get("source_object_id") == decision_id
+            and link.get("relation") == "accepts"
+            and by_id.get(link.get("target_object_id"), {}).get("type") == "proposal"
+        ):
+            option = _recommended_option(project_state, link["target_object_id"], close_summary)
+            proposal = by_id[link["target_object_id"]]
+            return option.get("title") if option else proposal.get("title") or proposal.get("body")
+    evidence = _evidence_for_decision(project_state, close_summary, decision_id)
+    if evidence:
+        return evidence[0].get("summary") or evidence[0].get("ref")
+    return None
+
+
+def _recommended_option(
+    project_state: dict[str, Any],
+    proposal_id: str,
+    close_summary: dict[str, Any],
+) -> dict[str, Any] | None:
+    by_id = _objects_by_id(project_state)
+    summary_links = _summary_links(project_state, close_summary)
+    candidate_links = [
+        link
+        for link in summary_links
+        if link.get("source_object_id") == proposal_id and link.get("relation") == "recommends"
+    ]
+    if not candidate_links:
+        candidate_links = [
+            link
+            for link in project_state.get("links", [])
+            if link.get("source_object_id") == proposal_id and link.get("relation") == "recommends"
+        ]
+    for link in candidate_links:
+        option = by_id.get(link["target_object_id"])
+        if option and option.get("type") == "option":
+            return option
+    return None
+
+
+def _evidence_for_decision(
+    project_state: dict[str, Any],
+    close_summary: dict[str, Any],
+    decision_id: str,
+) -> list[dict[str, Any]]:
+    by_id = _objects_by_id(project_state)
+    evidence = []
+    for link in _summary_links(project_state, close_summary):
+        if link.get("relation") != "supports" or link.get("target_object_id") != decision_id:
             continue
-        seen.add(name)
-        ordered.append(item)
-    return ordered
+        obj = by_id.get(link["source_object_id"])
+        if not obj or obj.get("type") != "evidence":
+            continue
+        evidence.append(
+            {
+                "id": obj["id"],
+                "source": obj.get("metadata", {}).get("source"),
+                "ref": obj.get("metadata", {}).get("ref") or obj.get("title") or obj["id"],
+                "summary": link.get("rationale") or obj.get("body"),
+            }
+        )
+    return evidence
+
+
+def _action_item(
+    project_state: dict[str, Any],
+    close_summary: dict[str, Any],
+    action_id: str,
+) -> dict[str, Any] | None:
+    by_id = _objects_by_id(project_state)
+    action = by_id.get(action_id)
+    if not action or action.get("type") != "action":
+        return None
+    metadata = action.get("metadata", {})
+    decision_id = metadata.get("decision_id") or _addressed_decision_id(project_state, close_summary, action_id)
+    evidence_refs = list(metadata.get("evidence_refs", []))
+    evidence_source = metadata.get("evidence_source")
+    if decision_id:
+        evidence = _evidence_for_decision(project_state, close_summary, decision_id)
+        evidence_refs = stable_unique([*evidence_refs, *[item["ref"] for item in evidence]])
+        evidence_source = evidence_source or (evidence[0].get("source") if evidence else None)
+    return {
+        "id": action["id"],
+        "decision_id": decision_id,
+        "name": action.get("title") or action["id"],
+        "summary": action.get("body"),
+        "responsibility": metadata.get("responsibility"),
+        "priority": metadata.get("priority"),
+        "status": action.get("status"),
+        "kind": metadata.get("kind"),
+        "resolvable_by": metadata.get("resolvable_by"),
+        "reversibility": metadata.get("reversibility"),
+        "implementation_ready": bool(metadata.get("implementation_ready")),
+        "evidence_backed": bool(metadata.get("evidence_backed") or evidence_refs),
+        "evidence_source": evidence_source,
+        "evidence_refs": evidence_refs,
+        "next_step": metadata.get("next_step"),
+    }
+
+
+def _addressed_decision_id(
+    project_state: dict[str, Any],
+    close_summary: dict[str, Any],
+    action_id: str,
+) -> str | None:
+    for link in _summary_links(project_state, close_summary):
+        if link.get("source_object_id") == action_id and link.get("relation") == "addresses":
+            return link.get("target_object_id")
+    return None
+
+
+def _decision_item(
+    project_state: dict[str, Any],
+    close_summary: dict[str, Any],
+    decision_id: str,
+) -> dict[str, Any] | None:
+    decision = _objects_by_id(project_state).get(decision_id)
+    if not decision or decision.get("type") != "decision":
+        return None
+    metadata = decision.get("metadata", {})
+    evidence = _evidence_for_decision(project_state, close_summary, decision_id)
+    return {
+        "id": decision["id"],
+        "title": decision.get("title"),
+        "summary": decision.get("body"),
+        "accepted_answer": _accepted_answer_for_session(project_state, close_summary, decision_id),
+        "status": decision.get("status"),
+        "domain": metadata.get("domain"),
+        "kind": metadata.get("kind"),
+        "priority": metadata.get("priority"),
+        "frontier": metadata.get("frontier"),
+        "resolvable_by": metadata.get("resolvable_by"),
+        "evidence_source": evidence[0].get("source") if evidence else None,
+        "evidence_refs": [item["ref"] for item in evidence],
+    }
+
+
+def _risk_item(
+    project_state: dict[str, Any],
+    close_summary: dict[str, Any],
+    object_id: str,
+) -> dict[str, Any] | None:
+    obj = _objects_by_id(project_state).get(object_id)
+    if not obj:
+        return None
+    if obj.get("type") == "decision":
+        return _decision_item(project_state, close_summary, object_id)
+    if obj.get("type") != "risk":
+        return None
+    metadata = obj.get("metadata", {})
+    return {
+        "id": obj["id"],
+        "title": obj.get("title"),
+        "summary": obj.get("body"),
+        "status": obj.get("status"),
+        "domain": metadata.get("domain"),
+        "kind": "risk",
+        "priority": metadata.get("priority"),
+        "resolvable_by": metadata.get("resolvable_by"),
+        "evidence_refs": list(metadata.get("evidence_refs", [])),
+    }
+
+
+def _workstream_inputs(project_state: dict[str, Any], close_summary: dict[str, Any]) -> list[dict[str, Any]]:
+    by_id = _objects_by_id(project_state)
+    inputs = []
+    for decision_id in close_summary["object_ids"].get("decisions", []):
+        decision = by_id.get(decision_id)
+        if not decision or decision.get("type") != "decision":
+            continue
+        metadata = decision.get("metadata", {})
+        inputs.append(
+            {
+                "decision_id": decision_id,
+                "domain": metadata.get("domain", "other"),
+                "accepted": decision.get("status") in {"accepted", "resolved-by-evidence"},
+                "implementation_ready": False,
+            }
+        )
+    for action_id in close_summary["object_ids"].get("actions", []):
+        action = by_id.get(action_id)
+        if not action or action.get("type") != "action":
+            continue
+        metadata = action.get("metadata", {})
+        decision_id = metadata.get("decision_id") or _addressed_decision_id(project_state, close_summary, action_id)
+        inputs.append(
+            {
+                "decision_id": decision_id,
+                "domain": metadata.get("responsibility", "other"),
+                "accepted": True,
+                "implementation_ready": bool(metadata.get("implementation_ready")),
+            }
+        )
+    return inputs
 
 
 def _merge_workstreams(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     merged: dict[str, dict[str, Any]] = {}
     for item in items:
-        name = item["name"]
+        domain = item.get("domain") or "other"
+        name = f"{domain}-workstream"
         current = merged.setdefault(
             name,
             {
                 "name": name,
-                "summary": item.get("summary"),
+                "summary": f"Advance {domain} decisions for the current milestone.",
                 "scope": [],
                 "implementation_ready_scope": [],
                 "accepted_count": 0,
             },
         )
-        current["scope"] = stable_unique([*current.get("scope", []), *item.get("scope", [])])
-        current["implementation_ready_scope"] = stable_unique(
-            [*current.get("implementation_ready_scope", []), *item.get("implementation_ready_scope", [])]
-        )
-        current["accepted_count"] = max(current.get("accepted_count", 0), item.get("accepted_count", 0))
-        if len(current["implementation_ready_scope"]) > len(item.get("implementation_ready_scope", [])):
-            current["summary"] = (
-                f"{name.removesuffix('-workstream')} workstream with "
-                f"{len(current['implementation_ready_scope'])} implementation-ready slice(s)."
+        decision_id = item.get("decision_id")
+        if decision_id:
+            current["scope"] = stable_unique([*current["scope"], decision_id])
+            if item.get("implementation_ready"):
+                current["implementation_ready_scope"] = stable_unique(
+                    [*current["implementation_ready_scope"], decision_id]
+                )
+            if item.get("accepted"):
+                current["accepted_count"] += 1
+    for item in merged.values():
+        if item["implementation_ready_scope"]:
+            domain = item["name"].removesuffix("-workstream")
+            item["summary"] = (
+                f"Advance {domain} decisions for the current milestone. "
+                f"{len(item['implementation_ready_scope'])} implementation-ready action(s) are already grounded."
             )
-        elif item.get("summary"):
-            current["summary"] = item["summary"]
     return sorted(merged.values(), key=_workstream_sort_key)
 
 
-def _merge_action_slices(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _merge_actions(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     merged: dict[str, dict[str, Any]] = {}
     for item in items:
-        key = item.get("decision_id") or item.get("name") or ""
+        key = item.get("id") or item.get("decision_id") or item.get("name") or ""
         if key not in merged:
             merged[key] = deepcopy(item)
             continue
         current = merged[key]
-        preferred = current if _action_slice_sort_key(current) <= _action_slice_sort_key(item) else deepcopy(item)
+        preferred = current if _action_sort_key(current) <= _action_sort_key(item) else deepcopy(item)
         preferred["evidence_refs"] = stable_unique([*current.get("evidence_refs", []), *item.get("evidence_refs", [])])
         preferred["implementation_ready"] = bool(
             current.get("implementation_ready") or item.get("implementation_ready")
@@ -250,10 +456,10 @@ def _merge_action_slices(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
         preferred["evidence_source"] = current.get("evidence_source") or item.get("evidence_source")
         preferred["next_step"] = preferred.get("next_step") or current.get("next_step") or item.get("next_step")
         merged[key] = preferred
-    return sorted(merged.values(), key=_action_slice_sort_key)
+    return sorted(merged.values(), key=_action_sort_key)
 
 
-def _action_slice_sort_key(item: dict[str, Any]) -> tuple[int, int, int, str]:
+def _action_sort_key(item: dict[str, Any]) -> tuple[int, int, int, str]:
     priority_rank = {"P0": 0, "P1": 1, "P2": 2}
     return (
         0 if item.get("evidence_backed") else 1,
@@ -319,13 +525,6 @@ def _conflict_id(kind: str, session_ids: list[str], scope: dict[str, Any]) -> st
         separators=(",", ":"),
     )
     return f"C-{kind}-{hashlib.sha256(material.encode('utf-8')).hexdigest()[:12]}"
-
-
-def _close_summaries_after_resolutions(
-    sessions: list[dict[str, Any]],
-    resolved_conflicts: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-    return [session["close_summary"] for session in _sessions_after_resolutions(sessions, resolved_conflicts)]
 
 
 def _sessions_after_resolutions(

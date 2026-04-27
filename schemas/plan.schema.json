@@ -12,13 +12,11 @@
   ],
   "properties": {
     "generated_at": {
-      "type": "string"
+      "type": "string",
+      "format": "date-time"
     },
     "source_session_ids": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
+      "$ref": "#/$defs/idList"
     },
     "status": {
       "type": "string",
@@ -31,9 +29,55 @@
       "type": "array"
     },
     "action_plan": {
-      "type": [
-        "object",
-        "null"
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "required": [
+            "readiness",
+            "goals",
+            "workstreams",
+            "actions",
+            "implementation_ready_actions",
+            "blockers",
+            "risks",
+            "evidence_refs"
+          ],
+          "properties": {
+            "readiness": {
+              "type": "string",
+              "enum": [
+                "ready",
+                "conditional",
+                "blocked"
+              ]
+            },
+            "goals": {
+              "type": "array"
+            },
+            "workstreams": {
+              "type": "array"
+            },
+            "actions": {
+              "type": "array"
+            },
+            "implementation_ready_actions": {
+              "type": "array"
+            },
+            "blockers": {
+              "type": "array"
+            },
+            "risks": {
+              "type": "array"
+            },
+            "evidence_refs": {
+              "type": "array"
+            }
+          },
+          "additionalProperties": false
+        }
       ]
     },
     "export_path": {
@@ -43,5 +87,14 @@
       ]
     }
   },
-  "additionalProperties": true
+  "$defs": {
+    "idList": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "additionalProperties": false
 }

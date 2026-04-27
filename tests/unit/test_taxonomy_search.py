@@ -96,8 +96,8 @@ class TaxonomySearchTests(unittest.TestCase):
         session["classification"]["domain"] = "technical"
         session["classification"]["abstraction_level"] = "architecture"
         session["classification"]["assigned_tags"] = ["tag:email-link"]
-        session["close_summary"]["work_item_title"] = "Auth scope"
-        session["close_summary"]["goal"] = "Choose the auth approach"
+        session["close_summary"]["work_item"]["title"] = "Auth scope"
+        session["close_summary"]["work_item"]["statement"] = "Choose the auth approach"
 
         results = search_sessions({"S-001": session}, taxonomy, tag_terms=["authentication"])
         self.assertEqual(1, len(results))

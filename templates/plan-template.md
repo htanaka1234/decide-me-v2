@@ -15,13 +15,13 @@ Readiness: {{readiness}}
 
 {{workstreams}}
 
-## Action Slices
+## Actions
 
-{{action_slices}}
+{{actions}}
 
-## Implementation-Ready Slices
+## Implementation-Ready Actions
 
-{{implementation_ready_slices}}
+{{implementation_ready_actions}}
 
 ## Blockers
 

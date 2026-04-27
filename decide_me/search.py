@@ -18,12 +18,12 @@ def build_search_blob(session_state: dict[str, Any], taxonomy_state: dict[str, A
     summary = session_state.get("summary", {})
     classification = session_state.get("classification", {})
     close_summary = session_state.get("close_summary", {})
+    work_item = close_summary.get("work_item", {})
     nodes_by_id = taxonomy_by_id(taxonomy_state)
 
     pieces = [
-        close_summary.get("work_item_title") or "",
-        close_summary.get("work_item_statement") or "",
-        close_summary.get("goal") or "",
+        work_item.get("title") or "",
+        work_item.get("statement") or "",
         summary.get("latest_summary") or "",
         summary.get("current_question_preview") or "",
         " ".join(classification.get("search_terms", [])),
@@ -45,15 +45,16 @@ def session_list_entry(
     status = effective_session_status(session, now=now)
     summary = session["summary"]
     close_summary = session["close_summary"]
+    work_item = close_summary.get("work_item", {})
     classification = session["classification"]
 
     headline = (
-        close_summary.get("work_item_title")
+        work_item.get("title")
         if status == "closed"
         else summary.get("current_question_preview") or summary.get("latest_summary")
     )
     detail = (
-        close_summary.get("goal")
+        work_item.get("statement")
         if status == "closed"
         else summary.get("latest_summary") or summary.get("current_question_preview")
     )

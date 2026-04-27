@@ -95,7 +95,7 @@ Traceability rows must include these matrix columns:
 - `Requirement ID`
 - `Decision ID`
 - `Session ID`
-- `Action Slice`
+- `Action`
 - `Implementation Ready`
 - `Evidence Source`
 - `Risk`
