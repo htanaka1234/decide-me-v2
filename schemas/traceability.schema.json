@@ -56,7 +56,7 @@
         "properties": {
           "requirement_id": {
             "type": "string",
-            "pattern": "^R-[0-9]{3}$"
+            "pattern": "^R-[0-9]{3,}$"
           },
           "decision_id": {
             "type": [
@@ -152,7 +152,7 @@
       "properties": {
         "requirement_id": {
           "type": "string",
-          "pattern": "^R-[0-9]{3}$"
+          "pattern": "^R-[0-9]{3,}$"
         },
         "decision_id": {
           "type": [

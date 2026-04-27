@@ -16,7 +16,7 @@
   "properties": {
     "schema_version": {
       "type": "integer",
-      "const": 7
+      "const": 8
     },
     "project": {
       "type": "object",
@@ -159,6 +159,7 @@
         "type": "object",
         "required": [
           "id",
+          "requirement_id",
           "title",
           "kind",
           "domain",
@@ -184,6 +185,10 @@
         "properties": {
           "id": {
             "type": "string"
+          },
+          "requirement_id": {
+            "type": "string",
+            "pattern": "^R-[0-9]{3,}$"
           },
           "title": {
             "type": [

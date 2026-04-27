@@ -7,6 +7,7 @@ from typing import Any
 from decide_me.constants import ACCEPTED_VIA_VALUES, DOMAIN_VALUES, EVIDENCE_SOURCES
 from decide_me.events import EVENT_TYPES, SESSION_RELATIONSHIPS, validate_event
 from decide_me.projections import PROJECTION_SCHEMA_VERSION
+from decide_me.requirement_ids import is_requirement_id
 from decide_me.suppression import (
     has_remaining_suppressed_scope,
     has_suppressed_context_remainders,
@@ -139,6 +140,7 @@ def validate_project_state(project_state: dict[str, Any]) -> None:
             decision,
             (
                 "id",
+                "requirement_id",
                 "title",
                 "kind",
                 "domain",
@@ -163,6 +165,11 @@ def validate_project_state(project_state: dict[str, Any]) -> None:
             ),
             f"decision[{decision.get('id', '?')}]",
         )
+        requirement_id = decision.get("requirement_id")
+        if not is_requirement_id(requirement_id):
+            raise StateValidationError(
+                f"decision {decision['id']}.requirement_id must match R-001 with at least three digits"
+            )
         if decision["status"] not in ALL_DECISION_STATUSES:
             raise StateValidationError(f"unsupported decision status: {decision['status']}")
         _require_enum(decision["priority"], PRIORITIES, f"decision {decision['id']}.priority")
@@ -199,6 +206,12 @@ def validate_project_state(project_state: dict[str, Any]) -> None:
         if decision["id"] in decision_ids:
             raise StateValidationError(f"duplicate decision id: {decision['id']}")
         decision_ids.add(decision["id"])
+    requirement_ids: set[str] = set()
+    for decision in project_state["decisions"]:
+        requirement_id = decision["requirement_id"]
+        if requirement_id in requirement_ids:
+            raise StateValidationError(f"duplicate requirement_id: {requirement_id}")
+        requirement_ids.add(requirement_id)
     expected_counts = _recomputed_counts(project_state["decisions"])
     if project_state["counts"] != expected_counts:
         raise StateValidationError("project_state.counts does not match decision state")
@@ -752,6 +765,8 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
     decision_status: dict[str, str] = {}
     has_close_summary: dict[str, bool] = {}
     discovered_decision_ids: set[str] = set()
+    requirement_ids_by_decision: dict[str, str] = {}
+    used_requirement_ids: set[str] = set()
     issued_proposals: dict[str, dict[str, str]] = {}
     active_proposal_by_session: dict[str, str | None] = {}
     disabled_proposals: set[str] = set()
@@ -817,6 +832,11 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
             discovered_decision_ids.add(decision_id)
             session_decision_ids[event["session_id"]].add(decision_id)
             decision_status[decision_id] = event["payload"]["decision"].get("status") or "unresolved"
+            requirement_id = event["payload"]["decision"]["requirement_id"]
+            if requirement_id in used_requirement_ids:
+                raise StateValidationError(f"duplicate requirement_id: {requirement_id}")
+            requirement_ids_by_decision[decision_id] = requirement_id
+            used_requirement_ids.add(requirement_id)
         else:
             for decision_id in _decision_refs_in_event(event):
                 if decision_id not in discovered_decision_ids:

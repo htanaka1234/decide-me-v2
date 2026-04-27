@@ -30,6 +30,7 @@ DISCOVERABLE_DECISION_FIELDS = {
     "notes",
     "bundle_id",
     "agent_relevant",
+    "requirement_id",
 }
 DISCOVERABLE_DECISION_STATUSES = {"unresolved", "blocked"}
 FORBIDDEN_DISCOVERED_DECISION_FIELDS = {

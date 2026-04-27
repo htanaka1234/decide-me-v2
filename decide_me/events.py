@@ -12,6 +12,7 @@ from decide_me.constants import (
     EVIDENCE_SOURCES,
     FORBIDDEN_DISCOVERED_DECISION_FIELDS,
 )
+from decide_me.requirement_ids import is_requirement_id
 
 
 AUTO_PROJECT_HEAD = "__AUTO_PROJECT_HEAD__"
@@ -176,7 +177,7 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
         _require_timestamp(payload.get("resumed_at"), "session_resumed.payload.resumed_at")
     elif event_type == "decision_discovered":
         decision = _require_dict(payload["decision"], "decision_discovered.payload.decision")
-        _require_keys(decision, ("id", "title"), "decision")
+        _require_keys(decision, ("id", "title", "requirement_id"), "decision")
         _require_non_empty_string(decision.get("id"), "decision_discovered.payload.decision.id")
         _require_non_empty_string(decision.get("title"), "decision_discovered.payload.decision.title")
         forbidden = sorted(set(decision) & FORBIDDEN_DISCOVERED_DECISION_FIELDS)
@@ -197,6 +198,10 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
             _require_bool_or_null(
                 decision["agent_relevant"],
                 "decision_discovered.payload.decision.agent_relevant",
+            )
+        if not is_requirement_id(decision["requirement_id"]):
+            raise EventValidationError(
+                "decision_discovered.payload.decision.requirement_id must match R-001 with at least three digits"
             )
     elif event_type == "decision_enriched":
         if "notes_append" in payload and not isinstance(payload["notes_append"], list):

@@ -78,6 +78,21 @@ def build_action_export_context(
     paths = runtime_paths(ai_dir)
     bundle = load_runtime(paths)
     events = read_event_log(paths)
+    return build_action_export_context_from_bundle(
+        bundle,
+        events,
+        session_ids=session_ids,
+        export_name=export_name,
+    )
+
+
+def build_action_export_context_from_bundle(
+    bundle: dict[str, Any],
+    events: list[dict[str, Any]],
+    *,
+    session_ids: list[str] | None,
+    export_name: str,
+) -> dict[str, Any]:
     source_session_ids, sessions = _selected_closed_sessions(bundle, session_ids, export_name)
     resolved_conflicts = bundle["project_state"].get("session_graph", {}).get("resolved_conflicts", [])
     from decide_me.planner import assemble_action_plan, detect_conflicts
@@ -100,7 +115,11 @@ def build_action_export_context(
 
 
 def build_traceability_payload_from_context(context: dict[str, Any]) -> dict[str, Any]:
-    rows = _traceability_rows(context["action_plan"], context["sessions"])
+    rows = _traceability_rows(
+        context["action_plan"],
+        context["sessions"],
+        requirement_ids_by_decision=_requirement_ids_by_decision(context["bundle"]["project_state"]),
+    )
     gaps = _verification_gaps(rows)
     return {
         "schema_version": TRACEABILITY_SCHEMA_VERSION,
@@ -182,7 +201,12 @@ def _sessions_after_resolutions(
     return normalized_sessions
 
 
-def _traceability_rows(action_plan: dict[str, Any], sessions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _traceability_rows(
+    action_plan: dict[str, Any],
+    sessions: list[dict[str, Any]],
+    *,
+    requirement_ids_by_decision: dict[str, str],
+) -> list[dict[str, Any]]:
     session_ids_by_decision_id = _session_ids_by_decision_id(sessions)
     rows: list[dict[str, Any]] = []
 
@@ -242,8 +266,8 @@ def _traceability_rows(action_plan: dict[str, Any], sessions: list[dict[str, Any
         )
 
     rows = sorted(rows, key=_row_sort_key)
-    for index, row in enumerate(rows, start=1):
-        row["requirement_id"] = f"R-{index:03d}"
+    for row in rows:
+        row["requirement_id"] = _requirement_id_for_row(row, requirement_ids_by_decision)
     return rows
 
 
@@ -297,6 +321,29 @@ def _session_ids_by_decision_id(sessions: list[dict[str, Any]]) -> dict[str, str
             if decision_id:
                 by_id.setdefault(decision_id, session_id)
     return by_id
+
+
+def _requirement_ids_by_decision(project_state: dict[str, Any]) -> dict[str, str]:
+    by_id: dict[str, str] = {}
+    for decision in project_state["decisions"]:
+        requirement_id = decision.get("requirement_id")
+        if not requirement_id:
+            raise ValueError(f"decision {decision['id']} has no requirement_id")
+        by_id[decision["id"]] = requirement_id
+    return by_id
+
+
+def _requirement_id_for_row(
+    row: dict[str, Any],
+    requirement_ids_by_decision: dict[str, str],
+) -> str | None:
+    decision_id = row.get("decision_id")
+    if not decision_id:
+        raise ValueError(f"traceability row has no decision_id: {row['action_slice']}")
+    requirement_id = requirement_ids_by_decision.get(decision_id)
+    if not requirement_id:
+        raise ValueError(f"decision {decision_id} has no requirement_id")
+    return requirement_id
 
 
 def _test_verification(source: dict[str, Any]) -> str | None:

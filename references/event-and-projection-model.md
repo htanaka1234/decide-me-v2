@@ -34,6 +34,8 @@ Projection rules:
 - `validate-state` and `validate-state --full` perform full event-log validation;
   `validate-state --cached` / `--fast` validate only the projection checkpoint and index.
 - If validation fails, reject the write and keep the previous runtime files unchanged.
+- `decision_discovered` events carry a runtime-assigned `requirement_id`. Event logs without
+  decision-scoped requirement IDs are invalid for this schema version.
 - `project_state.state.project_head` is a SHA-256 chain hash over canonical event content and the
   previous project head, replacing the old project-wide sequence number. For
   `proposal_issued`, `based_on_project_head` is normalized before hashing so the proposal's

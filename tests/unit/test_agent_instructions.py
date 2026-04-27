@@ -263,7 +263,7 @@ def _accepted(
     status: str = "accepted",
     agent_relevant: bool | None | object = Ellipsis,
 ) -> dict:
-    decision = default_decision(decision_id, title)
+    decision = default_decision(decision_id, _requirement_id(decision_id), title)
     decision["domain"] = domain
     decision["status"] = status
     if agent_relevant is not Ellipsis:
@@ -278,7 +278,7 @@ def _accepted(
 
 
 def _resolved(decision_id: str, title: str, domain: str, summary: str) -> dict:
-    decision = default_decision(decision_id, title)
+    decision = default_decision(decision_id, _requirement_id(decision_id), title)
     decision["domain"] = domain
     decision["status"] = "resolved-by-evidence"
     decision["accepted_answer"] = {
@@ -294,3 +294,7 @@ def _resolved(decision_id: str, title: str, domain: str, summary: str) -> dict:
         "evidence_refs": ["docs/policy.md"],
     }
     return decision
+
+
+def _requirement_id(decision_id: str) -> str:
+    return f"R-{sum(ord(char) for char in decision_id):03d}"

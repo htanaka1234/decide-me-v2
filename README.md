@@ -12,6 +12,14 @@ summaries, and local derived exports for plans, ADRs, registers, GitHub issue
 drafts, agent instruction fragments, arc42 architecture docs, traceability
 matrices, and verification gap reports.
 
+## Development policy
+
+This project is still in early development. Keeping the codebase clean is the
+highest priority, even when that means dropping backward compatibility for older
+runtime state or intermediate APIs. Contract changes should update runtime code,
+schemas, documentation, and tests together; invalid old state should fail
+clearly rather than being silently adapted through compatibility layers.
+
 ## What this Skill is for
 
 Use decide-me when the problem is not "write the code now" yet. It is for the

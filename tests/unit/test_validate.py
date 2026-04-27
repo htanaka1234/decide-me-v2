@@ -45,6 +45,23 @@ class ProjectionValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(StateValidationError, "agent_relevant"):
             validate_projection_bundle(bundle)
 
+    def test_rejects_invalid_requirement_id_metadata(self) -> None:
+        bundle = _valid_bundle()
+        bundle["project_state"]["decisions"][0]["requirement_id"] = "REQ-1"
+
+        with self.assertRaisesRegex(StateValidationError, "requirement_id"):
+            validate_projection_bundle(bundle)
+
+    def test_rejects_duplicate_requirement_id_metadata(self) -> None:
+        bundle = _valid_bundle()
+        duplicate = default_decision("D-002", "R-002", "Duplicate")
+        duplicate["requirement_id"] = "R-001"
+        bundle["project_state"]["decisions"].append(duplicate)
+        bundle["sessions"]["S-001"]["session"]["decision_ids"].append("D-002")
+
+        with self.assertRaisesRegex(StateValidationError, "duplicate requirement_id"):
+            validate_projection_bundle(bundle)
+
     def test_rejects_unknown_session_decision_reference(self) -> None:
         bundle = _valid_bundle()
         bundle["sessions"]["S-001"]["session"]["decision_ids"] = ["D-missing"]
@@ -104,7 +121,7 @@ class ProjectionValidationTests(unittest.TestCase):
 
     def test_rejects_active_proposal_target_not_bound_to_session(self) -> None:
         bundle = _valid_bundle()
-        decision = default_decision("D-002", "Unbound")
+        decision = default_decision("D-002", "R-002", "Unbound")
         decision["status"] = "proposed"
         decision["recommendation"]["proposal_id"] = "P-002"
         bundle["project_state"]["decisions"].append(decision)
@@ -205,7 +222,7 @@ class ProjectionValidationTests(unittest.TestCase):
 
     def test_rejects_invalidated_decision_in_close_summary(self) -> None:
         bundle = _valid_bundle()
-        replacement = default_decision("D-002", "Replacement")
+        replacement = default_decision("D-002", "R-002", "Replacement")
         replacement["status"] = "accepted"
         replacement["recommendation"]["proposal_id"] = "P-002"
         replacement["accepted_answer"]["summary"] = "Use the replacement."
@@ -306,7 +323,7 @@ class ProjectionValidationTests(unittest.TestCase):
 
     def test_rejects_invalidated_decision_with_non_final_invalidator(self) -> None:
         bundle = _valid_bundle()
-        replacement = default_decision("D-002", "Replacement")
+        replacement = default_decision("D-002", "R-002", "Replacement")
         bundle["project_state"]["decisions"].append(replacement)
         invalidated = bundle["project_state"]["decisions"][0]
         invalidated["status"] = "invalidated"
@@ -1194,6 +1211,15 @@ class ProjectionValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(StateValidationError, "non-closed session"):
             validate_event_log([initialized, session, plan])
 
+    def test_event_log_rejects_duplicate_requirement_id_discovery(self) -> None:
+        initialized = _project_initialized(1)
+        session = _session_created(2, "S-001")
+        first = _decision_discovered(3, "S-001", "D-001", requirement_id="R-001")
+        second = _decision_discovered(4, "S-001", "D-002", requirement_id="R-001")
+
+        with self.assertRaisesRegex(StateValidationError, "duplicate requirement_id"):
+            validate_event_log([initialized, session, first, second])
+
 
 def _project_initialized(sequence: int) -> dict:
     return build_event(
@@ -1231,10 +1257,18 @@ def _session_created(sequence: int, session_id: str) -> dict:
     )
 
 
-def _decision_discovered(sequence: int, session_id: str, decision_id: str, *, status: str | None = None) -> dict:
+def _decision_discovered(
+    sequence: int,
+    session_id: str,
+    decision_id: str,
+    *,
+    status: str | None = None,
+    requirement_id: str | None = None,
+) -> dict:
     decision = {"id": decision_id, "title": "Decision"}
     if status is not None:
         decision["status"] = status
+    decision["requirement_id"] = requirement_id or f"R-{sequence:03d}"
     return build_event(
         sequence=sequence,
         session_id=session_id,
@@ -1502,7 +1536,8 @@ def _valid_bundle() -> dict:
         "updated_at": now,
         "last_event_id": "E-test-1",
     }
-    project_state["decisions"] = [default_decision("D-001", "Decision")]
+    decision = default_decision("D-001", "R-001", "Decision")
+    project_state["decisions"] = [decision]
     session = default_session_state("S-001", now, "demo")
     session["session"]["decision_ids"] = ["D-001"]
     return {

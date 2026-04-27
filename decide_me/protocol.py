@@ -12,6 +12,7 @@ from decide_me.constants import (
     FORBIDDEN_DISCOVERED_DECISION_FIELDS,
 )
 from decide_me.events import AUTO_PROJECT_HEAD, new_entity_id, utc_now
+from decide_me.requirement_ids import next_requirement_id
 from decide_me.selector import proposal_is_stale
 from decide_me.store import load_runtime, runtime_paths, transact
 
@@ -30,11 +31,13 @@ def discover_decision(ai_dir: str, session_id: str, decision: dict[str, Any]) ->
         decision_id = sanitized_decision.get("id")
         if decision_id and _decision_exists(bundle, decision_id):
             raise ValueError(f"decision {decision_id} already exists")
+        event_decision = deepcopy(sanitized_decision)
+        event_decision["requirement_id"] = next_requirement_id(bundle["project_state"]["decisions"])
         return [
             {
                 "session_id": session_id,
                 "event_type": "decision_discovered",
-                "payload": {"decision": sanitized_decision},
+                "payload": {"decision": event_decision},
             }
         ]
 
@@ -563,6 +566,8 @@ def _sanitize_discovered_decision(decision: dict[str, Any]) -> dict[str, Any]:
     for key in ("id", "title"):
         if not decision.get(key):
             raise ValueError(f"decision_discovered requires {key}")
+    if "requirement_id" in decision:
+        raise ValueError("decision_discovered requirement_id is assigned by the runtime")
     forbidden = sorted(set(decision) & FORBIDDEN_DISCOVERED_DECISION_FIELDS)
     if forbidden:
         raise ValueError(f"decision_discovered must not include {', '.join(forbidden)}")

@@ -88,6 +88,8 @@ Runtime invariants:
   session content available.
 - `decision_invalidated` events are emitted by the public decision-supersession resolution flow;
   `invalidate-decision` is a compatibility command, not the preferred UX.
+- New `decision_discovered` events carry their runtime-assigned `requirement_id`; older event
+  logs without requirement IDs are invalid for this schema version.
 - `project-state.json`, `taxonomy-state.json`, and `sessions/*.json` are rebuildable projections
   and the normal hot-path read cache.
 - `runtime-index.json` checkpoints projection freshness; refresh it with `compact-runtime` only

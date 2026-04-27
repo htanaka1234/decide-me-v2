@@ -20,7 +20,7 @@
     },
     "projection_schema_version": {
       "type": "integer",
-      "const": 7
+      "const": 8
     },
     "project_head": {
       "type": ["string", "null"]
