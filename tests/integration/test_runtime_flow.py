@@ -45,10 +45,10 @@ from decide_me.protocol import (
     defer_decision,
     discover_decision,
     enrich_decision,
-    invalidate_decision,
     issue_proposal,
     reject_proposal,
     resolve_by_evidence,
+    resolve_decision_supersession,
     update_classification,
 )
 from decide_me.session_graph import (
@@ -1452,7 +1452,6 @@ class RuntimeFlowTests(unittest.TestCase):
                         "domain": "technical",
                         "abstraction_level": "architecture",
                         "assigned_tags": [],
-                        "compatibility_tags": [],
                         "search_terms": ["lifecycle"],
                         "source_refs": [],
                         "updated_at": "2099-01-01T00:00:04Z",
@@ -2801,11 +2800,11 @@ class RuntimeFlowTests(unittest.TestCase):
                 summary="Use structured ADR.\nKeep YAML machine readable.",
                 evidence_refs=["docs/adr.md", "docs/adr:edge#case.md"],
             )
-            invalidate_decision(
+            resolve_decision_supersession(
                 ai_dir,
                 session_id,
-                decision_id="D-old",
-                invalidated_by_decision_id="D-weird",
+                superseded_decision_id="D-old",
+                superseding_decision_id="D-weird",
                 reason="Structured ADR supersedes the old ADR.",
             )
 
@@ -2924,11 +2923,11 @@ class RuntimeFlowTests(unittest.TestCase):
                 domain="technical",
                 recommendation="Use the structured ADR shape.",
             )
-            invalidate_decision(
+            resolve_decision_supersession(
                 ai_dir,
                 replacement_session_id,
-                decision_id="D-200",
-                invalidated_by_decision_id="D-100",
+                superseded_decision_id="D-200",
+                superseding_decision_id="D-100",
                 reason="Structured ADR supersedes the legacy ADR shape.",
             )
 
@@ -3081,11 +3080,11 @@ class RuntimeFlowTests(unittest.TestCase):
                 domain="technical",
                 recommendation="Never print secrets or credential values.",
             )
-            invalidate_decision(
+            resolve_decision_supersession(
                 ai_dir,
                 session_id,
-                decision_id="D-old-security",
-                invalidated_by_decision_id="D-security",
+                superseded_decision_id="D-old-security",
+                superseding_decision_id="D-security",
                 reason="The new secret handling policy supersedes the old one.",
             )
             _accept_runtime_decision(
@@ -4210,6 +4209,7 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertEqual(0, cli_help.returncode, cli_help.stderr)
             self.assertIn("resolve-decision-supersession", cli_help.stdout)
             self.assertNotIn("invalidate-decision", cli_help.stdout)
+            self.assertNotIn("supersede-decision", cli_help.stdout)
 
             resolved = subprocess.run(
                 [
@@ -4307,11 +4307,11 @@ class RuntimeFlowTests(unittest.TestCase):
                 summary="Use the replacement.",
                 evidence_refs=["app/replacement.py"],
             )
-            invalidate_decision(
+            resolve_decision_supersession(
                 ai_dir,
                 replacement_session_id,
-                decision_id="D-blocker",
-                invalidated_by_decision_id="D-replacement",
+                superseded_decision_id="D-blocker",
+                superseding_decision_id="D-replacement",
                 reason="Superseded by a replacement decision.",
             )
 
@@ -4336,11 +4336,11 @@ class RuntimeFlowTests(unittest.TestCase):
             )
             closed_risk = close_session(ai_dir, risk_session_id)
             self.assertEqual("conditional", closed_risk["close_summary"]["readiness"])
-            invalidate_decision(
+            resolve_decision_supersession(
                 ai_dir,
                 replacement_session_id,
-                decision_id="D-risk",
-                invalidated_by_decision_id="D-replacement",
+                superseded_decision_id="D-risk",
+                superseding_decision_id="D-replacement",
                 reason="Superseded by a replacement decision.",
             )
 
@@ -4397,19 +4397,19 @@ class RuntimeFlowTests(unittest.TestCase):
             )
 
             with self.assertRaisesRegex(ValueError, "not bound"):
-                invalidate_decision(
+                resolve_decision_supersession(
                     ai_dir,
                     old_session_id,
-                    decision_id="D-old",
-                    invalidated_by_decision_id="D-new",
+                    superseded_decision_id="D-old",
+                    superseding_decision_id="D-new",
                     reason="Superseded by the password decision.",
                 )
 
-            invalidate_decision(
+            resolve_decision_supersession(
                 ai_dir,
                 new_session_id,
-                decision_id="D-old",
-                invalidated_by_decision_id="D-new",
+                superseded_decision_id="D-old",
+                superseding_decision_id="D-new",
                 reason="Superseded by the password decision.",
             )
 
@@ -4451,18 +4451,18 @@ class RuntimeFlowTests(unittest.TestCase):
                 )
                 accept_proposal(ai_dir, session_id)
 
-            invalidate_decision(
+            resolve_decision_supersession(
                 ai_dir,
                 session_id,
-                decision_id="D-old",
-                invalidated_by_decision_id="D-replacement",
+                superseded_decision_id="D-old",
+                superseding_decision_id="D-replacement",
                 reason="Superseded by the replacement.",
             )
-            invalidate_decision(
+            resolve_decision_supersession(
                 ai_dir,
                 session_id,
-                decision_id="D-replacement",
-                invalidated_by_decision_id="D-final",
+                superseded_decision_id="D-replacement",
+                superseding_decision_id="D-final",
                 reason="Superseded by the final replacement.",
             )
 
@@ -4541,11 +4541,11 @@ class RuntimeFlowTests(unittest.TestCase):
                 evidence_refs=["app/password_auth.py"],
             )
 
-            invalidate_decision(
+            resolve_decision_supersession(
                 ai_dir,
                 replacement_session_id,
-                decision_id="D-110",
-                invalidated_by_decision_id="D-112",
+                superseded_decision_id="D-110",
+                superseding_decision_id="D-112",
                 reason="Superseded by the accepted password auth decision.",
             )
 
@@ -4562,7 +4562,7 @@ class RuntimeFlowTests(unittest.TestCase):
 
             self.assertEqual([], validate_runtime(ai_dir))
 
-    def test_classification_search_and_lazy_compatibility_backfill(self) -> None:
+    def test_classification_search_uses_replacement_chain_without_backfill(self) -> None:
         with TemporaryDirectory() as tmp:
             ai_dir = str(Path(tmp) / ".ai" / "decide-me")
             bootstrap_runtime(
@@ -4636,16 +4636,17 @@ class RuntimeFlowTests(unittest.TestCase):
             events_before_read = len(read_event_log(runtime_paths(ai_dir)))
 
             display = show_session(ai_dir, session_id)
-            self.assertIn("tag:magic-links", display["session"]["classification"]["compatibility_tags"])
-            self.assertIn("tag:magic-links", display["compatibility_tag_refs_added"])
+            self.assertNotIn("compatibility_tags", display["session"]["classification"])
+            self.assertNotIn("compatibility_tag_refs_added", display)
+            self.assertIn("tag:magic-links", [tag["id"] for tag in display["resolved_tags"]])
 
             listing = list_sessions(ai_dir, tag_terms=["authentication"])
             self.assertEqual(1, listing["count"])
-            self.assertGreaterEqual(len(listing["backfilled"]), 0)
+            self.assertNotIn("backfilled", listing)
             self.assertEqual(events_before_read, len(read_event_log(runtime_paths(ai_dir))))
             self.assertEqual([], validate_runtime(ai_dir))
 
-    def test_read_only_compatibility_backfill_does_not_stale_active_proposal(self) -> None:
+    def test_read_only_replacement_chain_search_does_not_stale_active_proposal(self) -> None:
         with TemporaryDirectory() as tmp:
             ai_dir = str(Path(tmp) / ".ai" / "decide-me")
             bootstrap_runtime(

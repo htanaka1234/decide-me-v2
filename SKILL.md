@@ -86,8 +86,7 @@ Runtime invariants:
 - `semantic_conflict_resolved` events record user-selected session-level conflict resolution and
   suppress the losing scoped content from normal projections, while keeping unrelated losing
   session content available.
-- `decision_invalidated` events are emitted by the public decision-supersession resolution flow;
-  `invalidate-decision` is a compatibility command, not the preferred UX.
+- `decision_invalidated` events are emitted by the public decision-supersession resolution flow.
 - New `decision_discovered` events carry their runtime-assigned `requirement_id`; older event
   logs without requirement IDs are invalid for this schema version.
 - `project-state.json`, `taxonomy-state.json`, and `sessions/*.json` are rebuildable projections

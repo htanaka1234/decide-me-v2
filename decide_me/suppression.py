@@ -152,8 +152,7 @@ def has_suppressed_context_remainders(
     classification = session.get("classification", {})
     return any(
         _tag_ref_matches_hidden(tag_ref, taxonomy_state, hidden_strings)
-        for key in ("assigned_tags", "compatibility_tags")
-        for tag_ref in classification.get(key, [])
+        for tag_ref in classification.get("assigned_tags", [])
     )
 
 
@@ -305,12 +304,11 @@ def _sanitize_classification(
     classification["search_terms"] = [
         term for term in classification.get("search_terms", []) if _normalize_text(term) not in hidden
     ]
-    for key in ("assigned_tags", "compatibility_tags"):
-        classification[key] = [
-            tag_ref
-            for tag_ref in classification.get(key, [])
-            if not _tag_ref_matches_hidden(tag_ref, taxonomy_state, hidden)
-        ]
+    classification["assigned_tags"] = [
+        tag_ref
+        for tag_ref in classification.get("assigned_tags", [])
+        if not _tag_ref_matches_hidden(tag_ref, taxonomy_state, hidden)
+    ]
 
 
 def _tag_ref_matches_hidden(

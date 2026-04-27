@@ -16,7 +16,7 @@ IDLE_AFTER = timedelta(hours=12)
 STALE_AFTER = timedelta(days=7)
 AUTO_PROJECT_HEAD_SENTINEL = "__AUTO_PROJECT_HEAD__"
 PROJECT_HEAD_PROPOSAL_BASE_SENTINEL = "__PROJECT_HEAD_PROPOSAL_BASE__"
-PROJECTION_SCHEMA_VERSION = 8
+PROJECTION_SCHEMA_VERSION = 9
 
 
 def default_project_state() -> dict[str, Any]:
@@ -91,7 +91,6 @@ def default_session_state(
             "domain": None,
             "abstraction_level": None,
             "assigned_tags": [],
-            "compatibility_tags": [],
             "search_terms": [],
             "source_refs": [],
             "updated_at": None,
@@ -544,19 +543,6 @@ def apply_event(
     elif event_type == "taxonomy_extended":
         for node in payload["nodes"]:
             _upsert_taxonomy_node(taxonomy_state, node)
-    elif event_type == "compatibility_backfilled":
-        session = sessions[session_id]
-        compatibility = session["classification"].get("compatibility_tags", [])
-        session["classification"]["compatibility_tags"] = stable_unique(
-            [*compatibility, *payload["additions"]]
-        )
-        _touch_session(
-            sessions,
-            session_id,
-            ts,
-            session["summary"].get("active_decision_id"),
-            project_head_after,
-        )
     elif event_type == "session_linked":
         graph = project_state["session_graph"]
         graph["edges"].append(

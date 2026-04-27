@@ -210,10 +210,7 @@ def ensure_term_path(
 
 def resolved_tag_refs(session_state: dict[str, Any], taxonomy_state: dict[str, Any]) -> list[str]:
     classification = session_state.get("classification", {})
-    refs = [
-        *classification.get("assigned_tags", []),
-        *classification.get("compatibility_tags", []),
-    ]
+    refs = list(classification.get("assigned_tags", []))
     replacements = replacement_closure(taxonomy_state, refs, include_start=False)
     return stable_unique([*refs, *replacements])
 
@@ -225,22 +222,3 @@ def resolved_tag_nodes(session_state: dict[str, Any], taxonomy_state: dict[str, 
         for tag_ref in resolved_tag_refs(session_state, taxonomy_state)
         if tag_ref in nodes_by_id
     ]
-
-
-def backfill_compatibility_tags(
-    session_state: dict[str, Any], taxonomy_state: dict[str, Any]
-) -> list[str]:
-    lifecycle = session_state.get("session", {}).get("lifecycle", {})
-    if lifecycle.get("status") != "closed":
-        return []
-    classification = session_state.setdefault("classification", {})
-    assigned = classification.setdefault("assigned_tags", [])
-    compatibility = classification.setdefault("compatibility_tags", [])
-    additions = [
-        node_id
-        for node_id in replacement_closure(taxonomy_state, assigned, include_start=False)
-        if node_id not in assigned and node_id not in compatibility
-    ]
-    if additions:
-        classification["compatibility_tags"] = stable_unique([*compatibility, *additions])
-    return additions

@@ -37,7 +37,6 @@ EVENT_TYPES = {
     "session_closed",
     "plan_generated",
     "taxonomy_extended",
-    "compatibility_backfilled",
     "transaction_rejected",
     "session_linked",
     "semantic_conflict_resolved",
@@ -67,7 +66,6 @@ REQUIRED_PAYLOAD_KEYS: dict[str, tuple[str, ...]] = {
     "session_closed": ("closed_at",),
     "plan_generated": ("session_ids", "status"),
     "taxonomy_extended": ("nodes",),
-    "compatibility_backfilled": ("additions",),
     "transaction_rejected": (
         "kept_tx_id",
         "rejected_tx_ids",
@@ -305,19 +303,21 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
         classification = _require_dict(
             payload["classification"], "classification_updated.payload.classification"
         )
-        _require_keys(
-            classification,
-            (
-                "domain",
-                "abstraction_level",
-                "assigned_tags",
-                "compatibility_tags",
-                "search_terms",
-                "source_refs",
-                "updated_at",
-            ),
-            "classification",
+        allowed_classification_key_tuple = (
+            "domain",
+            "abstraction_level",
+            "assigned_tags",
+            "search_terms",
+            "source_refs",
+            "updated_at",
         )
+        allowed_classification_keys = set(allowed_classification_key_tuple)
+        _require_keys(classification, allowed_classification_key_tuple, "classification")
+        unsupported = sorted(set(classification) - allowed_classification_keys)
+        if unsupported:
+            raise EventValidationError(
+                f"classification_updated.payload.classification contains unsupported fields: {', '.join(unsupported)}"
+            )
         _require_timestamp(
             classification.get("updated_at"),
             "classification_updated.payload.classification.updated_at",

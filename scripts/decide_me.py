@@ -27,7 +27,7 @@ from decide_me.exports import (
 from decide_me.interview import advance_session, handle_reply
 from decide_me.lifecycle import close_session, create_session, list_sessions, resume_session, show_session
 from decide_me.planner import generate_plan
-from decide_me.protocol import invalidate_decision, resolve_decision_supersession
+from decide_me.protocol import resolve_decision_supersession
 from decide_me.session_graph import (
     detect_session_conflicts,
     link_session,
@@ -39,8 +39,6 @@ from decide_me.store import benchmark_runtime, bootstrap_runtime, compact_runtim
 
 def main(argv: list[str] | None = None) -> int:
     raw_argv = sys.argv[1:] if argv is None else list(argv)
-    if raw_argv and raw_argv[0] == "invalidate-decision":
-        return _run_legacy_invalidate(raw_argv[1:])
 
     parser = argparse.ArgumentParser(description="decide-me v2 runtime CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -154,7 +152,6 @@ def main(argv: list[str] | None = None) -> int:
 
     resolve_supersession = subparsers.add_parser(
         "resolve-decision-supersession",
-        aliases=["supersede-decision"],
         help="resolve a decision replacement by choosing the superseding decision",
     )
     resolve_supersession.add_argument("--ai-dir", required=True)
@@ -453,31 +450,6 @@ def main(argv: list[str] | None = None) -> int:
         print(str(exc), file=sys.stderr)
         return 1
 
-    return 0
-
-
-def _run_legacy_invalidate(argv: list[str]) -> int:
-    parser = argparse.ArgumentParser(description="legacy alias for resolve-decision-supersession")
-    parser.add_argument("--ai-dir", required=True)
-    parser.add_argument("--session-id", required=True)
-    parser.add_argument("--decision-id", required=True)
-    parser.add_argument("--invalidated-by", required=True)
-    parser.add_argument("--reason", required=True)
-    args = parser.parse_args(argv)
-
-    try:
-        _print_json(
-            invalidate_decision(
-                args.ai_dir,
-                args.session_id,
-                decision_id=args.decision_id,
-                invalidated_by_decision_id=args.invalidated_by,
-                reason=args.reason,
-            )
-        )
-    except Exception as exc:  # pragma: no cover - exercised via CLI integration in real use
-        print(str(exc), file=sys.stderr)
-        return 1
     return 0
 
 

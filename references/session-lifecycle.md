@@ -17,8 +17,7 @@ Public operations:
 
 Lifecycle rules:
 
-- `list-sessions` and `show-session` may persist compatibility backfill events for closed
-  sessions before returning the read model.
+- `list-sessions` and `show-session` are read-only operations over persisted projections.
 - A newly created session has no bound decisions. `advance-session` stays session-local and does
   not pull open decisions from other sessions.
 - Resuming a session invalidates any previously active proposal.

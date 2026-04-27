@@ -105,63 +105,6 @@ def classify_session(
         "created_tag_refs": created,
     }
 
-
-def ensure_compatibility_backfill(
-    ai_dir: str, session_ids: list[str] | None = None
-) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    requested = set(session_ids or [])
-
-    def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
-        events: list[dict[str, Any]] = []
-        for session_id, session in bundle["sessions"].items():
-            if requested and session_id not in requested:
-                continue
-            additions = _compatibility_additions(session, bundle["taxonomy_state"])
-            if additions:
-                events.append(
-                    {
-                        "session_id": session_id,
-                        "event_type": "compatibility_backfilled",
-                        "payload": {"additions": additions},
-                    }
-                )
-        return events
-
-    new_events, bundle = transact(ai_dir, builder)
-    backfilled = [
-        {
-            "session_id": event["session_id"],
-            "added_compatibility_tag_refs": event["payload"]["additions"],
-        }
-        for event in new_events
-        if event["event_type"] == "compatibility_backfilled"
-    ]
-    return backfilled, bundle
-
-
-def _compatibility_additions(session: dict[str, Any], taxonomy_state: dict[str, Any]) -> list[str]:
-    if session["session"]["lifecycle"]["status"] != "closed":
-        return []
-    assigned = session["classification"].get("assigned_tags", [])
-    compatibility = session["classification"].get("compatibility_tags", [])
-    additions: list[str] = []
-    nodes_by_id = {node["id"]: node for node in taxonomy_state["nodes"]}
-    queue = list(assigned)
-    seen = set(queue)
-    while queue:
-        node_id = queue.pop(0)
-        node = nodes_by_id.get(node_id)
-        if not node:
-            continue
-        for replacement_id in node.get("replaced_by", []):
-            if replacement_id not in seen:
-                seen.add(replacement_id)
-                queue.append(replacement_id)
-            if replacement_id not in assigned and replacement_id not in compatibility and replacement_id not in additions:
-                additions.append(replacement_id)
-    return additions
-
-
 def _require_session(bundle: dict[str, Any], session_id: str) -> dict[str, Any]:
     try:
         return bundle["sessions"][session_id]
