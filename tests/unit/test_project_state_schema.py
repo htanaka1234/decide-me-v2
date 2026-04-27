@@ -73,6 +73,24 @@ class ProjectStateSchemaTests(unittest.TestCase):
 
         self.validator.validate(payload)
 
+    def test_rejects_null_persisted_fields_after_events(self) -> None:
+        for section, key in (
+            ("project", "name"),
+            ("project", "objective"),
+            ("project", "current_milestone"),
+            ("project", "stop_rule"),
+            ("state", "project_head"),
+            ("state", "updated_at"),
+            ("state", "last_event_id"),
+        ):
+            payload = _valid_project_state()
+            payload[section][key] = None
+
+            errors = list(self.validator.iter_errors(payload))
+
+            self.assertTrue(errors)
+            self.assertTrue(any(list(error.path) == [section, key] for error in errors))
+
     def test_rejects_stale_count_shape(self) -> None:
         payload = _valid_project_state()
         payload["counts"] = {"p0_now_open": 0, "p1_now_open": 0, "p2_open": 0, "blocked": 0, "deferred": 0}

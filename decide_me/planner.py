@@ -34,7 +34,7 @@ def generate_plan(ai_dir: str, session_ids: list[str]) -> dict[str, Any]:
         "action_plan": None,
     }
 
-    graph = bundle["project_state"].get("graph") or bundle["project_state"].get("session_graph", {})
+    graph = bundle["project_state"]["graph"]
     resolved_conflicts = graph.get("resolved_conflicts", [])
     conflicts = detect_conflicts(sessions, resolved_conflicts=resolved_conflicts)
     if conflicts:

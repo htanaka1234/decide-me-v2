@@ -592,6 +592,8 @@ def validate_projection_bundle(bundle: dict[str, Any]) -> None:
     taxonomy_ids = set(taxonomy_by_id(bundle["taxonomy_state"]))
     for session_id, session in bundle["sessions"].items():
         validate_session_state(session)
+    if bundle["project_state"]["sessions_index"] != _expected_sessions_index(bundle["sessions"]):
+        raise StateValidationError("project_state.sessions_index does not match sessions")
     _validate_resolved_conflict_suppression(
         bundle["project_state"],
         bundle["sessions"],
@@ -619,6 +621,23 @@ def _decision_index(project_state: dict[str, Any]) -> dict[str, dict[str, Any]]:
         for item in project_state["objects"]
         if item.get("type") == "decision"
     }
+
+
+def _expected_sessions_index(sessions: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    index: dict[str, dict[str, Any]] = {}
+    for session_id in sorted(sessions):
+        session = sessions[session_id]["session"]
+        lifecycle = session["lifecycle"]
+        index[session_id] = {
+            "id": session["id"],
+            "status": lifecycle["status"],
+            "started_at": session["started_at"],
+            "last_seen_at": session["last_seen_at"],
+            "closed_at": lifecycle.get("closed_at"),
+            "bound_context_hint": session.get("bound_context_hint"),
+            "decision_ids": list(session.get("decision_ids", [])),
+        }
+    return index
 
 
 def _visible_decision_ids(decisions_by_id: dict[str, dict[str, Any]]) -> set[str]:
@@ -1345,7 +1364,7 @@ def _validate_resolved_conflict_suppression(
     sessions: dict[str, dict[str, Any]],
     taxonomy_state: dict[str, Any],
 ) -> None:
-    graph = project_state.get("graph") or project_state.get("session_graph", {})
+    graph = project_state["graph"]
     for resolved in graph.get("resolved_conflicts", []):
         for rejected_session_id in resolved.get("rejected_session_ids", []):
             session = sessions.get(rejected_session_id)

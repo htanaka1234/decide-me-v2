@@ -3,8 +3,9 @@ from __future__ import annotations
 import unittest
 from copy import deepcopy
 
+from decide_me.events import build_event as runtime_build_event
 from decide_me.projections import default_project_state, rebuild_projections
-from decide_me.validate import StateValidationError, validate_project_state
+from decide_me.validate import StateValidationError, validate_project_state, validate_projection_bundle
 
 
 class ProjectStateValidationTests(unittest.TestCase):
@@ -70,6 +71,45 @@ class ProjectStateValidationTests(unittest.TestCase):
 
         with self.assertRaisesRegex(StateValidationError, "project_state.project.name"):
             validate_project_state(payload)
+
+    def test_projection_bundle_rejects_stale_sessions_index(self) -> None:
+        bundle = rebuild_projections(
+            [
+                _event(
+                    sequence=1,
+                    session_id="SYSTEM",
+                    event_type="project_initialized",
+                    payload={
+                        "project": {
+                            "name": "Demo",
+                            "objective": "Plan Phase 5-2.",
+                            "current_milestone": "Phase 5-2",
+                            "stop_rule": "Resolve blockers.",
+                        }
+                    },
+                    timestamp="2026-04-23T12:00:00Z",
+                ),
+                _event(
+                    sequence=2,
+                    session_id="S-001",
+                    event_type="session_created",
+                    payload={
+                        "session": {
+                            "id": "S-001",
+                            "started_at": "2026-04-23T12:01:00Z",
+                            "last_seen_at": "2026-04-23T12:01:00Z",
+                            "bound_context_hint": "demo",
+                        }
+                    },
+                    timestamp="2026-04-23T12:01:00Z",
+                ),
+            ]
+        )
+        validate_projection_bundle(bundle)
+        bundle["project_state"]["sessions_index"]["S-001"]["last_seen_at"] = "2026-04-23T12:30:00Z"
+
+        with self.assertRaisesRegex(StateValidationError, "sessions_index does not match sessions"):
+            validate_projection_bundle(bundle)
 
 
 def _valid_project_state() -> dict:
@@ -151,6 +191,27 @@ def _valid_project_state() -> dict:
                 "inferred_candidates": [],
             },
         }
+    )
+
+
+def _event(
+    *,
+    sequence: int,
+    session_id: str,
+    event_type: str,
+    payload: dict,
+    timestamp: str,
+) -> dict:
+    return runtime_build_event(
+        tx_id=f"T-test-{sequence}",
+        tx_index=1,
+        tx_size=1,
+        event_id=f"E-test-{sequence}",
+        session_id=session_id,
+        event_type=event_type,
+        payload=payload,
+        timestamp=timestamp,
+        project_head=f"H-{sequence}",
     )
 
 

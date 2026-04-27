@@ -200,6 +200,68 @@
     }
   },
   "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "state"
+        ],
+        "properties": {
+          "state": {
+            "required": [
+              "event_count"
+            ],
+            "properties": {
+              "event_count": {
+                "const": 0
+              }
+            }
+          }
+        }
+      },
+      "then": {},
+      "else": {
+        "properties": {
+          "project": {
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "objective": {
+                "type": "string",
+                "minLength": 1
+              },
+              "current_milestone": {
+                "type": "string",
+                "minLength": 1
+              },
+              "stop_rule": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "state": {
+            "properties": {
+              "project_head": {
+                "type": "string",
+                "minLength": 1
+              },
+              "updated_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "last_event_id": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
   "$defs": {
     "object_type": {
       "type": "string",

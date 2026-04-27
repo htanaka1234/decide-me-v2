@@ -14,13 +14,7 @@ ACYCLIC_RELATIONSHIPS = {"derived_from", "refines", "supersedes", "depends_on"}
 
 
 def _project_graph(bundle: dict[str, Any]) -> dict[str, Any]:
-    project_state = bundle.get("project_state", {})
-    return project_state.get("graph") or project_state.get("session_graph") or {
-        "nodes": [],
-        "edges": [],
-        "resolved_conflicts": [],
-        "inferred_candidates": [],
-    }
+    return bundle["project_state"]["graph"]
 
 
 def build_session_graph(
