@@ -3,15 +3,18 @@ from __future__ import annotations
 import json
 import unittest
 from copy import deepcopy
+from datetime import datetime
 from pathlib import Path
 
-from jsonschema import Draft202012Validator
+from jsonschema import Draft202012Validator, FormatChecker
 
 
 class LegacySchemaRejectedTests(unittest.TestCase):
     def setUp(self) -> None:
         schema_path = Path(__file__).resolve().parents[2] / "schemas" / "project-state.schema.json"
-        self.validator = Draft202012Validator(json.loads(schema_path.read_text(encoding="utf-8")))
+        self.schema = json.loads(schema_path.read_text(encoding="utf-8"))
+        self.validator = Draft202012Validator(self.schema)
+        self.format_validator = Draft202012Validator(self.schema, format_checker=_format_checker())
 
     def test_accepts_domain_neutral_project_state_shape(self) -> None:
         self.validator.validate(_valid_project_state())
@@ -54,6 +57,15 @@ class LegacySchemaRejectedTests(unittest.TestCase):
         self.assertTrue(errors)
         self.assertTrue(any(error.validator == "required" for error in errors))
         self.assertTrue(any(error.validator == "additionalProperties" for error in errors))
+
+    def test_format_checker_rejects_invalid_project_updated_at(self) -> None:
+        payload = _valid_project_state()
+        payload["state"]["updated_at"] = "not-a-date-time"
+
+        errors = list(self.format_validator.iter_errors(payload))
+
+        self.assertTrue(errors)
+        self.assertTrue(any(list(error.path) == ["state", "updated_at"] and error.validator == "format" for error in errors))
 
 
 def _valid_project_state() -> dict:
@@ -126,6 +138,23 @@ def _valid_project_state() -> dict:
     return deepcopy(payload)
 
 
+def _format_checker() -> FormatChecker:
+    checker = FormatChecker()
+
+    @checker.checks("date-time")
+    def is_date_time(value: object) -> bool:
+        if not isinstance(value, str):
+            return True
+        if "T" not in value:
+            return False
+        try:
+            datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return False
+        return True
+
+    return checker
+
+
 if __name__ == "__main__":
     unittest.main()
-

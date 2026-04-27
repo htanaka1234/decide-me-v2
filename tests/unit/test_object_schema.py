@@ -3,9 +3,10 @@ from __future__ import annotations
 import json
 import unittest
 from copy import deepcopy
+from datetime import datetime
 from pathlib import Path
 
-from jsonschema import Draft202012Validator
+from jsonschema import Draft202012Validator, FormatChecker
 
 
 OBJECT_TYPES = [
@@ -27,8 +28,13 @@ OBJECT_TYPES = [
 
 class ObjectSchemaTests(unittest.TestCase):
     def setUp(self) -> None:
-        schema_path = Path(__file__).resolve().parents[2] / "schemas" / "object.schema.json"
-        self.validator = Draft202012Validator(json.loads(schema_path.read_text(encoding="utf-8")))
+        schema_root = Path(__file__).resolve().parents[2] / "schemas"
+        object_schema_path = schema_root / "object.schema.json"
+        project_schema_path = schema_root / "project-state.schema.json"
+        self.schema = json.loads(object_schema_path.read_text(encoding="utf-8"))
+        self.project_schema = json.loads(project_schema_path.read_text(encoding="utf-8"))
+        self.validator = Draft202012Validator(self.schema)
+        self.format_validator = Draft202012Validator(self.schema, format_checker=_format_checker())
 
     def test_accepts_all_domain_object_types(self) -> None:
         for object_type in OBJECT_TYPES:
@@ -65,6 +71,34 @@ class ObjectSchemaTests(unittest.TestCase):
                 self.assertTrue(errors)
                 self.assertTrue(any(error.validator == "additionalProperties" for error in errors))
 
+    def test_project_state_embedded_object_schema_matches_standalone_schema(self) -> None:
+        embedded = self.project_schema["$defs"]["domain_object"]
+        self.assertEqual(self.schema["required"], embedded["required"])
+        self.assertEqual(self.schema["additionalProperties"], embedded["additionalProperties"])
+        self.assertEqual(self.schema["properties"].keys(), embedded["properties"].keys())
+        self.assertEqual(self.schema["properties"]["type"]["enum"], self.project_schema["$defs"]["object_type"]["enum"])
+        self.assertEqual(self.schema["properties"]["source_event_ids"], self.project_schema["$defs"]["source_event_ids"])
+
+        for field in ("id", "title", "body", "status", "created_at", "updated_at", "metadata"):
+            self.assertEqual(self.schema["properties"][field], embedded["properties"][field])
+
+    def test_format_checker_rejects_invalid_date_time_fields(self) -> None:
+        payload = _valid_object("evidence")
+        payload["created_at"] = "not-a-date-time"
+
+        errors = list(self.format_validator.iter_errors(payload))
+
+        self.assertTrue(errors)
+        self.assertTrue(any(list(error.path) == ["created_at"] and error.validator == "format" for error in errors))
+
+        payload = _valid_object("evidence")
+        payload["updated_at"] = "not-a-date-time"
+
+        errors = list(self.format_validator.iter_errors(payload))
+
+        self.assertTrue(errors)
+        self.assertTrue(any(list(error.path) == ["updated_at"] and error.validator == "format" for error in errors))
+
 
 def _valid_object(object_type: str) -> dict:
     payload = {
@@ -79,6 +113,24 @@ def _valid_object(object_type: str) -> dict:
         "metadata": {},
     }
     return deepcopy(payload)
+
+
+def _format_checker() -> FormatChecker:
+    checker = FormatChecker()
+
+    @checker.checks("date-time")
+    def is_date_time(value: object) -> bool:
+        if not isinstance(value, str):
+            return True
+        if "T" not in value:
+            return False
+        try:
+            datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return False
+        return True
+
+    return checker
 
 
 if __name__ == "__main__":

@@ -3,9 +3,10 @@ from __future__ import annotations
 import json
 import unittest
 from copy import deepcopy
+from datetime import datetime
 from pathlib import Path
 
-from jsonschema import Draft202012Validator
+from jsonschema import Draft202012Validator, FormatChecker
 
 
 LINK_RELATIONS = [
@@ -24,8 +25,13 @@ LINK_RELATIONS = [
 
 class LinkSchemaTests(unittest.TestCase):
     def setUp(self) -> None:
-        schema_path = Path(__file__).resolve().parents[2] / "schemas" / "link.schema.json"
-        self.validator = Draft202012Validator(json.loads(schema_path.read_text(encoding="utf-8")))
+        schema_root = Path(__file__).resolve().parents[2] / "schemas"
+        link_schema_path = schema_root / "link.schema.json"
+        project_schema_path = schema_root / "project-state.schema.json"
+        self.schema = json.loads(link_schema_path.read_text(encoding="utf-8"))
+        self.project_schema = json.loads(project_schema_path.read_text(encoding="utf-8"))
+        self.validator = Draft202012Validator(self.schema)
+        self.format_validator = Draft202012Validator(self.schema, format_checker=_format_checker())
 
     def test_accepts_all_link_relations(self) -> None:
         for relation in LINK_RELATIONS:
@@ -50,6 +56,42 @@ class LinkSchemaTests(unittest.TestCase):
         self.assertTrue(errors)
         self.assertTrue(any(error.validator == "additionalProperties" for error in errors))
 
+    def test_project_state_embedded_link_schema_matches_standalone_schema(self) -> None:
+        embedded = self.project_schema["$defs"]["link"]
+        self.assertEqual(self.schema["required"], embedded["required"])
+        self.assertEqual(self.schema["additionalProperties"], embedded["additionalProperties"])
+        self.assertEqual(self.schema["properties"].keys(), embedded["properties"].keys())
+        self.assertEqual(self.schema["properties"]["relation"]["enum"], self.project_schema["$defs"]["link_relation"]["enum"])
+        self.assertEqual(self.schema["properties"]["source_event_ids"], self.project_schema["$defs"]["source_event_ids"])
+
+        for field in ("id", "source_object_id", "target_object_id", "rationale", "created_at"):
+            self.assertEqual(self.schema["properties"][field], embedded["properties"][field])
+
+    def test_link_envelope_uses_explicit_object_endpoint_names(self) -> None:
+        self.assertEqual(
+            [
+                "id",
+                "source_object_id",
+                "relation",
+                "target_object_id",
+                "rationale",
+                "created_at",
+                "source_event_ids",
+            ],
+            self.schema["required"],
+        )
+        for alias in ("source_id", "rel", "target_id"):
+            self.assertNotIn(alias, self.schema["properties"])
+
+    def test_format_checker_rejects_invalid_created_at(self) -> None:
+        payload = _valid_link("supports")
+        payload["created_at"] = "not-a-date-time"
+
+        errors = list(self.format_validator.iter_errors(payload))
+
+        self.assertTrue(errors)
+        self.assertTrue(any(list(error.path) == ["created_at"] and error.validator == "format" for error in errors))
+
 
 def _valid_link(relation: str) -> dict:
     payload = {
@@ -62,6 +104,24 @@ def _valid_link(relation: str) -> dict:
         "source_event_ids": ["E-001"],
     }
     return deepcopy(payload)
+
+
+def _format_checker() -> FormatChecker:
+    checker = FormatChecker()
+
+    @checker.checks("date-time")
+    def is_date_time(value: object) -> bool:
+        if not isinstance(value, str):
+            return True
+        if "T" not in value:
+            return False
+        try:
+            datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return False
+        return True
+
+    return checker
 
 
 if __name__ == "__main__":

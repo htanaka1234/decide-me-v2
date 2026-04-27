@@ -2,6 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/decide-me/project-state.schema.json",
   "title": "Decide Me Project State",
+  "$comment": "Phase 5 target projection schema. Current runtime still emits projection schema v9 until PR 5-2 replaces runtime projections with the v10 object/link state.",
   "type": "object",
   "required": [
     "schema_version",
