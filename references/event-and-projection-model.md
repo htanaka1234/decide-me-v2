@@ -42,8 +42,14 @@ Projection rules:
 - Domain state is recorded as objects and links. `object_recorded.payload.object` matches
   `schemas/object.schema.json`; `object_linked.payload.link` matches
   `schemas/link.schema.json`.
+- `object_updated.payload.patch` may contain only `title`, `body`, and `metadata`.
+  Object `id`, `type`, links, and status are immutable through this event.
+- `object_status_changed.payload` is `{object_id, from_status, to_status, reason, changed_at}`.
+  Rebuild and validation must reject transitions whose `from_status` does not match the current
+  projected object status.
 - `object_unlinked` removes the link from the active projection. Link history remains in the
   event log.
+- `session_answer_recorded.payload.answer` is `{summary, answered_at, answered_via}`.
 - `project_state.state.project_head` is a SHA-256 chain hash over canonical event content and the
   previous project head, replacing the old project-wide sequence number.
 

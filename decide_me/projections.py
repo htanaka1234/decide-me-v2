@@ -322,15 +322,9 @@ def apply_event(
     elif event_type == "session_resumed":
         session = sessions[session_id]
         active = session["working_state"]["active_proposal"]
-        active_target_id = active.get("target_id")
         session["session"]["last_seen_at"] = payload["resumed_at"]
         session["session"]["lifecycle"]["status"] = "active"
         _deactivate_proposal(session, "session-boundary")
-        if active_target_id:
-            decision = _find_decision(project_state, active_target_id)
-            if decision and decision["status"] == "proposed":
-                decision["status"] = "unresolved"
-                _touch_object(decision, ts, event["event_id"])
     elif event_type == "object_recorded":
         obj = _record_object(project_state, payload["object"], event["event_id"])
         _maybe_activate_proposal_from_object(sessions, session_id, obj, project_head_after, ts)
@@ -342,16 +336,22 @@ def apply_event(
         _touch_session_for_object(sessions, session_id, project_state, obj["id"], ts, project_head_after)
     elif event_type == "object_status_changed":
         obj = _require_object(project_state, payload["object_id"])
-        obj["status"] = payload["status"]
-        _touch_object(obj, ts, event["event_id"])
+        if obj["status"] != payload["from_status"]:
+            raise ValueError(
+                f"object_status_changed expected {obj['id']} status "
+                f"{payload['from_status']}, found {obj['status']}"
+            )
+        status_ts = payload["changed_at"]
+        obj["status"] = payload["to_status"]
+        _touch_object(obj, status_ts, event["event_id"])
         if (
             obj.get("type") == "decision"
-            and payload["status"] in {"accepted", "rejected", "deferred", "resolved-by-evidence", "invalidated"}
+            and payload["to_status"] in {"accepted", "rejected", "deferred", "resolved-by-evidence", "invalidated"}
             and session_id in sessions
             and sessions[session_id]["summary"].get("active_decision_id") == obj["id"]
         ):
             _clear_question_state(sessions[session_id], None)
-        _touch_session_for_object(sessions, session_id, project_state, obj["id"], ts, project_head_after)
+        _touch_session_for_object(sessions, session_id, project_state, obj["id"], status_ts, project_head_after)
     elif event_type == "object_linked":
         _record_link(project_state, payload["link"], event["event_id"])
         _touch_session(
@@ -404,14 +404,9 @@ def apply_event(
     elif event_type == "session_closed":
         session = sessions[session_id]
         active = session["working_state"]["active_proposal"]
-        active_target_id = active.get("target_id")
         session["session"]["lifecycle"]["status"] = "closed"
         session["session"]["lifecycle"]["closed_at"] = payload["closed_at"]
         _clear_question_state(session, "session-closed")
-        if active_target_id:
-            decision = _find_decision(project_state, active_target_id)
-            if decision and decision["status"] == "proposed":
-                decision["status"] = "unresolved"
         _touch_session(
             sessions,
             session_id,
@@ -431,13 +426,6 @@ def apply_event(
         "last_event_id": event["event_id"],
     }
     taxonomy_state["state"] = {"updated_at": ts, "last_event_id": event["event_id"]}
-
-
-def _find_decision(project_state: dict[str, Any], decision_id: str) -> dict[str, Any] | None:
-    candidate = _find_object(project_state, decision_id)
-    if candidate and candidate.get("type") == "decision":
-        return candidate
-    return None
 
 
 def _object_exists(project_state: dict[str, Any], object_id: str) -> bool:
@@ -470,7 +458,7 @@ def _record_object(project_state: dict[str, Any], payload: dict[str, Any], event
 
 
 def _deep_update_object(obj: dict[str, Any], patch: dict[str, Any]) -> None:
-    for key in ("type", "title", "body"):
+    for key in ("title", "body"):
         if key in patch:
             obj[key] = deepcopy(patch[key])
     if "metadata" in patch:

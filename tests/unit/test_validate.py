@@ -50,7 +50,7 @@ class EventLogValidationTests(unittest.TestCase):
     def test_rejects_missing_object_references(self) -> None:
         cases = [
             _event(3, "S-001", "object_updated", {"object_id": "O-missing", "patch": {"title": "No"}}),
-            _event(3, "S-001", "object_status_changed", {"object_id": "O-missing", "status": "accepted"}),
+            _event(3, "S-001", "object_status_changed", _status("O-missing", "unresolved", "accepted", 3)),
             _event(
                 3,
                 "S-001",
@@ -62,6 +62,16 @@ class EventLogValidationTests(unittest.TestCase):
             with self.subTest(event_type=event["event_type"]):
                 with self.assertRaisesRegex(StateValidationError, "unknown object"):
                     validate_event_log([*_base_events(), event])
+
+    def test_rejects_status_change_from_status_mismatch(self) -> None:
+        events = [
+            *_base_events(),
+            _event(3, "S-001", "object_recorded", {"object": _object("O-decision", "E-test-3")}),
+            _event(4, "S-001", "object_status_changed", _status("O-decision", "proposed", "accepted", 4)),
+        ]
+
+        with self.assertRaisesRegex(StateValidationError, "from_status mismatch"):
+            validate_event_log(events)
 
     def test_rejects_link_with_missing_source_or_target(self) -> None:
         events = [
@@ -167,6 +177,16 @@ def _event(sequence: int, session_id: str, event_type: str, payload: dict, *, tx
         timestamp=f"2026-04-23T12:{sequence:02d}:00Z",
         project_head="H-before",
     )
+
+
+def _status(object_id: str, from_status: str, to_status: str, sequence: int) -> dict:
+    return {
+        "object_id": object_id,
+        "from_status": from_status,
+        "to_status": to_status,
+        "reason": "Test status change.",
+        "changed_at": f"2026-04-23T12:{sequence:02d}:00Z",
+    }
 
 
 def _object(object_id: str, event_id: str, *, object_type: str = "decision") -> dict:

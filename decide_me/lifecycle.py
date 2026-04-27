@@ -90,6 +90,12 @@ def resume_session(ai_dir: str, session_id: str) -> dict[str, Any]:
         if session["session"]["lifecycle"]["status"] == "closed":
             raise ValueError(f"session {session_id} is closed")
         return [
+            *_proposal_boundary_status_events(
+                bundle,
+                session,
+                now,
+                "Session resumed; previous proposal became inactive.",
+            ),
             {
                 "session_id": session_id,
                 "event_type": "session_resumed",
@@ -111,6 +117,12 @@ def close_session(ai_dir: str, session_id: str) -> dict[str, Any]:
         close_summary = build_close_summary(bundle["project_state"], session)
         close_summary["generated_at"] = now
         return [
+            *_proposal_boundary_status_events(
+                bundle,
+                session,
+                now,
+                "Session closed with unresolved active proposal.",
+            ),
             {
                 "session_id": session_id,
                 "event_type": "close_summary_generated",
@@ -197,6 +209,34 @@ def _require_session(bundle: dict[str, Any], session_id: str) -> dict[str, Any]:
         return bundle["sessions"][session_id]
     except KeyError as exc:
         raise ValueError(f"unknown session: {session_id}") from exc
+
+
+def _proposal_boundary_status_events(
+    bundle: dict[str, Any],
+    session: dict[str, Any],
+    changed_at: str,
+    reason: str,
+) -> list[dict[str, Any]]:
+    active = session["working_state"]["active_proposal"]
+    target_id = active.get("target_id")
+    if not target_id:
+        return []
+    for obj in bundle["project_state"].get("objects", []):
+        if obj.get("id") == target_id and obj.get("type") == "decision" and obj.get("status") == "proposed":
+            return [
+                {
+                    "session_id": session["session"]["id"],
+                    "event_type": "object_status_changed",
+                    "payload": {
+                        "object_id": target_id,
+                        "from_status": "proposed",
+                        "to_status": "unresolved",
+                        "reason": reason,
+                        "changed_at": changed_at,
+                    },
+                }
+            ]
+    return []
 
 
 def _decision_snapshot(decision: dict[str, Any]) -> dict[str, Any]:

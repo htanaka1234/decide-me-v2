@@ -45,10 +45,33 @@ class EventTests(unittest.TestCase):
             _event(event_type="object_recorded", payload={"object": obj})
 
     def test_object_updated_rejects_runtime_managed_patch_fields(self) -> None:
-        with self.assertRaisesRegex(EventValidationError, "unsupported fields: status"):
+        for field in ("id", "type", "status", "links"):
+            with self.subTest(field=field):
+                with self.assertRaisesRegex(EventValidationError, f"unsupported fields: {field}"):
+                    _event(
+                        event_type="object_updated",
+                        payload={"object_id": "O-001", "patch": {field: "blocked"}},
+                    )
+
+    def test_object_status_changed_accepts_audited_status_transition(self) -> None:
+        event = _event(
+            event_type="object_status_changed",
+            payload={
+                "object_id": "O-001",
+                "from_status": "unresolved",
+                "to_status": "accepted",
+                "reason": "Accepted by explicit reply.",
+                "changed_at": "2026-04-23T12:00:00Z",
+            },
+        )
+
+        validate_event(event)
+
+    def test_object_status_changed_rejects_legacy_status_payload(self) -> None:
+        with self.assertRaisesRegex(EventValidationError, "from_status"):
             _event(
-                event_type="object_updated",
-                payload={"object_id": "O-001", "patch": {"status": "accepted"}},
+                event_type="object_status_changed",
+                payload={"object_id": "O-001", "status": "accepted"},
             )
 
     def test_object_linked_accepts_link_schema_shape(self) -> None:

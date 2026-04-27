@@ -87,6 +87,10 @@ Runtime invariants:
   `transaction_rejected`, `object_recorded`, `object_updated`,
   `object_status_changed`, `object_linked`, `object_unlinked`,
   `session_question_asked`, and `session_answer_recorded`.
+- `object_updated` may patch only `title`, `body`, and `metadata`; status changes must use
+  `object_status_changed` with `from_status`, `to_status`, `reason`, and `changed_at`.
+- `session_answer_recorded.payload.answer` is an object with `summary`, `answered_at`, and
+  `answered_via`.
 - Deleted decision/proposal/session-graph compatibility event names are invalid; do not emit
   migration, backfill, or compatibility events.
 - `project-state.json`, `taxonomy-state.json`, and `sessions/*.json` are rebuildable projections

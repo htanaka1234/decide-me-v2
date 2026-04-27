@@ -31,7 +31,7 @@ class ProjectionTests(unittest.TestCase):
                     5,
                     "S-001",
                     "object_status_changed",
-                    {"object_id": "O-decision", "status": "accepted"},
+                    _status("O-decision", "unresolved", "accepted", 5),
                 ),
                 _event(
                     6,
@@ -77,13 +77,23 @@ class ProjectionTests(unittest.TestCase):
         events = [
             *_base_events(),
             _event(3, "S-001", "object_recorded", {"object": _object("O-decision", "E-test-3")}),
-            _event(4, "S-001", "object_status_changed", {"object_id": "O-decision", "status": "accepted"}),
+            _event(4, "S-001", "object_status_changed", _status("O-decision", "unresolved", "accepted", 4)),
         ]
 
         rebuilt = rebuild_projections(events)
         incremental = apply_events_to_bundle(deepcopy(rebuild_projections(events[:2])), events[2:])
 
         self.assertEqual(rebuilt, incremental)
+
+    def test_status_change_rejects_from_status_mismatch(self) -> None:
+        events = [
+            *_base_events(),
+            _event(3, "S-001", "object_recorded", {"object": _object("O-decision", "E-test-3")}),
+            _event(4, "S-001", "object_status_changed", _status("O-decision", "proposed", "accepted", 4)),
+        ]
+
+        with self.assertRaisesRegex(ValueError, "from_status|expected"):
+            rebuild_projections(events)
 
 
 def _base_events() -> list[dict]:
@@ -129,6 +139,16 @@ def _event(sequence: int, session_id: str, event_type: str, payload: dict) -> di
         timestamp=f"2026-04-23T12:{sequence:02d}:00Z",
         project_head="H-before",
     )
+
+
+def _status(object_id: str, from_status: str, to_status: str, sequence: int) -> dict:
+    return {
+        "object_id": object_id,
+        "from_status": from_status,
+        "to_status": to_status,
+        "reason": "Test status change.",
+        "changed_at": f"2026-04-23T12:{sequence:02d}:00Z",
+    }
 
 
 def _object(object_id: str, event_id: str, *, object_type: str = "decision") -> dict:

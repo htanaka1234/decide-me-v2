@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from decide_me.classification import classify_session
 from decide_me.events import EVENT_TYPES
 from decide_me.lifecycle import create_session
 from decide_me.protocol import (
@@ -13,9 +14,8 @@ from decide_me.protocol import (
     discover_decision,
     enrich_decision,
     issue_proposal,
-    update_classification,
+    resolve_by_evidence,
 )
-from decide_me.session_graph import link_session, resolve_session_conflict
 from decide_me.store import (
     bootstrap_runtime,
     load_runtime,
@@ -104,50 +104,77 @@ class RuntimeFlowTests(unittest.TestCase):
             persisted = json.loads((ai_dir / "project-state.json").read_text(encoding="utf-8"))
             self.assertEqual(rebuilt["project_state"], persisted)
 
-    def test_deleted_source_of_truth_commands_hard_fail(self) -> None:
+    def test_reuses_evidence_object_across_multiple_decisions(self) -> None:
         with TemporaryDirectory() as tmp:
             ai_dir = Path(tmp) / ".ai" / "decide-me"
             bootstrap_runtime(
                 ai_dir,
                 project_name="Demo",
-                objective="Reject deleted event sources.",
+                objective="Reuse evidence objects.",
                 current_milestone="Phase 5-3",
             )
-            parent_id = create_session(str(ai_dir), context="Parent")["session"]["id"]
-            child_id = create_session(str(ai_dir), context="Child")["session"]["id"]
-
-            with self.assertRaisesRegex(ValueError, "unsupported"):
-                classify_session(
+            session_id = create_session(str(ai_dir), context="Evidence reuse")["session"]["id"]
+            for decision_id, title in (
+                ("D-auth", "Auth mode"),
+                ("D-audit", "Audit sink"),
+            ):
+                discover_decision(
                     str(ai_dir),
-                    parent_id,
-                    candidate_terms=["runtime"],
-                    source_refs=["accepted_decisions"],
+                    session_id,
+                    {
+                        "id": decision_id,
+                        "title": title,
+                        "priority": "P0",
+                        "frontier": "now",
+                        "domain": "technical",
+                        "question": f"Resolve {title}?",
+                    },
                 )
-            with self.assertRaisesRegex(ValueError, "unsupported"):
-                update_classification(
+                resolve_by_evidence(
                     str(ai_dir),
-                    parent_id,
-                    domain="technical",
-                    abstraction_level="implementation",
-                )
-            with self.assertRaisesRegex(ValueError, "unsupported"):
-                link_session(
-                    str(ai_dir),
-                    parent_session_id=parent_id,
-                    child_session_id=child_id,
-                    relationship="refines",
-                    reason="Deleted source event.",
-                )
-            with self.assertRaisesRegex(ValueError, "unsupported"):
-                resolve_session_conflict(
-                    str(ai_dir),
-                    conflict_id="C-demo",
-                    winning_session_id=parent_id,
-                    rejected_session_ids=[child_id],
-                    reason="Deleted source event.",
+                    session_id,
+                    decision_id=decision_id,
+                    source="docs",
+                    summary="The architecture note resolves this.",
+                    evidence_refs=["docs/architecture.md"],
                 )
 
             self.assertEqual([], validate_runtime(ai_dir))
+            rebuilt = rebuild_and_persist(ai_dir)
+            evidence_objects = [
+                obj
+                for obj in rebuilt["project_state"]["objects"]
+                if obj["type"] == "evidence" and obj["metadata"].get("ref") == "docs/architecture.md"
+            ]
+            self.assertEqual(1, len(evidence_objects))
+            support_links = [
+                link
+                for link in rebuilt["project_state"]["links"]
+                if link["relation"] == "supports" and link["source_object_id"] == evidence_objects[0]["id"]
+            ]
+
+            self.assertEqual({"D-auth", "D-audit"}, {link["target_object_id"] for link in support_links})
+
+    def test_deleted_write_commands_are_not_exposed_by_cli(self) -> None:
+        script = Path(__file__).resolve().parents[2] / "scripts" / "decide_me.py"
+        help_result = subprocess.run(
+            [sys.executable, str(script), "--help"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        self.assertNotIn("classify-session", help_result.stdout)
+        self.assertNotIn("link-session", help_result.stdout)
+        self.assertNotIn("resolve-session-conflict", help_result.stdout)
+
+        invalid_result = subprocess.run(
+            [sys.executable, str(script), "classify-session", "--help"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertNotEqual(0, invalid_result.returncode)
+        self.assertIn("invalid choice", invalid_result.stderr)
 
 
 if __name__ == "__main__":

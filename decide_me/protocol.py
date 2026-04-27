@@ -181,7 +181,13 @@ def issue_proposal(
             {
                 "session_id": session_id,
                 "event_type": "object_status_changed",
-                "payload": {"object_id": decision_id, "status": "proposed"},
+                "payload": _status_change_payload(
+                    bundle,
+                    decision_id,
+                    "proposed",
+                    "Proposal issued for session question.",
+                    now,
+                ),
             },
             {
                 "session_id": session_id,
@@ -285,7 +291,13 @@ def accept_proposal(
             {
                 "session_id": session_id,
                 "event_type": "object_status_changed",
-                "payload": {"object_id": target["target_id"], "status": "accepted"},
+                "payload": _status_change_payload(
+                    bundle,
+                    target["target_id"],
+                    "accepted",
+                    f"Accepted by {mode}.",
+                    now,
+                ),
             },
             {
                 "session_id": session_id,
@@ -298,7 +310,13 @@ def accept_proposal(
             {
                 "session_id": session_id,
                 "event_type": "object_status_changed",
-                "payload": {"object_id": target["proposal_id"], "status": "accepted"},
+                "payload": _status_change_payload(
+                    bundle,
+                    target["proposal_id"],
+                    "accepted",
+                    "Accepted with target decision.",
+                    now,
+                ),
             },
             {
                 "event_id": accept_link_event_id,
@@ -345,12 +363,24 @@ def reject_proposal(
             {
                 "session_id": session_id,
                 "event_type": "object_status_changed",
-                "payload": {"object_id": target["target_id"], "status": "rejected"},
+                "payload": _status_change_payload(
+                    bundle,
+                    target["target_id"],
+                    "rejected",
+                    "Proposal rejected by user.",
+                    now,
+                ),
             },
             {
                 "session_id": session_id,
                 "event_type": "object_status_changed",
-                "payload": {"object_id": target["proposal_id"], "status": "rejected"},
+                "payload": _status_change_payload(
+                    bundle,
+                    target["proposal_id"],
+                    "rejected",
+                    "Proposal rejected by user.",
+                    now,
+                ),
             },
             {
                 "session_id": session_id,
@@ -417,7 +447,13 @@ def answer_proposal(
             {
                 "session_id": session_id,
                 "event_type": "object_status_changed",
-                "payload": {"object_id": target["target_id"], "status": "accepted"},
+                "payload": _status_change_payload(
+                    bundle,
+                    target["target_id"],
+                    "accepted",
+                    "Session answer recorded.",
+                    now,
+                ),
             },
             {
                 "session_id": session_id,
@@ -435,7 +471,13 @@ def answer_proposal(
                     {
                         "session_id": session_id,
                         "event_type": "object_status_changed",
-                        "payload": {"object_id": target["proposal_id"], "status": "accepted"},
+                        "payload": _status_change_payload(
+                            bundle,
+                            target["proposal_id"],
+                            "accepted",
+                            "Answer matched proposal recommendation.",
+                            now,
+                        ),
                     },
                     {
                         "event_id": link_event_id,
@@ -461,7 +503,13 @@ def answer_proposal(
                     {
                         "session_id": session_id,
                         "event_type": "object_status_changed",
-                        "payload": {"object_id": target["proposal_id"], "status": "rejected"},
+                        "payload": _status_change_payload(
+                            bundle,
+                            target["proposal_id"],
+                            "rejected",
+                            "Answer differed from proposal recommendation.",
+                            now,
+                        ),
                     },
                     {
                         "session_id": session_id,
@@ -487,6 +535,7 @@ def answer_proposal(
 
 def defer_decision(ai_dir: str, session_id: str, *, decision_id: str, reason: str) -> dict[str, Any]:
     reason = _require_non_empty_text(reason, "reason")
+    now = utc_now()
 
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
         session = _require_mutable_session(bundle, session_id)
@@ -498,7 +547,7 @@ def defer_decision(ai_dir: str, session_id: str, *, decision_id: str, reason: st
             {
                 "session_id": session_id,
                 "event_type": "object_status_changed",
-                "payload": {"object_id": decision_id, "status": "deferred"},
+                "payload": _status_change_payload(bundle, decision_id, "deferred", reason, now),
             },
             {
                 "session_id": session_id,
@@ -550,7 +599,13 @@ def resolve_by_evidence(
             {
                 "session_id": session_id,
                 "event_type": "object_status_changed",
-                "payload": {"object_id": decision_id, "status": "resolved-by-evidence"},
+                "payload": _status_change_payload(
+                    bundle,
+                    decision_id,
+                    "resolved-by-evidence",
+                    "Resolved by evidence.",
+                    now,
+                ),
             },
             {
                 "session_id": session_id,
@@ -580,25 +635,29 @@ def resolve_by_evidence(
             evidence_event_id = new_event_id()
             link_event_id = new_event_id()
             evidence_id = f"O-evidence-{_stable_id(evidence_ref)}"
-            events.append(
-                {
-                    "event_id": evidence_event_id,
-                    "session_id": session_id,
-                    "event_type": "object_recorded",
-                    "payload": {
-                        "object": _object_payload(
-                            object_id=evidence_id,
-                            object_type="evidence",
-                            title=evidence_ref,
-                            body=summary,
-                            status="active",
-                            created_at=now,
-                            event_id=evidence_event_id,
-                            metadata={"source": source, "ref": evidence_ref},
-                        )
-                    },
-                }
-            )
+            existing_evidence = _find_object(bundle, evidence_id)
+            if existing_evidence is not None and existing_evidence.get("type") != "evidence":
+                raise ValueError(f"evidence object id collision: {evidence_id}")
+            if existing_evidence is None:
+                events.append(
+                    {
+                        "event_id": evidence_event_id,
+                        "session_id": session_id,
+                        "event_type": "object_recorded",
+                        "payload": {
+                            "object": _object_payload(
+                                object_id=evidence_id,
+                                object_type="evidence",
+                                title=evidence_ref,
+                                body=summary,
+                                status="active",
+                                created_at=now,
+                                event_id=evidence_event_id,
+                                metadata={"source": source, "ref": evidence_ref},
+                            )
+                        },
+                    }
+                )
             events.append(
                 {
                     "event_id": link_event_id,
@@ -654,7 +713,13 @@ def resolve_decision_supersession(
             {
                 "session_id": session_id,
                 "event_type": "object_status_changed",
-                "payload": {"object_id": superseded_decision_id, "status": "invalidated"},
+                "payload": _status_change_payload(
+                    bundle,
+                    superseded_decision_id,
+                    "invalidated",
+                    reason,
+                    now,
+                ),
             },
             {
                 "session_id": session_id,
@@ -784,6 +849,37 @@ def _lookup_decision(bundle: dict[str, Any], decision_id: str) -> dict[str, Any]
         if decision["id"] == decision_id:
             return decision
     raise ValueError(f"unknown decision: {decision_id}")
+
+
+def _lookup_object(bundle: dict[str, Any], object_id: str) -> dict[str, Any]:
+    for obj in bundle["project_state"].get("objects", []):
+        if obj.get("id") == object_id:
+            return obj
+    raise ValueError(f"unknown object: {object_id}")
+
+
+def _find_object(bundle: dict[str, Any], object_id: str) -> dict[str, Any] | None:
+    for obj in bundle["project_state"].get("objects", []):
+        if obj.get("id") == object_id:
+            return obj
+    return None
+
+
+def _status_change_payload(
+    bundle: dict[str, Any],
+    object_id: str,
+    to_status: str,
+    reason: str,
+    changed_at: str,
+) -> dict[str, Any]:
+    obj = _lookup_object(bundle, object_id)
+    return {
+        "object_id": object_id,
+        "from_status": obj["status"],
+        "to_status": to_status,
+        "reason": reason,
+        "changed_at": changed_at,
+    }
 
 
 def _decision_exists(bundle: dict[str, Any], decision_id: str) -> bool:

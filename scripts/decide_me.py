@@ -11,7 +11,6 @@ REPO_ROOT_STR = str(REPO_ROOT)
 sys.path = [entry for entry in sys.path if entry != REPO_ROOT_STR]
 sys.path.insert(0, REPO_ROOT_STR)
 
-from decide_me.classification import classify_session
 from decide_me.conflicts import detect_merge_conflicts, resolve_merge_conflict
 from decide_me.exports import (
     export_adr,
@@ -30,8 +29,6 @@ from decide_me.planner import generate_plan
 from decide_me.protocol import resolve_decision_supersession
 from decide_me.session_graph import (
     detect_session_conflicts,
-    link_session,
-    resolve_session_conflict,
     show_session_graph,
 )
 from decide_me.store import benchmark_runtime, bootstrap_runtime, compact_runtime, rebuild_and_persist, validate_runtime
@@ -119,14 +116,6 @@ def main(argv: list[str] | None = None) -> int:
     resolve_conflict.add_argument("--reject-tx-id", action="append", required=True)
     resolve_conflict.add_argument("--reason", required=True)
 
-    link = subparsers.add_parser("link-session", help="record an explicit semantic parent-child session link")
-    link.add_argument("--ai-dir", required=True)
-    link.add_argument("--parent-session-id", required=True)
-    link.add_argument("--child-session-id", required=True)
-    link.add_argument("--relationship", required=True)
-    link.add_argument("--reason", required=True)
-    link.add_argument("--evidence-ref", action="append", default=[])
-
     show_graph = subparsers.add_parser("show-session-graph", help="show explicit and inferred session graph context")
     show_graph.add_argument("--ai-dir", required=True)
     show_graph.add_argument("--session-id")
@@ -139,16 +128,6 @@ def main(argv: list[str] | None = None) -> int:
     detect_session.add_argument("--ai-dir", required=True)
     detect_session.add_argument("--session-id", action="append", required=True)
     detect_session.add_argument("--include-related", action="store_true")
-
-    resolve_session = subparsers.add_parser(
-        "resolve-session-conflict",
-        help="resolve a semantic conflict across explicitly related sessions",
-    )
-    resolve_session.add_argument("--ai-dir", required=True)
-    resolve_session.add_argument("--conflict-id", required=True)
-    resolve_session.add_argument("--winning-session-id", required=True)
-    resolve_session.add_argument("--reject-session-id", action="append", required=True)
-    resolve_session.add_argument("--reason", required=True)
 
     resolve_supersession = subparsers.add_parser(
         "resolve-decision-supersession",
@@ -230,15 +209,6 @@ def main(argv: list[str] | None = None) -> int:
     verification_gaps.add_argument("--output", required=True)
     verification_gaps.add_argument("--session-id", action="append")
 
-    classify = subparsers.add_parser("classify-session", help="classify a session deterministically")
-    classify.add_argument("--ai-dir", required=True)
-    classify.add_argument("--session-id", required=True)
-    classify.add_argument("--domain")
-    classify.add_argument("--abstraction-level")
-    classify.add_argument("--candidate-term", action="append", default=[])
-    classify.add_argument("--source-ref", action="append", default=[])
-    classify.add_argument("--reason", default="classification-updated")
-
     advance = subparsers.add_parser("advance-session", help="advance a session by evidence scan and question selection")
     advance.add_argument("--ai-dir", required=True)
     advance.add_argument("--session-id", required=True)
@@ -308,17 +278,6 @@ def main(argv: list[str] | None = None) -> int:
                     reason=args.reason,
                 )
             )
-        elif args.command == "link-session":
-            _print_json(
-                link_session(
-                    args.ai_dir,
-                    parent_session_id=args.parent_session_id,
-                    child_session_id=args.child_session_id,
-                    relationship=args.relationship,
-                    reason=args.reason,
-                    evidence_refs=args.evidence_ref,
-                )
-            )
         elif args.command == "show-session-graph":
             _print_json(
                 show_session_graph(
@@ -333,16 +292,6 @@ def main(argv: list[str] | None = None) -> int:
                     args.ai_dir,
                     session_ids=args.session_id,
                     include_related=args.include_related,
-                )
-            )
-        elif args.command == "resolve-session-conflict":
-            _print_json(
-                resolve_session_conflict(
-                    args.ai_dir,
-                    conflict_id=args.conflict_id,
-                    winning_session_id=args.winning_session_id,
-                    rejected_session_ids=args.reject_session_id,
-                    reason=args.reason,
                 )
             )
         elif getattr(args, "handler_command", args.command) == "resolve-decision-supersession":
@@ -416,18 +365,6 @@ def main(argv: list[str] | None = None) -> int:
                 session_ids=args.session_id,
             )
             _print_json({"path": str(path)})
-        elif args.command == "classify-session":
-            _print_json(
-                classify_session(
-                    args.ai_dir,
-                    args.session_id,
-                    domain=args.domain,
-                    abstraction_level=args.abstraction_level,
-                    candidate_terms=args.candidate_term,
-                    source_refs=args.source_ref,
-                    reason=args.reason,
-                )
-            )
         elif args.command == "advance-session":
             _print_json(
                 advance_session(

@@ -948,6 +948,7 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
     session_status: dict[str, str] = {SYSTEM_SESSION_ID: "active"}
     has_close_summary: dict[str, bool] = {}
     object_ids: set[str] = set()
+    object_statuses: dict[str, str] = {}
     active_link_ids: set[str] = set()
     pending_questions_by_session: dict[str, dict[str, str]] = defaultdict(dict)
     pending_close_summary_session_id: str | None = None
@@ -975,6 +976,7 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
             for key in ("name", "objective", "current_milestone", "stop_rule"):
                 _require_non_empty_string(project.get(key), f"project_initialized.payload.project.{key}")
             object_ids.add("O-project-objective")
+            object_statuses["O-project-objective"] = "active"
         elif event_type == "session_created":
             created_session_id = payload["session"]["id"]
             if event["session_id"] != created_session_id:
@@ -1004,6 +1006,7 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
             if object_id in object_ids:
                 raise StateValidationError(f"duplicate object_recorded id: {object_id}")
             object_ids.add(object_id)
+            object_statuses[object_id] = payload["object"]["status"]
         elif event_type == "object_updated":
             object_id = payload["object_id"]
             if object_id not in object_ids:
@@ -1012,6 +1015,13 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
             object_id = payload["object_id"]
             if object_id not in object_ids:
                 raise StateValidationError(f"object_status_changed references unknown object {object_id}")
+            actual_status = object_statuses[object_id]
+            if actual_status != payload["from_status"]:
+                raise StateValidationError(
+                    f"object_status_changed from_status mismatch for {object_id}: "
+                    f"expected {actual_status}, got {payload['from_status']}"
+                )
+            object_statuses[object_id] = payload["to_status"]
         elif event_type == "object_linked":
             link = payload["link"]
             link_id = link["id"]

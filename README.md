@@ -135,8 +135,8 @@ Resolve conflicts and replacements:
 
 - Same-session transaction conflicts use `detect-merge-conflicts` followed by
   `resolve-merge-conflict`.
-- Related-session semantic conflicts use `detect-session-conflicts` followed by
-  `resolve-session-conflict`.
+- Related-session semantic conflicts are read-only diagnostics from `detect-session-conflicts`;
+  resolve the underlying decisions with normal object/link events.
 - Project-wide decision replacements use `resolve-decision-supersession`.
 
 Resolve same-session transaction merge conflicts:
@@ -157,8 +157,12 @@ Record object relationships:
 
 1. Domain state changes are represented by `object_recorded`, `object_updated`,
    `object_status_changed`, `object_linked`, and `object_unlinked`.
-2. Session Q&A state is represented by `session_question_asked` and
-   `session_answer_recorded`.
+2. `object_updated` may update only `title`, `body`, and `metadata`; identity, type, links,
+   and status are not patchable.
+3. `object_status_changed` uses audited transitions with `object_id`, `from_status`,
+   `to_status`, `reason`, and `changed_at`.
+4. Session Q&A state is represented by `session_question_asked` and
+   `session_answer_recorded`; answers use `{summary, answered_at, answered_via}`.
 
 Reuse prior context:
 

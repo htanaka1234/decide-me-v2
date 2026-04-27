@@ -54,7 +54,7 @@ LINK_KEYS = {
     "created_at",
     "source_event_ids",
 }
-OBJECT_PATCH_KEYS = {"type", "title", "body", "metadata"}
+OBJECT_PATCH_KEYS = {"title", "body", "metadata"}
 
 EVENT_TYPES = {
     "project_initialized",
@@ -80,7 +80,7 @@ REQUIRED_PAYLOAD_KEYS: dict[str, tuple[str, ...]] = {
     "session_resumed": ("resumed_at",),
     "object_recorded": ("object",),
     "object_updated": ("object_id", "patch"),
-    "object_status_changed": ("object_id", "status"),
+    "object_status_changed": ("object_id", "from_status", "to_status", "reason", "changed_at"),
     "object_linked": ("link",),
     "object_unlinked": ("link_id",),
     "session_question_asked": ("question_id", "target_object_id", "question"),
@@ -211,9 +211,6 @@ def _validate_object_payload(obj: dict[str, Any], label: str) -> None:
 
 
 def _validate_object_patch(patch: dict[str, Any]) -> None:
-    if "type" in patch and patch["type"] not in OBJECT_TYPES:
-        allowed = ", ".join(sorted(OBJECT_TYPES))
-        raise EventValidationError(f"object_updated.payload.patch.type must be one of: {allowed}")
     if "title" in patch:
         _require_string_or_null(patch["title"], "object_updated.payload.patch.title", non_empty=True)
     if "body" in patch:
@@ -286,7 +283,10 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
         _validate_object_patch(patch)
     elif event_type == "object_status_changed":
         _require_non_empty_string(payload.get("object_id"), "object_status_changed.payload.object_id")
-        _require_non_empty_string(payload.get("status"), "object_status_changed.payload.status")
+        _require_non_empty_string(payload.get("from_status"), "object_status_changed.payload.from_status")
+        _require_non_empty_string(payload.get("to_status"), "object_status_changed.payload.to_status")
+        _require_non_empty_string(payload.get("reason"), "object_status_changed.payload.reason")
+        _require_timestamp(payload.get("changed_at"), "object_status_changed.payload.changed_at")
     elif event_type == "object_linked":
         _validate_link_payload(
             _require_dict(payload["link"], "object_linked.payload.link"),

@@ -425,7 +425,10 @@ def _transaction_summary_text(events: list[dict[str, Any]]) -> str:
         if event["event_type"] == "object_updated":
             return f"update object {event['payload']['object_id']}"
         if event["event_type"] == "object_status_changed":
-            return f"change object {event['payload']['object_id']} status to {event['payload']['status']}"
+            return (
+                f"change object {event['payload']['object_id']} status "
+                f"from {event['payload']['from_status']} to {event['payload']['to_status']}"
+            )
         if event["event_type"] == "object_linked":
             link = event["payload"]["link"]
             return (

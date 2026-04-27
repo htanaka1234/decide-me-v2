@@ -55,7 +55,13 @@ class ObjectEventProjectionIntegrationTests(unittest.TestCase):
                     {
                         "session_id": session_id,
                         "event_type": "object_status_changed",
-                        "payload": {"object_id": "O-decision", "status": "accepted"},
+                        "payload": {
+                            "object_id": "O-decision",
+                            "from_status": "unresolved",
+                            "to_status": "accepted",
+                            "reason": "Accepted in integration test.",
+                            "changed_at": "2026-04-23T12:05:00Z",
+                        },
                     },
                     {
                         "session_id": session_id,
