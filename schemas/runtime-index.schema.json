@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/decide-me/runtime-index.schema.json",
   "title": "Decide Me Runtime Index",
-  "$comment": "Runtime index schema for the v10 object/link project-state projection.",
+  "$comment": "Runtime index schema for the v11 object/link project-state projection.",
   "type": "object",
   "required": [
     "schema_version",
@@ -21,7 +21,7 @@
     },
     "projection_schema_version": {
       "type": "integer",
-      "const": 10
+      "const": 11
     },
     "project_head": {
       "type": ["string", "null"]

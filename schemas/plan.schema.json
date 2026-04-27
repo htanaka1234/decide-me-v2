@@ -12,13 +12,11 @@
   ],
   "properties": {
     "generated_at": {
-      "type": "string"
+      "type": "string",
+      "format": "date-time"
     },
     "source_session_ids": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
+      "$ref": "#/$defs/idList"
     },
     "status": {
       "type": "string",
@@ -31,9 +29,113 @@
       "type": "array"
     },
     "action_plan": {
-      "type": [
-        "object",
-        "null"
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "required": [
+            "readiness",
+            "goals",
+            "workstreams",
+            "actions",
+            "implementation_ready_actions",
+            "blockers",
+            "risks",
+            "evidence",
+            "source_object_ids",
+            "source_link_ids"
+          ],
+          "properties": {
+            "readiness": {
+              "type": "string",
+              "enum": [
+                "ready",
+                "conditional",
+                "blocked"
+              ]
+            },
+            "goals": {
+              "type": "array"
+            },
+            "workstreams": {
+              "type": "array"
+            },
+            "actions": {
+              "type": "array"
+            },
+            "implementation_ready_actions": {
+              "type": "array"
+            },
+            "blockers": {
+              "type": "array"
+            },
+            "risks": {
+              "type": "array"
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "id",
+                  "title",
+                  "summary",
+                  "status",
+                  "source",
+                  "ref",
+                  "metadata"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "title": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "summary": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "source": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "ref": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "metadata": {
+                    "type": "object"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "source_object_ids": {
+              "$ref": "#/$defs/idList"
+            },
+            "source_link_ids": {
+              "$ref": "#/$defs/idList"
+            }
+          },
+          "additionalProperties": false
+        }
       ]
     },
     "export_path": {
@@ -43,5 +145,14 @@
       ]
     }
   },
-  "additionalProperties": true
+  "$defs": {
+    "idList": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "additionalProperties": false
 }

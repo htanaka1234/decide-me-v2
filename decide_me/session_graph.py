@@ -126,6 +126,7 @@ def detect_session_conflicts(
     graph["inferred_candidates"] = infer_relationship_candidates(bundle, seed_session_ids=related_ids)
     semantic_conflicts = detect_conflicts(
         sessions,
+        bundle["project_state"],
         resolved_conflicts=graph["resolved_conflicts"],
         include_resolved=True,
     )
@@ -213,6 +214,7 @@ def _explicit_graph_conflicts(bundle: dict[str, Any]) -> list[dict[str, Any]]:
 
         component_conflicts = detect_conflicts(
             [bundle["sessions"][session_id] for session_id in component_session_ids],
+            bundle["project_state"],
             resolved_conflicts=graph["resolved_conflicts"],
         )
         for conflict in component_conflicts:
@@ -293,12 +295,16 @@ def _would_create_link_cycle(
 
 def _session_node(session_id: str, session: dict[str, Any]) -> dict[str, Any]:
     close_summary = session["close_summary"]
+    work_item = close_summary.get("work_item", {})
     return {
         "session_id": session_id,
         "status": session["session"]["lifecycle"]["status"],
         "related_object_ids": list(session["session"].get("related_object_ids", [])),
         "close_summary_preview": {
-            "work_item_title": close_summary.get("work_item_title"),
+            "work_item": {
+                "title": work_item.get("title"),
+                "statement": work_item.get("statement"),
+            },
             "readiness": close_summary.get("readiness"),
             "latest_summary": session["summary"].get("latest_summary"),
         },
@@ -335,9 +341,6 @@ def _infer_relationship_candidates(
                         {"related_decision_object_ids": shared_decisions},
                     )
                 )
-            candidates.extend(_accepted_answer_candidates(left_id, left, right_id, right))
-            candidates.extend(_workstream_candidates(left_id, left, right_id, right))
-            candidates.extend(_action_slice_candidates(left_id, left, right_id, right))
     return sorted(candidates, key=lambda item: item["candidate_id"])
 
 
@@ -392,78 +395,6 @@ def _write_graph_cache(path: Path, project_head: str | None, graph: dict[str, An
         temporary.unlink(missing_ok=True)
 
 
-def _accepted_answer_candidates(
-    left_id: str, left: dict[str, Any], right_id: str, right: dict[str, Any]
-) -> list[dict[str, Any]]:
-    candidates: list[dict[str, Any]] = []
-    left_answers = _accepted_answers_by_decision(left)
-    right_answers = _accepted_answers_by_decision(right)
-    for decision_id in sorted(set(left_answers) & set(right_answers)):
-        if left_answers[decision_id] == right_answers[decision_id]:
-            continue
-        candidates.append(
-            _candidate(
-                "accepted-answer-mismatch",
-                "contradicts",
-                [left_id, right_id],
-                "Accepted answers differ for the same decision.",
-                "high",
-                {"decision_id": decision_id},
-            )
-        )
-    return candidates
-
-
-def _workstream_candidates(
-    left_id: str, left: dict[str, Any], right_id: str, right: dict[str, Any]
-) -> list[dict[str, Any]]:
-    candidates: list[dict[str, Any]] = []
-    left_workstreams = {item["name"]: set(item.get("scope", [])) for item in left["close_summary"]["candidate_workstreams"]}
-    right_workstreams = {item["name"]: set(item.get("scope", [])) for item in right["close_summary"]["candidate_workstreams"]}
-    for name in sorted(set(left_workstreams) & set(right_workstreams)):
-        if left_workstreams[name] == right_workstreams[name]:
-            continue
-        candidates.append(
-            _candidate(
-                "workstream-scope-overlap",
-                "refines",
-                [left_id, right_id],
-                "Workstream names overlap with different scopes.",
-                "medium",
-                {"name": name, "shared_scope": sorted(left_workstreams[name] & right_workstreams[name])},
-            )
-        )
-    return candidates
-
-
-def _action_slice_candidates(
-    left_id: str, left: dict[str, Any], right_id: str, right: dict[str, Any]
-) -> list[dict[str, Any]]:
-    candidates: list[dict[str, Any]] = []
-    left_actions = {
-        item["name"]: item.get("responsibility")
-        for item in left["close_summary"]["candidate_action_slices"]
-    }
-    right_actions = {
-        item["name"]: item.get("responsibility")
-        for item in right["close_summary"]["candidate_action_slices"]
-    }
-    for name in sorted(set(left_actions) & set(right_actions)):
-        if left_actions[name] == right_actions[name]:
-            continue
-        candidates.append(
-            _candidate(
-                "action-slice-responsibility-mismatch",
-                "contradicts",
-                [left_id, right_id],
-                "Action slice responsibilities differ.",
-                "high",
-                {"name": name},
-            )
-        )
-    return candidates
-
-
 def _candidate(
     kind: str,
     relationship: str,
@@ -484,15 +415,8 @@ def _candidate(
     }
 
 
-def _accepted_answers_by_decision(session: dict[str, Any]) -> dict[str, str | None]:
-    return {
-        item["id"]: item.get("accepted_answer")
-        for item in session["close_summary"].get("accepted_decisions", [])
-    }
-
-
 def _session_decision_object_ids(session: dict[str, Any]) -> list[str]:
-    return [
+    return list(session["close_summary"].get("object_ids", {}).get("decisions", [])) or [
         object_id
         for object_id in session["session"].get("related_object_ids", [])
         if object_id.startswith("D-")

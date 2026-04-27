@@ -740,10 +740,23 @@ def handle_reply(
 def stopping_summary(bundle: dict[str, Any], session_id: str) -> dict[str, Any]:
     session = _require_session(bundle, session_id)
     close_summary = build_close_summary(bundle["project_state"], session)
+    decisions = {decision["id"]: decision for decision in decision_views(bundle["project_state"])}
     return {
-        "accepted_decisions": close_summary["accepted_decisions"],
-        "deferred_decisions": close_summary["deferred_decisions"],
-        "remaining_risks": close_summary["unresolved_risks"],
+        "accepted_decisions": [
+            decisions[decision_id]
+            for decision_id in close_summary["object_ids"]["accepted_decisions"]
+            if decision_id in decisions
+        ],
+        "deferred_decisions": [
+            decisions[decision_id]
+            for decision_id in close_summary["object_ids"]["deferred_decisions"]
+            if decision_id in decisions
+        ],
+        "remaining_risks": [
+            decisions[decision_id]
+            for decision_id in close_summary["object_ids"]["risks"]
+            if decision_id in decisions
+        ],
         "next_recommended_action": _next_recommended_action(close_summary, session_id),
     }
 
@@ -817,20 +830,33 @@ def _runtime_evidence(
         if candidate_session["session"]["lifecycle"]["status"] != "closed":
             continue
         close_summary = candidate_session["close_summary"]
-        work_item_title = _normalize(close_summary.get("work_item_title"))
+        work_item_title = _normalize(close_summary.get("work_item", {}).get("title"))
         if title and title == work_item_title:
-            accepted = [
-                item
-                for item in close_summary.get("accepted_decisions", [])
-                if item.get("id") not in suppressed_ids
+            accepted_ids = [
+                decision_id
+                for decision_id in close_summary.get("object_ids", {}).get("accepted_decisions", [])
+                if decision_id not in suppressed_ids
             ]
-            if accepted:
-                summary = accepted[0].get("accepted_answer")
+            if accepted_ids:
+                accepted = next(
+                    (
+                        candidate
+                        for candidate in decision_views(bundle["project_state"])
+                        if candidate["id"] == accepted_ids[0]
+                    ),
+                    None,
+                )
+                summary = (
+                    accepted["accepted_answer"]["summary"]
+                    or accepted["resolved_by_evidence"]["summary"]
+                    if accepted
+                    else None
+                )
                 if summary:
                     return {
                         "source": "close-summaries",
                         "summary": summary,
-                        "evidence_refs": close_summary.get("evidence_refs", []),
+                        "evidence_refs": accepted.get("evidence_refs", []) if accepted else [],
                     }
     return None
 
@@ -1173,16 +1199,29 @@ def _render_summary_items(items: list[dict[str, Any]]) -> str:
     if not items:
         return "- none"
     return "\n".join(
-        f"- {item['id']}: {item.get('accepted_answer') or item.get('title') or item['id']}"
+        f"- {item['id']}: {_summary_item_text(item)}"
         for item in items
     )
 
 
+def _summary_item_text(item: dict[str, Any]) -> str:
+    accepted = item.get("accepted_answer")
+    if isinstance(accepted, dict) and accepted.get("summary"):
+        return accepted["summary"]
+    if isinstance(accepted, str) and accepted:
+        return accepted
+    resolved = item.get("resolved_by_evidence")
+    if isinstance(resolved, dict) and resolved.get("summary"):
+        return resolved["summary"]
+    return item.get("title") or item["id"]
+
+
 def _next_recommended_action(close_summary: dict[str, Any], session_id: str) -> str:
-    if close_summary["unresolved_blockers"]:
-        blocker = close_summary["unresolved_blockers"][0]
-        return f"Resolve blocker {blocker['id']} before closing the session."
-    if close_summary["unresolved_risks"]:
+    object_ids = close_summary.get("object_ids", {})
+    if object_ids.get("blockers"):
+        blocker_id = object_ids["blockers"][0]
+        return f"Resolve blocker {blocker_id} before closing the session."
+    if object_ids.get("risks"):
         return f"Review remaining risks, then close session {session_id} or generate a plan."
     return f"Close session {session_id} or generate a plan from closed sessions."
 

@@ -166,6 +166,21 @@ def _require_string_or_null(value: Any, label: str, *, non_empty: bool = False) 
         raise EventValidationError(f"{label} must be a non-empty string or null")
 
 
+def _require_list(value: Any, label: str) -> list[Any]:
+    if not isinstance(value, list):
+        raise EventValidationError(f"{label} must be a list")
+    return value
+
+
+def _require_id_list(value: Any, label: str) -> None:
+    seen: set[str] = set()
+    for item in _require_list(value, label):
+        _require_non_empty_string(item, f"{label}[]")
+        if item in seen:
+            raise EventValidationError(f"{label} contains duplicate ids")
+        seen.add(item)
+
+
 def _require_source_event_ids(value: Any, label: str) -> None:
     if not isinstance(value, list) or not value:
         raise EventValidationError(f"{label} must be a non-empty list")
@@ -322,21 +337,67 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
         _require_keys(
             close_summary,
             (
-                "work_item_title",
-                "work_item_statement",
-                "goal",
+                "work_item",
                 "readiness",
-                "accepted_decisions",
-                "deferred_decisions",
-                "unresolved_blockers",
-                "unresolved_risks",
-                "candidate_workstreams",
-                "candidate_action_slices",
-                "evidence_refs",
+                "object_ids",
+                "link_ids",
                 "generated_at",
             ),
             "close_summary",
         )
+        unsupported = sorted(
+            set(close_summary)
+            - {"work_item", "readiness", "object_ids", "link_ids", "generated_at"}
+        )
+        if unsupported:
+            raise EventValidationError(
+                "close_summary contains unsupported fields: " + ", ".join(unsupported)
+            )
+        work_item = _require_dict(
+            close_summary["work_item"],
+            "close_summary_generated.payload.close_summary.work_item",
+        )
+        _require_keys(work_item, ("title", "statement", "objective_object_id"), "close_summary.work_item")
+        unsupported_work_item = sorted(set(work_item) - {"title", "statement", "objective_object_id"})
+        if unsupported_work_item:
+            raise EventValidationError(
+                "close_summary.work_item contains unsupported fields: "
+                + ", ".join(unsupported_work_item)
+            )
+        _require_string_or_null(work_item.get("title"), "close_summary.work_item.title")
+        _require_string_or_null(work_item.get("statement"), "close_summary.work_item.statement")
+        _require_string_or_null(
+            work_item.get("objective_object_id"),
+            "close_summary.work_item.objective_object_id",
+            non_empty=True,
+        )
+        if close_summary.get("readiness") not in {"ready", "conditional", "blocked"}:
+            raise EventValidationError("close_summary.readiness must be ready, conditional, or blocked")
+        object_ids = _require_dict(
+            close_summary["object_ids"],
+            "close_summary_generated.payload.close_summary.object_ids",
+        )
+        object_id_keys = (
+            "decisions",
+            "accepted_decisions",
+            "deferred_decisions",
+            "blockers",
+            "risks",
+            "actions",
+            "evidence",
+            "verifications",
+            "revisit_triggers",
+        )
+        _require_keys(object_ids, object_id_keys, "close_summary.object_ids")
+        unsupported_object_id_keys = sorted(set(object_ids) - set(object_id_keys))
+        if unsupported_object_id_keys:
+            raise EventValidationError(
+                "close_summary.object_ids contains unsupported fields: "
+                + ", ".join(unsupported_object_id_keys)
+            )
+        for key in object_id_keys:
+            _require_id_list(object_ids[key], f"close_summary.object_ids.{key}")
+        _require_id_list(close_summary["link_ids"], "close_summary.link_ids")
         _require_timestamp(
             close_summary.get("generated_at"),
             "close_summary_generated.payload.close_summary.generated_at",

@@ -19,7 +19,7 @@ MATRIX_COLUMNS = [
     "Requirement ID",
     "Decision ID",
     "Session ID",
-    "Action Slice",
+    "Action",
     "Implementation Ready",
     "Evidence Source",
     "Risk",
@@ -98,7 +98,11 @@ def build_action_export_context_from_bundle(
     resolved_conflicts = graph.get("resolved_conflicts", [])
     from decide_me.planner import assemble_action_plan, detect_conflicts
 
-    conflicts = detect_conflicts(sessions, resolved_conflicts=resolved_conflicts)
+    conflicts = detect_conflicts(
+        sessions,
+        bundle["project_state"],
+        resolved_conflicts=resolved_conflicts,
+    )
     if conflicts:
         conflict_ids = ", ".join(conflict["conflict_id"] for conflict in conflicts)
         raise ValueError(f"unresolved session conflicts block {export_name}: {conflict_ids}")
@@ -109,7 +113,11 @@ def build_action_export_context_from_bundle(
         "events": events,
         "source_session_ids": source_session_ids,
         "sessions": normalized_sessions,
-        "action_plan": assemble_action_plan(sessions, resolved_conflicts=resolved_conflicts),
+        "action_plan": assemble_action_plan(
+            sessions,
+            bundle["project_state"],
+            resolved_conflicts=resolved_conflicts,
+        ),
         "generated_at": snapshot_generated_at(bundle, events),
         "project_head": project_head(bundle),
     }
@@ -209,22 +217,24 @@ def _traceability_rows(
     requirement_ids_by_decision: dict[str, str],
 ) -> list[dict[str, Any]]:
     session_ids_by_decision_id = _session_ids_by_decision_id(sessions)
+    evidence_by_id = _evidence_by_id(action_plan)
     rows: list[dict[str, Any]] = []
 
-    for action_slice in action_plan.get("action_slices", []):
-        decision_id = action_slice.get("decision_id")
+    for action in action_plan.get("actions", []):
+        decision_id = action.get("decision_id")
+        evidence_refs = _evidence_refs_for_item(action, evidence_by_id)
         rows.append(
             _row(
-                row_type="action-slice",
+                row_type="action",
                 decision_id=decision_id,
                 session_id=session_ids_by_decision_id.get(decision_id),
-                action_slice=action_slice.get("name") or decision_id or "Action slice",
-                implementation_ready=bool(action_slice.get("implementation_ready")),
-                evidence_source=action_slice.get("evidence_source"),
-                risk=_risk_label(action_slice),
-                status=action_slice.get("status") or "unknown",
-                evidence_refs=action_slice.get("evidence_refs", []),
-                source=action_slice,
+                action_slice=action.get("name") or decision_id or "Action",
+                implementation_ready=bool(action.get("implementation_ready")),
+                evidence_source=action.get("evidence_source"),
+                risk=_risk_label(action),
+                status=action.get("status") or "unknown",
+                evidence_refs=evidence_refs,
+                source=action,
             )
         )
 
@@ -232,6 +242,7 @@ def _traceability_rows(
     for blocker in action_plan.get("blockers", []):
         decision_id = blocker["id"]
         emitted_open_ids.add(decision_id)
+        evidence_refs = _evidence_refs_for_item(blocker, evidence_by_id)
         rows.append(
             _row(
                 row_type="blocker",
@@ -242,7 +253,7 @@ def _traceability_rows(
                 evidence_source=blocker.get("evidence_source"),
                 risk=_risk_label(blocker, blocker=True),
                 status=blocker.get("status") or "unresolved",
-                evidence_refs=blocker.get("evidence_refs", []),
+                evidence_refs=evidence_refs,
                 source=blocker,
             )
         )
@@ -251,6 +262,7 @@ def _traceability_rows(
         decision_id = risk["id"]
         if decision_id in emitted_open_ids:
             continue
+        evidence_refs = _evidence_refs_for_item(risk, evidence_by_id)
         rows.append(
             _row(
                 row_type="risk",
@@ -261,7 +273,7 @@ def _traceability_rows(
                 evidence_source=risk.get("evidence_source"),
                 risk=_risk_label(risk, risk=True),
                 status=risk.get("status") or "unresolved",
-                evidence_refs=risk.get("evidence_refs", []),
+                evidence_refs=evidence_refs,
                 source=risk,
             )
         )
@@ -285,7 +297,7 @@ def _row(
     evidence_refs: list[str],
     source: dict[str, Any],
 ) -> dict[str, Any]:
-    verification = _test_verification(source)
+    verification = _test_verification(source, evidence_refs)
     row = {
         "requirement_id": None,
         "decision_id": decision_id,
@@ -308,19 +320,11 @@ def _session_ids_by_decision_id(sessions: list[dict[str, Any]]) -> dict[str, str
     by_id: dict[str, str] = {}
     for session in sessions:
         session_id = session["session"]["id"]
-        close_summary = session["close_summary"]
-        for section in (
-            "accepted_decisions",
-            "deferred_decisions",
-            "unresolved_blockers",
-            "unresolved_risks",
-        ):
-            for item in close_summary.get(section, []):
-                by_id.setdefault(item["id"], session_id)
-        for action_slice in close_summary.get("candidate_action_slices", []):
-            decision_id = action_slice.get("decision_id")
-            if decision_id:
-                by_id.setdefault(decision_id, session_id)
+        object_ids = session["close_summary"].get("object_ids", {})
+        for section in ("decisions", "accepted_decisions", "deferred_decisions", "blockers", "risks"):
+            for object_id in object_ids.get(section, []):
+                if str(object_id).startswith("D-"):
+                    by_id.setdefault(object_id, session_id)
     return by_id
 
 
@@ -347,8 +351,23 @@ def _requirement_id_for_row(
     return requirement_id
 
 
-def _test_verification(source: dict[str, Any]) -> str | None:
-    evidence_refs = source.get("evidence_refs", [])
+def _evidence_by_id(action_plan: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {
+        item["id"]: item
+        for item in action_plan.get("evidence", [])
+        if item.get("id")
+    }
+
+
+def _evidence_refs_for_item(item: dict[str, Any], evidence_by_id: dict[str, dict[str, Any]]) -> list[str]:
+    return stable_unique(
+        evidence["ref"]
+        for evidence_id in item.get("evidence_ids", [])
+        if (evidence := evidence_by_id.get(evidence_id)) and evidence.get("ref")
+    )
+
+
+def _test_verification(source: dict[str, Any], evidence_refs: list[str]) -> str | None:
     test_refs = [ref for ref in evidence_refs if _is_test_ref(ref)]
     if source.get("evidence_source") == "tests":
         if evidence_refs:
@@ -367,7 +386,7 @@ def _verification_gaps(rows: list[dict[str, Any]]) -> dict[str, list[dict[str, A
             if row["implementation_ready"] and not row["verification_defined"]
         ],
         "missing_evidence": [
-            _gap(row, "No evidence_refs recorded")
+            _gap(row, "No evidence recorded")
             for row in rows
             if not row["evidence_refs"]
         ],
@@ -455,7 +474,7 @@ def _is_test_ref(ref: str) -> bool:
 
 
 def _row_sort_key(row: dict[str, Any]) -> tuple[int, str, str, str]:
-    row_type_rank = {"action-slice": 0, "blocker": 1, "risk": 2}
+    row_type_rank = {"action": 0, "blocker": 1, "risk": 2}
     return (
         row_type_rank.get(row["row_type"], 99),
         row.get("decision_id") or "",
@@ -469,7 +488,7 @@ def _matrix_row(row: dict[str, Any]) -> dict[str, str]:
         "Requirement ID": row["requirement_id"] or "",
         "Decision ID": row["decision_id"] or "",
         "Session ID": row["session_id"] or "",
-        "Action Slice": row["action_slice"],
+        "Action": row["action_slice"],
         "Implementation Ready": "true" if row["implementation_ready"] else "false",
         "Evidence Source": row["evidence_source"],
         "Risk": row["risk"],

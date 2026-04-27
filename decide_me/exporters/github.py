@@ -16,6 +16,7 @@ from decide_me.exporters.render import render_markdown_list, render_markdown_tex
 from decide_me.planner import assemble_action_plan, detect_conflicts
 from decide_me.store import load_runtime, read_event_log, runtime_paths
 from decide_me.suppression import apply_semantic_suppression_to_session
+from decide_me.taxonomy import stable_unique
 
 
 GITHUB_ISSUES_EXPORT_SCHEMA_VERSION = 1
@@ -71,7 +72,11 @@ def build_github_issues_export(
     index = build_decision_event_index(events)
     generated_at = snapshot_generated_at(bundle, events)
     current_project_head = project_head(bundle)
-    conflicts = detect_conflicts(sessions, resolved_conflicts=resolved_conflicts)
+    conflicts = detect_conflicts(
+        sessions,
+        bundle["project_state"],
+        resolved_conflicts=resolved_conflicts,
+    )
 
     if conflicts:
         plan_status = "conflicts"
@@ -82,7 +87,11 @@ def build_github_issues_export(
         )
     else:
         plan_status = "action-plan"
-        action_plan = assemble_action_plan(sessions, resolved_conflicts=resolved_conflicts)
+        action_plan = assemble_action_plan(
+            sessions,
+            bundle["project_state"],
+            resolved_conflicts=resolved_conflicts,
+        )
         normalized_sessions = _sessions_after_resolutions(sessions, resolved_conflicts)
         issues, bodies = _action_plan_issues(
             action_plan,
@@ -162,10 +171,12 @@ def _action_plan_issues(
     issues: list[dict[str, Any]] = []
     bodies: dict[str, str] = {}
     emitted_decision_ids: set[str] = set()
+    evidence_by_id = _evidence_by_id(action_plan)
 
     for blocker in action_plan.get("blockers", []):
         issue, body_path, body = _decision_issue(
             blocker,
+            evidence_by_id=evidence_by_id,
             session_id=session_ids_by_decision_id.get(blocker["id"]),
             generated_at=generated_at,
             project_head=project_head,
@@ -174,9 +185,10 @@ def _action_plan_issues(
         bodies[body_path] = body
         emitted_decision_ids.add(blocker["id"])
 
-    for action_slice in action_plan.get("implementation_ready_slices", []):
+    for action_slice in action_plan.get("implementation_ready_actions", []):
         issue, body_path, body = _task_issue(
             action_slice,
+            evidence_by_id=evidence_by_id,
             session_id=session_ids_by_decision_id.get(action_slice.get("decision_id", "")),
             generated_at=generated_at,
             project_head=project_head,
@@ -189,6 +201,7 @@ def _action_plan_issues(
             continue
         issue, body_path, body = _risk_issue(
             risk,
+            evidence_by_id=evidence_by_id,
             session_id=session_ids_by_decision_id.get(risk["id"]),
             generated_at=generated_at,
             project_head=project_head,
@@ -202,6 +215,7 @@ def _action_plan_issues(
 def _decision_issue(
     decision: dict[str, Any],
     *,
+    evidence_by_id: dict[str, dict[str, Any]],
     session_id: str | None,
     generated_at: str | None,
     project_head: str | None,
@@ -240,7 +254,7 @@ def _decision_issue(
             "domain": decision.get("domain") or "unknown",
             "kind": decision.get("kind") or "unknown",
             "resolvable_by": decision.get("resolvable_by") or "unknown",
-            "evidence_refs": render_markdown_list(decision.get("evidence_refs", [])),
+            "evidence_refs": render_markdown_list(_evidence_refs_for_item(decision, evidence_by_id)),
             "generated_at": generated_at or "null",
             "project_head": project_head or "null",
         },
@@ -251,6 +265,7 @@ def _decision_issue(
 def _task_issue(
     action_slice: dict[str, Any],
     *,
+    evidence_by_id: dict[str, dict[str, Any]],
     session_id: str | None,
     generated_at: str | None,
     project_head: str | None,
@@ -288,7 +303,7 @@ def _task_issue(
             "responsibility": action_slice.get("responsibility") or "unknown",
             "kind": action_slice.get("kind") or "unknown",
             "evidence_source": action_slice.get("evidence_source") or "none",
-            "evidence_refs": render_markdown_list(action_slice.get("evidence_refs", [])),
+            "evidence_refs": render_markdown_list(_evidence_refs_for_item(action_slice, evidence_by_id)),
             "generated_at": generated_at or "null",
             "project_head": project_head or "null",
         },
@@ -299,6 +314,7 @@ def _task_issue(
 def _risk_issue(
     risk: dict[str, Any],
     *,
+    evidence_by_id: dict[str, dict[str, Any]],
     session_id: str | None,
     generated_at: str | None,
     project_head: str | None,
@@ -326,7 +342,7 @@ def _risk_issue(
             "status": risk.get("status") or "unknown",
             "domain": risk.get("domain") or "unknown",
             "resolvable_by": risk.get("resolvable_by") or "unknown",
-            "evidence_refs": render_markdown_list(risk.get("evidence_refs", [])),
+            "evidence_refs": render_markdown_list(_evidence_refs_for_item(risk, evidence_by_id)),
             "generated_at": generated_at or "null",
             "project_head": project_head or "null",
         },
@@ -375,14 +391,27 @@ def _conflict_issues(
 
 
 def _risk_candidates(action_plan: dict[str, Any], sessions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    _ = sessions
     by_id: dict[str, dict[str, Any]] = {}
     for risk in action_plan.get("risks", []):
         by_id.setdefault(risk["id"], risk)
-    for session in sessions:
-        for decision in session["close_summary"].get("deferred_decisions", []):
-            if decision.get("kind") == "risk":
-                by_id.setdefault(decision["id"], decision)
     return [by_id[key] for key in sorted(by_id)]
+
+
+def _evidence_by_id(action_plan: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {
+        item["id"]: item
+        for item in action_plan.get("evidence", [])
+        if item.get("id")
+    }
+
+
+def _evidence_refs_for_item(item: dict[str, Any], evidence_by_id: dict[str, dict[str, Any]]) -> list[str]:
+    return stable_unique(
+        evidence["ref"]
+        for evidence_id in item.get("evidence_ids", [])
+        if (evidence := evidence_by_id.get(evidence_id)) and evidence.get("ref")
+    )
 
 
 def _sessions_after_resolutions(

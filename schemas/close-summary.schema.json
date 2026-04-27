@@ -4,37 +4,42 @@
   "title": "Decide Me Close Summary",
   "type": "object",
   "required": [
-    "work_item_title",
-    "work_item_statement",
-    "goal",
+    "work_item",
     "readiness",
-    "accepted_decisions",
-    "deferred_decisions",
-    "unresolved_blockers",
-    "unresolved_risks",
-    "candidate_workstreams",
-    "candidate_action_slices",
-    "evidence_refs",
+    "object_ids",
+    "link_ids",
     "generated_at"
   ],
   "properties": {
-    "work_item_title": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "work_item_statement": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "goal": {
-      "type": [
-        "string",
-        "null"
-      ]
+    "work_item": {
+      "type": "object",
+      "required": [
+        "title",
+        "statement",
+        "objective_object_id"
+      ],
+      "properties": {
+        "title": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "statement": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "objective_object_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
     },
     "readiness": {
       "type": "string",
@@ -44,32 +49,69 @@
         "blocked"
       ]
     },
-    "accepted_decisions": {
-      "type": "array"
+    "object_ids": {
+      "type": "object",
+      "required": [
+        "decisions",
+        "accepted_decisions",
+        "deferred_decisions",
+        "blockers",
+        "risks",
+        "actions",
+        "evidence",
+        "verifications",
+        "revisit_triggers"
+      ],
+      "properties": {
+        "decisions": {
+          "$ref": "#/$defs/idList"
+        },
+        "accepted_decisions": {
+          "$ref": "#/$defs/idList"
+        },
+        "deferred_decisions": {
+          "$ref": "#/$defs/idList"
+        },
+        "blockers": {
+          "$ref": "#/$defs/idList"
+        },
+        "risks": {
+          "$ref": "#/$defs/idList"
+        },
+        "actions": {
+          "$ref": "#/$defs/idList"
+        },
+        "evidence": {
+          "$ref": "#/$defs/idList"
+        },
+        "verifications": {
+          "$ref": "#/$defs/idList"
+        },
+        "revisit_triggers": {
+          "$ref": "#/$defs/idList"
+        }
+      },
+      "additionalProperties": false
     },
-    "deferred_decisions": {
-      "type": "array"
-    },
-    "unresolved_blockers": {
-      "type": "array"
-    },
-    "unresolved_risks": {
-      "type": "array"
-    },
-    "candidate_workstreams": {
-      "type": "array"
-    },
-    "candidate_action_slices": {
-      "type": "array"
-    },
-    "evidence_refs": {
-      "type": "array"
+    "link_ids": {
+      "$ref": "#/$defs/idList"
     },
     "generated_at": {
       "type": [
         "string",
         "null"
-      ]
+      ],
+      "format": "date-time"
+    }
+  },
+  "$defs": {
+    "idList": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
     }
   },
   "additionalProperties": false

@@ -15,13 +15,13 @@ Readiness: {{readiness}}
 
 {{workstreams}}
 
-## Action Slices
+## Actions
 
-{{action_slices}}
+{{actions}}
 
-## Implementation-Ready Slices
+## Implementation-Ready Actions
 
-{{implementation_ready_slices}}
+{{implementation_ready_actions}}
 
 ## Blockers
 
@@ -30,3 +30,15 @@ Readiness: {{readiness}}
 ## Risks
 
 {{risks}}
+
+## Evidence
+
+{{evidence}}
+
+## Source Object IDs
+
+{{source_object_ids}}
+
+## Source Link IDs
+
+{{source_link_ids}}
