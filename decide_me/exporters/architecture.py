@@ -82,6 +82,7 @@ def _final_decisions(
     action_plan: dict[str, Any],
 ) -> list[dict[str, Any]]:
     objects = {obj["id"]: obj for obj in project_state.get("objects", [])}
+    evidence_by_id = _evidence_by_id(action_plan)
     actions_by_decision = {
         action.get("decision_id"): action
         for action in action_plan.get("actions", [])
@@ -106,7 +107,7 @@ def _final_decisions(
                 "kind": metadata.get("kind"),
                 "priority": metadata.get("priority"),
                 "resolvable_by": metadata.get("resolvable_by"),
-                "evidence_refs": action.get("evidence_refs", []),
+                "evidence_refs": _evidence_refs_for_item(action, evidence_by_id),
             }
             item["session_id"] = session_id
             decisions.setdefault(item["id"], item)
@@ -180,7 +181,7 @@ def _render_building_blocks(action_plan: dict[str, Any]) -> str:
         _render_workstreams(action_plan.get("workstreams", [])),
         "",
         "Actions:",
-        _render_actions(action_plan.get("actions", [])),
+        _render_actions(action_plan.get("actions", []), _evidence_by_id(action_plan)),
     ]
     return "\n".join(lines)
 
@@ -199,7 +200,7 @@ def _render_deployment_operations(
         _render_decisions(ops_decisions),
         "",
         "Ops actions:",
-        _render_actions(ops_actions),
+        _render_actions(ops_actions, _evidence_by_id(action_plan)),
     ]
     return "\n".join(lines)
 
@@ -271,13 +272,13 @@ def _render_workstreams(workstreams: list[dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
-def _render_actions(actions: list[dict[str, Any]]) -> str:
+def _render_actions(actions: list[dict[str, Any]], evidence_by_id: dict[str, dict[str, Any]]) -> str:
     if not actions:
         return "- none"
     lines = []
     for action in actions:
         ready = "yes" if action.get("implementation_ready") else "no"
-        evidence = ", ".join(action.get("evidence_refs", [])) or "none recorded"
+        evidence = ", ".join(_evidence_refs_for_item(action, evidence_by_id)) or "none recorded"
         lines.append(
             f"- {action.get('decision_id') or 'unknown'}: "
             f"{action.get('name') or 'Action'} "
@@ -285,6 +286,22 @@ def _render_actions(actions: list[dict[str, Any]]) -> str:
             f"{render_markdown_text(action.get('summary'))} Evidence: {evidence}."
         )
     return "\n".join(lines)
+
+
+def _evidence_by_id(action_plan: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {
+        item["id"]: item
+        for item in action_plan.get("evidence", [])
+        if item.get("id")
+    }
+
+
+def _evidence_refs_for_item(item: dict[str, Any], evidence_by_id: dict[str, dict[str, Any]]) -> list[str]:
+    return stable_unique(
+        evidence["ref"]
+        for evidence_id in item.get("evidence_ids", [])
+        if (evidence := evidence_by_id.get(evidence_id)) and evidence.get("ref")
+    )
 
 
 def _render_glossary(taxonomy_state: dict[str, Any]) -> str:

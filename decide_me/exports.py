@@ -68,6 +68,9 @@ def export_plan(ai_dir: str, plan: dict[str, Any]) -> Path:
             .replace("{{actions}}", _render_actions(action_plan["actions"]))
             .replace("{{blockers}}", _render_dict_list(action_plan["blockers"]))
             .replace("{{risks}}", _render_dict_list(action_plan["risks"]))
+            .replace("{{evidence}}", _render_evidence(action_plan["evidence"]))
+            .replace("{{source_object_ids}}", _render_list(action_plan["source_object_ids"]))
+            .replace("{{source_link_ids}}", _render_list(action_plan["source_link_ids"]))
         )
         output = paths.plans_dir / f"plan-{timestamp}.md"
     output.write_text(body + "\n", encoding="utf-8")
@@ -139,6 +142,24 @@ def _render_actions(values: list[dict[str, Any]]) -> str:
         if next_step and next_step != details[0]:
             details.append(f"Next: {next_step}")
         rendered.append(f"- {header}: {' '.join(part for part in details if part).strip()}".rstrip(": "))
+    return "\n".join(rendered)
+
+
+def _render_evidence(values: list[dict[str, Any]]) -> str:
+    if not values:
+        return "- none"
+    rendered = []
+    for value in values:
+        labels = []
+        if value.get("source"):
+            labels.append(value["source"])
+        if value.get("status"):
+            labels.append(value["status"])
+        header = value.get("ref") or value.get("title") or value.get("id") or "evidence"
+        if labels:
+            header = f"{header} [{'; '.join(labels)}]"
+        detail = value.get("summary") or value.get("title") or ""
+        rendered.append(f"- {header}: {detail}".rstrip(": "))
     return "\n".join(rendered)
 
 

@@ -35,7 +35,7 @@ def semantic_suppression_context_for_session(
     close_summary = session.get("close_summary") or {}
     context = empty_suppressed_context()
 
-    if kind == "accepted_decision":
+    if kind in {"accepted_decision", "accepted_proposal"}:
         decision_id = scope.get("decision_id")
         if decision_id:
             _add_object_context(context, close_summary, decision_id)

@@ -23,6 +23,11 @@ Plan-generation turns must include one of:
 - `Conflicts:`
 - `Action Plan:`
 
+Action plan payloads must include `readiness`, `goals`, `workstreams`, `actions`,
+`implementation_ready_actions`, `blockers`, `risks`, `evidence`, `source_object_ids`, and
+`source_link_ids`. Plan payloads must not include legacy `action_slices`,
+`implementation_ready_slices`, or top-level `evidence_refs`.
+
 Exported files are derived outputs, not runtime state.
 
 Structured ADR exports must include stable YAML frontmatter with:

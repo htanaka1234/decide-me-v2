@@ -43,7 +43,9 @@
             "implementation_ready_actions",
             "blockers",
             "risks",
-            "evidence_refs"
+            "evidence",
+            "source_object_ids",
+            "source_link_ids"
           ],
           "properties": {
             "readiness": {
@@ -72,8 +74,64 @@
             "risks": {
               "type": "array"
             },
-            "evidence_refs": {
-              "type": "array"
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "id",
+                  "title",
+                  "summary",
+                  "status",
+                  "source",
+                  "ref",
+                  "metadata"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "title": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "summary": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "source": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "ref": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "metadata": {
+                    "type": "object"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "source_object_ids": {
+              "$ref": "#/$defs/idList"
+            },
+            "source_link_ids": {
+              "$ref": "#/$defs/idList"
             }
           },
           "additionalProperties": false

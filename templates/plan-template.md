@@ -30,3 +30,15 @@ Readiness: {{readiness}}
 ## Risks
 
 {{risks}}
+
+## Evidence
+
+{{evidence}}
+
+## Source Object IDs
+
+{{source_object_ids}}
+
+## Source Link IDs
+
+{{source_link_ids}}

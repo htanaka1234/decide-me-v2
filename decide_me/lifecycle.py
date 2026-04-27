@@ -5,7 +5,7 @@ import json
 from copy import deepcopy
 from typing import Any
 
-from decide_me.object_views import active_proposal_view, links_for, objects_by_id, related_decision_ids
+from decide_me.object_views import active_proposal_view, links_for, objects_by_id
 from decide_me.events import new_entity_id, new_event_id, utc_now
 from decide_me.projections import OPEN_DECISION_STATUSES, decision_is_invalidated, effective_session_status
 from decide_me.search import search_sessions, session_list_entry
@@ -161,16 +161,19 @@ def build_close_summary(
     action_link_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     by_id = objects_by_id(project_state)
-    session_decision_ids = related_decision_ids(
-        project_state, session_state["session"].get("related_object_ids", [])
+    subset_object_ids, subset_link_ids = _session_graph_subset(
+        project_state,
+        session_state,
+        extra_object_ids=action_ids or [],
     )
     decisions = [
         by_id[decision_id]
-        for decision_id in session_decision_ids
+        for decision_id in subset_object_ids
         if decision_id in by_id
         and by_id[decision_id].get("type") == "decision"
         and not decision_is_invalidated(by_id[decision_id])
     ]
+    session_decision_ids = [decision["id"] for decision in decisions]
     accepted_decision_ids = [
         decision["id"]
         for decision in decisions
@@ -184,45 +187,29 @@ def build_close_summary(
         and _decision_metadata(decision).get("frontier") == "now"
         and decision.get("status") in OPEN_DECISION_STATUSES
     ]
-    risk_ids = _risk_object_ids(project_state, decisions)
-    evidence_ids = _related_source_ids(project_state, session_decision_ids, relation="supports", object_type="evidence")
-    verification_ids = _related_source_ids(
-        project_state,
-        stable_unique([*session_decision_ids, *(action_ids or [])]),
-        relation="verifies",
-        object_type="verification",
-    )
-    revisit_trigger_ids = _related_source_ids(
-        project_state,
-        session_decision_ids,
-        relation="revisits",
-        object_type="revisit_trigger",
-    )
-    summary_action_ids = stable_unique([*(action_ids or []), *_existing_action_ids(project_state, accepted_decision_ids)])
-
-    related_ids = stable_unique(
+    subset_objects = [by_id[object_id] for object_id in subset_object_ids if object_id in by_id]
+    risk_ids = stable_unique(
         [
-            *session_decision_ids,
-            *accepted_decision_ids,
-            *deferred_decision_ids,
-            *blocker_ids,
-            *risk_ids,
-            *summary_action_ids,
-            *evidence_ids,
-            *verification_ids,
-            *revisit_trigger_ids,
-        ]
-    )
-    link_ids = stable_unique(
-        [
-            *(action_link_ids or []),
             *[
-                link["id"]
-                for link in project_state.get("links", [])
-                if link.get("source_object_id") in related_ids or link.get("target_object_id") in related_ids
+                decision["id"]
+                for decision in decisions
+                if _decision_metadata(decision).get("kind") == "risk"
+                and decision.get("status") in OPEN_DECISION_STATUSES
             ],
+            *[obj["id"] for obj in subset_objects if obj.get("type") == "risk"],
         ]
     )
+    evidence_ids = stable_unique(obj["id"] for obj in subset_objects if obj.get("type") == "evidence")
+    verification_ids = stable_unique(obj["id"] for obj in subset_objects if obj.get("type") == "verification")
+    revisit_trigger_ids = stable_unique(obj["id"] for obj in subset_objects if obj.get("type") == "revisit_trigger")
+    summary_action_ids = _summary_action_ids(
+        project_state,
+        session_state,
+        subset_object_ids,
+        accepted_decision_ids,
+        action_ids or [],
+    )
+    link_ids = stable_unique([*(action_link_ids or []), *subset_link_ids])
 
     readiness = "ready"
     if blocker_ids:
@@ -326,9 +313,7 @@ def _close_session_action_events(
 ) -> tuple[list[dict[str, Any]], list[str], list[str]]:
     by_id = objects_by_id(project_state)
     link_by_id = {link["id"]: link for link in project_state.get("links", [])}
-    session_decision_ids = related_decision_ids(
-        project_state, session_state["session"].get("related_object_ids", [])
-    )
+    session_decision_ids = _session_decision_ids(project_state, session_state)
     events: list[dict[str, Any]] = []
     action_ids: list[str] = []
     action_link_ids: list[str] = []
@@ -389,6 +374,138 @@ def _close_session_action_events(
         )
         link_by_id[link_id] = link
     return events, stable_unique(action_ids), stable_unique(action_link_ids)
+
+
+def _session_decision_ids(project_state: dict[str, Any], session_state: dict[str, Any]) -> list[str]:
+    by_id = objects_by_id(project_state)
+    subset_object_ids, _ = _session_graph_subset(project_state, session_state)
+    return stable_unique(
+        object_id
+        for object_id in subset_object_ids
+        if by_id.get(object_id, {}).get("type") == "decision"
+        and not decision_is_invalidated(by_id[object_id])
+    )
+
+
+def _session_graph_subset(
+    project_state: dict[str, Any],
+    session_state: dict[str, Any],
+    *,
+    extra_object_ids: list[str] | None = None,
+) -> tuple[list[str], list[str]]:
+    by_id = objects_by_id(project_state)
+    links = project_state.get("links", [])
+    session_id = session_state["session"]["id"]
+    seeds = stable_unique(
+        [*session_state["session"].get("related_object_ids", []), *(extra_object_ids or [])]
+    )
+    seed_action_ids = {
+        object_id
+        for object_id in seeds
+        if by_id.get(object_id, {}).get("type") == "action"
+    }
+    extra_ids = set(extra_object_ids or [])
+    visited: set[str] = set()
+    visited_order: list[str] = []
+    link_ids: list[str] = []
+    queue = list(seeds)
+
+    while queue:
+        object_id = queue.pop(0)
+        if object_id in visited:
+            continue
+        if not _allow_session_graph_object(
+            by_id.get(object_id),
+            object_id,
+            session_id,
+            seed_action_ids,
+            extra_ids,
+        ):
+            continue
+        visited.add(object_id)
+        visited_order.append(object_id)
+        for link in links:
+            source_id = link.get("source_object_id")
+            target_id = link.get("target_object_id")
+            if source_id != object_id and target_id != object_id:
+                continue
+            other_id = target_id if source_id == object_id else source_id
+            if not _allow_session_graph_object(
+                by_id.get(other_id),
+                other_id,
+                session_id,
+                seed_action_ids,
+                extra_ids,
+            ):
+                continue
+            link_ids.append(link["id"])
+            if other_id not in visited:
+                queue.append(other_id)
+
+    return stable_unique(visited_order), stable_unique(link_ids)
+
+
+def _allow_session_graph_object(
+    obj: dict[str, Any] | None,
+    object_id: str | None,
+    session_id: str,
+    seed_action_ids: set[str],
+    extra_object_ids: set[str],
+) -> bool:
+    if not object_id:
+        return False
+    if object_id in extra_object_ids:
+        return True
+    if obj is None:
+        return False
+    if obj.get("type") != "action":
+        return True
+    return object_id in seed_action_ids or obj.get("metadata", {}).get("origin_session_id") == session_id
+
+
+def _summary_action_ids(
+    project_state: dict[str, Any],
+    session_state: dict[str, Any],
+    subset_object_ids: list[str],
+    accepted_decision_ids: list[str],
+    generated_action_ids: list[str],
+) -> list[str]:
+    by_id = objects_by_id(project_state)
+    seed_action_ids = [
+        object_id
+        for object_id in session_state["session"].get("related_object_ids", [])
+        if by_id.get(object_id, {}).get("type") == "action"
+    ]
+    existing_action_ids = [
+        object_id
+        for object_id in subset_object_ids
+        if by_id.get(object_id, {}).get("type") == "action"
+        and by_id[object_id].get("metadata", {}).get("origin_session_id") == session_state["session"]["id"]
+    ]
+    accepted_ids = set(accepted_decision_ids)
+    return stable_unique(
+        [
+            *generated_action_ids,
+            *[
+                action_id
+                for action_id in [*seed_action_ids, *existing_action_ids]
+                if _action_addresses_accepted_decision(project_state, action_id, accepted_ids)
+            ],
+        ]
+    )
+
+
+def _action_addresses_accepted_decision(
+    project_state: dict[str, Any],
+    action_id: str,
+    accepted_decision_ids: set[str],
+) -> bool:
+    return any(
+        link.get("source_object_id") == action_id
+        and link.get("relation") == "addresses"
+        and link.get("target_object_id") in accepted_decision_ids
+        for link in project_state.get("links", [])
+    )
 
 
 def _action_object(
@@ -502,56 +619,6 @@ def _decision_evidence(project_state: dict[str, Any], decision_id: str) -> list[
                 }
             )
     return evidence
-
-
-def _risk_object_ids(project_state: dict[str, Any], decisions: list[dict[str, Any]]) -> list[str]:
-    decision_ids = {decision["id"] for decision in decisions}
-    risks = [
-        decision["id"]
-        for decision in decisions
-        if _decision_metadata(decision).get("kind") == "risk"
-        and decision.get("status") in OPEN_DECISION_STATUSES
-    ]
-    for obj in project_state.get("objects", []):
-        if obj.get("type") != "risk":
-            continue
-        if obj.get("id") in decision_ids or any(
-            link.get("source_object_id") == obj["id"] and link.get("target_object_id") in decision_ids
-            or link.get("target_object_id") == obj["id"] and link.get("source_object_id") in decision_ids
-            for link in project_state.get("links", [])
-        ):
-            risks.append(obj["id"])
-    return stable_unique(risks)
-
-
-def _related_source_ids(
-    project_state: dict[str, Any],
-    target_ids: list[str],
-    *,
-    relation: str,
-    object_type: str,
-) -> list[str]:
-    by_id = objects_by_id(project_state)
-    targets = set(target_ids)
-    return stable_unique(
-        link["source_object_id"]
-        for link in project_state.get("links", [])
-        if link.get("relation") == relation
-        and link.get("target_object_id") in targets
-        and by_id.get(link.get("source_object_id"), {}).get("type") == object_type
-    )
-
-
-def _existing_action_ids(project_state: dict[str, Any], decision_ids: list[str]) -> list[str]:
-    by_id = objects_by_id(project_state)
-    decisions = set(decision_ids)
-    return stable_unique(
-        link["source_object_id"]
-        for link in project_state.get("links", [])
-        if link.get("relation") == "addresses"
-        and link.get("target_object_id") in decisions
-        and by_id.get(link.get("source_object_id"), {}).get("type") == "action"
-    )
 
 
 def _objective_object_id(project_state: dict[str, Any]) -> str | None:

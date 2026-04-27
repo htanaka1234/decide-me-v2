@@ -173,14 +173,20 @@ def evidence_for_decision(project_state: dict[str, Any], decision_id: str) -> li
 
 def related_decision_ids(project_state: dict[str, Any], related_object_ids: list[str]) -> list[str]:
     by_id = objects_by_id(project_state)
-    related = set(related_object_ids)
-    for link in project_state.get("links", []):
-        source = link.get("source_object_id")
-        target = link.get("target_object_id")
-        if source in related:
-            related.add(target)
-        if target in related:
-            related.add(source)
+    related: set[str] = set()
+    queue = list(related_object_ids)
+    while queue:
+        object_id = queue.pop(0)
+        if object_id in related:
+            continue
+        related.add(object_id)
+        for link in project_state.get("links", []):
+            source = link.get("source_object_id")
+            target = link.get("target_object_id")
+            if source == object_id and target not in related:
+                queue.append(target)
+            elif target == object_id and source not in related:
+                queue.append(source)
     return sorted(
         object_id
         for object_id in related

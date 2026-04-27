@@ -4,7 +4,7 @@ Only closed sessions can feed the planner.
 
 The planner returns one of two shapes:
 
-- `Conflicts:` when accepted answers or generated actions disagree
+- `Conflicts:` when accepted proposals or generated actions disagree
 - `Action Plan:` when sessions can be merged into a coherent plan
 
 For `Action Plan:` output:
@@ -14,6 +14,7 @@ For `Action Plan:` output:
 - preserve merged `actions`
 - surface `implementation_ready_actions` separately when actions are already evidence-backed or
   otherwise ready to execute
+- include object-native `evidence`, `source_object_ids`, and `source_link_ids`
 - keep evidence-backed actions near the top of the merged action list
 - support derived architecture and traceability exports from the same closed-session inputs
 - treat generated arc42 docs, traceability matrices, and verification gap reports as exports,
@@ -21,7 +22,7 @@ For `Action Plan:` output:
 
 Minimum conflict checks:
 
-- same decision ID with different accepted answers
+- same decision ID with multiple accepted proposal IDs
 - same action name with different responsibilities
 
 Conflict ids and resolution:
@@ -48,7 +49,7 @@ Phase 4 derived exports:
 - `export-traceability --format csv|markdown` renders action and unresolved blocker/risk
   rows with stable derived `R-###` requirement IDs.
 - `export-verification-gaps` reports implementation-ready rows with no explicit test evidence and
-  rows with no recorded evidence refs.
+  rows with no recorded evidence.
 - The explicit verification rule is conservative: only `evidence_source=tests` or test-file
   evidence refs count as verification already defined. `resolvable_by=tests` is only used for
   suggested verification.

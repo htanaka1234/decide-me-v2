@@ -6,7 +6,7 @@ from tempfile import TemporaryDirectory
 
 from decide_me.lifecycle import close_session, create_session
 from decide_me.planner import generate_plan
-from decide_me.protocol import accept_proposal, discover_decision, issue_proposal
+from decide_me.protocol import discover_decision, resolve_by_evidence
 from decide_me.store import bootstrap_runtime, rebuild_and_persist, validate_runtime
 
 
@@ -34,25 +34,42 @@ class ObjectBasedPlanGenerationIntegrationTests(unittest.TestCase):
                     "question": "How should users sign in?",
                 },
             )
-            issue_proposal(
+            resolve_by_evidence(
                 str(ai_dir),
                 session_id,
                 decision_id="D-auth",
-                question="Use magic links?",
-                recommendation="Use magic links.",
-                why="Smallest viable auth scope.",
-                if_not="Passwords add reset flows.",
+                source="docs",
+                summary="Magic links are already supported by the current architecture.",
+                evidence_refs=["docs/auth.md"],
             )
-            accept_proposal(str(ai_dir), session_id)
             close_session(str(ai_dir), session_id)
 
             plan = generate_plan(str(ai_dir), [session_id])
 
             self.assertEqual("action-plan", plan["status"])
-            self.assertIn("actions", plan["action_plan"])
-            self.assertIn("implementation_ready_actions", plan["action_plan"])
+            self.assertEqual(
+                {
+                    "readiness",
+                    "goals",
+                    "workstreams",
+                    "actions",
+                    "implementation_ready_actions",
+                    "blockers",
+                    "risks",
+                    "evidence",
+                    "source_object_ids",
+                    "source_link_ids",
+                },
+                set(plan["action_plan"]),
+            )
             self.assertNotIn("action_slices", plan["action_plan"])
+            self.assertNotIn("evidence_refs", plan["action_plan"])
             self.assertEqual(["D-auth"], [item["decision_id"] for item in plan["action_plan"]["actions"]])
+            self.assertEqual(["docs/auth.md"], [item["ref"] for item in plan["action_plan"]["evidence"]])
+            self.assertIn("D-auth", plan["action_plan"]["source_object_ids"])
+            self.assertTrue(
+                any(link_id.endswith("-supports-D-auth") for link_id in plan["action_plan"]["source_link_ids"])
+            )
             self.assertEqual([], validate_runtime(ai_dir))
 
             rebuilt = rebuild_and_persist(ai_dir)
