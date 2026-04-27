@@ -47,6 +47,7 @@ Phase 4 derived exports:
   rows with stable derived `R-###` requirement IDs.
 - `export-verification-gaps` reports implementation-ready rows with no explicit test evidence and
   rows with no recorded evidence refs.
-- The explicit verification rule is conservative: only tests evidence or `resolvable_by=tests`
-  counts as verification already defined.
+- The explicit verification rule is conservative: only `evidence_source=tests` or test-file
+  evidence refs count as verification already defined. `resolvable_by=tests` is only used for
+  suggested verification.
 - Unresolved planner conflicts must fail these exports before writing output.

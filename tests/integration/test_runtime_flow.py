@@ -3329,6 +3329,30 @@ class RuntimeFlowTests(unittest.TestCase):
                 summary="Verify traceability export through CLI and schema tests.",
                 evidence_refs=["tests/integration/test_runtime_flow.py"],
             )
+            discover_decision(
+                ai_dir,
+                design_session_id,
+                {
+                    "id": "D-test-plan",
+                    "title": "Parser regression coverage",
+                    "priority": "P1",
+                    "frontier": "later",
+                    "domain": "technical",
+                    "kind": "choice",
+                    "resolvable_by": "tests",
+                    "question": "How should parser regressions be verified?",
+                },
+            )
+            issue_proposal(
+                ai_dir,
+                design_session_id,
+                decision_id="D-test-plan",
+                question="Add parser regression coverage?",
+                recommendation="Add parser regression coverage.",
+                why="The behavior should be executable before implementation proceeds.",
+                if_not="The implementation-ready slice has no explicit verification evidence.",
+            )
+            accept_proposal(ai_dir, design_session_id)
             close_session(ai_dir, design_session_id)
 
             ops_session_id = create_session(ai_dir, context="Deployment operations")["session"]["id"]
@@ -3420,16 +3444,19 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertEqual("R-002", rows_by_decision["D-export"]["requirement_id"])
             self.assertTrue(rows_by_decision["D-export"]["implementation_ready"])
             self.assertFalse(rows_by_decision["D-export"]["verification_defined"])
+            self.assertTrue(rows_by_decision["D-test-plan"]["implementation_ready"])
+            self.assertFalse(rows_by_decision["D-test-plan"]["verification_defined"])
+            self.assertEqual("regression test", rows_by_decision["D-test-plan"]["suggested_verification"])
             self.assertTrue(rows_by_decision["D-tests"]["verification_defined"])
             self.assertEqual("tests", rows_by_decision["D-tests"]["evidence_source"])
             self.assertEqual("blocker", rows_by_decision["D-blocker"]["risk"])
             self.assertEqual("risk", rows_by_decision["D-risk-open"]["risk"])
             self.assertEqual(
-                ["D-export"],
+                ["D-export", "D-test-plan"],
                 [
                     gap["decision_id"]
                     for gap in payload["verification_gaps"]["missing_tests"]
-                    if gap["decision_id"] == "D-export"
+                    if gap["decision_id"] in {"D-export", "D-test-plan"}
                 ],
             )
 
@@ -3461,7 +3488,9 @@ class RuntimeFlowTests(unittest.TestCase):
             gaps = gaps_path.read_text(encoding="utf-8")
             self.assertIn("## Missing tests", gaps)
             self.assertIn("D-export: Add arc42 export", gaps)
+            self.assertIn("D-test-plan: Parser regression coverage", gaps)
             self.assertIn("snapshot test plus schema validation", gaps)
+            self.assertIn("regression test", gaps)
             self.assertIn("D-ops: Deployment runbook", gaps)
 
             first_render = {

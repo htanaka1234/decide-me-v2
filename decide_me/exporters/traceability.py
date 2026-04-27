@@ -306,10 +306,6 @@ def _test_verification(source: dict[str, Any]) -> str | None:
         if evidence_refs:
             return "tests evidence: " + ", ".join(evidence_refs)
         return "tests evidence"
-    if source.get("resolvable_by") == "tests":
-        if test_refs:
-            return "tests evidence: " + ", ".join(test_refs)
-        return "tests-resolvable decision"
     if test_refs:
         return "tests evidence: " + ", ".join(test_refs)
     return None
