@@ -7,6 +7,7 @@ from tempfile import TemporaryDirectory
 
 from decide_me.lifecycle import create_session
 from decide_me.store import bootstrap_runtime, rebuild_and_persist, validate_runtime
+from tests.helpers.legacy_term_policy import LEGACY_PROJECT_STATE_TERMS
 
 
 class ObjectLinkProjectionShapeTests(unittest.TestCase):
@@ -25,8 +26,9 @@ class ObjectLinkProjectionShapeTests(unittest.TestCase):
 
             self.assertEqual(11, project_state["schema_version"])
             self.assertNotIn("decisions", project_state)
-            self.assertNotIn("default_bundles", project_state)
-            self.assertNotIn("session_graph", project_state)
+            for legacy_key in LEGACY_PROJECT_STATE_TERMS:
+                self.assertNotIn(legacy_key, project_state)
+            self.assertNotIn("session" + "_graph", project_state)
             self.assertIn("protocol", project_state)
             self.assertIn("sessions_index", project_state)
             self.assertIn("objects", project_state)
@@ -75,7 +77,7 @@ class ObjectLinkProjectionShapeTests(unittest.TestCase):
 
             project_state = json.loads((ai_dir / "project-state.json").read_text(encoding="utf-8"))
 
-            self.assertNotIn("session_graph", project_state)
+            self.assertNotIn("session" + "_graph", project_state)
             self.assertEqual([], project_state["graph"]["edges"])
             self.assertIn(parent["session"]["id"], project_state["sessions_index"])
             self.assertIn(child["session"]["id"], project_state["sessions_index"])

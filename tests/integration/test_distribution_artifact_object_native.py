@@ -10,29 +10,10 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from zipfile import ZipFile
 
+from tests.helpers.legacy_term_policy import format_findings, zip_legacy_term_findings
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-BANNED_TERMS = (
-    "accepted" + "_decisions",
-    "deferred" + "_decisions",
-    "evidence" + "_refs",
-    "proposal" + "_issued",
-    "proposal" + "_accepted",
-    "decision" + "_discovered",
-    "decision" + "_resolved_by_evidence",
-    "compatibility" + "_backfilled",
-    "action" + "_slices",
-    "candidate" + "_action" + "_slices",
-    "implementation" + "_ready_slices",
-    "candidate" + "_workstreams",
-    "unresolved" + "_blockers",
-    "unresolved" + "_risks",
-    "action" + "_slice",
-    "action" + "-slice",
-    "Action " + "Slices",
-    "Implementation-ready " + "Slices",
-    "Implementation-Ready " + "Slices",
-)
 
 
 class DistributionArtifactObjectNativeTests(unittest.TestCase):
@@ -49,17 +30,14 @@ class DistributionArtifactObjectNativeTests(unittest.TestCase):
         self.assertIn("## Implementation-Ready Actions", plan_template)
 
     def test_distribution_text_files_do_not_expose_legacy_terms(self) -> None:
-        findings = []
         with _built_artifact() as archive:
-            for name in archive.namelist():
-                if not _is_text_file(name):
-                    continue
-                text = archive.read(name).decode("utf-8")
-                for term in BANNED_TERMS:
-                    if term in text:
-                        findings.append(f"{name} contains {term!r}")
+            findings = zip_legacy_term_findings(archive)
 
-        self.assertEqual([], findings)
+        self.assertEqual([], format_findings(findings))
+
+    def test_distribution_excludes_migration_reference(self) -> None:
+        with _built_artifact() as archive:
+            self.assertNotIn("decide-me/references/migration-from-legacy-model.md", archive.namelist())
 
 
 def _read_text(archive: ZipFile, name: str) -> str:
@@ -83,18 +61,6 @@ def _built_artifact() -> Iterator[ZipFile]:
         )
         with ZipFile(dist_dir / "decide-me.zip") as archive:
             yield archive
-
-
-def _is_text_file(name: str) -> bool:
-    return Path(name).suffix in {
-        ".json",
-        ".md",
-        ".mdc",
-        ".py",
-        ".txt",
-        ".yaml",
-        ".yml",
-    }
 
 
 if __name__ == "__main__":

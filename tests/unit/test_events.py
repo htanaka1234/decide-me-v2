@@ -3,31 +3,28 @@ from __future__ import annotations
 import unittest
 
 from decide_me.events import EventValidationError, build_event, validate_event
-
-
-LEGACY_EVENT_TYPES = (
-    "decision_discovered",
-    "decision_enriched",
-    "question_asked",
-    "proposal_issued",
-    "proposal_accepted",
-    "proposal_rejected",
-    "decision_deferred",
-    "decision_resolved_by_evidence",
-    "decision_invalidated",
-    "compatibility_backfilled",
-    "classification_updated",
-    "session_linked",
-    "semantic_conflict_resolved",
-)
+from tests.helpers.legacy_term_policy import LEGACY_EVENT_TYPE_TERMS, LEGACY_PROJECT_STATE_TERMS
 
 
 class EventTests(unittest.TestCase):
     def test_legacy_event_types_are_rejected(self) -> None:
-        for event_type in LEGACY_EVENT_TYPES:
+        for event_type in LEGACY_EVENT_TYPE_TERMS:
             with self.subTest(event_type=event_type):
                 with self.assertRaisesRegex(EventValidationError, f"unsupported event_type: {event_type}"):
                     _event(event_type=event_type, payload={})
+
+    def test_project_initialized_rejects_stale_seed_payload(self) -> None:
+        stale_seed_key = next(term for term in LEGACY_PROJECT_STATE_TERMS if term.startswith("default"))
+
+        with self.assertRaisesRegex(EventValidationError, stale_seed_key):
+            _event(
+                event_type="project_initialized",
+                session_id="SYSTEM",
+                payload={
+                    "project": _project_payload(),
+                    stale_seed_key: [],
+                },
+            )
 
     def test_object_recorded_accepts_object_schema_shape(self) -> None:
         event = _event(
@@ -177,6 +174,15 @@ def _link(link_id: str, *, event_id: str) -> dict:
         "rationale": "Evidence supports the decision.",
         "created_at": "2026-04-23T12:00:00Z",
         "source_event_ids": [event_id],
+    }
+
+
+def _project_payload() -> dict:
+    return {
+        "name": "Demo",
+        "objective": "Plan the milestone.",
+        "current_milestone": "Phase 5",
+        "stop_rule": "Resolve blockers.",
     }
 
 
