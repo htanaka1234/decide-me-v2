@@ -226,7 +226,9 @@ reference. Common maintainer operations include:
 - `export-github-issues` to write local issue body Markdown and `issues.json` from closed sessions
   Re-exporting replaces the generated `issues/` directory, so do not keep hand-edited files there.
 - `export-agent-instructions` to write derived AGENTS.md, Cursor rule, Claude fragment, or Codex
-  profile fragment files from final agent-relevant decisions
+  profile fragment files from final agent-relevant decisions. Decision metadata
+  `agent_relevant: true | false | null` can override the conservative keyword filter; missing or
+  `null` keeps the default detection.
 
 Full event-log replay uses `find` for event file discovery when available. Set
 `DECIDE_ME_EVENT_DISCOVERY=python` to force pure Python discovery, or

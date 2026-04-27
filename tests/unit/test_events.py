@@ -66,6 +66,47 @@ class EventTests(unittest.TestCase):
 
         validate_event(event)
 
+    def test_validate_accepts_agent_relevant_metadata_events(self) -> None:
+        discovered = build_event(
+            sequence=1,
+            session_id="S-001",
+            event_type="decision_discovered",
+            project_version_after=2,
+            payload={"decision": {"id": "D-001", "title": "Decision", "agent_relevant": True}},
+            timestamp="2026-04-23T12:00:00Z",
+        )
+        enriched = build_event(
+            sequence=2,
+            session_id="S-001",
+            event_type="decision_enriched",
+            project_version_after=3,
+            payload={"decision_id": "D-001", "agent_relevant": None},
+            timestamp="2026-04-23T12:01:00Z",
+        )
+
+        validate_event(discovered)
+        validate_event(enriched)
+
+    def test_validate_rejects_invalid_agent_relevant_metadata_events(self) -> None:
+        with self.assertRaisesRegex(EventValidationError, "agent_relevant"):
+            build_event(
+                sequence=1,
+                session_id="S-001",
+                event_type="decision_discovered",
+                project_version_after=2,
+                payload={"decision": {"id": "D-001", "title": "Decision", "agent_relevant": "yes"}},
+                timestamp="2026-04-23T12:00:00Z",
+            )
+        with self.assertRaisesRegex(EventValidationError, "agent_relevant"):
+            build_event(
+                sequence=2,
+                session_id="S-001",
+                event_type="decision_enriched",
+                project_version_after=3,
+                payload={"decision_id": "D-001", "agent_relevant": "yes"},
+                timestamp="2026-04-23T12:01:00Z",
+            )
+
     def test_validate_accepts_transaction_rejected_event(self) -> None:
         event = build_event(
             sequence=1,

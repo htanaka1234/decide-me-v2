@@ -146,6 +146,11 @@ def _require_timestamp(value: Any, label: str) -> None:
         raise EventValidationError(f"{label} must be ISO-8601/RFC3339-like") from exc
 
 
+def _require_bool_or_null(value: Any, label: str) -> None:
+    if value is not None and not isinstance(value, bool):
+        raise EventValidationError(f"{label} must be a boolean or null")
+
+
 def prepare_payload(event_type: str, payload: dict[str, Any], project_head: str | None) -> dict[str, Any]:
     prepared = deepcopy(payload)
     if event_type == "proposal_issued":
@@ -188,6 +193,11 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
         if status is not None and status not in DISCOVERABLE_DECISION_STATUSES:
             allowed = ", ".join(sorted(DISCOVERABLE_DECISION_STATUSES))
             raise EventValidationError(f"decision_discovered.payload.decision.status must be one of: {allowed}")
+        if "agent_relevant" in decision:
+            _require_bool_or_null(
+                decision["agent_relevant"],
+                "decision_discovered.payload.decision.agent_relevant",
+            )
     elif event_type == "decision_enriched":
         if "notes_append" in payload and not isinstance(payload["notes_append"], list):
             raise EventValidationError("decision_enriched.payload.notes_append must be a list")
@@ -197,6 +207,8 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
             )
         if "context_append" in payload and not isinstance(payload["context_append"], str):
             raise EventValidationError("decision_enriched.payload.context_append must be a string")
+        if "agent_relevant" in payload:
+            _require_bool_or_null(payload["agent_relevant"], "decision_enriched.payload.agent_relevant")
     elif event_type == "question_asked":
         _require_non_empty_string(payload.get("question_id"), "question_asked.payload.question_id")
         _require_non_empty_string(payload.get("question"), "question_asked.payload.question")

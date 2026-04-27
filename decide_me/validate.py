@@ -181,6 +181,11 @@ def validate_project_state(project_state: dict[str, Any]) -> None:
         _require_list(decision["evidence_refs"], f"decision {decision['id']}.evidence_refs")
         _require_list(decision["revisit_triggers"], f"decision {decision['id']}.revisit_triggers")
         _require_list(decision["notes"], f"decision {decision['id']}.notes")
+        if "agent_relevant" in decision and decision["agent_relevant"] is not None:
+            if not isinstance(decision["agent_relevant"], bool):
+                raise StateValidationError(
+                    f"decision {decision['id']}.agent_relevant must be a boolean or null"
+                )
         _require_dict(decision["recommendation"], f"decision {decision['id']}.recommendation")
         _require_dict(decision["accepted_answer"], f"decision {decision['id']}.accepted_answer")
         resolved_by_evidence = _require_dict(

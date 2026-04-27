@@ -165,6 +165,7 @@ def default_decision(decision_id: str, title: str | None = None) -> dict[str, An
         "revisit_triggers": [],
         "notes": [],
         "bundle_id": None,
+        "agent_relevant": None,
         "invalidated_by": None,
     }
 
@@ -364,6 +365,8 @@ def apply_event(
                 )
             else:
                 decision["context"] = context_append
+        if "agent_relevant" in payload:
+            decision["agent_relevant"] = payload["agent_relevant"]
         _touch_session(sessions, session_id, ts, payload["decision_id"], project_head_after)
     elif event_type == "question_asked":
         session = sessions[session_id]

@@ -86,3 +86,11 @@ Decision supersession:
   auditability.
 - Normal outputs must hide superseded decisions from session views, interview turns, close
   summaries, plans, and ADR exports.
+
+Agent relevance metadata:
+
+- Decisions may carry optional `agent_relevant: true | false | null` metadata.
+- Missing or `null` means agent instruction exports use the conservative keyword-based filter.
+- `true` force-includes a final decision in agent instruction exports; `false` force-excludes it.
+- The flag does not change decision status rules: only accepted or resolved-by-evidence decisions
+  are eligible for agent instruction export.
