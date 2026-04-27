@@ -48,6 +48,8 @@ Phase 5-2 scope:
 - Replace runtime `project-state.json` with the v10 object/link projection.
 - Keep existing decision-oriented event types while projecting their effective state into objects
   and links.
+- Preserve project protocol settings, the lightweight `sessions_index`, and the session graph
+  projection under top-level `graph`.
 - Keep session projections at their current schema version until interview runtime replacement.
 - Do not persist top-level `decisions`, compatibility projections, or legacy decision-shaped
   project state.

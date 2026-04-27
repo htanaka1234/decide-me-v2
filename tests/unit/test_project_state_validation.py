@@ -3,10 +3,19 @@ from __future__ import annotations
 import unittest
 from copy import deepcopy
 
+from decide_me.projections import default_project_state, rebuild_projections
 from decide_me.validate import StateValidationError, validate_project_state
 
 
 class ProjectStateValidationTests(unittest.TestCase):
+    def test_default_state_validates_as_uninitialized_skeleton(self) -> None:
+        validate_project_state(default_project_state())
+
+    def test_empty_rebuild_project_state_validates_as_skeleton(self) -> None:
+        bundle = rebuild_projections([])
+
+        validate_project_state(bundle["project_state"])
+
     def test_accepts_object_link_project_state(self) -> None:
         validate_project_state(_valid_project_state())
 
@@ -55,6 +64,13 @@ class ProjectStateValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(StateValidationError, "counts"):
             validate_project_state(payload)
 
+    def test_rejects_null_project_fields_after_events(self) -> None:
+        payload = _valid_project_state()
+        payload["project"]["name"] = None
+
+        with self.assertRaisesRegex(StateValidationError, "project_state.project.name"):
+            validate_project_state(payload)
+
 
 def _valid_project_state() -> dict:
     return deepcopy(
@@ -72,6 +88,12 @@ def _valid_project_state() -> dict:
                 "updated_at": "2026-04-23T12:00:00Z",
                 "last_event_id": "E-001",
             },
+            "protocol": {
+                "plain_ok_scope": "same-session-active-proposal-only",
+                "proposal_expiry_rules": ["project-head-changed", "session-boundary"],
+                "close_policy": "generate-close-summary-on-close",
+            },
+            "sessions_index": {},
             "counts": {
                 "object_total": 2,
                 "link_total": 1,
@@ -122,6 +144,12 @@ def _valid_project_state() -> dict:
                     "source_event_ids": ["E-001"],
                 }
             ],
+            "graph": {
+                "nodes": [],
+                "edges": [],
+                "resolved_conflicts": [],
+                "inferred_candidates": [],
+            },
         }
     )
 

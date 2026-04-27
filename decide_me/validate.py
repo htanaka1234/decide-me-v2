@@ -111,13 +111,26 @@ def validate_project_state(project_state: dict[str, Any]) -> None:
             "schema_version",
             "project",
             "state",
+            "protocol",
+            "sessions_index",
             "counts",
             "objects",
             "links",
+            "graph",
         ),
         "project_state",
     )
-    allowed_top_level = {"schema_version", "project", "state", "counts", "objects", "links"}
+    allowed_top_level = {
+        "schema_version",
+        "project",
+        "state",
+        "protocol",
+        "sessions_index",
+        "counts",
+        "objects",
+        "links",
+        "graph",
+    }
     unknown_top_level = sorted(set(project_state) - allowed_top_level)
     if unknown_top_level:
         raise StateValidationError(
@@ -125,22 +138,37 @@ def validate_project_state(project_state: dict[str, Any]) -> None:
         )
     if project_state.get("schema_version") != PROJECT_STATE_SCHEMA_VERSION:
         raise StateValidationError(f"project_state.schema_version must be {PROJECT_STATE_SCHEMA_VERSION}")
+    project = _require_dict(project_state["project"], "project_state.project")
+    state = _require_dict(project_state["state"], "project_state.state")
     _require_keys(
-        project_state["project"],
+        project,
         ("name", "objective", "current_milestone", "stop_rule"),
         "project_state.project",
     )
-    for key in ("name", "objective", "current_milestone", "stop_rule"):
-        _require_non_empty_string(project_state["project"].get(key), f"project_state.project.{key}")
     _require_keys(
-        project_state["state"],
+        state,
         ("project_head", "event_count", "updated_at", "last_event_id"),
         "project_state.state",
     )
-    _require_non_empty_string(project_state["state"].get("project_head"), "project_state.state.project_head")
-    if not isinstance(project_state["state"].get("event_count"), int) or project_state["state"]["event_count"] < 1:
-        raise StateValidationError("project_state.state.event_count must be a positive integer")
-    _require_timestamp(project_state["state"].get("updated_at"), "project_state.state.updated_at")
+    event_count = state.get("event_count")
+    if not isinstance(event_count, int) or event_count < 0:
+        raise StateValidationError("project_state.state.event_count must be a non-negative integer")
+    if event_count == 0:
+        for key in ("name", "objective", "current_milestone", "stop_rule"):
+            _require_optional_non_empty_string(project.get(key), f"project_state.project.{key}")
+        _require_optional_non_empty_string(state.get("project_head"), "project_state.state.project_head")
+        _require_optional_timestamp(state.get("updated_at"), "project_state.state.updated_at")
+        _require_optional_non_empty_string(state.get("last_event_id"), "project_state.state.last_event_id")
+    else:
+        for key in ("name", "objective", "current_milestone", "stop_rule"):
+            _require_non_empty_string(project.get(key), f"project_state.project.{key}")
+        _require_non_empty_string(state.get("project_head"), "project_state.state.project_head")
+        _require_timestamp(state.get("updated_at"), "project_state.state.updated_at")
+        _require_non_empty_string(state.get("last_event_id"), "project_state.state.last_event_id")
+
+    _validate_protocol(project_state["protocol"])
+    _validate_sessions_index(project_state["sessions_index"])
+    _validate_graph(project_state["graph"])
     objects = project_state["objects"]
     links = project_state["links"]
     _require_list(objects, "project_state.objects")
@@ -247,6 +275,50 @@ def validate_project_state(project_state: dict[str, Any]) -> None:
     expected_counts = _recomputed_counts(objects, links)
     if project_state["counts"] != expected_counts:
         raise StateValidationError("project_state.counts does not match object/link state")
+
+
+def _validate_protocol(protocol: Any) -> None:
+    protocol_payload = _require_dict(protocol, "project_state.protocol")
+    _require_keys(
+        protocol_payload,
+        ("plain_ok_scope", "proposal_expiry_rules", "close_policy"),
+        "project_state.protocol",
+    )
+    _require_non_empty_string(protocol_payload.get("plain_ok_scope"), "project_state.protocol.plain_ok_scope")
+    _require_list(protocol_payload.get("proposal_expiry_rules"), "project_state.protocol.proposal_expiry_rules")
+    for item in protocol_payload["proposal_expiry_rules"]:
+        _require_non_empty_string(item, "project_state.protocol.proposal_expiry_rules[]")
+    _require_non_empty_string(protocol_payload.get("close_policy"), "project_state.protocol.close_policy")
+
+
+def _validate_sessions_index(sessions_index: Any) -> None:
+    index = _require_dict(sessions_index, "project_state.sessions_index")
+    for session_id, entry in index.items():
+        _require_non_empty_string(session_id, "project_state.sessions_index key")
+        session = _require_dict(entry, f"project_state.sessions_index.{session_id}")
+        _require_keys(
+            session,
+            ("id", "status", "started_at", "last_seen_at", "closed_at", "bound_context_hint", "decision_ids"),
+            f"project_state.sessions_index.{session_id}",
+        )
+        if session.get("id") != session_id:
+            raise StateValidationError(f"project_state.sessions_index.{session_id}.id must match map key")
+        _require_enum(session.get("status"), SESSION_LIFECYCLE_STATUSES, f"project_state.sessions_index.{session_id}.status")
+        _require_timestamp(session.get("started_at"), f"project_state.sessions_index.{session_id}.started_at")
+        _require_timestamp(session.get("last_seen_at"), f"project_state.sessions_index.{session_id}.last_seen_at")
+        if session["status"] == "closed":
+            _require_timestamp(session.get("closed_at"), f"project_state.sessions_index.{session_id}.closed_at")
+        else:
+            if session.get("closed_at") is not None:
+                raise StateValidationError(f"project_state.sessions_index.{session_id}.closed_at must be null")
+        if session.get("bound_context_hint") is not None:
+            _require_non_empty_string(
+                session.get("bound_context_hint"),
+                f"project_state.sessions_index.{session_id}.bound_context_hint",
+            )
+        _require_list(session.get("decision_ids"), f"project_state.sessions_index.{session_id}.decision_ids")
+        for decision_id in session["decision_ids"]:
+            _require_non_empty_string(decision_id, f"project_state.sessions_index.{session_id}.decision_ids[]")
 
 
 def _require_source_event_ids(value: Any, label: str) -> None:
@@ -1171,34 +1243,34 @@ def _validate_semantic_conflict_resolved_event(
             raise StateValidationError("semantic_conflict_resolved rejected_session_ids must be in scope")
 
 
-def _validate_session_graph(session_graph: dict[str, Any]) -> None:
-    graph = _require_dict(session_graph, "project_state.session_graph")
+def _validate_graph(session_graph: dict[str, Any]) -> None:
+    graph = _require_dict(session_graph, "project_state.graph")
     _require_keys(
         graph,
         ("nodes", "edges", "inferred_candidates", "resolved_conflicts"),
-        "project_state.session_graph",
+        "project_state.graph",
     )
     for key in ("nodes", "edges", "inferred_candidates", "resolved_conflicts"):
-        _require_list(graph[key], f"project_state.session_graph.{key}")
+        _require_list(graph[key], f"project_state.graph.{key}")
     node_ids: set[str] = set()
     for node in graph["nodes"]:
-        node_payload = _require_dict(node, "project_state.session_graph.nodes[]")
+        node_payload = _require_dict(node, "project_state.graph.nodes[]")
         _require_keys(
             node_payload,
             ("session_id", "status", "decision_ids", "close_summary_preview"),
-            "project_state.session_graph.nodes[]",
+            "project_state.graph.nodes[]",
         )
-        _require_non_empty_string(node_payload.get("session_id"), "project_state.session_graph.nodes[].session_id")
+        _require_non_empty_string(node_payload.get("session_id"), "project_state.graph.nodes[].session_id")
         if node_payload["session_id"] in node_ids:
             raise StateValidationError(f"duplicate session graph node: {node_payload['session_id']}")
         node_ids.add(node_payload["session_id"])
-        _require_list(node_payload["decision_ids"], "project_state.session_graph.nodes[].decision_ids")
+        _require_list(node_payload["decision_ids"], "project_state.graph.nodes[].decision_ids")
         _require_dict(
             node_payload["close_summary_preview"],
-            "project_state.session_graph.nodes[].close_summary_preview",
+            "project_state.graph.nodes[].close_summary_preview",
         )
     for edge in graph["edges"]:
-        edge_payload = _require_dict(edge, "project_state.session_graph.edges[]")
+        edge_payload = _require_dict(edge, "project_state.graph.edges[]")
         _require_keys(
             edge_payload,
             (
@@ -1210,17 +1282,17 @@ def _validate_session_graph(session_graph: dict[str, Any]) -> None:
                 "evidence_refs",
                 "event_id",
             ),
-            "project_state.session_graph.edges[]",
+            "project_state.graph.edges[]",
         )
-        _require_non_empty_string(edge_payload["parent_session_id"], "project_state.session_graph.edges[].parent_session_id")
-        _require_non_empty_string(edge_payload["child_session_id"], "project_state.session_graph.edges[].child_session_id")
-        _require_enum(edge_payload["relationship"], SESSION_RELATIONSHIPS, "project_state.session_graph.edges[].relationship")
-        _require_non_empty_string(edge_payload["reason"], "project_state.session_graph.edges[].reason")
-        _require_timestamp(edge_payload["linked_at"], "project_state.session_graph.edges[].linked_at")
-        _require_list(edge_payload["evidence_refs"], "project_state.session_graph.edges[].evidence_refs")
-        _require_non_empty_string(edge_payload["event_id"], "project_state.session_graph.edges[].event_id")
+        _require_non_empty_string(edge_payload["parent_session_id"], "project_state.graph.edges[].parent_session_id")
+        _require_non_empty_string(edge_payload["child_session_id"], "project_state.graph.edges[].child_session_id")
+        _require_enum(edge_payload["relationship"], SESSION_RELATIONSHIPS, "project_state.graph.edges[].relationship")
+        _require_non_empty_string(edge_payload["reason"], "project_state.graph.edges[].reason")
+        _require_timestamp(edge_payload["linked_at"], "project_state.graph.edges[].linked_at")
+        _require_list(edge_payload["evidence_refs"], "project_state.graph.edges[].evidence_refs")
+        _require_non_empty_string(edge_payload["event_id"], "project_state.graph.edges[].event_id")
     for resolved in graph["resolved_conflicts"]:
-        resolved_payload = _require_dict(resolved, "project_state.session_graph.resolved_conflicts[]")
+        resolved_payload = _require_dict(resolved, "project_state.graph.resolved_conflicts[]")
         _require_keys(
             resolved_payload,
             (
@@ -1233,28 +1305,28 @@ def _validate_session_graph(session_graph: dict[str, Any]) -> None:
                 "resolved_at",
                 "event_id",
             ),
-            "project_state.session_graph.resolved_conflicts[]",
+            "project_state.graph.resolved_conflicts[]",
         )
         _require_non_empty_string(
             resolved_payload["conflict_id"],
-            "project_state.session_graph.resolved_conflicts[].conflict_id",
+            "project_state.graph.resolved_conflicts[].conflict_id",
         )
         _require_non_empty_string(
             resolved_payload["winning_session_id"],
-            "project_state.session_graph.resolved_conflicts[].winning_session_id",
+            "project_state.graph.resolved_conflicts[].winning_session_id",
         )
         _require_list(
             resolved_payload["rejected_session_ids"],
-            "project_state.session_graph.resolved_conflicts[].rejected_session_ids",
+            "project_state.graph.resolved_conflicts[].rejected_session_ids",
         )
-        _require_dict(resolved_payload["scope"], "project_state.session_graph.resolved_conflicts[].scope")
+        _require_dict(resolved_payload["scope"], "project_state.graph.resolved_conflicts[].scope")
         _validate_suppressed_context(
             resolved_payload["suppressed_context"],
-            "project_state.session_graph.resolved_conflicts[].suppressed_context",
+            "project_state.graph.resolved_conflicts[].suppressed_context",
         )
-        _require_non_empty_string(resolved_payload["reason"], "project_state.session_graph.resolved_conflicts[].reason")
-        _require_timestamp(resolved_payload["resolved_at"], "project_state.session_graph.resolved_conflicts[].resolved_at")
-        _require_non_empty_string(resolved_payload["event_id"], "project_state.session_graph.resolved_conflicts[].event_id")
+        _require_non_empty_string(resolved_payload["reason"], "project_state.graph.resolved_conflicts[].reason")
+        _require_timestamp(resolved_payload["resolved_at"], "project_state.graph.resolved_conflicts[].resolved_at")
+        _require_non_empty_string(resolved_payload["event_id"], "project_state.graph.resolved_conflicts[].event_id")
 
 
 def _validate_suppressed_context(context: Any, label: str) -> None:
@@ -1273,7 +1345,8 @@ def _validate_resolved_conflict_suppression(
     sessions: dict[str, dict[str, Any]],
     taxonomy_state: dict[str, Any],
 ) -> None:
-    for resolved in project_state.get("session_graph", {}).get("resolved_conflicts", []):
+    graph = project_state.get("graph") or project_state.get("session_graph", {})
+    for resolved in graph.get("resolved_conflicts", []):
         for rejected_session_id in resolved.get("rejected_session_ids", []):
             session = sessions.get(rejected_session_id)
             if not session:
@@ -1565,6 +1638,12 @@ def _decision_refs_in_event(event: dict[str, Any]) -> list[str]:
 def _require_non_empty_string(value: Any, label: str) -> None:
     if not isinstance(value, str) or not value.strip():
         raise StateValidationError(f"{label} must be a non-empty string")
+
+
+def _require_optional_non_empty_string(value: Any, label: str) -> None:
+    if value is None:
+        return
+    _require_non_empty_string(value, label)
 
 
 def _require_dict(value: Any, label: str) -> dict[str, Any]:

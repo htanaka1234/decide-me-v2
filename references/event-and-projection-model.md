@@ -67,7 +67,7 @@ Session graph:
   `derived_from`, `refines`, `supersedes`, `depends_on`, and `contradicts`.
 - `derived_from`, `refines`, `supersedes`, and `depends_on` edges must stay acyclic.
   `contradicts` is allowed to point back across the graph because it is not a lineage edge.
-- `project_state.session_graph` contains deterministic `nodes`, explicit `edges`,
+- `project_state.graph` contains deterministic `nodes`, explicit `edges`,
   `resolved_conflicts`, and an empty `inferred_candidates` list in persisted projections.
 - Inferred candidates are derived from shared decision ids, accepted-answer mismatches, workstream
   overlap, and action-slice responsibility mismatches. They are generated on demand for graph

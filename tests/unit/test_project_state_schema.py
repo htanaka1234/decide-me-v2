@@ -26,16 +26,52 @@ class ProjectStateSchemaTests(unittest.TestCase):
     def test_project_state_uses_v10_object_link_shape(self) -> None:
         self.assertEqual(10, self.schema["properties"]["schema_version"]["const"])
         self.assertEqual(
-            ["schema_version", "project", "state", "counts", "objects", "links"],
+            [
+                "schema_version",
+                "project",
+                "state",
+                "protocol",
+                "sessions_index",
+                "counts",
+                "objects",
+                "links",
+                "graph",
+            ],
             self.schema["required"],
         )
-        for legacy_key in ("decisions", "protocol", "default_bundles", "session_graph", "proposals", "action_slices"):
+        for legacy_key in ("decisions", "default_bundles", "session_graph", "proposals", "action_slices"):
             self.assertNotIn(legacy_key, self.schema["properties"])
         self.assertEqual({"$ref": "object.schema.json"}, self.schema["properties"]["objects"]["items"])
         self.assertEqual({"$ref": "link.schema.json"}, self.schema["properties"]["links"]["items"])
 
     def test_accepts_valid_object_link_state(self) -> None:
         self.validator.validate(_valid_project_state())
+
+    def test_accepts_uninitialized_skeleton(self) -> None:
+        payload = _valid_project_state()
+        payload["project"] = {
+            "name": None,
+            "objective": None,
+            "current_milestone": None,
+            "stop_rule": None,
+        }
+        payload["state"] = {
+            "project_head": None,
+            "event_count": 0,
+            "updated_at": None,
+            "last_event_id": None,
+        }
+        payload["counts"] = {
+            "object_total": 0,
+            "link_total": 0,
+            "by_type": {},
+            "by_status": {},
+            "by_relation": {},
+        }
+        payload["objects"] = []
+        payload["links"] = []
+
+        self.validator.validate(payload)
 
     def test_rejects_stale_count_shape(self) -> None:
         payload = _valid_project_state()
@@ -62,6 +98,12 @@ def _valid_project_state() -> dict:
                 "updated_at": "2026-04-23T12:00:00Z",
                 "last_event_id": "E-001",
             },
+            "protocol": {
+                "plain_ok_scope": "same-session-active-proposal-only",
+                "proposal_expiry_rules": ["project-head-changed", "session-boundary"],
+                "close_policy": "generate-close-summary-on-close",
+            },
+            "sessions_index": {},
             "counts": {
                 "object_total": 1,
                 "link_total": 0,
@@ -83,6 +125,12 @@ def _valid_project_state() -> dict:
                 }
             ],
             "links": [],
+            "graph": {
+                "nodes": [],
+                "edges": [],
+                "resolved_conflicts": [],
+                "inferred_candidates": [],
+            },
         }
     )
 

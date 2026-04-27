@@ -33,7 +33,7 @@ class SessionGraphTests(unittest.TestCase):
 
 def _graph_bundle() -> dict:
     project_state = default_project_state()
-    project_state["session_graph"]["edges"] = [
+    project_state["graph"]["edges"] = [
         {
             "parent_session_id": "S-parent",
             "child_session_id": "S-child",

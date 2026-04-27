@@ -59,6 +59,18 @@ def default_project_state() -> dict[str, Any]:
             "stop_rule": None,
         },
         "state": {"project_head": None, "event_count": 0, "updated_at": None, "last_event_id": None},
+        "protocol": {
+            "plain_ok_scope": "same-session-active-proposal-only",
+            "proposal_expiry_rules": [
+                "project-head-changed",
+                "session-boundary",
+                "superseded-proposal",
+                "decision-invalidated",
+                "session-closed",
+            ],
+            "close_policy": "generate-close-summary-on-close",
+        },
+        "sessions_index": {},
         "counts": {
             "object_total": 0,
             "link_total": 0,
@@ -68,6 +80,12 @@ def default_project_state() -> dict[str, Any]:
         },
         "objects": [],
         "links": [],
+        "graph": {
+            "nodes": [],
+            "edges": [],
+            "resolved_conflicts": [],
+            "inferred_candidates": [],
+        },
     }
 
 
@@ -140,53 +158,6 @@ def empty_active_proposal() -> dict[str, Any]:
         "recommendation": None,
         "why": None,
         "if_not": None,
-    }
-
-
-def default_decision(decision_id: str, requirement_id: str, title: str | None = None) -> dict[str, Any]:
-    return {
-        "id": decision_id,
-        "requirement_id": require_requirement_id(requirement_id),
-        "title": title,
-        "kind": "choice",
-        "domain": "other",
-        "priority": "P1",
-        "frontier": "later",
-        "status": "unresolved",
-        "resolvable_by": "human",
-        "reversibility": "reversible",
-        "depends_on": [],
-        "blocked_by": [],
-        "question": None,
-        "context": None,
-        "options": [],
-        "recommendation": {
-            "proposal_id": None,
-            "version": 0,
-            "summary": None,
-            "rationale_short": None,
-            "confidence": "medium",
-            "proposed_at": None,
-            "based_on_project_head": None,
-        },
-        "accepted_answer": {
-            "summary": None,
-            "accepted_at": None,
-            "accepted_via": None,
-            "proposal_id": None,
-        },
-        "resolved_by_evidence": {
-            "source": None,
-            "summary": None,
-            "resolved_at": None,
-            "evidence_refs": [],
-        },
-        "evidence_refs": [],
-        "revisit_triggers": [],
-        "notes": [],
-        "bundle_id": None,
-        "agent_relevant": None,
-        "invalidated_by": None,
     }
 
 
@@ -278,12 +249,12 @@ def rebuild_projections(events: list[dict[str, Any]]) -> dict[str, Any]:
             event_count=event_count,
         )
 
-    _recompute_counts(project_state)
     bundle = {
         "project_state": project_state,
         "taxonomy_state": taxonomy_state,
         "sessions": {session_id: sessions[session_id] for session_id in sorted(sessions)},
     }
+    _finalize_project_state(bundle)
     return {
         "project_state": project_state,
         "taxonomy_state": taxonomy_state,
@@ -310,9 +281,9 @@ def apply_events_to_bundle(bundle: dict[str, Any], events: list[dict[str, Any]])
             event_count=event_count,
         )
 
-    _recompute_counts(project_state)
     normalized_sessions = {session_id: sessions[session_id] for session_id in sorted(sessions)}
     bundle["sessions"] = normalized_sessions
+    _finalize_project_state(bundle)
     return bundle
 
 
@@ -332,6 +303,8 @@ def apply_event(
 
     if event_type == "project_initialized":
         project_state["project"] = deepcopy(payload["project"])
+        if payload.get("protocol"):
+            project_state["protocol"] = deepcopy(payload["protocol"])
         _ensure_object(
             project_state,
             object_id="O-project-objective",
@@ -365,7 +338,6 @@ def apply_event(
             decision = _find_decision(project_state, active_target_id)
             if decision and decision["status"] == "proposed":
                 decision["status"] = "unresolved"
-                _touch_object(decision, ts, event["event_id"])
                 _touch_object(decision, ts, event["event_id"])
     elif event_type == "decision_discovered":
         decision = _ensure_decision(
@@ -615,7 +587,18 @@ def apply_event(
         for node in payload["nodes"]:
             _upsert_taxonomy_node(taxonomy_state, node)
     elif event_type == "session_linked":
-        pass
+        graph = project_state["graph"]
+        graph["edges"].append(
+            {
+                "parent_session_id": payload["parent_session_id"],
+                "child_session_id": payload["child_session_id"],
+                "relationship": payload["relationship"],
+                "reason": payload["reason"],
+                "linked_at": payload["linked_at"],
+                "evidence_refs": deepcopy(payload["evidence_refs"]),
+                "event_id": event["event_id"],
+            }
+        )
     elif event_type == "semantic_conflict_resolved":
         resolution = {
             "conflict_id": payload["conflict_id"],
@@ -643,6 +626,7 @@ def apply_event(
                     add_decision=False,
                 )
         resolution["suppressed_context"] = merge_suppressed_contexts(suppressed_contexts)
+        project_state["graph"]["resolved_conflicts"].append(resolution)
     elif event_type == "plan_generated":
         pass
     project_state["state"] = {
@@ -686,6 +670,10 @@ def _find_decision(project_state: dict[str, Any], decision_id: str) -> dict[str,
     if candidate and candidate.get("type") == "decision":
         return candidate
     return None
+
+
+def _object_exists(project_state: dict[str, Any], object_id: str) -> bool:
+    return _find_object(project_state, object_id) is not None
 
 
 def _find_object(project_state: dict[str, Any], object_id: str) -> dict[str, Any] | None:
@@ -750,7 +738,9 @@ def _ensure_link(
     rationale: str | None,
     timestamp: str,
     event_id: str,
-) -> dict[str, Any]:
+) -> dict[str, Any] | None:
+    if not _object_exists(project_state, source_object_id) or not _object_exists(project_state, target_object_id):
+        return None
     for link in project_state["links"]:
         if link["id"] == link_id:
             link["source_event_ids"] = stable_unique([*link.get("source_event_ids", []), event_id])
@@ -862,6 +852,16 @@ def _project_options(
             timestamp=timestamp,
             event_id=event_id,
             metadata=metadata,
+        )
+        _ensure_link(
+            project_state,
+            link_id=f"L-{option_id}-addresses-{decision_id}",
+            source_object_id=option_id,
+            relation="addresses",
+            target_object_id=decision_id,
+            rationale=None,
+            timestamp=timestamp,
+            event_id=event_id,
         )
 
 
@@ -1023,6 +1023,33 @@ def _project_close_summary_objects(
             event_id=event_id,
             metadata={key: deepcopy(value) for key, value in risk.items() if key not in {"title", "summary", "status"}},
         )
+
+
+def _finalize_project_state(bundle: dict[str, Any]) -> None:
+    project_state = bundle["project_state"]
+    sessions = bundle["sessions"]
+    _recompute_counts(project_state)
+    project_state["sessions_index"] = _sessions_index(sessions)
+    from decide_me.session_graph import build_session_graph
+
+    project_state["graph"] = build_session_graph(bundle)
+
+
+def _sessions_index(sessions: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    index: dict[str, dict[str, Any]] = {}
+    for session_id in sorted(sessions):
+        session = sessions[session_id]["session"]
+        lifecycle = session["lifecycle"]
+        index[session_id] = {
+            "id": session["id"],
+            "status": lifecycle["status"],
+            "started_at": session["started_at"],
+            "last_seen_at": session["last_seen_at"],
+            "closed_at": lifecycle.get("closed_at"),
+            "bound_context_hint": session.get("bound_context_hint"),
+            "decision_ids": list(session.get("decision_ids", [])),
+        }
+    return index
 
 
 def _short_hash(*parts: Any) -> str:

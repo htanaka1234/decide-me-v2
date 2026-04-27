@@ -66,7 +66,8 @@ def build_github_issues_export(
     sessions: list[dict[str, Any]],
     session_ids: list[str],
 ) -> tuple[dict[str, Any], dict[str, str]]:
-    resolved_conflicts = bundle["project_state"].get("session_graph", {}).get("resolved_conflicts", [])
+    graph = bundle["project_state"].get("graph") or bundle["project_state"].get("session_graph", {})
+    resolved_conflicts = graph.get("resolved_conflicts", [])
     index = build_decision_event_index(events)
     generated_at = snapshot_generated_at(bundle, events)
     current_project_head = project_head(bundle)

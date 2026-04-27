@@ -476,6 +476,123 @@ class ProjectionTests(unittest.TestCase):
 
         self.assertEqual("Use passwords.", bundle["sessions"]["S-001"]["summary"]["latest_summary"])
 
+    def test_options_are_linked_to_decision(self) -> None:
+        events = [
+            build_event(
+                sequence=1,
+                session_id="SYSTEM",
+                event_type="project_initialized",
+                project_version_after=1,
+                payload={
+                    "project": {
+                        "name": "Demo",
+                        "objective": "Test",
+                        "current_milestone": "MVP",
+                        "stop_rule": "Resolve blockers",
+                    }
+                },
+                timestamp="2026-04-23T12:00:00Z",
+            ),
+            build_event(
+                sequence=2,
+                session_id="S-001",
+                event_type="session_created",
+                project_version_after=2,
+                payload={
+                    "session": {
+                        "id": "S-001",
+                        "started_at": "2026-04-23T12:01:00Z",
+                        "last_seen_at": "2026-04-23T12:01:00Z",
+                        "bound_context_hint": "demo",
+                    }
+                },
+                timestamp="2026-04-23T12:01:00Z",
+            ),
+            build_event(
+                sequence=3,
+                session_id="S-001",
+                event_type="decision_discovered",
+                project_version_after=3,
+                payload={
+                    "decision": {
+                        "id": "D-001",
+                        "requirement_id": "R-001",
+                        "title": "Auth mode",
+                        "options": [{"summary": "Magic links", "rationale": "Small surface."}],
+                    }
+                },
+                timestamp="2026-04-23T12:02:00Z",
+            ),
+        ]
+
+        bundle = rebuild_projections(events)
+        option_ids = {
+            item["id"]
+            for item in bundle["project_state"]["objects"]
+            if item["type"] == "option"
+        }
+        addresses_links = [
+            link
+            for link in bundle["project_state"]["links"]
+            if link["relation"] == "addresses" and link["target_object_id"] == "D-001"
+        ]
+
+        self.assertEqual(1, len(option_ids))
+        self.assertEqual(option_ids, {link["source_object_id"] for link in addresses_links})
+
+    def test_missing_dependency_endpoint_link_is_skipped(self) -> None:
+        events = [
+            build_event(
+                sequence=1,
+                session_id="SYSTEM",
+                event_type="project_initialized",
+                project_version_after=1,
+                payload={
+                    "project": {
+                        "name": "Demo",
+                        "objective": "Test",
+                        "current_milestone": "MVP",
+                        "stop_rule": "Resolve blockers",
+                    }
+                },
+                timestamp="2026-04-23T12:00:00Z",
+            ),
+            build_event(
+                sequence=2,
+                session_id="S-001",
+                event_type="session_created",
+                project_version_after=2,
+                payload={
+                    "session": {
+                        "id": "S-001",
+                        "started_at": "2026-04-23T12:01:00Z",
+                        "last_seen_at": "2026-04-23T12:01:00Z",
+                        "bound_context_hint": "demo",
+                    }
+                },
+                timestamp="2026-04-23T12:01:00Z",
+            ),
+            build_event(
+                sequence=3,
+                session_id="S-001",
+                event_type="decision_discovered",
+                project_version_after=3,
+                payload={
+                    "decision": {
+                        "id": "D-001",
+                        "requirement_id": "R-001",
+                        "title": "Auth mode",
+                        "depends_on": ["D-missing"],
+                    }
+                },
+                timestamp="2026-04-23T12:02:00Z",
+            ),
+        ]
+
+        bundle = rebuild_projections(events)
+
+        self.assertEqual([], bundle["project_state"]["links"])
+
     def test_semantic_conflict_resolution_suppresses_losing_action_slice_context(self) -> None:
         events = [
             build_event(
@@ -583,6 +700,10 @@ class ProjectionTests(unittest.TestCase):
         self.assertEqual("ready", close_summary["readiness"])
 
         self.assertNotIn("session_graph", bundle["project_state"])
+        self.assertEqual(
+            ["C-action"],
+            [item["conflict_id"] for item in bundle["project_state"]["graph"]["resolved_conflicts"]],
+        )
 
     def test_semantic_conflict_resolution_suppresses_losing_workstream_only(self) -> None:
         events = [
@@ -680,6 +801,10 @@ class ProjectionTests(unittest.TestCase):
         self.assertEqual(["Shared slice"], [item["name"] for item in close_summary["candidate_action_slices"]])
         self.assertEqual([], close_summary["candidate_workstreams"])
         self.assertNotIn("session_graph", bundle["project_state"])
+        self.assertEqual(
+            ["C-workstream"],
+            [item["conflict_id"] for item in bundle["project_state"]["graph"]["resolved_conflicts"]],
+        )
 
 
 if __name__ == "__main__":

@@ -85,6 +85,12 @@ def _valid_project_state() -> dict:
             "updated_at": "2026-04-23T12:00:00Z",
             "last_event_id": "E-001",
         },
+        "protocol": {
+            "plain_ok_scope": "same-session-active-proposal-only",
+            "proposal_expiry_rules": ["project-head-changed", "session-boundary"],
+            "close_policy": "generate-close-summary-on-close",
+        },
+        "sessions_index": {},
         "counts": {
             "object_total": 2,
             "link_total": 1,
@@ -136,6 +142,12 @@ def _valid_project_state() -> dict:
                 "source_event_ids": ["E-001"],
             }
         ],
+        "graph": {
+            "nodes": [],
+            "edges": [],
+            "resolved_conflicts": [],
+            "inferred_candidates": [],
+        },
     }
     return deepcopy(payload)
 

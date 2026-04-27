@@ -20,8 +20,9 @@ artifacts without forcing every item to be a property of a decision.
 
 Projection contract:
 
-- `project-state.json` contains project metadata, projection state metadata, derived counts,
-  `objects`, and `links`.
+- `project-state.json` contains project metadata, projection state metadata, protocol settings,
+  a lightweight `sessions_index`, derived counts, `objects`, `links`, and the persisted session
+  `graph`.
 - Object and link ids must be stable across projection rebuilds for the same effective event
   stream.
 - Counts are derived from `objects` and `links`; they are validation aids, not source data.
@@ -33,4 +34,3 @@ Runtime contract:
 - A projection rebuild from the same effective event stream must produce the same object graph.
 - Rejected transactions remain in the event directory for audit, but their domain events do not
   contribute objects or links to normal projections.
-
