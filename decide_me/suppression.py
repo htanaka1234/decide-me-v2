@@ -26,7 +26,8 @@ def empty_suppressed_context() -> dict[str, Any]:
 
 def suppressed_decision_ids(project_state: dict[str, Any]) -> set[str]:
     ids: set[str] = set()
-    for resolved in project_state.get("session_graph", {}).get("resolved_conflicts", []):
+    graph = project_state["graph"]
+    for resolved in graph.get("resolved_conflicts", []):
         context = resolved.get("suppressed_context", {})
         ids.update(context.get("decision_ids", []))
     return ids

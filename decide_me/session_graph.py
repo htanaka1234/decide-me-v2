@@ -13,6 +13,10 @@ from decide_me.store import load_runtime, runtime_paths, transact
 ACYCLIC_RELATIONSHIPS = {"derived_from", "refines", "supersedes", "depends_on"}
 
 
+def _project_graph(bundle: dict[str, Any]) -> dict[str, Any]:
+    return bundle["project_state"]["graph"]
+
+
 def build_session_graph(
     bundle: dict[str, Any],
     *,
@@ -20,7 +24,7 @@ def build_session_graph(
     seed_session_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     sessions = bundle.get("sessions", {})
-    graph = bundle.get("project_state", {}).get("session_graph", {})
+    graph = _project_graph(bundle)
     edges = sorted(
         [deepcopy(edge) for edge in graph.get("edges", [])],
         key=_edge_sort_key,
@@ -51,7 +55,7 @@ def infer_relationship_candidates(
     seed_session_ids: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     sessions = bundle.get("sessions", {})
-    graph = bundle.get("project_state", {}).get("session_graph", {})
+    graph = _project_graph(bundle)
     edges = graph.get("edges", [])
     explicit_pairs = {
         frozenset((edge["parent_session_id"], edge["child_session_id"]))
@@ -85,7 +89,7 @@ def link_session(
         if relationship not in SESSION_RELATIONSHIPS:
             allowed = ", ".join(sorted(SESSION_RELATIONSHIPS))
             raise ValueError(f"relationship must be one of: {allowed}")
-        edges = bundle["project_state"].get("session_graph", {}).get("edges", [])
+        edges = _project_graph(bundle).get("edges", [])
         if _has_duplicate_link(edges, parent_session_id, child_session_id, relationship):
             raise ValueError("duplicate session_linked relationship")
         if relationship in ACYCLIC_RELATIONSHIPS and _would_create_link_cycle(
@@ -110,8 +114,8 @@ def link_session(
         ]
 
     events, bundle = transact(ai_dir, builder)
-    edge = next(edge for edge in bundle["project_state"]["session_graph"]["edges"] if edge["event_id"] == events[0]["event_id"])
-    return {"status": "ok", "edge": edge, "session_graph": bundle["project_state"]["session_graph"]}
+    edge = next(edge for edge in _project_graph(bundle)["edges"] if edge["event_id"] == events[0]["event_id"])
+    return {"status": "ok", "edge": edge, "session_graph": _project_graph(bundle)}
 
 
 def show_session_graph(
@@ -124,7 +128,7 @@ def show_session_graph(
     if include_inferred:
         graph = _session_graph_with_inferred(ai_dir, bundle, seed_session_ids=[session_id] if session_id else None)
     else:
-        graph = deepcopy(bundle["project_state"]["session_graph"])
+        graph = deepcopy(_project_graph(bundle))
         graph["inferred_candidates"] = []
     result: dict[str, Any] = {"status": "ok", "session_graph": graph}
     if session_id:
@@ -157,7 +161,7 @@ def detect_session_conflicts(
     sessions = [bundle["sessions"][session_id] for session_id in related_ids]
     from decide_me.planner import detect_conflicts
 
-    graph = deepcopy(bundle["project_state"]["session_graph"])
+    graph = deepcopy(_project_graph(bundle))
     graph["inferred_candidates"] = infer_relationship_candidates(bundle, seed_session_ids=related_ids)
     semantic_conflicts = detect_conflicts(
         sessions,
@@ -225,13 +229,13 @@ def resolve_session_conflict(
     events, bundle = transact(ai_dir, builder)
     resolved = next(
         item
-        for item in bundle["project_state"]["session_graph"]["resolved_conflicts"]
+        for item in _project_graph(bundle)["resolved_conflicts"]
         if item["event_id"] == events[0]["event_id"]
     )
     return {
         "status": "ok",
         "resolution": resolved,
-        "session_graph": bundle["project_state"]["session_graph"],
+        "session_graph": _project_graph(bundle),
     }
 
 
@@ -242,7 +246,7 @@ def related_session_scope(bundle: dict[str, Any], seed_session_ids: list[str]) -
         _require_session(bundle, session_id)
 
     adjacency: dict[str, list[tuple[str, dict[str, Any], str]]] = {}
-    for edge in bundle["project_state"].get("session_graph", {}).get("edges", []):
+    for edge in _project_graph(bundle).get("edges", []):
         parent = edge["parent_session_id"]
         child = edge["child_session_id"]
         adjacency.setdefault(parent, []).append((child, edge, "parent-to-child"))
@@ -285,7 +289,7 @@ def related_session_scope(bundle: dict[str, Any], seed_session_ids: list[str]) -
 
 
 def _explicit_graph_conflicts(bundle: dict[str, Any]) -> list[dict[str, Any]]:
-    graph = bundle["project_state"]["session_graph"]
+    graph = _project_graph(bundle)
     conflicts: list[dict[str, Any]] = []
     seen_conflict_ids: set[str] = set()
     for component_session_ids in _explicit_components(bundle):
@@ -306,7 +310,7 @@ def _explicit_graph_conflicts(bundle: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _explicit_components(bundle: dict[str, Any]) -> list[list[str]]:
-    graph = bundle["project_state"]["session_graph"]
+    graph = _project_graph(bundle)
     sessions = set(bundle["sessions"])
     adjacency: dict[str, set[str]] = {session_id: set() for session_id in sessions}
     for edge in graph.get("edges", []):

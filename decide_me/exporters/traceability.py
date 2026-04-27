@@ -94,7 +94,8 @@ def build_action_export_context_from_bundle(
     export_name: str,
 ) -> dict[str, Any]:
     source_session_ids, sessions = _selected_closed_sessions(bundle, session_ids, export_name)
-    resolved_conflicts = bundle["project_state"].get("session_graph", {}).get("resolved_conflicts", [])
+    graph = bundle["project_state"]["graph"]
+    resolved_conflicts = graph.get("resolved_conflicts", [])
     from decide_me.planner import assemble_action_plan, detect_conflicts
 
     conflicts = detect_conflicts(sessions, resolved_conflicts=resolved_conflicts)

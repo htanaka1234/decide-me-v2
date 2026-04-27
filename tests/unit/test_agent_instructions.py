@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 
 from decide_me.exporters.agents import build_agent_instructions_payload
-from decide_me.projections import default_decision
+from decide_me.requirement_ids import require_requirement_id
 
 
 class AgentInstructionFilterTests(unittest.TestCase):
@@ -275,6 +275,53 @@ def _accepted(
         "proposal_id": "P-test",
     }
     return decision
+
+
+def default_decision(decision_id: str, requirement_id: str, title: str | None = None) -> dict:
+    return {
+        "id": decision_id,
+        "requirement_id": require_requirement_id(requirement_id),
+        "title": title,
+        "kind": "choice",
+        "domain": "other",
+        "priority": "P1",
+        "frontier": "later",
+        "status": "unresolved",
+        "resolvable_by": "human",
+        "reversibility": "reversible",
+        "depends_on": [],
+        "blocked_by": [],
+        "question": None,
+        "context": None,
+        "options": [],
+        "recommendation": {
+            "proposal_id": None,
+            "version": 0,
+            "summary": None,
+            "rationale_short": None,
+            "confidence": "medium",
+            "proposed_at": None,
+            "based_on_project_head": None,
+        },
+        "accepted_answer": {
+            "summary": None,
+            "accepted_at": None,
+            "accepted_via": None,
+            "proposal_id": None,
+        },
+        "resolved_by_evidence": {
+            "source": None,
+            "summary": None,
+            "resolved_at": None,
+            "evidence_refs": [],
+        },
+        "evidence_refs": [],
+        "revisit_triggers": [],
+        "notes": [],
+        "bundle_id": None,
+        "agent_relevant": None,
+        "invalidated_by": None,
+    }
 
 
 def _resolved(decision_id: str, title: str, domain: str, summary: str) -> dict:

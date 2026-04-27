@@ -6,7 +6,12 @@ from typing import Any
 
 from decide_me.constants import ACCEPTED_VIA_VALUES, DOMAIN_VALUES, EVIDENCE_SOURCES
 from decide_me.events import EVENT_TYPES, SESSION_RELATIONSHIPS, validate_event
-from decide_me.projections import PROJECTION_SCHEMA_VERSION
+from decide_me.projections import (
+    LINK_RELATIONS,
+    OBJECT_TYPES,
+    PROJECT_STATE_SCHEMA_VERSION,
+    SESSION_STATE_SCHEMA_VERSION,
+)
 from decide_me.requirement_ids import is_requirement_id
 from decide_me.suppression import (
     has_remaining_suppressed_scope,
@@ -98,6 +103,8 @@ def _require_optional_timestamp(value: Any, label: str) -> None:
 
 
 def validate_project_state(project_state: dict[str, Any]) -> None:
+    if "decisions" in project_state:
+        raise StateValidationError("project_state must not contain top-level decisions")
     _require_keys(
         project_state,
         (
@@ -105,116 +112,294 @@ def validate_project_state(project_state: dict[str, Any]) -> None:
             "project",
             "state",
             "protocol",
+            "sessions_index",
             "counts",
-            "default_bundles",
-            "session_graph",
-            "decisions",
+            "objects",
+            "links",
+            "graph",
         ),
         "project_state",
     )
-    if project_state.get("schema_version") != PROJECTION_SCHEMA_VERSION:
-        raise StateValidationError(f"project_state.schema_version must be {PROJECTION_SCHEMA_VERSION}")
+    allowed_top_level = {
+        "schema_version",
+        "project",
+        "state",
+        "protocol",
+        "sessions_index",
+        "counts",
+        "objects",
+        "links",
+        "graph",
+    }
+    unknown_top_level = sorted(set(project_state) - allowed_top_level)
+    if unknown_top_level:
+        raise StateValidationError(
+            f"project_state contains unsupported top-level keys: {', '.join(unknown_top_level)}"
+        )
+    if project_state.get("schema_version") != PROJECT_STATE_SCHEMA_VERSION:
+        raise StateValidationError(f"project_state.schema_version must be {PROJECT_STATE_SCHEMA_VERSION}")
+    project = _require_dict(project_state["project"], "project_state.project")
+    state = _require_dict(project_state["state"], "project_state.state")
     _require_keys(
-        project_state["project"],
+        project,
         ("name", "objective", "current_milestone", "stop_rule"),
         "project_state.project",
     )
-    for key in ("name", "objective", "current_milestone", "stop_rule"):
-        _require_non_empty_string(project_state["project"].get(key), f"project_state.project.{key}")
     _require_keys(
-        project_state["state"],
+        state,
         ("project_head", "event_count", "updated_at", "last_event_id"),
         "project_state.state",
     )
-    _require_non_empty_string(project_state["state"].get("project_head"), "project_state.state.project_head")
-    if not isinstance(project_state["state"].get("event_count"), int) or project_state["state"]["event_count"] < 1:
-        raise StateValidationError("project_state.state.event_count must be a positive integer")
-    _require_timestamp(project_state["state"].get("updated_at"), "project_state.state.updated_at")
-    if not isinstance(project_state["decisions"], list):
-        raise StateValidationError("project_state.decisions must be a list")
+    event_count = state.get("event_count")
+    if not isinstance(event_count, int) or event_count < 0:
+        raise StateValidationError("project_state.state.event_count must be a non-negative integer")
+    if event_count == 0:
+        for key in ("name", "objective", "current_milestone", "stop_rule"):
+            _require_optional_non_empty_string(project.get(key), f"project_state.project.{key}")
+        _require_optional_non_empty_string(state.get("project_head"), "project_state.state.project_head")
+        _require_optional_timestamp(state.get("updated_at"), "project_state.state.updated_at")
+        _require_optional_non_empty_string(state.get("last_event_id"), "project_state.state.last_event_id")
+    else:
+        for key in ("name", "objective", "current_milestone", "stop_rule"):
+            _require_non_empty_string(project.get(key), f"project_state.project.{key}")
+        _require_non_empty_string(state.get("project_head"), "project_state.state.project_head")
+        _require_timestamp(state.get("updated_at"), "project_state.state.updated_at")
+        _require_non_empty_string(state.get("last_event_id"), "project_state.state.last_event_id")
 
-    decision_ids: set[str] = set()
-    for decision in project_state["decisions"]:
+    _validate_protocol(project_state["protocol"])
+    _validate_sessions_index(project_state["sessions_index"])
+    _validate_graph(project_state["graph"])
+    objects = project_state["objects"]
+    links = project_state["links"]
+    _require_list(objects, "project_state.objects")
+    _require_list(links, "project_state.links")
+
+    object_ids: set[str] = set()
+    requirement_ids: set[str] = set()
+    for item in objects:
+        obj = _require_dict(item, "project_state.objects[]")
         _require_keys(
-            decision,
+            obj,
             (
                 "id",
-                "requirement_id",
+                "type",
                 "title",
-                "kind",
-                "domain",
-                "priority",
-                "frontier",
+                "body",
                 "status",
-                "resolvable_by",
-                "reversibility",
-                "depends_on",
-                "blocked_by",
-                "question",
-                "context",
-                "options",
-                "recommendation",
-                "accepted_answer",
-                "resolved_by_evidence",
-                "evidence_refs",
-                "revisit_triggers",
-                "notes",
-                "bundle_id",
-                "invalidated_by",
+                "created_at",
+                "updated_at",
+                "source_event_ids",
+                "metadata",
             ),
-            f"decision[{decision.get('id', '?')}]",
+            f"object[{obj.get('id', '?')}]",
         )
-        requirement_id = decision.get("requirement_id")
-        if not is_requirement_id(requirement_id):
-            raise StateValidationError(
-                f"decision {decision['id']}.requirement_id must match R-001 with at least three digits"
-            )
-        if decision["status"] not in ALL_DECISION_STATUSES:
-            raise StateValidationError(f"unsupported decision status: {decision['status']}")
-        _require_enum(decision["priority"], PRIORITIES, f"decision {decision['id']}.priority")
-        _require_enum(decision["frontier"], FRONTIERS, f"decision {decision['id']}.frontier")
-        _require_enum(decision["kind"], KINDS, f"decision {decision['id']}.kind")
-        _require_enum(decision["domain"], DOMAIN_VALUES, f"decision {decision['id']}.domain")
-        _require_enum(
-            decision["resolvable_by"], RESOLVABLE_BY, f"decision {decision['id']}.resolvable_by"
-        )
-        _require_enum(
-            decision["reversibility"], REVERSIBILITY, f"decision {decision['id']}.reversibility"
-        )
-        _require_list(decision["depends_on"], f"decision {decision['id']}.depends_on")
-        _require_list(decision["blocked_by"], f"decision {decision['id']}.blocked_by")
-        _require_list(decision["options"], f"decision {decision['id']}.options")
-        _require_list(decision["evidence_refs"], f"decision {decision['id']}.evidence_refs")
-        _require_list(decision["revisit_triggers"], f"decision {decision['id']}.revisit_triggers")
-        _require_list(decision["notes"], f"decision {decision['id']}.notes")
-        if "agent_relevant" in decision and decision["agent_relevant"] is not None:
-            if not isinstance(decision["agent_relevant"], bool):
+        if set(obj) - {
+            "id",
+            "type",
+            "title",
+            "body",
+            "status",
+            "created_at",
+            "updated_at",
+            "source_event_ids",
+            "metadata",
+        }:
+            raise StateValidationError(f"object {obj.get('id', '?')} contains unsupported keys")
+        _require_non_empty_string(obj.get("id"), "project_state.objects[].id")
+        _require_enum(obj.get("type"), OBJECT_TYPES, f"object {obj['id']}.type")
+        if obj.get("title") is not None:
+            _require_non_empty_string(obj.get("title"), f"object {obj['id']}.title")
+        if obj.get("body") is not None and not isinstance(obj.get("body"), str):
+            raise StateValidationError(f"object {obj['id']}.body must be a string or null")
+        _require_non_empty_string(obj.get("status"), f"object {obj['id']}.status")
+        _require_timestamp(obj.get("created_at"), f"object {obj['id']}.created_at")
+        _require_optional_timestamp(obj.get("updated_at"), f"object {obj['id']}.updated_at")
+        _require_source_event_ids(obj.get("source_event_ids"), f"object {obj['id']}.source_event_ids")
+        metadata = _require_dict(obj.get("metadata"), f"object {obj['id']}.metadata")
+        if obj["id"] in object_ids:
+            raise StateValidationError(f"duplicate object id: {obj['id']}")
+        object_ids.add(obj["id"])
+        if obj["type"] == "decision":
+            requirement_id = metadata.get("requirement_id")
+            if not is_requirement_id(requirement_id):
                 raise StateValidationError(
-                    f"decision {decision['id']}.agent_relevant must be a boolean or null"
+                    f"decision object {obj['id']}.metadata.requirement_id must match R-001 with at least three digits"
                 )
-        _require_dict(decision["recommendation"], f"decision {decision['id']}.recommendation")
-        _require_dict(decision["accepted_answer"], f"decision {decision['id']}.accepted_answer")
-        resolved_by_evidence = _require_dict(
-            decision["resolved_by_evidence"], f"decision {decision['id']}.resolved_by_evidence"
+            if requirement_id in requirement_ids:
+                raise StateValidationError(f"duplicate requirement_id: {requirement_id}")
+            requirement_ids.add(requirement_id)
+            _validate_decision_object_metadata(obj)
+
+    link_ids: set[str] = set()
+    for item in links:
+        link = _require_dict(item, "project_state.links[]")
+        _require_keys(
+            link,
+            (
+                "id",
+                "source_object_id",
+                "relation",
+                "target_object_id",
+                "rationale",
+                "created_at",
+                "source_event_ids",
+            ),
+            f"link[{link.get('id', '?')}]",
         )
-        _require_list(
-            resolved_by_evidence.get("evidence_refs"),
-            f"decision {decision['id']}.resolved_by_evidence.evidence_refs",
-        )
-        _validate_decision_status_payload(decision)
-        if decision["id"] in decision_ids:
-            raise StateValidationError(f"duplicate decision id: {decision['id']}")
-        decision_ids.add(decision["id"])
-    requirement_ids: set[str] = set()
-    for decision in project_state["decisions"]:
-        requirement_id = decision["requirement_id"]
-        if requirement_id in requirement_ids:
-            raise StateValidationError(f"duplicate requirement_id: {requirement_id}")
-        requirement_ids.add(requirement_id)
-    expected_counts = _recomputed_counts(project_state["decisions"])
+        if set(link) - {
+            "id",
+            "source_object_id",
+            "relation",
+            "target_object_id",
+            "rationale",
+            "created_at",
+            "source_event_ids",
+        }:
+            raise StateValidationError(f"link {link.get('id', '?')} contains unsupported keys")
+        _require_non_empty_string(link.get("id"), "project_state.links[].id")
+        _require_non_empty_string(link.get("source_object_id"), f"link {link['id']}.source_object_id")
+        _require_enum(link.get("relation"), LINK_RELATIONS, f"link {link['id']}.relation")
+        _require_non_empty_string(link.get("target_object_id"), f"link {link['id']}.target_object_id")
+        if link.get("rationale") is not None and not isinstance(link.get("rationale"), str):
+            raise StateValidationError(f"link {link['id']}.rationale must be a string or null")
+        _require_timestamp(link.get("created_at"), f"link {link['id']}.created_at")
+        _require_source_event_ids(link.get("source_event_ids"), f"link {link['id']}.source_event_ids")
+        if link["id"] in link_ids:
+            raise StateValidationError(f"duplicate link id: {link['id']}")
+        link_ids.add(link["id"])
+        if link["source_object_id"] not in object_ids:
+            raise StateValidationError(f"link {link['id']} source_object_id references missing object")
+        if link["target_object_id"] not in object_ids:
+            raise StateValidationError(f"link {link['id']} target_object_id references missing object")
+
+    expected_counts = _recomputed_counts(objects, links)
     if project_state["counts"] != expected_counts:
-        raise StateValidationError("project_state.counts does not match decision state")
-    _validate_session_graph(project_state["session_graph"])
+        raise StateValidationError("project_state.counts does not match object/link state")
+
+
+def _validate_protocol(protocol: Any) -> None:
+    protocol_payload = _require_dict(protocol, "project_state.protocol")
+    _require_keys(
+        protocol_payload,
+        ("plain_ok_scope", "proposal_expiry_rules", "close_policy"),
+        "project_state.protocol",
+    )
+    _require_non_empty_string(protocol_payload.get("plain_ok_scope"), "project_state.protocol.plain_ok_scope")
+    _require_list(protocol_payload.get("proposal_expiry_rules"), "project_state.protocol.proposal_expiry_rules")
+    for item in protocol_payload["proposal_expiry_rules"]:
+        _require_non_empty_string(item, "project_state.protocol.proposal_expiry_rules[]")
+    _require_non_empty_string(protocol_payload.get("close_policy"), "project_state.protocol.close_policy")
+
+
+def _validate_sessions_index(sessions_index: Any) -> None:
+    index = _require_dict(sessions_index, "project_state.sessions_index")
+    for session_id, entry in index.items():
+        _require_non_empty_string(session_id, "project_state.sessions_index key")
+        session = _require_dict(entry, f"project_state.sessions_index.{session_id}")
+        _require_keys(
+            session,
+            ("id", "status", "started_at", "last_seen_at", "closed_at", "bound_context_hint", "decision_ids"),
+            f"project_state.sessions_index.{session_id}",
+        )
+        if session.get("id") != session_id:
+            raise StateValidationError(f"project_state.sessions_index.{session_id}.id must match map key")
+        _require_enum(session.get("status"), SESSION_LIFECYCLE_STATUSES, f"project_state.sessions_index.{session_id}.status")
+        _require_timestamp(session.get("started_at"), f"project_state.sessions_index.{session_id}.started_at")
+        _require_timestamp(session.get("last_seen_at"), f"project_state.sessions_index.{session_id}.last_seen_at")
+        if session["status"] == "closed":
+            _require_timestamp(session.get("closed_at"), f"project_state.sessions_index.{session_id}.closed_at")
+        else:
+            if session.get("closed_at") is not None:
+                raise StateValidationError(f"project_state.sessions_index.{session_id}.closed_at must be null")
+        if session.get("bound_context_hint") is not None:
+            _require_non_empty_string(
+                session.get("bound_context_hint"),
+                f"project_state.sessions_index.{session_id}.bound_context_hint",
+            )
+        _require_list(session.get("decision_ids"), f"project_state.sessions_index.{session_id}.decision_ids")
+        for decision_id in session["decision_ids"]:
+            _require_non_empty_string(decision_id, f"project_state.sessions_index.{session_id}.decision_ids[]")
+
+
+def _require_source_event_ids(value: Any, label: str) -> None:
+    _require_list(value, label)
+    if not value:
+        raise StateValidationError(f"{label} must not be empty")
+    seen: set[str] = set()
+    for event_id in value:
+        _require_non_empty_string(event_id, f"{label}[]")
+        if event_id in seen:
+            raise StateValidationError(f"{label} contains duplicate event ids")
+        seen.add(event_id)
+
+
+def _validate_decision_object_metadata(decision: dict[str, Any]) -> None:
+    metadata = decision["metadata"]
+    if decision["status"] not in ALL_DECISION_STATUSES:
+        raise StateValidationError(f"unsupported decision status: {decision['status']}")
+    for key, allowed in (
+        ("priority", PRIORITIES),
+        ("frontier", FRONTIERS),
+        ("kind", KINDS),
+        ("domain", DOMAIN_VALUES),
+        ("resolvable_by", RESOLVABLE_BY),
+        ("reversibility", REVERSIBILITY),
+    ):
+        if key in metadata:
+            _require_enum(metadata[key], allowed, f"decision object {decision['id']}.metadata.{key}")
+    if "agent_relevant" in metadata and metadata["agent_relevant"] is not None:
+        if not isinstance(metadata["agent_relevant"], bool):
+            raise StateValidationError(
+                f"decision object {decision['id']}.metadata.agent_relevant must be a boolean or null"
+            )
+    if "notes" in metadata:
+        _require_list(metadata["notes"], f"decision object {decision['id']}.metadata.notes")
+    accepted_answer = metadata.get("accepted_answer")
+    if accepted_answer is not None:
+        _require_dict(accepted_answer, f"decision object {decision['id']}.metadata.accepted_answer")
+        if accepted_answer.get("accepted_at") is not None:
+            _require_timestamp(
+                accepted_answer.get("accepted_at"),
+                f"decision object {decision['id']}.metadata.accepted_answer.accepted_at",
+            )
+        if accepted_answer.get("accepted_via") is not None:
+            _require_enum(
+                accepted_answer.get("accepted_via"),
+                ACCEPTED_VIA_VALUES,
+                f"decision object {decision['id']}.metadata.accepted_answer.accepted_via",
+            )
+    resolved = metadata.get("resolved_by_evidence")
+    if resolved is not None:
+        _require_dict(resolved, f"decision object {decision['id']}.metadata.resolved_by_evidence")
+        if resolved.get("resolved_at") is not None:
+            _require_timestamp(
+                resolved.get("resolved_at"),
+                f"decision object {decision['id']}.metadata.resolved_by_evidence.resolved_at",
+            )
+        if resolved.get("source") is not None:
+            _require_enum(
+                resolved.get("source"),
+                EVIDENCE_SOURCES,
+                f"decision object {decision['id']}.metadata.resolved_by_evidence.source",
+            )
+        if resolved.get("evidence_refs") is not None:
+            _require_list(
+                resolved.get("evidence_refs"),
+                f"decision object {decision['id']}.metadata.resolved_by_evidence.evidence_refs",
+            )
+    invalidated_by = metadata.get("invalidated_by")
+    if decision["status"] == "invalidated":
+        invalidated = _require_dict(invalidated_by, f"decision object {decision['id']}.metadata.invalidated_by")
+        _require_non_empty_string(
+            invalidated.get("decision_id"),
+            f"decision object {decision['id']}.metadata.invalidated_by.decision_id",
+        )
+        _require_timestamp(
+            invalidated.get("invalidated_at"),
+            f"decision object {decision['id']}.metadata.invalidated_by.invalidated_at",
+        )
+    elif invalidated_by is not None:
+        raise StateValidationError(f"non-invalidated decision object {decision['id']} must not carry invalidated_by")
 
 
 def _validate_decision_status_payload(decision: dict[str, Any]) -> None:
@@ -287,8 +472,8 @@ def validate_session_state(session_state: dict[str, Any]) -> None:
         ("schema_version", "session", "summary", "classification", "close_summary", "working_state"),
         "session_state",
     )
-    if session_state.get("schema_version") != PROJECTION_SCHEMA_VERSION:
-        raise StateValidationError(f"session_state.schema_version must be {PROJECTION_SCHEMA_VERSION}")
+    if session_state.get("schema_version") != SESSION_STATE_SCHEMA_VERSION:
+        raise StateValidationError(f"session_state.schema_version must be {SESSION_STATE_SCHEMA_VERSION}")
     _require_keys(
         session_state["session"],
         ("id", "started_at", "last_seen_at", "bound_context_hint", "decision_ids", "lifecycle"),
@@ -407,6 +592,8 @@ def validate_projection_bundle(bundle: dict[str, Any]) -> None:
     taxonomy_ids = set(taxonomy_by_id(bundle["taxonomy_state"]))
     for session_id, session in bundle["sessions"].items():
         validate_session_state(session)
+    if bundle["project_state"]["sessions_index"] != _expected_sessions_index(bundle["sessions"]):
+        raise StateValidationError("project_state.sessions_index does not match sessions")
     _validate_resolved_conflict_suppression(
         bundle["project_state"],
         bundle["sessions"],
@@ -429,7 +616,28 @@ def validate_projection_bundle(bundle: dict[str, Any]) -> None:
 
 
 def _decision_index(project_state: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    return {decision["id"]: decision for decision in project_state["decisions"]}
+    return {
+        item["id"]: item
+        for item in project_state["objects"]
+        if item.get("type") == "decision"
+    }
+
+
+def _expected_sessions_index(sessions: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    index: dict[str, dict[str, Any]] = {}
+    for session_id in sorted(sessions):
+        session = sessions[session_id]["session"]
+        lifecycle = session["lifecycle"]
+        index[session_id] = {
+            "id": session["id"],
+            "status": lifecycle["status"],
+            "started_at": session["started_at"],
+            "last_seen_at": session["last_seen_at"],
+            "closed_at": lifecycle.get("closed_at"),
+            "bound_context_hint": session.get("bound_context_hint"),
+            "decision_ids": list(session.get("decision_ids", [])),
+        }
+    return index
 
 
 def _visible_decision_ids(decisions_by_id: dict[str, dict[str, Any]]) -> set[str]:
@@ -444,14 +652,8 @@ def _validate_decision_references(
     decisions_by_id: dict[str, dict[str, Any]], active_proposal_targets: dict[str, list[str]]
 ) -> None:
     for decision_id, decision in decisions_by_id.items():
-        for key in ("depends_on", "blocked_by"):
-            for referenced_id in decision.get(key, []):
-                if referenced_id not in decisions_by_id:
-                    raise StateValidationError(
-                        f"decision {decision_id}.{key} references unknown decision {referenced_id}"
-                    )
-
-        invalidated_by = decision.get("invalidated_by")
+        metadata = decision.get("metadata", {})
+        invalidated_by = metadata.get("invalidated_by")
         if decision["status"] == "invalidated":
             invalidated_by = _require_dict(invalidated_by, f"decision {decision_id}.invalidated_by")
             invalidating_id = invalidated_by.get("decision_id")
@@ -468,17 +670,7 @@ def _validate_decision_references(
         elif invalidated_by is not None:
             raise StateValidationError(f"non-invalidated decision {decision_id} must not carry invalidated_by")
 
-        accepted_proposal_id = decision.get("accepted_answer", {}).get("proposal_id")
-        recommended_proposal_id = decision.get("recommendation", {}).get("proposal_id")
-        if accepted_proposal_id and accepted_proposal_id != recommended_proposal_id:
-            raise StateValidationError(
-                f"decision {decision_id} accepted_answer.proposal_id does not match recommendation.proposal_id"
-            )
         if decision["status"] == "proposed":
-            _require_non_empty_string(
-                decision.get("recommendation", {}).get("proposal_id"),
-                f"decision {decision_id}.recommendation.proposal_id",
-            )
             owners = active_proposal_targets.get(decision_id, [])
             if len(owners) != 1:
                 raise StateValidationError(
@@ -643,7 +835,7 @@ def _validate_active_proposal(
             )
         if session["summary"].get("active_decision_id") != target_id:
             raise StateValidationError(f"session {session_id} active proposal does not match active_decision_id")
-        if decision.get("recommendation", {}).get("proposal_id") != proposal_id:
+        if decision.get("metadata", {}).get("last_proposal_id") != proposal_id:
             raise StateValidationError(f"session {session_id} active proposal is not the decision recommendation")
     _validate_question_state(session_id, session)
 
@@ -1070,34 +1262,34 @@ def _validate_semantic_conflict_resolved_event(
             raise StateValidationError("semantic_conflict_resolved rejected_session_ids must be in scope")
 
 
-def _validate_session_graph(session_graph: dict[str, Any]) -> None:
-    graph = _require_dict(session_graph, "project_state.session_graph")
+def _validate_graph(session_graph: dict[str, Any]) -> None:
+    graph = _require_dict(session_graph, "project_state.graph")
     _require_keys(
         graph,
         ("nodes", "edges", "inferred_candidates", "resolved_conflicts"),
-        "project_state.session_graph",
+        "project_state.graph",
     )
     for key in ("nodes", "edges", "inferred_candidates", "resolved_conflicts"):
-        _require_list(graph[key], f"project_state.session_graph.{key}")
+        _require_list(graph[key], f"project_state.graph.{key}")
     node_ids: set[str] = set()
     for node in graph["nodes"]:
-        node_payload = _require_dict(node, "project_state.session_graph.nodes[]")
+        node_payload = _require_dict(node, "project_state.graph.nodes[]")
         _require_keys(
             node_payload,
             ("session_id", "status", "decision_ids", "close_summary_preview"),
-            "project_state.session_graph.nodes[]",
+            "project_state.graph.nodes[]",
         )
-        _require_non_empty_string(node_payload.get("session_id"), "project_state.session_graph.nodes[].session_id")
+        _require_non_empty_string(node_payload.get("session_id"), "project_state.graph.nodes[].session_id")
         if node_payload["session_id"] in node_ids:
             raise StateValidationError(f"duplicate session graph node: {node_payload['session_id']}")
         node_ids.add(node_payload["session_id"])
-        _require_list(node_payload["decision_ids"], "project_state.session_graph.nodes[].decision_ids")
+        _require_list(node_payload["decision_ids"], "project_state.graph.nodes[].decision_ids")
         _require_dict(
             node_payload["close_summary_preview"],
-            "project_state.session_graph.nodes[].close_summary_preview",
+            "project_state.graph.nodes[].close_summary_preview",
         )
     for edge in graph["edges"]:
-        edge_payload = _require_dict(edge, "project_state.session_graph.edges[]")
+        edge_payload = _require_dict(edge, "project_state.graph.edges[]")
         _require_keys(
             edge_payload,
             (
@@ -1109,17 +1301,17 @@ def _validate_session_graph(session_graph: dict[str, Any]) -> None:
                 "evidence_refs",
                 "event_id",
             ),
-            "project_state.session_graph.edges[]",
+            "project_state.graph.edges[]",
         )
-        _require_non_empty_string(edge_payload["parent_session_id"], "project_state.session_graph.edges[].parent_session_id")
-        _require_non_empty_string(edge_payload["child_session_id"], "project_state.session_graph.edges[].child_session_id")
-        _require_enum(edge_payload["relationship"], SESSION_RELATIONSHIPS, "project_state.session_graph.edges[].relationship")
-        _require_non_empty_string(edge_payload["reason"], "project_state.session_graph.edges[].reason")
-        _require_timestamp(edge_payload["linked_at"], "project_state.session_graph.edges[].linked_at")
-        _require_list(edge_payload["evidence_refs"], "project_state.session_graph.edges[].evidence_refs")
-        _require_non_empty_string(edge_payload["event_id"], "project_state.session_graph.edges[].event_id")
+        _require_non_empty_string(edge_payload["parent_session_id"], "project_state.graph.edges[].parent_session_id")
+        _require_non_empty_string(edge_payload["child_session_id"], "project_state.graph.edges[].child_session_id")
+        _require_enum(edge_payload["relationship"], SESSION_RELATIONSHIPS, "project_state.graph.edges[].relationship")
+        _require_non_empty_string(edge_payload["reason"], "project_state.graph.edges[].reason")
+        _require_timestamp(edge_payload["linked_at"], "project_state.graph.edges[].linked_at")
+        _require_list(edge_payload["evidence_refs"], "project_state.graph.edges[].evidence_refs")
+        _require_non_empty_string(edge_payload["event_id"], "project_state.graph.edges[].event_id")
     for resolved in graph["resolved_conflicts"]:
-        resolved_payload = _require_dict(resolved, "project_state.session_graph.resolved_conflicts[]")
+        resolved_payload = _require_dict(resolved, "project_state.graph.resolved_conflicts[]")
         _require_keys(
             resolved_payload,
             (
@@ -1132,28 +1324,28 @@ def _validate_session_graph(session_graph: dict[str, Any]) -> None:
                 "resolved_at",
                 "event_id",
             ),
-            "project_state.session_graph.resolved_conflicts[]",
+            "project_state.graph.resolved_conflicts[]",
         )
         _require_non_empty_string(
             resolved_payload["conflict_id"],
-            "project_state.session_graph.resolved_conflicts[].conflict_id",
+            "project_state.graph.resolved_conflicts[].conflict_id",
         )
         _require_non_empty_string(
             resolved_payload["winning_session_id"],
-            "project_state.session_graph.resolved_conflicts[].winning_session_id",
+            "project_state.graph.resolved_conflicts[].winning_session_id",
         )
         _require_list(
             resolved_payload["rejected_session_ids"],
-            "project_state.session_graph.resolved_conflicts[].rejected_session_ids",
+            "project_state.graph.resolved_conflicts[].rejected_session_ids",
         )
-        _require_dict(resolved_payload["scope"], "project_state.session_graph.resolved_conflicts[].scope")
+        _require_dict(resolved_payload["scope"], "project_state.graph.resolved_conflicts[].scope")
         _validate_suppressed_context(
             resolved_payload["suppressed_context"],
-            "project_state.session_graph.resolved_conflicts[].suppressed_context",
+            "project_state.graph.resolved_conflicts[].suppressed_context",
         )
-        _require_non_empty_string(resolved_payload["reason"], "project_state.session_graph.resolved_conflicts[].reason")
-        _require_timestamp(resolved_payload["resolved_at"], "project_state.session_graph.resolved_conflicts[].resolved_at")
-        _require_non_empty_string(resolved_payload["event_id"], "project_state.session_graph.resolved_conflicts[].event_id")
+        _require_non_empty_string(resolved_payload["reason"], "project_state.graph.resolved_conflicts[].reason")
+        _require_timestamp(resolved_payload["resolved_at"], "project_state.graph.resolved_conflicts[].resolved_at")
+        _require_non_empty_string(resolved_payload["event_id"], "project_state.graph.resolved_conflicts[].event_id")
 
 
 def _validate_suppressed_context(context: Any, label: str) -> None:
@@ -1172,7 +1364,8 @@ def _validate_resolved_conflict_suppression(
     sessions: dict[str, dict[str, Any]],
     taxonomy_state: dict[str, Any],
 ) -> None:
-    for resolved in project_state.get("session_graph", {}).get("resolved_conflicts", []):
+    graph = project_state["graph"]
+    for resolved in graph.get("resolved_conflicts", []):
         for rejected_session_id in resolved.get("rejected_session_ids", []):
             session = sessions.get(rejected_session_id)
             if not session:
@@ -1410,7 +1603,7 @@ def _has_final_invalidating_chain(
         return True
     if decision["status"] != "invalidated":
         return False
-    invalidated_by = decision.get("invalidated_by")
+    invalidated_by = decision.get("metadata", {}).get("invalidated_by")
     if not isinstance(invalidated_by, dict):
         return False
     invalidating_id = invalidated_by.get("decision_id")
@@ -1466,6 +1659,12 @@ def _require_non_empty_string(value: Any, label: str) -> None:
         raise StateValidationError(f"{label} must be a non-empty string")
 
 
+def _require_optional_non_empty_string(value: Any, label: str) -> None:
+    if value is None:
+        return
+    _require_non_empty_string(value, label)
+
+
 def _require_dict(value: Any, label: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise StateValidationError(f"{label} must be an object")
@@ -1483,18 +1682,17 @@ def _require_enum(value: Any, allowed: set[str], label: str) -> None:
         raise StateValidationError(f"{label} must be one of: {choices}")
 
 
-def _recomputed_counts(decisions: list[dict[str, Any]]) -> dict[str, int]:
-    counts = {"p0_now_open": 0, "p1_now_open": 0, "p2_open": 0, "blocked": 0, "deferred": 0}
-    for decision in decisions:
-        status = decision["status"]
-        if decision["priority"] == "P0" and decision["frontier"] == "now" and status in OPEN_DECISION_STATUSES:
-            counts["p0_now_open"] += 1
-        if decision["priority"] == "P1" and decision["frontier"] == "now" and status in OPEN_DECISION_STATUSES:
-            counts["p1_now_open"] += 1
-        if decision["priority"] == "P2" and status in OPEN_DECISION_STATUSES:
-            counts["p2_open"] += 1
-        if status == "blocked":
-            counts["blocked"] += 1
-        if status == "deferred":
-            counts["deferred"] += 1
+def _recomputed_counts(objects: list[dict[str, Any]], links: list[dict[str, Any]]) -> dict[str, Any]:
+    counts: dict[str, Any] = {
+        "object_total": len(objects),
+        "link_total": len(links),
+        "by_type": {},
+        "by_status": {},
+        "by_relation": {},
+    }
+    for item in objects:
+        counts["by_type"][item["type"]] = counts["by_type"].get(item["type"], 0) + 1
+        counts["by_status"][item["status"]] = counts["by_status"].get(item["status"], 0) + 1
+    for link in links:
+        counts["by_relation"][link["relation"]] = counts["by_relation"].get(link["relation"], 0) + 1
     return counts

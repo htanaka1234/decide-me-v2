@@ -10,7 +10,11 @@ FRONTIER_RANK = {"now": 0, "later": 1, "discovered-later": 2, "deferred": 3}
 
 
 def open_decisions(project_state: dict[str, Any]) -> list[dict[str, Any]]:
-    return [decision for decision in project_state["decisions"] if decision["status"] in OPEN_DECISION_STATUSES]
+    return [
+        item
+        for item in project_state["objects"]
+        if item.get("type") == "decision" and item["status"] in OPEN_DECISION_STATUSES
+    ]
 
 
 def select_next_decision(
@@ -35,12 +39,13 @@ def select_next_decision(
     ]
     if not candidates:
         return None
-    return min(candidates, key=lambda decision: _decision_sort_key(decision, visible_ids))
+    return min(candidates, key=lambda decision: _decision_sort_key(project_state, decision, visible_ids))
 
 
 def stop_reached(project_state: dict[str, Any]) -> bool:
     for decision in open_decisions(project_state):
-        if decision["priority"] == "P0" and decision["frontier"] == "now":
+        metadata = decision.get("metadata", {})
+        if metadata.get("priority") == "P0" and metadata.get("frontier") == "now":
             return False
     return True
 
@@ -56,7 +61,7 @@ def proposal_is_stale(
         return True, proposal.get("inactive_reason") or "no-active-proposal"
     target_id = proposal.get("target_id")
     if target_id:
-        for decision in project_state["decisions"]:
+        for decision in project_state["objects"]:
             if decision["id"] == target_id and decision_is_invalidated(decision):
                 return True, "decision-invalidated"
     if proposal.get("based_on_project_head") != project_state["state"]["project_head"]:
@@ -64,10 +69,22 @@ def proposal_is_stale(
     return False, None
 
 
-def _decision_sort_key(decision: dict[str, Any], visible_ids: set[str]) -> tuple[int, int, int, str]:
+def _decision_sort_key(
+    project_state: dict[str, Any], decision: dict[str, Any], visible_ids: set[str]
+) -> tuple[int, int, int, str]:
+    metadata = decision.get("metadata", {})
+    dependency_count = len(
+        [
+            link
+            for link in project_state.get("links", [])
+            if link.get("source_object_id") == decision["id"]
+            and link.get("relation") == "depends_on"
+            and link.get("target_object_id") in visible_ids
+        ]
+    )
     return (
-        PRIORITY_RANK.get(decision["priority"], 99),
-        FRONTIER_RANK.get(decision["frontier"], 99),
-        len([candidate for candidate in decision.get("depends_on", []) if candidate in visible_ids]),
+        PRIORITY_RANK.get(metadata.get("priority"), 99),
+        FRONTIER_RANK.get(metadata.get("frontier"), 99),
+        dependency_count,
         decision["id"],
     )

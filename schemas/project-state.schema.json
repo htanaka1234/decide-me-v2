@@ -2,15 +2,18 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/decide-me/project-state.schema.json",
   "title": "Decide Me Project State",
-  "$comment": "Phase 5 target projection schema. Current runtime still emits projection schema v9 until PR 5-2 replaces runtime projections with the v10 object/link state.",
+  "$comment": "Phase 5 runtime projection schema. Runtime project-state is the v10 protocol/session-index/object/link/graph state.",
   "type": "object",
   "required": [
     "schema_version",
     "project",
     "state",
+    "protocol",
+    "sessions_index",
     "counts",
     "objects",
-    "links"
+    "links",
+    "graph"
   ],
   "properties": {
     "schema_version": {
@@ -27,19 +30,31 @@
       ],
       "properties": {
         "name": {
-          "type": "string",
+          "type": [
+            "string",
+            "null"
+          ],
           "minLength": 1
         },
         "objective": {
-          "type": "string",
+          "type": [
+            "string",
+            "null"
+          ],
           "minLength": 1
         },
         "current_milestone": {
-          "type": "string",
+          "type": [
+            "string",
+            "null"
+          ],
           "minLength": 1
         },
         "stop_rule": {
-          "type": "string",
+          "type": [
+            "string",
+            "null"
+          ],
           "minLength": 1
         }
       },
@@ -55,15 +70,21 @@
       ],
       "properties": {
         "project_head": {
-          "type": "string",
+          "type": [
+            "string",
+            "null"
+          ],
           "minLength": 1
         },
         "event_count": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 0
         },
         "updated_at": {
-          "type": "string",
+          "type": [
+            "string",
+            "null"
+          ],
           "format": "date-time"
         },
         "last_event_id": {
@@ -74,6 +95,38 @@
         }
       },
       "additionalProperties": false
+    },
+    "protocol": {
+      "type": "object",
+      "required": [
+        "plain_ok_scope",
+        "proposal_expiry_rules",
+        "close_policy"
+      ],
+      "properties": {
+        "plain_ok_scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "proposal_expiry_rules": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "close_policy": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "sessions_index": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/session_index_entry"
+      }
     },
     "counts": {
       "type": "object",
@@ -112,17 +165,103 @@
     "objects": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/domain_object"
+        "$ref": "object.schema.json"
       }
     },
     "links": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/link"
+        "$ref": "link.schema.json"
       }
+    },
+    "graph": {
+      "type": "object",
+      "required": [
+        "nodes",
+        "edges",
+        "resolved_conflicts",
+        "inferred_candidates"
+      ],
+      "properties": {
+        "nodes": {
+          "type": "array"
+        },
+        "edges": {
+          "type": "array"
+        },
+        "resolved_conflicts": {
+          "type": "array"
+        },
+        "inferred_candidates": {
+          "type": "array"
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "state"
+        ],
+        "properties": {
+          "state": {
+            "required": [
+              "event_count"
+            ],
+            "properties": {
+              "event_count": {
+                "const": 0
+              }
+            }
+          }
+        }
+      },
+      "then": {},
+      "else": {
+        "properties": {
+          "project": {
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "objective": {
+                "type": "string",
+                "minLength": 1
+              },
+              "current_milestone": {
+                "type": "string",
+                "minLength": 1
+              },
+              "stop_rule": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "state": {
+            "properties": {
+              "project_head": {
+                "type": "string",
+                "minLength": 1
+              },
+              "updated_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "last_event_id": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
   "$defs": {
     "object_type": {
       "type": "string",
@@ -157,113 +296,52 @@
         "blocked_by"
       ]
     },
-    "source_event_ids": {
-      "type": "array",
-      "minItems": 1,
-      "items": {
-        "type": "string",
-        "minLength": 1
-      },
-      "uniqueItems": true
-    },
-    "domain_object": {
+    "session_index_entry": {
       "type": "object",
       "required": [
         "id",
-        "type",
-        "title",
-        "body",
         "status",
-        "created_at",
-        "updated_at",
-        "source_event_ids",
-        "metadata"
+        "started_at",
+        "last_seen_at",
+        "closed_at",
+        "bound_context_hint",
+        "decision_ids"
       ],
       "properties": {
         "id": {
           "type": "string",
           "minLength": 1
-        },
-        "type": {
-          "$ref": "#/$defs/object_type"
-        },
-        "title": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "minLength": 1
-        },
-        "body": {
-          "type": [
-            "string",
-            "null"
-          ]
         },
         "status": {
           "type": "string",
           "minLength": 1
         },
-        "created_at": {
+        "started_at": {
           "type": "string",
           "format": "date-time"
         },
-        "updated_at": {
+        "last_seen_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "closed_at": {
           "type": [
             "string",
             "null"
           ],
           "format": "date-time"
         },
-        "source_event_ids": {
-          "$ref": "#/$defs/source_event_ids"
-        },
-        "metadata": {
-          "type": "object",
-          "additionalProperties": true
-        }
-      },
-      "additionalProperties": false
-    },
-    "link": {
-      "type": "object",
-      "required": [
-        "id",
-        "source_object_id",
-        "relation",
-        "target_object_id",
-        "rationale",
-        "created_at",
-        "source_event_ids"
-      ],
-      "properties": {
-        "id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "source_object_id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "relation": {
-          "$ref": "#/$defs/link_relation"
-        },
-        "target_object_id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "rationale": {
+        "bound_context_hint": {
           "type": [
             "string",
             "null"
           ]
         },
-        "created_at": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "source_event_ids": {
-          "$ref": "#/$defs/source_event_ids"
+        "decision_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "additionalProperties": false
