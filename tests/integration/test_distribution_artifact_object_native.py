@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -17,6 +18,29 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 class DistributionArtifactObjectNativeTests(unittest.TestCase):
+    def test_distribution_contains_only_installable_skill_surface(self) -> None:
+        with _built_artifact() as archive:
+            names = set(archive.namelist())
+
+        required = {
+            "decide-me/SKILL.md",
+            "decide-me/agents/openai.yaml",
+            "decide-me/scripts/decide_me.py",
+            "decide-me/schemas/close-summary.schema.json",
+            "decide-me/schemas/plan.schema.json",
+            "decide-me/templates/plan-template.md",
+        }
+        self.assertTrue(required.issubset(names))
+        for forbidden in {
+            "decide-me/README.md",
+            "decide-me/AGENTS.md",
+            "decide-me/references/migration-from-legacy-model.md",
+        }:
+            self.assertNotIn(forbidden, names)
+        self.assertFalse(any(name.startswith("decide-me/tests/") for name in names))
+        self.assertFalse(any("/.ai/" in name or name.startswith("decide-me/.ai/") for name in names))
+        self.assertFalse(any("/.git/" in name or name.startswith("decide-me/.git/") for name in names))
+
     def test_distribution_documents_object_native_contracts(self) -> None:
         with _built_artifact() as archive:
             skill = _read_text(archive, "decide-me/SKILL.md")
@@ -39,9 +63,35 @@ class DistributionArtifactObjectNativeTests(unittest.TestCase):
         with _built_artifact() as archive:
             self.assertNotIn("decide-me/references/migration-from-legacy-model.md", archive.namelist())
 
+    def test_distribution_schemas_are_object_native(self) -> None:
+        with _built_artifact() as archive:
+            close_schema = json.loads(_read_text(archive, "decide-me/schemas/close-summary.schema.json"))
+            plan_schema = json.loads(_read_text(archive, "decide-me/schemas/plan.schema.json"))
+
+        self.assertEqual(
+            {"work_item", "readiness", "object_ids", "link_ids", "generated_at"},
+            set(close_schema["required"]),
+        )
+        self.assertFalse(close_schema.get("additionalProperties", True))
+
+        action_plan_schema = _action_plan_object_schema(plan_schema)
+        action_plan_props = action_plan_schema["properties"]
+        self.assertIn("actions", action_plan_props)
+        self.assertIn("implementation_ready_actions", action_plan_props)
+        self.assertNotIn("action" + "_slices", action_plan_props)
+        self.assertNotIn("implementation" + "_ready_slices", action_plan_props)
+
 
 def _read_text(archive: ZipFile, name: str) -> str:
     return archive.read(name).decode("utf-8")
+
+
+def _action_plan_object_schema(plan_schema: dict) -> dict:
+    return next(
+        option
+        for option in plan_schema["properties"]["action_plan"]["oneOf"]
+        if option.get("type") == "object"
+    )
 
 
 @contextmanager

@@ -55,6 +55,7 @@ def seed_p0_decision(
     decision_id: str = "D-auth",
     title: str = "Auth mode",
     domain: str = "technical",
+    resolvable_by: str = "codebase",
     question: str = "How should users sign in?",
 ) -> dict[str, Any]:
     return discover_decision(
@@ -66,7 +67,7 @@ def seed_p0_decision(
             "priority": "P0",
             "frontier": "now",
             "domain": domain,
-            "resolvable_by": "human",
+            "resolvable_by": resolvable_by,
             "question": question,
         },
     )
@@ -151,10 +152,22 @@ def assert_domain_neutral_event_types(testcase: Any, ai_dir: Path) -> None:
 
 def object_runtime_snapshot(ai_dir: Path, session_id: str) -> dict[str, Any]:
     bundle = load_bundle(ai_dir)
+    runtime_index = json.loads((ai_dir / "runtime-index.json").read_text(encoding="utf-8"))
     return {
         "objects": sorted(bundle["project_state"]["objects"], key=lambda item: item["id"]),
         "links": sorted(bundle["project_state"]["links"], key=lambda item: item["id"]),
-        "close_summary": bundle["sessions"][session_id]["close_summary"],
+        "sessions": {
+            current_session_id: {
+                "related_object_ids": session["session"]["related_object_ids"],
+                "active_proposal_id": session["working_state"].get("active_proposal_id"),
+                "close_summary_object_ids": session["close_summary"]["object_ids"],
+                "close_summary_link_ids": session["close_summary"]["link_ids"],
+            }
+            for current_session_id, session in sorted(bundle["sessions"].items())
+        },
+        "counts": bundle["project_state"]["counts"],
+        "project_head": bundle["project_state"]["state"]["project_head"],
+        "runtime_index_head": runtime_index["project_head"],
     }
 
 

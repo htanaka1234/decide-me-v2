@@ -49,6 +49,8 @@ Deterministic runtime helpers:
   - accepts `Defer D-...: reason`
   - treats short affirmations such as `Sounds good` as explicit acceptance of the active proposal
   - treats other free-form answers as explicit decision answers tied to the active proposal
+  - when a free-form answer differs from the active recommendation, records an accepted
+    user-authored proposal and marks the previous assistant proposal `rejected`
   - extracts follow-up constraints from clauses such as `only if ...` or `must stay ...`
   - discovers follow-up decisions from clauses such as `we also need ...`
   - infers discovered decision `domain`, `kind`, `priority`, `resolvable_by`,
