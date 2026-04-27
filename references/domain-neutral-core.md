@@ -1,0 +1,36 @@
+# Domain Neutral Core
+
+Phase 5 replaces the decision-shaped projection model with a domain-neutral object graph.
+
+Core invariants:
+
+- `.ai/decide-me/events/**/*.jsonl` transaction files remain the only runtime source of truth.
+- Projections are rebuildable views over the effective event stream.
+- Human-readable Markdown, ADRs, plans, reports, and other exports are never canonical state.
+- Domain concepts are represented as first-class objects, not embedded fields on decisions.
+- Relationships between objects are represented only as links.
+- The old top-level `decisions`, `proposals`, and `action_slices` projections are removed in
+  Phase 5.
+- Phase 5 is intentionally breaking. Do not add compatibility adapters for legacy projection
+  shapes unless a maintainer explicitly starts a separate migration release.
+
+The object graph is meant to support planning and design work beyond decision registers. A project
+can contain objectives, constraints, criteria, proposals, risks, actions, verification needs, and
+artifacts without forcing every item to be a property of a decision.
+
+Projection contract:
+
+- `project-state.json` contains project metadata, projection state metadata, derived counts,
+  `objects`, and `links`.
+- Object and link ids must be stable across projection rebuilds for the same effective event
+  stream.
+- Counts are derived from `objects` and `links`; they are validation aids, not source data.
+- Projection writers must reject invalid events instead of silently adapting legacy state.
+
+Runtime contract:
+
+- Events create, update, supersede, and connect objects.
+- A projection rebuild from the same effective event stream must produce the same object graph.
+- Rejected transactions remain in the event directory for audit, but their domain events do not
+  contribute objects or links to normal projections.
+

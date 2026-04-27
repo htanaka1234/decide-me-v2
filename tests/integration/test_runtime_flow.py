@@ -4862,9 +4862,18 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertEqual("proposed", turn["decision"]["status"])
             self.assertEqual([], validate_runtime(ai_dir))
 
-    def test_project_state_schema_covers_runtime_projection_shape(self) -> None:
+    def test_project_state_schema_covers_domain_neutral_projection_shape(self) -> None:
         schema_path = Path(__file__).resolve().parents[2] / "schemas" / "project-state.schema.json"
         schema = json.loads(schema_path.read_text(encoding="utf-8"))
+        self.assertEqual(10, schema["properties"]["schema_version"]["const"])
+        self.assertEqual(
+            ["schema_version", "project", "state", "counts", "objects", "links"],
+            schema["required"],
+        )
+        self.assertNotIn("decisions", schema["properties"])
+        self.assertNotIn("proposals", schema["properties"])
+        self.assertNotIn("action_slices", schema["properties"])
+
         project_properties = schema["properties"]["project"]["properties"]
         for key in ("name", "objective", "current_milestone", "stop_rule"):
             self.assertEqual("string", project_properties[key]["type"])
@@ -4876,53 +4885,48 @@ class RuntimeFlowTests(unittest.TestCase):
         self.assertEqual("string", state_properties["updated_at"]["type"])
         self.assertEqual("date-time", state_properties["updated_at"]["format"])
 
-        decision_items = schema["properties"]["decisions"]["items"]
-        decision_properties = decision_items["properties"]
+        self.assertEqual({"$ref": "#/$defs/domain_object"}, schema["properties"]["objects"]["items"])
+        self.assertEqual({"$ref": "#/$defs/link"}, schema["properties"]["links"]["items"])
+
         self.assertEqual(
-            ["choice", "constraint", "risk", "dependency"],
-            decision_properties["kind"]["enum"],
+            [
+                "objective",
+                "constraint",
+                "criterion",
+                "option",
+                "proposal",
+                "decision",
+                "assumption",
+                "evidence",
+                "risk",
+                "action",
+                "verification",
+                "revisit_trigger",
+                "artifact",
+            ],
+            schema["$defs"]["object_type"]["enum"],
         )
-        self.assertIn("technical", decision_properties["domain"]["enum"])
-        self.assertIn("codebase", decision_properties["resolvable_by"]["enum"])
-        self.assertIn("hard-to-reverse", decision_properties["reversibility"]["enum"])
-        self.assertEqual("string", decision_properties["depends_on"]["items"]["type"])
-        self.assertEqual("string", decision_properties["resolved_by_evidence"]["properties"]["evidence_refs"]["items"]["type"])
-        self.assertEqual(["boolean", "null"], decision_properties["agent_relevant"]["type"])
+        self.assertEqual(
+            [
+                "depends_on",
+                "supports",
+                "challenges",
+                "recommends",
+                "accepts",
+                "addresses",
+                "verifies",
+                "revisits",
+                "supersedes",
+                "blocked_by",
+            ],
+            schema["$defs"]["link_relation"]["enum"],
+        )
 
-        all_of = decision_items["allOf"]
-        accepted_branch = next(
-            branch
-            for branch in all_of
-            if branch["if"]["properties"]["status"].get("const") == "accepted"
-        )
-        accepted = accepted_branch["then"]["properties"]["accepted_answer"]["properties"]
-        self.assertEqual({"type": "string", "minLength": 1}, accepted["summary"])
-        self.assertEqual({"type": "string", "format": "date-time"}, accepted["accepted_at"])
-        self.assertEqual(["ok", "explicit"], accepted["accepted_via"]["enum"])
-        self.assertEqual({"type": "string", "minLength": 1}, accepted["proposal_id"])
-
-        evidence_branch = next(
-            branch
-            for branch in all_of
-            if branch["if"]["properties"]["status"].get("const") == "resolved-by-evidence"
-        )
-        evidence_accepted = evidence_branch["then"]["properties"]["accepted_answer"]["properties"]
-        evidence_payload = evidence_branch["then"]["properties"]["resolved_by_evidence"]["properties"]
-        self.assertEqual("evidence", evidence_accepted["accepted_via"]["const"])
-        self.assertEqual({"type": "string", "minLength": 1}, evidence_payload["summary"])
-        self.assertEqual({"type": "string", "format": "date-time"}, evidence_payload["resolved_at"])
-        self.assertIn("existing-decisions", evidence_payload["source"]["enum"])
-        self.assertNotIn(None, evidence_payload["source"]["enum"])
-
-        open_branch = next(
-            branch
-            for branch in all_of
-            if "unresolved" in branch["if"]["properties"]["status"].get("enum", [])
-        )
-        open_then = open_branch["then"]["properties"]
-        self.assertEqual("null", open_then["accepted_answer"]["properties"]["summary"]["type"])
-        self.assertEqual("null", open_then["resolved_by_evidence"]["properties"]["summary"]["type"])
-        # Cross-field equality constraints are enforced by validate_project_state().
+        object_properties = schema["$defs"]["domain_object"]["properties"]
+        for legacy_field in ("depends_on", "blocked_by", "options", "recommendation", "evidence_refs"):
+            self.assertNotIn(legacy_field, object_properties)
+        self.assertFalse(schema["$defs"]["domain_object"]["additionalProperties"])
+        self.assertFalse(schema["$defs"]["link"]["additionalProperties"])
 
     def test_session_state_schema_covers_classification_contract(self) -> None:
         schema_path = Path(__file__).resolve().parents[2] / "schemas" / "session-state.schema.json"
