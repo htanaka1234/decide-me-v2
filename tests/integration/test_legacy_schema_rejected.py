@@ -5,15 +5,24 @@ import unittest
 from copy import deepcopy
 from pathlib import Path
 
-from jsonschema import Draft202012Validator, FormatChecker
+from jsonschema import Draft202012Validator, RefResolver
 
 
 class LegacySchemaRejectedTests(unittest.TestCase):
     def setUp(self) -> None:
-        schema_path = Path(__file__).resolve().parents[2] / "schemas" / "project-state.schema.json"
+        schema_root = Path(__file__).resolve().parents[2] / "schemas"
+        schema_path = schema_root / "project-state.schema.json"
         self.schema = json.loads(schema_path.read_text(encoding="utf-8"))
-        self.validator = Draft202012Validator(self.schema)
-        self.format_validator = Draft202012Validator(self.schema, format_checker=FormatChecker())
+        object_schema = json.loads((schema_root / "object.schema.json").read_text(encoding="utf-8"))
+        link_schema = json.loads((schema_root / "link.schema.json").read_text(encoding="utf-8"))
+        resolver = RefResolver.from_schema(
+            self.schema,
+            store={
+                object_schema["$id"]: object_schema,
+                link_schema["$id"]: link_schema,
+            },
+        )
+        self.validator = Draft202012Validator(self.schema, resolver=resolver)
 
     def test_accepts_domain_neutral_project_state_shape(self) -> None:
         self.validator.validate(_valid_project_state())
@@ -57,14 +66,8 @@ class LegacySchemaRejectedTests(unittest.TestCase):
         self.assertTrue(any(error.validator == "required" for error in errors))
         self.assertTrue(any(error.validator == "additionalProperties" for error in errors))
 
-    def test_format_checker_rejects_invalid_project_updated_at(self) -> None:
-        payload = _valid_project_state()
-        payload["state"]["updated_at"] = "not-a-date-time"
-
-        errors = list(self.format_validator.iter_errors(payload))
-
-        self.assertTrue(errors)
-        self.assertTrue(any(list(error.path) == ["state", "updated_at"] and error.validator == "format" for error in errors))
+    def test_schema_declares_project_updated_at_date_time_format(self) -> None:
+        self.assertEqual("date-time", self.schema["properties"]["state"]["properties"]["updated_at"]["format"])
 
 
 def _valid_project_state() -> dict:

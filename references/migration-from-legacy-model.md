@@ -27,7 +27,7 @@ What replaces it:
 
 Migration policy:
 
-- There is no automatic compatibility layer in Phase 5-1.
+- There is no automatic compatibility layer in Phase 5.
 - New schemas reject legacy projection shapes so invalid old state fails clearly.
 - A future migration command, if added, must read legacy event logs or exported legacy state and
   emit explicit Phase 5 events. It must not silently reinterpret old projections at runtime.
@@ -43,3 +43,11 @@ Phase 5-1 scope:
 - Document the intended mapping from legacy concepts.
 - Do not change the current runtime projection code in this PR.
 
+Phase 5-2 scope:
+
+- Replace runtime `project-state.json` with the v10 object/link projection.
+- Keep existing decision-oriented event types while projecting their effective state into objects
+  and links.
+- Keep session projections at their current schema version until interview runtime replacement.
+- Do not persist top-level `decisions`, compatibility projections, or legacy decision-shaped
+  project state.

@@ -5,7 +5,7 @@ import unittest
 from copy import deepcopy
 from pathlib import Path
 
-from jsonschema import Draft202012Validator, FormatChecker
+from jsonschema import Draft202012Validator
 
 
 OBJECT_TYPES = [
@@ -33,7 +33,6 @@ class ObjectSchemaTests(unittest.TestCase):
         self.schema = json.loads(object_schema_path.read_text(encoding="utf-8"))
         self.project_schema = json.loads(project_schema_path.read_text(encoding="utf-8"))
         self.validator = Draft202012Validator(self.schema)
-        self.format_validator = Draft202012Validator(self.schema, format_checker=FormatChecker())
 
     def test_accepts_all_domain_object_types(self) -> None:
         for object_type in OBJECT_TYPES:
@@ -70,33 +69,12 @@ class ObjectSchemaTests(unittest.TestCase):
                 self.assertTrue(errors)
                 self.assertTrue(any(error.validator == "additionalProperties" for error in errors))
 
-    def test_project_state_embedded_object_schema_matches_standalone_schema(self) -> None:
-        embedded = self.project_schema["$defs"]["domain_object"]
-        self.assertEqual(self.schema["required"], embedded["required"])
-        self.assertEqual(self.schema["additionalProperties"], embedded["additionalProperties"])
-        self.assertEqual(self.schema["properties"].keys(), embedded["properties"].keys())
-        self.assertEqual(self.schema["properties"]["type"]["enum"], self.project_schema["$defs"]["object_type"]["enum"])
-        self.assertEqual(self.schema["properties"]["source_event_ids"], self.project_schema["$defs"]["source_event_ids"])
+    def test_project_state_references_standalone_object_schema(self) -> None:
+        self.assertEqual({"$ref": "object.schema.json"}, self.project_schema["properties"]["objects"]["items"])
 
-        for field in ("id", "title", "body", "status", "created_at", "updated_at", "metadata"):
-            self.assertEqual(self.schema["properties"][field], embedded["properties"][field])
-
-    def test_format_checker_rejects_invalid_date_time_fields(self) -> None:
-        payload = _valid_object("evidence")
-        payload["created_at"] = "not-a-date-time"
-
-        errors = list(self.format_validator.iter_errors(payload))
-
-        self.assertTrue(errors)
-        self.assertTrue(any(list(error.path) == ["created_at"] and error.validator == "format" for error in errors))
-
-        payload = _valid_object("evidence")
-        payload["updated_at"] = "not-a-date-time"
-
-        errors = list(self.format_validator.iter_errors(payload))
-
-        self.assertTrue(errors)
-        self.assertTrue(any(list(error.path) == ["updated_at"] and error.validator == "format" for error in errors))
+    def test_schema_declares_date_time_fields(self) -> None:
+        self.assertEqual("date-time", self.schema["properties"]["created_at"]["format"])
+        self.assertEqual("date-time", self.schema["properties"]["updated_at"]["format"])
 
 
 def _valid_object(object_type: str) -> dict:

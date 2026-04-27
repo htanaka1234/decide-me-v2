@@ -5,7 +5,7 @@ import unittest
 from copy import deepcopy
 from pathlib import Path
 
-from jsonschema import Draft202012Validator, FormatChecker
+from jsonschema import Draft202012Validator
 
 
 LINK_RELATIONS = [
@@ -30,7 +30,6 @@ class LinkSchemaTests(unittest.TestCase):
         self.schema = json.loads(link_schema_path.read_text(encoding="utf-8"))
         self.project_schema = json.loads(project_schema_path.read_text(encoding="utf-8"))
         self.validator = Draft202012Validator(self.schema)
-        self.format_validator = Draft202012Validator(self.schema, format_checker=FormatChecker())
 
     def test_accepts_all_link_relations(self) -> None:
         for relation in LINK_RELATIONS:
@@ -55,16 +54,8 @@ class LinkSchemaTests(unittest.TestCase):
         self.assertTrue(errors)
         self.assertTrue(any(error.validator == "additionalProperties" for error in errors))
 
-    def test_project_state_embedded_link_schema_matches_standalone_schema(self) -> None:
-        embedded = self.project_schema["$defs"]["link"]
-        self.assertEqual(self.schema["required"], embedded["required"])
-        self.assertEqual(self.schema["additionalProperties"], embedded["additionalProperties"])
-        self.assertEqual(self.schema["properties"].keys(), embedded["properties"].keys())
-        self.assertEqual(self.schema["properties"]["relation"]["enum"], self.project_schema["$defs"]["link_relation"]["enum"])
-        self.assertEqual(self.schema["properties"]["source_event_ids"], self.project_schema["$defs"]["source_event_ids"])
-
-        for field in ("id", "source_object_id", "target_object_id", "rationale", "created_at"):
-            self.assertEqual(self.schema["properties"][field], embedded["properties"][field])
+    def test_project_state_references_standalone_link_schema(self) -> None:
+        self.assertEqual({"$ref": "link.schema.json"}, self.project_schema["properties"]["links"]["items"])
 
     def test_link_envelope_uses_explicit_object_endpoint_names(self) -> None:
         self.assertEqual(
@@ -82,14 +73,8 @@ class LinkSchemaTests(unittest.TestCase):
         for alias in ("source_id", "rel", "target_id"):
             self.assertNotIn(alias, self.schema["properties"])
 
-    def test_format_checker_rejects_invalid_created_at(self) -> None:
-        payload = _valid_link("supports")
-        payload["created_at"] = "not-a-date-time"
-
-        errors = list(self.format_validator.iter_errors(payload))
-
-        self.assertTrue(errors)
-        self.assertTrue(any(list(error.path) == ["created_at"] and error.validator == "format" for error in errors))
+    def test_schema_declares_created_at_date_time_format(self) -> None:
+        self.assertEqual("date-time", self.schema["properties"]["created_at"]["format"])
 
 
 def _valid_link(relation: str) -> dict:

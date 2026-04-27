@@ -16,12 +16,42 @@ IDLE_AFTER = timedelta(hours=12)
 STALE_AFTER = timedelta(days=7)
 AUTO_PROJECT_HEAD_SENTINEL = "__AUTO_PROJECT_HEAD__"
 PROJECT_HEAD_PROPOSAL_BASE_SENTINEL = "__PROJECT_HEAD_PROPOSAL_BASE__"
-PROJECTION_SCHEMA_VERSION = 9
+PROJECT_STATE_SCHEMA_VERSION = 10
+SESSION_STATE_SCHEMA_VERSION = 9
+PROJECTION_SCHEMA_VERSION = PROJECT_STATE_SCHEMA_VERSION
+
+OBJECT_TYPES = {
+    "objective",
+    "constraint",
+    "criterion",
+    "option",
+    "proposal",
+    "decision",
+    "assumption",
+    "evidence",
+    "risk",
+    "action",
+    "verification",
+    "revisit_trigger",
+    "artifact",
+}
+LINK_RELATIONS = {
+    "depends_on",
+    "supports",
+    "challenges",
+    "recommends",
+    "accepts",
+    "addresses",
+    "verifies",
+    "revisits",
+    "supersedes",
+    "blocked_by",
+}
 
 
 def default_project_state() -> dict[str, Any]:
     return {
-        "schema_version": PROJECTION_SCHEMA_VERSION,
+        "schema_version": PROJECT_STATE_SCHEMA_VERSION,
         "project": {
             "name": None,
             "objective": None,
@@ -29,26 +59,15 @@ def default_project_state() -> dict[str, Any]:
             "stop_rule": None,
         },
         "state": {"project_head": None, "event_count": 0, "updated_at": None, "last_event_id": None},
-        "protocol": {
-            "plain_ok_scope": "same-session-active-proposal-only",
-            "proposal_expiry_rules": [
-                "project-head-changed",
-                "session-boundary",
-                "superseded-proposal",
-                "decision-invalidated",
-                "session-closed",
-            ],
-            "close_policy": "generate-close-summary-on-close",
+        "counts": {
+            "object_total": 0,
+            "link_total": 0,
+            "by_type": {},
+            "by_status": {},
+            "by_relation": {},
         },
-        "counts": {"p0_now_open": 0, "p1_now_open": 0, "p2_open": 0, "blocked": 0, "deferred": 0},
-        "default_bundles": [],
-        "session_graph": {
-            "nodes": [],
-            "edges": [],
-            "inferred_candidates": [],
-            "resolved_conflicts": [],
-        },
-        "decisions": [],
+        "objects": [],
+        "links": [],
     }
 
 
@@ -73,7 +92,7 @@ def default_session_state(
     session_id: str, started_at: str, bound_context_hint: str | None = None
 ) -> dict[str, Any]:
     return {
-        "schema_version": PROJECTION_SCHEMA_VERSION,
+        "schema_version": SESSION_STATE_SCHEMA_VERSION,
         "session": {
             "id": session_id,
             "started_at": started_at,
@@ -195,7 +214,11 @@ def decision_is_invalidated(decision: dict[str, Any]) -> bool:
 
 
 def visible_decision_ids(project_state: dict[str, Any]) -> set[str]:
-    return {decision["id"] for decision in project_state["decisions"] if not decision_is_invalidated(decision)}
+    return {
+        item["id"]
+        for item in project_state.get("objects", [])
+        if item.get("type") == "decision" and not decision_is_invalidated(item)
+    }
 
 
 def project_heads_by_event_id(events: list[dict[str, Any]]) -> dict[str, str]:
@@ -261,9 +284,6 @@ def rebuild_projections(events: list[dict[str, Any]]) -> dict[str, Any]:
         "taxonomy_state": taxonomy_state,
         "sessions": {session_id: sessions[session_id] for session_id in sorted(sessions)},
     }
-    from decide_me.session_graph import build_session_graph
-
-    project_state["session_graph"] = build_session_graph(bundle)
     return {
         "project_state": project_state,
         "taxonomy_state": taxonomy_state,
@@ -293,15 +313,6 @@ def apply_events_to_bundle(bundle: dict[str, Any], events: list[dict[str, Any]])
     _recompute_counts(project_state)
     normalized_sessions = {session_id: sessions[session_id] for session_id in sorted(sessions)}
     bundle["sessions"] = normalized_sessions
-    from decide_me.session_graph import build_session_graph
-
-    project_state["session_graph"] = build_session_graph(
-        {
-            "project_state": project_state,
-            "taxonomy_state": taxonomy_state,
-            "sessions": normalized_sessions,
-        }
-    )
     return bundle
 
 
@@ -321,10 +332,20 @@ def apply_event(
 
     if event_type == "project_initialized":
         project_state["project"] = deepcopy(payload["project"])
-        if payload.get("protocol"):
-            project_state["protocol"] = deepcopy(payload["protocol"])
-        if payload.get("default_bundles") is not None:
-            project_state["default_bundles"] = deepcopy(payload["default_bundles"])
+        _ensure_object(
+            project_state,
+            object_id="O-project-objective",
+            object_type="objective",
+            title=payload["project"]["current_milestone"],
+            body=payload["project"]["objective"],
+            status="active",
+            timestamp=ts,
+            event_id=event["event_id"],
+            metadata={
+                "project_name": payload["project"]["name"],
+                "stop_rule": payload["project"]["stop_rule"],
+            },
+        )
     elif event_type == "session_created":
         session_payload = payload["session"]
         sessions[session_payload["id"]] = default_session_state(
@@ -344,38 +365,58 @@ def apply_event(
             decision = _find_decision(project_state, active_target_id)
             if decision and decision["status"] == "proposed":
                 decision["status"] = "unresolved"
+                _touch_object(decision, ts, event["event_id"])
+                _touch_object(decision, ts, event["event_id"])
     elif event_type == "decision_discovered":
         decision = _ensure_decision(
             project_state,
             payload["decision"]["id"],
             payload["decision"]["requirement_id"],
             payload["decision"].get("title"),
+            timestamp=ts,
+            event_id=event["event_id"],
         )
-        _deep_update(decision, payload["decision"])
+        _update_decision_object_from_payload(decision, payload["decision"], ts, event["event_id"])
+        _project_decision_relation_fields(project_state, decision["id"], payload["decision"], ts, event["event_id"])
         _touch_session(sessions, session_id, ts, payload["decision"]["id"], project_head_after)
     elif event_type == "decision_enriched":
-        decision = _ensure_decision(project_state, payload["decision_id"])
+        decision = _ensure_decision(
+            project_state,
+            payload["decision_id"],
+            timestamp=ts,
+            event_id=event["event_id"],
+        )
+        metadata = decision["metadata"]
         if payload.get("notes_append"):
-            decision["notes"] = stable_unique([*decision["notes"], *payload["notes_append"]])
+            metadata["notes"] = stable_unique([*metadata.get("notes", []), *payload["notes_append"]])
         if payload.get("revisit_triggers_append"):
-            decision["revisit_triggers"] = stable_unique(
-                [*decision["revisit_triggers"], *payload["revisit_triggers_append"]]
+            _project_revisit_triggers(
+                project_state,
+                decision["id"],
+                payload["revisit_triggers_append"],
+                ts,
+                event["event_id"],
             )
         context_append = payload.get("context_append")
         if context_append:
-            existing_context = decision.get("context")
+            existing_context = metadata.get("context")
             if existing_context:
                 fragments = [fragment for fragment in [existing_context, context_append] if fragment]
-                decision["context"] = "\n".join(
+                metadata["context"] = "\n".join(
                     stable_unique(fragment.strip() for fragment in fragments if fragment.strip())
                 )
             else:
-                decision["context"] = context_append
+                metadata["context"] = context_append
+            decision["body"] = metadata["context"]
         if "agent_relevant" in payload:
-            decision["agent_relevant"] = payload["agent_relevant"]
+            metadata["agent_relevant"] = payload["agent_relevant"]
+        _touch_object(decision, ts, event["event_id"])
         _touch_session(sessions, session_id, ts, payload["decision_id"], project_head_after)
     elif event_type == "question_asked":
         session = sessions[session_id]
+        decision = _ensure_decision(project_state, payload["decision_id"], timestamp=ts, event_id=event["event_id"])
+        decision["metadata"]["question"] = payload["question"]
+        _touch_object(decision, ts, event["event_id"])
         session["working_state"]["current_question_id"] = payload["question_id"]
         session["working_state"]["current_question"] = payload["question"]
         session["summary"]["current_question_preview"] = payload["question"]
@@ -386,18 +427,12 @@ def apply_event(
         proposal.setdefault("origin_session_id", session_id)
         if proposal.get("based_on_project_head") in {None, AUTO_PROJECT_HEAD_SENTINEL}:
             proposal["based_on_project_head"] = project_head_after
-        decision = _ensure_decision(project_state, proposal["target_id"])
+        decision = _ensure_decision(project_state, proposal["target_id"], timestamp=ts, event_id=event["event_id"])
         decision["status"] = "proposed"
-        decision["question"] = proposal["question"]
-        decision["recommendation"] = {
-            "proposal_id": proposal["proposal_id"],
-            "version": proposal["recommendation_version"],
-            "summary": proposal["recommendation"],
-            "rationale_short": proposal["why"],
-            "confidence": "medium",
-            "proposed_at": proposal["activated_at"],
-            "based_on_project_head": proposal["based_on_project_head"],
-        }
+        decision["metadata"]["question"] = proposal["question"]
+        decision["metadata"]["last_proposal_id"] = proposal["proposal_id"]
+        _touch_object(decision, ts, event["event_id"])
+        _project_proposal(project_state, proposal, ts, event["event_id"])
         session = sessions[session_id]
         session["working_state"]["active_proposal"] = proposal
         session["working_state"]["current_question_id"] = proposal["question_id"]
@@ -407,15 +442,23 @@ def apply_event(
         session["summary"]["latest_summary"] = proposal["recommendation"]
         _touch_session(sessions, session_id, ts, proposal["target_id"], project_head_after)
     elif event_type == "proposal_accepted":
-        decision = _ensure_decision(project_state, payload["target_id"])
+        decision = _ensure_decision(project_state, payload["target_id"], timestamp=ts, event_id=event["event_id"])
         decision["status"] = "accepted"
-        decision["accepted_answer"] = deepcopy(payload["accepted_answer"])
-        if (
-            decision["recommendation"].get("summary")
-            and decision["accepted_answer"]["summary"] != decision["recommendation"]["summary"]
-        ):
-            decision["notes"] = stable_unique(
-                [*decision["notes"], "Accepted answer overrides the last recommendation."]
+        decision["metadata"]["accepted_answer"] = deepcopy(payload["accepted_answer"])
+        _touch_object(decision, ts, event["event_id"])
+        proposal = _find_object(project_state, payload["proposal_id"])
+        if proposal:
+            proposal["status"] = "accepted"
+            _touch_object(proposal, ts, event["event_id"])
+        _ensure_link(
+            project_state,
+            link_id=f"L-{payload['target_id']}-accepts-{payload['proposal_id']}",
+            source_object_id=payload["target_id"],
+            relation="accepts",
+            target_object_id=payload["proposal_id"],
+            rationale=payload["accepted_answer"]["summary"],
+            timestamp=ts,
+            event_id=event["event_id"],
         )
         origin_session_id = payload.get("origin_session_id") or session_id
         if origin_session_id in sessions:
@@ -432,8 +475,14 @@ def apply_event(
                 project_head_after,
             )
     elif event_type == "proposal_rejected":
-        decision = _ensure_decision(project_state, payload["target_id"])
+        decision = _ensure_decision(project_state, payload["target_id"], timestamp=ts, event_id=event["event_id"])
         decision["status"] = "rejected"
+        _touch_object(decision, ts, event["event_id"])
+        proposal = _find_object(project_state, payload["proposal_id"])
+        if proposal:
+            proposal["status"] = "rejected"
+            proposal["metadata"]["rejection_reason"] = payload["reason"]
+            _touch_object(proposal, ts, event["event_id"])
         origin_session_id = payload.get("origin_session_id") or session_id
         if origin_session_id in sessions:
             _clear_question_state(sessions[origin_session_id], payload["reason"])
@@ -445,38 +494,59 @@ def apply_event(
                 project_head_after,
             )
     elif event_type == "decision_deferred":
-        decision = _ensure_decision(project_state, payload["decision_id"])
+        decision = _ensure_decision(project_state, payload["decision_id"], timestamp=ts, event_id=event["event_id"])
         decision["status"] = "deferred"
-        decision["frontier"] = "deferred"
-        decision["notes"] = stable_unique([*decision["notes"], payload["reason"]])
+        decision["metadata"]["frontier"] = "deferred"
+        decision["metadata"]["notes"] = stable_unique([*decision["metadata"].get("notes", []), payload["reason"]])
+        _touch_object(decision, ts, event["event_id"])
         _clear_question_state(sessions[session_id], payload["reason"])
         _touch_session(sessions, session_id, ts, payload["decision_id"], project_head_after)
     elif event_type == "decision_resolved_by_evidence":
-        decision = _ensure_decision(project_state, payload["decision_id"])
+        decision = _ensure_decision(project_state, payload["decision_id"], timestamp=ts, event_id=event["event_id"])
         decision["status"] = "resolved-by-evidence"
-        decision["resolved_by_evidence"] = {
+        decision["metadata"]["resolved_by_evidence"] = {
             "source": payload["source"],
             "summary": payload["summary"],
             "resolved_at": ts,
             "evidence_refs": deepcopy(payload["evidence_refs"]),
         }
-        decision["accepted_answer"] = {
+        decision["metadata"]["accepted_answer"] = {
             "summary": payload["summary"],
             "accepted_at": ts,
             "accepted_via": "evidence",
             "proposal_id": None,
         }
-        decision["evidence_refs"] = stable_unique([*decision["evidence_refs"], *payload["evidence_refs"]])
+        _touch_object(decision, ts, event["event_id"])
+        _project_evidence_refs(
+            project_state,
+            payload["decision_id"],
+            payload["evidence_refs"],
+            payload["summary"],
+            payload["source"],
+            ts,
+            event["event_id"],
+        )
         _clear_question_state(sessions[session_id], payload["summary"])
         _touch_session(sessions, session_id, ts, payload["decision_id"], project_head_after)
     elif event_type == "decision_invalidated":
-        decision = _ensure_decision(project_state, payload["decision_id"])
+        decision = _ensure_decision(project_state, payload["decision_id"], timestamp=ts, event_id=event["event_id"])
         decision["status"] = "invalidated"
-        decision["invalidated_by"] = {
+        decision["metadata"]["invalidated_by"] = {
             "decision_id": payload["invalidated_by_decision_id"],
             "reason": payload["reason"],
             "invalidated_at": ts,
         }
+        _touch_object(decision, ts, event["event_id"])
+        _ensure_link(
+            project_state,
+            link_id=f"L-{payload['invalidated_by_decision_id']}-supersedes-{payload['decision_id']}",
+            source_object_id=payload["invalidated_by_decision_id"],
+            relation="supersedes",
+            target_object_id=payload["decision_id"],
+            rationale=payload["reason"],
+            timestamp=ts,
+            event_id=event["event_id"],
+        )
         hidden_strings = _decision_hidden_strings(decision)
         for candidate_session_id, candidate_session in sessions.items():
             was_affected = _sanitize_session_after_invalidation(
@@ -515,6 +585,7 @@ def apply_event(
         session = sessions[session_id]
         session["close_summary"] = deepcopy(payload["close_summary"])
         session["summary"]["latest_summary"] = payload["close_summary"]["work_item_title"]
+        _project_close_summary_objects(project_state, session_id, payload["close_summary"], ts, event["event_id"])
         _touch_session(
             sessions,
             session_id,
@@ -544,20 +615,8 @@ def apply_event(
         for node in payload["nodes"]:
             _upsert_taxonomy_node(taxonomy_state, node)
     elif event_type == "session_linked":
-        graph = project_state["session_graph"]
-        graph["edges"].append(
-            {
-                "parent_session_id": payload["parent_session_id"],
-                "child_session_id": payload["child_session_id"],
-                "relationship": payload["relationship"],
-                "reason": payload["reason"],
-                "linked_at": payload["linked_at"],
-                "evidence_refs": deepcopy(payload["evidence_refs"]),
-                "event_id": event["event_id"],
-            }
-        )
+        pass
     elif event_type == "semantic_conflict_resolved":
-        graph = project_state["session_graph"]
         resolution = {
             "conflict_id": payload["conflict_id"],
             "winning_session_id": payload["winning_session_id"],
@@ -584,9 +643,6 @@ def apply_event(
                     add_decision=False,
                 )
         resolution["suppressed_context"] = merge_suppressed_contexts(suppressed_contexts)
-        graph["resolved_conflicts"].append(
-            resolution
-        )
     elif event_type == "plan_generated":
         pass
     project_state["state"] = {
@@ -603,25 +659,375 @@ def _ensure_decision(
     decision_id: str,
     requirement_id: str | None = None,
     title: str | None = None,
+    *,
+    timestamp: str,
+    event_id: str,
 ) -> dict[str, Any]:
-    for decision in project_state["decisions"]:
-        if decision["id"] == decision_id:
-            if title and not decision.get("title"):
-                decision["title"] = title
-            return decision
     if requirement_id is None:
-        raise ValueError(f"cannot create decision {decision_id} without requirement_id")
-    decision = default_decision(decision_id, requirement_id, title)
-    project_state["decisions"].append(decision)
-    project_state["decisions"].sort(key=lambda item: item["id"])
-    return decision
+        existing = _find_object(project_state, decision_id)
+        if existing is None:
+            raise ValueError(f"cannot create decision {decision_id} without requirement_id")
+        return existing
+    return _ensure_object(
+        project_state,
+        object_id=decision_id,
+        object_type="decision",
+        title=title or decision_id,
+        body=None,
+        status="unresolved",
+        timestamp=timestamp,
+        event_id=event_id,
+        metadata=_default_decision_metadata(requirement_id),
+    )
 
 
 def _find_decision(project_state: dict[str, Any], decision_id: str) -> dict[str, Any] | None:
-    for decision in project_state["decisions"]:
-        if decision["id"] == decision_id:
-            return decision
+    candidate = _find_object(project_state, decision_id)
+    if candidate and candidate.get("type") == "decision":
+        return candidate
     return None
+
+
+def _find_object(project_state: dict[str, Any], object_id: str) -> dict[str, Any] | None:
+    for item in project_state["objects"]:
+        if item["id"] == object_id:
+            return item
+    return None
+
+
+def _ensure_object(
+    project_state: dict[str, Any],
+    *,
+    object_id: str,
+    object_type: str,
+    title: str | None,
+    body: str | None,
+    status: str,
+    timestamp: str,
+    event_id: str,
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    existing = _find_object(project_state, object_id)
+    if existing is not None:
+        if title is not None:
+            existing["title"] = title
+        if body is not None:
+            existing["body"] = body
+        existing["status"] = status
+        if metadata:
+            _deep_update(existing["metadata"], metadata)
+        _touch_object(existing, timestamp, event_id)
+        return existing
+
+    item = {
+        "id": object_id,
+        "type": object_type,
+        "title": title,
+        "body": body,
+        "status": status,
+        "created_at": timestamp,
+        "updated_at": None,
+        "source_event_ids": [event_id],
+        "metadata": deepcopy(metadata or {}),
+    }
+    project_state["objects"].append(item)
+    project_state["objects"].sort(key=lambda candidate: candidate["id"])
+    return item
+
+
+def _touch_object(item: dict[str, Any], timestamp: str, event_id: str) -> None:
+    item["updated_at"] = timestamp
+    item["source_event_ids"] = stable_unique([*item.get("source_event_ids", []), event_id])
+
+
+def _ensure_link(
+    project_state: dict[str, Any],
+    *,
+    link_id: str,
+    source_object_id: str,
+    relation: str,
+    target_object_id: str,
+    rationale: str | None,
+    timestamp: str,
+    event_id: str,
+) -> dict[str, Any]:
+    for link in project_state["links"]:
+        if link["id"] == link_id:
+            link["source_event_ids"] = stable_unique([*link.get("source_event_ids", []), event_id])
+            return link
+    link = {
+        "id": link_id,
+        "source_object_id": source_object_id,
+        "relation": relation,
+        "target_object_id": target_object_id,
+        "rationale": rationale,
+        "created_at": timestamp,
+        "source_event_ids": [event_id],
+    }
+    project_state["links"].append(link)
+    project_state["links"].sort(key=lambda candidate: candidate["id"])
+    return link
+
+
+def _default_decision_metadata(requirement_id: str) -> dict[str, Any]:
+    return {
+        "requirement_id": require_requirement_id(requirement_id),
+        "kind": "choice",
+        "domain": "other",
+        "priority": "P1",
+        "frontier": "later",
+        "resolvable_by": "human",
+        "reversibility": "reversible",
+        "notes": [],
+    }
+
+
+def _update_decision_object_from_payload(
+    decision: dict[str, Any], payload: dict[str, Any], timestamp: str, event_id: str
+) -> None:
+    metadata = decision["metadata"]
+    for key in (
+        "requirement_id",
+        "kind",
+        "domain",
+        "priority",
+        "frontier",
+        "resolvable_by",
+        "reversibility",
+        "question",
+        "context",
+        "bundle_id",
+        "agent_relevant",
+    ):
+        if key in payload:
+            metadata[key] = deepcopy(payload[key])
+    if payload.get("title"):
+        decision["title"] = payload["title"]
+    if payload.get("context"):
+        decision["body"] = payload["context"]
+    if payload.get("status"):
+        decision["status"] = payload["status"]
+    if payload.get("notes"):
+        metadata["notes"] = stable_unique([*metadata.get("notes", []), *payload["notes"]])
+    _touch_object(decision, timestamp, event_id)
+
+
+def _project_decision_relation_fields(
+    project_state: dict[str, Any],
+    decision_id: str,
+    payload: dict[str, Any],
+    timestamp: str,
+    event_id: str,
+) -> None:
+    for key, relation in (("depends_on", "depends_on"), ("blocked_by", "blocked_by")):
+        for target_id in payload.get(key, []) or []:
+            _ensure_link(
+                project_state,
+                link_id=f"L-{decision_id}-{relation}-{target_id}",
+                source_object_id=decision_id,
+                relation=relation,
+                target_object_id=target_id,
+                rationale=None,
+                timestamp=timestamp,
+                event_id=event_id,
+            )
+    _project_revisit_triggers(project_state, decision_id, payload.get("revisit_triggers", []) or [], timestamp, event_id)
+    _project_options(project_state, decision_id, payload.get("options", []) or [], timestamp, event_id)
+
+
+def _project_options(
+    project_state: dict[str, Any],
+    decision_id: str,
+    options: list[Any],
+    timestamp: str,
+    event_id: str,
+) -> None:
+    for index, option in enumerate(options, start=1):
+        if isinstance(option, dict):
+            title = option.get("summary") or option.get("title") or f"Option {index}"
+            body = option.get("rationale") or option.get("description")
+            metadata = {key: value for key, value in option.items() if key not in {"summary", "title", "rationale", "description"}}
+        else:
+            title = str(option)
+            body = None
+            metadata = {}
+        option_id = f"O-option-{_short_hash(decision_id, index, title)}"
+        _ensure_object(
+            project_state,
+            object_id=option_id,
+            object_type="option",
+            title=title,
+            body=body,
+            status="active",
+            timestamp=timestamp,
+            event_id=event_id,
+            metadata=metadata,
+        )
+
+
+def _project_proposal(project_state: dict[str, Any], proposal: dict[str, Any], timestamp: str, event_id: str) -> None:
+    proposal_object = _ensure_object(
+        project_state,
+        object_id=proposal["proposal_id"],
+        object_type="proposal",
+        title=proposal["recommendation"],
+        body=proposal["why"],
+        status="active" if proposal.get("is_active") else "inactive",
+        timestamp=timestamp,
+        event_id=event_id,
+        metadata={
+            "origin_session_id": proposal["origin_session_id"],
+            "target_type": proposal["target_type"],
+            "recommendation_version": proposal["recommendation_version"],
+            "based_on_project_head": proposal["based_on_project_head"],
+            "question_id": proposal["question_id"],
+            "question": proposal["question"],
+            "if_not": proposal["if_not"],
+            "inactive_reason": proposal.get("inactive_reason"),
+        },
+    )
+    _ensure_link(
+        project_state,
+        link_id=f"L-{proposal_object['id']}-recommends-{proposal['target_id']}",
+        source_object_id=proposal_object["id"],
+        relation="recommends",
+        target_object_id=proposal["target_id"],
+        rationale=proposal["why"],
+        timestamp=timestamp,
+        event_id=event_id,
+    )
+
+
+def _project_evidence_refs(
+    project_state: dict[str, Any],
+    decision_id: str,
+    evidence_refs: list[str],
+    summary: str,
+    source: str,
+    timestamp: str,
+    event_id: str,
+) -> None:
+    for evidence_ref in evidence_refs:
+        evidence_id = f"O-evidence-{_short_hash(evidence_ref)}"
+        _ensure_object(
+            project_state,
+            object_id=evidence_id,
+            object_type="evidence",
+            title=evidence_ref,
+            body=summary,
+            status="active",
+            timestamp=timestamp,
+            event_id=event_id,
+            metadata={"source": source, "ref": evidence_ref},
+        )
+        _ensure_link(
+            project_state,
+            link_id=f"L-{evidence_id}-supports-{decision_id}",
+            source_object_id=evidence_id,
+            relation="supports",
+            target_object_id=decision_id,
+            rationale=summary,
+            timestamp=timestamp,
+            event_id=event_id,
+        )
+
+
+def _project_revisit_triggers(
+    project_state: dict[str, Any],
+    decision_id: str,
+    triggers: list[Any],
+    timestamp: str,
+    event_id: str,
+) -> None:
+    for trigger in triggers:
+        if isinstance(trigger, dict):
+            title = trigger.get("title") or trigger.get("summary") or trigger.get("condition") or "Revisit trigger"
+            body = trigger.get("body") or trigger.get("condition")
+            metadata = {key: value for key, value in trigger.items() if key not in {"title", "summary", "condition", "body"}}
+        else:
+            title = str(trigger)
+            body = str(trigger)
+            metadata = {}
+        trigger_id = f"O-revisit-{_short_hash(decision_id, title)}"
+        _ensure_object(
+            project_state,
+            object_id=trigger_id,
+            object_type="revisit_trigger",
+            title=title,
+            body=body,
+            status="active",
+            timestamp=timestamp,
+            event_id=event_id,
+            metadata=metadata,
+        )
+        _ensure_link(
+            project_state,
+            link_id=f"L-{trigger_id}-revisits-{decision_id}",
+            source_object_id=trigger_id,
+            relation="revisits",
+            target_object_id=decision_id,
+            rationale=body,
+            timestamp=timestamp,
+            event_id=event_id,
+        )
+
+
+def _project_close_summary_objects(
+    project_state: dict[str, Any],
+    session_id: str,
+    close_summary: dict[str, Any],
+    timestamp: str,
+    event_id: str,
+) -> None:
+    for action_slice in close_summary.get("candidate_action_slices", []):
+        decision_id = action_slice.get("decision_id")
+        if not decision_id:
+            continue
+        action_id = f"O-action-{_short_hash(session_id, decision_id, action_slice.get('name'))}"
+        _ensure_object(
+            project_state,
+            object_id=action_id,
+            object_type="action",
+            title=action_slice.get("name") or decision_id,
+            body=action_slice.get("summary"),
+            status=action_slice.get("status") or "active",
+            timestamp=timestamp,
+            event_id=event_id,
+            metadata={
+                key: deepcopy(value)
+                for key, value in action_slice.items()
+                if key not in {"decision_id", "name", "summary", "status"}
+            },
+        )
+        _ensure_link(
+            project_state,
+            link_id=f"L-{action_id}-addresses-{decision_id}",
+            source_object_id=action_id,
+            relation="addresses",
+            target_object_id=decision_id,
+            rationale=action_slice.get("summary"),
+            timestamp=timestamp,
+            event_id=event_id,
+        )
+    for risk in close_summary.get("unresolved_risks", []):
+        title = risk.get("title") or risk.get("summary") or risk.get("id") or "Unresolved risk"
+        risk_id = f"O-risk-{_short_hash(session_id, title)}"
+        _ensure_object(
+            project_state,
+            object_id=risk_id,
+            object_type="risk",
+            title=title,
+            body=risk.get("summary"),
+            status=risk.get("status") or "open",
+            timestamp=timestamp,
+            event_id=event_id,
+            metadata={key: deepcopy(value) for key, value in risk.items() if key not in {"title", "summary", "status"}},
+        )
+
+
+def _short_hash(*parts: Any) -> str:
+    material = json.dumps(parts, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha1(material.encode("utf-8")).hexdigest()[:12]
 
 
 def _touch_session(
@@ -702,13 +1108,14 @@ def _upsert_taxonomy_node(taxonomy_state: dict[str, Any], node_patch: dict[str, 
 
 
 def _decision_hidden_strings(decision: dict[str, Any]) -> set[str]:
+    metadata = decision.get("metadata", {})
     values = {
         decision.get("title"),
-        decision.get("question"),
-        decision.get("context"),
-        decision.get("recommendation", {}).get("summary"),
-        decision.get("accepted_answer", {}).get("summary"),
-        decision.get("resolved_by_evidence", {}).get("summary"),
+        decision.get("body"),
+        metadata.get("question"),
+        metadata.get("context"),
+        metadata.get("accepted_answer", {}).get("summary"),
+        metadata.get("resolved_by_evidence", {}).get("summary"),
     }
     return {str(value).strip() for value in values if value and str(value).strip()}
 
@@ -836,24 +1243,18 @@ def _close_summary_readiness(close_summary: dict[str, Any]) -> str:
 
 
 def _recompute_counts(project_state: dict[str, Any]) -> None:
-    decisions = project_state["decisions"]
+    objects = project_state["objects"]
+    links = project_state["links"]
     counts = {
-        "p0_now_open": 0,
-        "p1_now_open": 0,
-        "p2_open": 0,
-        "blocked": 0,
-        "deferred": 0,
+        "object_total": len(objects),
+        "link_total": len(links),
+        "by_type": {},
+        "by_status": {},
+        "by_relation": {},
     }
-    for decision in decisions:
-        status = decision["status"]
-        if decision["priority"] == "P0" and decision["frontier"] == "now" and status in OPEN_DECISION_STATUSES:
-            counts["p0_now_open"] += 1
-        if decision["priority"] == "P1" and decision["frontier"] == "now" and status in OPEN_DECISION_STATUSES:
-            counts["p1_now_open"] += 1
-        if decision["priority"] == "P2" and status in OPEN_DECISION_STATUSES:
-            counts["p2_open"] += 1
-        if status == "blocked":
-            counts["blocked"] += 1
-        if status == "deferred":
-            counts["deferred"] += 1
+    for item in objects:
+        counts["by_type"][item["type"]] = counts["by_type"].get(item["type"], 0) + 1
+        counts["by_status"][item["status"]] = counts["by_status"].get(item["status"], 0) + 1
+    for link in links:
+        counts["by_relation"][link["relation"]] = counts["by_relation"].get(link["relation"], 0) + 1
     project_state["counts"] = counts

@@ -300,7 +300,13 @@ def benchmark_runtime(ai_dir: str | Path) -> dict[str, Any]:
         "load_runtime_seconds": load_runtime_seconds,
         "event_count": bundle["project_state"]["state"]["event_count"],
         "session_count": len(bundle["sessions"]),
-        "decision_count": len(bundle["project_state"]["decisions"]),
+        "decision_count": len(
+            [
+                item
+                for item in bundle["project_state"]["objects"]
+                if item.get("type") == "decision"
+            ]
+        ),
     }
 
 

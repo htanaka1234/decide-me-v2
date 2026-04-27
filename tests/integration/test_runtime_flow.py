@@ -4885,8 +4885,8 @@ class RuntimeFlowTests(unittest.TestCase):
         self.assertEqual("string", state_properties["updated_at"]["type"])
         self.assertEqual("date-time", state_properties["updated_at"]["format"])
 
-        self.assertEqual({"$ref": "#/$defs/domain_object"}, schema["properties"]["objects"]["items"])
-        self.assertEqual({"$ref": "#/$defs/link"}, schema["properties"]["links"]["items"])
+        self.assertEqual({"$ref": "object.schema.json"}, schema["properties"]["objects"]["items"])
+        self.assertEqual({"$ref": "link.schema.json"}, schema["properties"]["links"]["items"])
 
         self.assertEqual(
             [

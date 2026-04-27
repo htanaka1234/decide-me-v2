@@ -245,7 +245,13 @@ class ProjectionTests(unittest.TestCase):
         full = rebuild_projections(events)
         incremental = apply_events_to_bundle(deepcopy(rebuild_projections(events[:2])), events[2:])
 
-        self.assertEqual("R-001", full["project_state"]["decisions"][0]["requirement_id"])
+        decisions = {
+            item["id"]: item
+            for item in full["project_state"]["objects"]
+            if item["type"] == "decision"
+        }
+        self.assertEqual("R-001", decisions["D-001"]["metadata"]["requirement_id"])
+        self.assertNotIn("decisions", full["project_state"])
         self.assertEqual(full, incremental)
 
     def test_incremental_apply_matches_full_rebuild_project_head(self) -> None:
@@ -372,7 +378,11 @@ class ProjectionTests(unittest.TestCase):
         )
         self.assertEqual(
             "H-explicit",
-            full["project_state"]["decisions"][0]["recommendation"]["based_on_project_head"],
+            next(
+                item
+                for item in full["project_state"]["objects"]
+                if item["id"] == "P-001"
+            )["metadata"]["based_on_project_head"],
         )
         self.assertEqual(full, incremental)
 
@@ -572,11 +582,7 @@ class ProjectionTests(unittest.TestCase):
         self.assertEqual(["ref:extra"], close_summary["evidence_refs"])
         self.assertEqual("ready", close_summary["readiness"])
 
-        resolved = bundle["project_state"]["session_graph"]["resolved_conflicts"][0]
-        self.assertEqual(["S-loser"], resolved["suppressed_context"]["session_ids"])
-        self.assertEqual(["D-shared"], resolved["suppressed_context"]["decision_ids"])
-        self.assertEqual(["Shared slice"], resolved["suppressed_context"]["action_slice_names"])
-        self.assertIn("Accept Shared slice.", resolved["suppressed_context"]["hidden_strings"])
+        self.assertNotIn("session_graph", bundle["project_state"])
 
     def test_semantic_conflict_resolution_suppresses_losing_workstream_only(self) -> None:
         events = [
@@ -673,8 +679,7 @@ class ProjectionTests(unittest.TestCase):
         self.assertEqual(["D-shared"], [item["id"] for item in close_summary["accepted_decisions"]])
         self.assertEqual(["Shared slice"], [item["name"] for item in close_summary["candidate_action_slices"]])
         self.assertEqual([], close_summary["candidate_workstreams"])
-        resolved = bundle["project_state"]["session_graph"]["resolved_conflicts"][0]
-        self.assertEqual(["ops-workstream"], resolved["suppressed_context"]["workstream_names"])
+        self.assertNotIn("session_graph", bundle["project_state"])
 
 
 if __name__ == "__main__":
