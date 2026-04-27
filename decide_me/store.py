@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Callable
 
-from decide_me.events import AUTO_PROJECT_HEAD, build_event, new_tx_id, utc_now, validate_event
+from decide_me.events import build_event, new_tx_id, utc_now, validate_event
 from decide_me.projections import apply_events_to_bundle, project_head_after_event, rebuild_projections
 from decide_me.validate import (
     StateValidationError,
@@ -28,7 +28,7 @@ except ImportError:  # pragma: no cover
 
 
 SYSTEM_SESSION_ID = "SYSTEM"
-CONTROL_EVENT_TYPES = {"transaction_rejected", "session_linked", "semantic_conflict_resolved"}
+CONTROL_EVENT_TYPES = {"transaction_rejected"}
 RUNTIME_INDEX_SCHEMA_VERSION = 1
 EVENT_DISCOVERY_ENV = "DECIDE_ME_EVENT_DISCOVERY"
 
@@ -463,17 +463,13 @@ def transact(ai_dir: str | Path, builder: Builder) -> tuple[list[dict[str, Any]]
                     event_type=spec["event_type"],
                     payload=spec["payload"],
                     timestamp=spec.get("ts", tx_timestamp),
+                    event_id=spec.get("event_id"),
                     project_head=current_bundle["project_state"]["state"]["project_head"],
                 )
             )
 
         built_events = canonicalize_events(built_events)
         _validate_incremental_events(runtime_index, built_events)
-        _fill_auto_project_heads(
-            current_bundle["project_state"]["state"].get("project_head"),
-            specs,
-            built_events,
-        )
         new_bundle = apply_events_to_bundle(deepcopy(current_bundle), built_events)
         validate_projection_bundle(new_bundle)
         _write_transaction(paths, built_events)
@@ -704,27 +700,6 @@ def _write_transaction(paths: RuntimePaths, events: list[dict[str, Any]]) -> Non
         raise StateValidationError(f"transaction already exists: {tx_id}")
     body = "".join(json.dumps(event, ensure_ascii=False, sort_keys=True) + "\n" for event in events)
     _atomic_write_text(path, body)
-
-
-def _fill_auto_project_heads(
-    previous_project_head: str | None,
-    specs: list[EventSpec],
-    built_events: list[dict[str, Any]],
-) -> None:
-    project_head = previous_project_head
-    heads: dict[str, str] = {}
-    for event in built_events:
-        project_head = project_head_after_event(project_head, event)
-        heads[event["event_id"]] = project_head
-
-    for spec, event in zip(specs, built_events, strict=True):
-        if event["event_type"] != "proposal_issued":
-            continue
-        original = spec["payload"].get("proposal", {}).get("based_on_project_head")
-        if original not in {None, AUTO_PROJECT_HEAD}:
-            continue
-        event["payload"]["proposal"]["based_on_project_head"] = heads[event["event_id"]]
-        validate_event(event)
 
 
 def _write_projections_and_index(

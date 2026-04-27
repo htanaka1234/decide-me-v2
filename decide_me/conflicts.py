@@ -28,7 +28,7 @@ from decide_me.validate import (
 
 
 MAX_REJECTION_SET_SIZE = 2
-ENTITY_ID_PATTERN = re.compile(r"\b[DP]-[A-Za-z0-9_.:-]+\b")
+ENTITY_ID_PATTERN = re.compile(r"\b[OL]-[A-Za-z0-9_.:-]+\b")
 
 
 def detect_merge_conflicts(ai_dir: str) -> list[dict[str, Any]]:
@@ -234,17 +234,17 @@ def _entity_participant_tx_ids(
     candidate_tx_ids: list[str],
 ) -> set[str]:
     participants: set[str] = set()
-    proposal_ids = {
-        entity_id for entity_id in ENTITY_ID_PATTERN.findall(conflict_message) if entity_id.startswith("P-")
+    object_ids = {
+        entity_id for entity_id in ENTITY_ID_PATTERN.findall(conflict_message) if entity_id.startswith("O-")
     }
-    decision_ids = {
-        entity_id for entity_id in ENTITY_ID_PATTERN.findall(conflict_message) if entity_id.startswith("D-")
+    link_ids = {
+        entity_id for entity_id in ENTITY_ID_PATTERN.findall(conflict_message) if entity_id.startswith("L-")
     }
     for tx_id in candidate_tx_ids:
         tx_events = transactions[tx_id]
-        tx_proposal_ids = {proposal_id for event in tx_events for proposal_id in _proposal_ids(event)}
-        tx_decision_ids = {decision_id for event in tx_events for decision_id in _decision_ids(event)}
-        if proposal_ids & tx_proposal_ids or decision_ids & tx_decision_ids:
+        tx_object_ids = {object_id for event in tx_events for object_id in _object_ids(event)}
+        tx_link_ids = {link_id for event in tx_events for link_id in _link_ids(event)}
+        if object_ids & tx_object_ids or link_ids & tx_link_ids:
             participants.add(tx_id)
     return participants
 
@@ -378,71 +378,79 @@ def _transactions_by_id(events: list[dict[str, Any]]) -> dict[str, list[dict[str
 
 def _summarize_transaction(tx_id: str, events: list[dict[str, Any]]) -> dict[str, Any]:
     event_types = [event["event_type"] for event in events]
-    decision_ids = sorted({decision_id for event in events for decision_id in _decision_ids(event)})
-    proposal_ids = sorted({proposal_id for event in events for proposal_id in _proposal_ids(event)})
+    object_ids = sorted({object_id for event in events for object_id in _object_ids(event)})
+    link_ids = sorted({link_id for event in events for link_id in _link_ids(event)})
     timestamps = sorted(event["ts"] for event in events)
     return {
         "tx_id": tx_id,
         "event_types": event_types,
-        "decision_ids": decision_ids,
-        "proposal_ids": proposal_ids,
+        "object_ids": object_ids,
+        "link_ids": link_ids,
         "first_ts": timestamps[0],
         "last_ts": timestamps[-1],
         "summary": _transaction_summary_text(events),
     }
 
 
-def _decision_ids(event: dict[str, Any]) -> list[str]:
+def _object_ids(event: dict[str, Any]) -> list[str]:
     event_type = event["event_type"]
     payload = event["payload"]
-    if event_type == "decision_discovered":
-        return [payload["decision"]["id"]]
-    if event_type in {"decision_enriched", "question_asked", "decision_deferred", "decision_resolved_by_evidence"}:
-        return [payload["decision_id"]]
-    if event_type == "proposal_issued":
-        return [payload["proposal"]["target_id"]]
-    if event_type in {"proposal_accepted", "proposal_rejected"}:
-        return [payload["target_id"]]
-    if event_type == "decision_invalidated":
-        return [payload["decision_id"], payload["invalidated_by_decision_id"]]
+    if event_type == "object_recorded":
+        return [payload["object"]["id"]]
+    if event_type in {"object_updated", "object_status_changed"}:
+        return [payload["object_id"]]
+    if event_type == "object_linked":
+        link = payload["link"]
+        return [link["source_object_id"], link["target_object_id"]]
+    if event_type in {"session_question_asked", "session_answer_recorded"}:
+        return [payload["target_object_id"]]
     return []
 
 
-def _proposal_ids(event: dict[str, Any]) -> list[str]:
+def _link_ids(event: dict[str, Any]) -> list[str]:
     event_type = event["event_type"]
     payload = event["payload"]
-    if event_type == "proposal_issued":
-        return [payload["proposal"]["proposal_id"]]
-    if event_type in {"proposal_accepted", "proposal_rejected"}:
-        return [payload["proposal_id"]]
+    if event_type == "object_linked":
+        return [payload["link"]["id"]]
+    if event_type == "object_unlinked":
+        return [payload["link_id"]]
     return []
 
 
 def _transaction_summary_text(events: list[dict[str, Any]]) -> str:
     for event in events:
-        if event["event_type"] == "proposal_issued":
-            proposal = event["payload"]["proposal"]
+        if event["event_type"] == "object_recorded":
+            obj = event["payload"]["object"]
+            return f"record object {obj['id']}: {obj.get('title') or obj['type']}"
+        if event["event_type"] == "object_updated":
+            return f"update object {event['payload']['object_id']}"
+        if event["event_type"] == "object_status_changed":
             return (
-                f"proposal {proposal['proposal_id']} for {proposal['target_id']}: "
-                f"{proposal['recommendation']}"
+                f"change object {event['payload']['object_id']} status "
+                f"from {event['payload']['from_status']} to {event['payload']['to_status']}"
             )
-        if event["event_type"] == "proposal_accepted":
-            return f"accept proposal {event['payload']['proposal_id']}"
-        if event["event_type"] == "proposal_rejected":
-            return f"reject proposal {event['payload']['proposal_id']}: {event['payload']['reason']}"
-        if event["event_type"] == "decision_discovered":
-            decision = event["payload"]["decision"]
-            return f"discover decision {decision['id']}: {decision['title']}"
+        if event["event_type"] == "object_linked":
+            link = event["payload"]["link"]
+            return (
+                f"link {link['id']}: {link['source_object_id']} "
+                f"{link['relation']} {link['target_object_id']}"
+            )
+        if event["event_type"] == "object_unlinked":
+            return f"unlink {event['payload']['link_id']}"
     return ", ".join(event["event_type"] for event in events)
 
 
 def _classify_conflict(message: str) -> str:
-    if "proposal_issued while proposal" in message:
-        return "competing-active-proposals"
-    if "proposal_accepted" in message or "proposal_rejected" in message:
-        return "proposal-response-conflict"
-    if "duplicate decision_discovered id" in message:
-        return "duplicate-decision-discovery"
+    if "duplicate object_recorded id" in message:
+        return "duplicate-object-recording"
+    if "duplicate active link id" in message:
+        return "duplicate-object-link"
+    if "object_linked" in message and "references unknown object" in message:
+        return "dangling-object-link"
+    if "object_unlinked" in message:
+        return "object-unlink-conflict"
+    if "session_answer_recorded" in message:
+        return "session-answer-conflict"
     if "mutates closed session" in message or "already closed" in message:
         return "session-lifecycle-conflict"
     return "same-session-semantic-conflict"

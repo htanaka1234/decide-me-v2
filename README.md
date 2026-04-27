@@ -135,8 +135,8 @@ Resolve conflicts and replacements:
 
 - Same-session transaction conflicts use `detect-merge-conflicts` followed by
   `resolve-merge-conflict`.
-- Related-session semantic conflicts use `detect-session-conflicts` followed by
-  `resolve-session-conflict`.
+- Related-session semantic conflicts are read-only diagnostics from `detect-session-conflicts`;
+  resolve the underlying decisions with normal object/link events.
 - Project-wide decision replacements use `resolve-decision-supersession`.
 
 Resolve same-session transaction merge conflicts:
@@ -147,17 +147,22 @@ Resolve same-session transaction merge conflicts:
 3. Run `python3 scripts/decide_me.py resolve-merge-conflict --ai-dir .ai/decide-me --session-id S-... --keep-tx-id T-... --reject-tx-id T-... --reason "..."`.
 4. Rebuild or validate state. Rejected transaction files remain in `events/` for audit, but are excluded from normal projections.
 
-Resolve semantic conflicts across related sessions:
+Inspect session graph context:
 
-1. Link explicit parent/child context with `python3 scripts/decide_me.py link-session --ai-dir .ai/decide-me --parent-session-id S-... --child-session-id S-... --relationship refines --reason "..."`.
-2. Inspect graph context with `python3 scripts/decide_me.py show-session-graph --ai-dir .ai/decide-me --session-id S-... --include-inferred`.
-3. Run `python3 scripts/decide_me.py detect-session-conflicts --ai-dir .ai/decide-me --session-id S-... --include-related`.
-4. Resolve the chosen semantic conflict with `python3 scripts/decide_me.py resolve-session-conflict --ai-dir .ai/decide-me --conflict-id C-... --winning-session-id S-... --reject-session-id S-... --reason "..."`.
+1. Run `python3 scripts/decide_me.py show-session-graph --ai-dir .ai/decide-me --session-id S-... --include-inferred`.
+2. Treat inferred graph candidates as advisory. Explicit session graph writes are not part of
+   the Phase 5-3 event whitelist.
 
-Resolve decision replacements:
+Record object relationships:
 
-1. Ensure the superseding decision is accepted or resolved by evidence.
-2. Run `python3 scripts/decide_me.py resolve-decision-supersession --ai-dir .ai/decide-me --session-id S-... --superseded-decision-id D-old --superseding-decision-id D-new --reason "..."`.
+1. Domain state changes are represented by `object_recorded`, `object_updated`,
+   `object_status_changed`, `object_linked`, and `object_unlinked`.
+2. `object_updated` may update only `title`, `body`, and `metadata`; identity, type, links,
+   and status are not patchable.
+3. `object_status_changed` uses audited transitions with `object_id`, `from_status`,
+   `to_status`, `reason`, and `changed_at`.
+4. Session Q&A state is represented by `session_question_asked` and
+   `session_answer_recorded`; answers use `{summary, answered_at, answered_via}`.
 
 Reuse prior context:
 
@@ -173,12 +178,13 @@ The runtime lives under `.ai/decide-me/`.
 - `events/**/*.jsonl` transaction files are the source of truth.
 - `transaction_rejected` control events exclude rejected transaction IDs from
   the effective projection stream without deleting the rejected files.
-- `session_linked` records explicit semantic parent/child session graph edges.
-- `semantic_conflict_resolved` records user-selected scoped conflict resolution across
-  explicitly related sessions. Event files remain for audit, but rejected scoped content is
-  suppressed from normal session, search, evidence-reuse, and plan projections.
-- `decision_invalidated` records decision supersession from `resolve-decision-supersession`;
-  old decisions remain in events for audit and are hidden from normal projections.
+- The Phase 5-3 event whitelist is `project_initialized`, `session_created`,
+  `session_resumed`, `session_closed`, `close_summary_generated`, `plan_generated`,
+  `taxonomy_extended`, `transaction_rejected`, `object_recorded`, `object_updated`,
+  `object_status_changed`, `object_linked`, `object_unlinked`,
+  `session_question_asked`, and `session_answer_recorded`.
+- Deleted decision/proposal/session-graph compatibility event names are rejected rather than
+  migrated or backfilled.
 - `project-state.json`, `taxonomy-state.json`, and `sessions/*.json` are
   rebuildable projections and the normal hot-path read cache.
 - `runtime-index.json` checkpoints the current projection head, event count,

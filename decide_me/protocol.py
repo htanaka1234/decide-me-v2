@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from copy import deepcopy
 from typing import Any
 
@@ -11,10 +12,11 @@ from decide_me.constants import (
     EVIDENCE_SOURCES,
     FORBIDDEN_DISCOVERED_DECISION_FIELDS,
 )
-from decide_me.events import AUTO_PROJECT_HEAD, new_entity_id, utc_now
+from decide_me.events import new_entity_id, new_event_id, utc_now
 from decide_me.requirement_ids import next_requirement_id
 from decide_me.selector import proposal_is_stale
 from decide_me.store import load_runtime, runtime_paths, transact
+from decide_me.taxonomy import stable_unique
 
 
 OPEN_MUTATION_STATUSES = {"unresolved", "proposed", "rejected", "blocked"}
@@ -25,6 +27,8 @@ _UNSET = object()
 
 def discover_decision(ai_dir: str, session_id: str, decision: dict[str, Any]) -> dict[str, Any]:
     sanitized_decision = _sanitize_discovered_decision(decision)
+    now = utc_now()
+    event_id = new_event_id()
 
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
         _require_mutable_session(bundle, session_id)
@@ -32,12 +36,14 @@ def discover_decision(ai_dir: str, session_id: str, decision: dict[str, Any]) ->
         if decision_id and _decision_exists(bundle, decision_id):
             raise ValueError(f"decision {decision_id} already exists")
         event_decision = deepcopy(sanitized_decision)
-        event_decision["requirement_id"] = next_requirement_id(bundle["project_state"]["decisions"])
+        event_decision["requirement_id"] = next_requirement_id(_decision_views(bundle))
+        obj = _decision_object_from_payload(event_decision, now, event_id)
         return [
             {
+                "event_id": event_id,
                 "session_id": session_id,
-                "event_type": "decision_discovered",
-                "payload": {"decision": event_decision},
+                "event_type": "object_recorded",
+                "payload": {"object": obj},
             }
         ]
 
@@ -72,21 +78,28 @@ def enrich_decision(
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
         session = _require_mutable_session(bundle, session_id)
         _require_bound_decision(session, decision_id)
-        _lookup_decision(bundle, decision_id)
-        payload: dict[str, Any] = {
-            "decision_id": decision_id,
-            "notes_append": notes_append,
-            "revisit_triggers_append": revisit_triggers_append,
-        }
+        decision = _lookup_decision(bundle, decision_id)
+        metadata_patch: dict[str, Any] = {}
+        if notes_append:
+            metadata_patch["notes"] = stable_unique([*decision.get("notes", []), *notes_append])
+        if revisit_triggers_append:
+            metadata_patch["revisit_triggers"] = stable_unique(
+                [*decision.get("revisit_triggers", []), *revisit_triggers_append]
+            )
+        patch: dict[str, Any] = {"metadata": metadata_patch}
         if context_append is not None:
-            payload["context_append"] = context_append
+            existing_context = decision.get("context") or decision.get("body")
+            fragments = [fragment for fragment in [existing_context, context_append] if fragment]
+            context = "\n".join(stable_unique(fragment.strip() for fragment in fragments if fragment.strip()))
+            patch["body"] = context
+            metadata_patch["context"] = context
         if updates_agent_relevance:
-            payload["agent_relevant"] = agent_relevant
+            metadata_patch["agent_relevant"] = agent_relevant
         return [
             {
                 "session_id": session_id,
-                "event_type": "decision_enriched",
-                "payload": payload,
+                "event_type": "object_updated",
+                "payload": {"object_id": decision_id, "patch": patch},
             }
         ]
 
@@ -111,6 +124,8 @@ def issue_proposal(
     now = utc_now()
     question_id = new_entity_id("Q")
     proposal_id = new_entity_id("P")
+    proposal_event_id = new_event_id()
+    link_event_id = new_event_id()
 
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
         session = _require_mutable_session(bundle, session_id)
@@ -119,39 +134,92 @@ def issue_proposal(
         decision = _lookup_decision(bundle, decision_id)
         _require_decision_status(decision_id, decision, PROPOSABLE_STATUSES, "issue proposal")
         next_version = int(decision["recommendation"]["version"]) + 1
+        proposal = _object_payload(
+            object_id=proposal_id,
+            object_type="proposal",
+            title=recommendation,
+            body=why,
+            status="active",
+            created_at=now,
+            event_id=proposal_event_id,
+            metadata={
+                "origin_session_id": session_id,
+                "target_type": "decision",
+                "target_id": decision_id,
+                "recommendation_version": next_version,
+                "based_on_project_head": None,
+                "question_id": question_id,
+                "question": question,
+                "recommendation": recommendation,
+                "why": why,
+                "if_not": if_not,
+                "is_active": True,
+                "activated_at": now,
+                "inactive_reason": None,
+            },
+        )
+        link = _link_payload(
+            link_id=f"L-{proposal_id}-recommends-{decision_id}",
+            source_object_id=proposal_id,
+            relation="recommends",
+            target_object_id=decision_id,
+            rationale=why,
+            created_at=now,
+            event_id=link_event_id,
+        )
         return [
             {
                 "session_id": session_id,
                 "ts": now,
-                "event_type": "question_asked",
+                "event_type": "session_question_asked",
                 "payload": {
-                    "decision_id": decision_id,
                     "question_id": question_id,
+                    "target_object_id": decision_id,
                     "question": question,
                 },
             },
             {
                 "session_id": session_id,
-                "ts": now,
-                "event_type": "proposal_issued",
+                "event_type": "object_status_changed",
+                "payload": _status_change_payload(
+                    bundle,
+                    decision_id,
+                    "proposed",
+                    "Proposal issued for session question.",
+                    now,
+                ),
+            },
+            {
+                "session_id": session_id,
+                "event_type": "object_updated",
                 "payload": {
-                    "proposal": {
-                        "proposal_id": proposal_id,
-                        "origin_session_id": session_id,
-                        "target_type": "decision",
-                        "target_id": decision_id,
-                        "recommendation_version": next_version,
-                        "based_on_project_head": AUTO_PROJECT_HEAD,
-                        "question_id": question_id,
-                        "question": question,
-                        "recommendation": recommendation,
-                        "why": why,
-                        "if_not": if_not,
-                        "is_active": True,
-                        "activated_at": now,
-                        "inactive_reason": None,
-                    }
+                    "object_id": decision_id,
+                    "patch": {
+                        "metadata": {
+                            "question": question,
+                            "last_proposal_id": proposal_id,
+                            "recommendation": {
+                                "proposal_id": proposal_id,
+                                "version": next_version,
+                                "summary": recommendation,
+                                "why": why,
+                                "if_not": if_not,
+                            },
+                        }
+                    },
                 },
+            },
+            {
+                "event_id": proposal_event_id,
+                "session_id": session_id,
+                "event_type": "object_recorded",
+                "payload": {"object": proposal},
+            },
+            {
+                "event_id": link_event_id,
+                "session_id": session_id,
+                "event_type": "object_linked",
+                "payload": {"link": link},
             },
         ]
 
@@ -169,6 +237,7 @@ def accept_proposal(
 ) -> dict[str, Any]:
     now = utc_now()
     target_id: dict[str, str] = {}
+    accept_link_event_id = new_event_id()
 
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
         session = _require_open_session(bundle, session_id)
@@ -195,19 +264,66 @@ def accept_proposal(
             "accepted_via": mode,
             "proposal_id": target["proposal_id"],
         }
+        answer = {
+            "summary": target["recommendation"],
+            "answered_at": now,
+            "answered_via": mode,
+        }
+        accept_link = _link_payload(
+            link_id=f"L-{target['target_id']}-accepts-{target['proposal_id']}",
+            source_object_id=target["target_id"],
+            relation="accepts",
+            target_object_id=target["proposal_id"],
+            rationale=target["recommendation"],
+            created_at=now,
+            event_id=accept_link_event_id,
+        )
         return [
             {
                 "session_id": session_id,
-                "event_type": "proposal_accepted",
+                "event_type": "session_answer_recorded",
                 "payload": {
-                    "proposal_id": target["proposal_id"],
-                    "origin_session_id": target["origin_session_id"],
-                    "target_type": target["target_type"],
-                    "target_id": target["target_id"],
-                    "accepted_answer": accepted_answer,
-                    "reason": target["recommendation"],
+                    "question_id": target["question_id"],
+                    "target_object_id": target["target_id"],
+                    "answer": answer,
                 },
-            }
+            },
+            {
+                "session_id": session_id,
+                "event_type": "object_status_changed",
+                "payload": _status_change_payload(
+                    bundle,
+                    target["target_id"],
+                    "accepted",
+                    f"Accepted by {mode}.",
+                    now,
+                ),
+            },
+            {
+                "session_id": session_id,
+                "event_type": "object_updated",
+                "payload": {
+                    "object_id": target["target_id"],
+                    "patch": {"metadata": {"accepted_answer": accepted_answer}},
+                },
+            },
+            {
+                "session_id": session_id,
+                "event_type": "object_status_changed",
+                "payload": _status_change_payload(
+                    bundle,
+                    target["proposal_id"],
+                    "accepted",
+                    "Accepted with target decision.",
+                    now,
+                ),
+            },
+            {
+                "event_id": accept_link_event_id,
+                "session_id": session_id,
+                "event_type": "object_linked",
+                "payload": {"link": accept_link},
+            },
         ]
 
     _, bundle = transact(ai_dir, builder)
@@ -218,6 +334,7 @@ def reject_proposal(
     ai_dir: str, session_id: str, *, reason: str, proposal_id: str | None = None
 ) -> dict[str, Any]:
     reason = _require_non_empty_text(reason, "reason")
+    now = utc_now()
     target_id: dict[str, str] = {}
 
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
@@ -228,18 +345,51 @@ def reject_proposal(
         _require_decision_status(
             target["target_id"], decision, PROPOSAL_RESPONSE_STATUSES, "reject proposal"
         )
+        answer = {
+            "summary": reason,
+            "answered_at": now,
+            "answered_via": "explicit",
+        }
         return [
             {
                 "session_id": session_id,
-                "event_type": "proposal_rejected",
+                "event_type": "session_answer_recorded",
                 "payload": {
-                    "proposal_id": target["proposal_id"],
-                    "origin_session_id": target["origin_session_id"],
-                    "target_type": target["target_type"],
-                    "target_id": target["target_id"],
-                    "reason": reason,
+                    "question_id": target["question_id"],
+                    "target_object_id": target["target_id"],
+                    "answer": answer,
                 },
-            }
+            },
+            {
+                "session_id": session_id,
+                "event_type": "object_status_changed",
+                "payload": _status_change_payload(
+                    bundle,
+                    target["target_id"],
+                    "rejected",
+                    "Proposal rejected by user.",
+                    now,
+                ),
+            },
+            {
+                "session_id": session_id,
+                "event_type": "object_status_changed",
+                "payload": _status_change_payload(
+                    bundle,
+                    target["proposal_id"],
+                    "rejected",
+                    "Proposal rejected by user.",
+                    now,
+                ),
+            },
+            {
+                "session_id": session_id,
+                "event_type": "object_updated",
+                "payload": {
+                    "object_id": target["proposal_id"],
+                    "patch": {"metadata": {"rejection_reason": reason, "inactive_reason": "rejected"}},
+                },
+            },
         ]
 
     _, bundle = transact(ai_dir, builder)
@@ -273,42 +423,110 @@ def answer_proposal(
             raise ValueError("answer_summary must not be empty")
         _require_acceptance_mode(acceptance_mode)
 
-        events: list[dict[str, Any]] = []
-        if _normalize(answer) != _normalize(recommendation):
-            events.append(
-                {
-                    "session_id": session_id,
-                    "event_type": "proposal_rejected",
-                    "payload": {
-                        "proposal_id": target["proposal_id"],
-                        "origin_session_id": target["origin_session_id"],
-                        "target_type": target["target_type"],
-                        "target_id": target["target_id"],
-                        "reason": normalized_reason or "User supplied an alternative answer.",
-                    },
-                }
-            )
-
+        matches_recommendation = _normalize(answer) == _normalize(recommendation)
         accepted_answer = {
             "summary": answer,
             "accepted_at": now,
             "accepted_via": acceptance_mode,
             "proposal_id": target["proposal_id"],
         }
-        events.append(
+        events: list[dict[str, Any]] = [
             {
                 "session_id": session_id,
-                "event_type": "proposal_accepted",
+                "event_type": "session_answer_recorded",
                 "payload": {
-                    "proposal_id": target["proposal_id"],
-                    "origin_session_id": target["origin_session_id"],
-                    "target_type": target["target_type"],
-                    "target_id": target["target_id"],
-                    "accepted_answer": accepted_answer,
-                    "reason": answer,
+                    "question_id": target["question_id"],
+                    "target_object_id": target["target_id"],
+                    "answer": {
+                        "summary": answer,
+                        "answered_at": now,
+                        "answered_via": acceptance_mode,
+                    },
                 },
-            }
-        )
+            },
+            {
+                "session_id": session_id,
+                "event_type": "object_status_changed",
+                "payload": _status_change_payload(
+                    bundle,
+                    target["target_id"],
+                    "accepted",
+                    "Session answer recorded.",
+                    now,
+                ),
+            },
+            {
+                "session_id": session_id,
+                "event_type": "object_updated",
+                "payload": {
+                    "object_id": target["target_id"],
+                    "patch": {"metadata": {"accepted_answer": accepted_answer}},
+                },
+            },
+        ]
+        if matches_recommendation:
+            link_event_id = new_event_id()
+            events.extend(
+                [
+                    {
+                        "session_id": session_id,
+                        "event_type": "object_status_changed",
+                        "payload": _status_change_payload(
+                            bundle,
+                            target["proposal_id"],
+                            "accepted",
+                            "Answer matched proposal recommendation.",
+                            now,
+                        ),
+                    },
+                    {
+                        "event_id": link_event_id,
+                        "session_id": session_id,
+                        "event_type": "object_linked",
+                        "payload": {
+                            "link": _link_payload(
+                                link_id=f"L-{target['target_id']}-accepts-{target['proposal_id']}",
+                                source_object_id=target["target_id"],
+                                relation="accepts",
+                                target_object_id=target["proposal_id"],
+                                rationale=answer,
+                                created_at=now,
+                                event_id=link_event_id,
+                            )
+                        },
+                    },
+                ]
+            )
+        else:
+            events.extend(
+                [
+                    {
+                        "session_id": session_id,
+                        "event_type": "object_status_changed",
+                        "payload": _status_change_payload(
+                            bundle,
+                            target["proposal_id"],
+                            "rejected",
+                            "Answer differed from proposal recommendation.",
+                            now,
+                        ),
+                    },
+                    {
+                        "session_id": session_id,
+                        "event_type": "object_updated",
+                        "payload": {
+                            "object_id": target["proposal_id"],
+                            "patch": {
+                                "metadata": {
+                                    "rejection_reason": normalized_reason
+                                    or "User supplied an alternative answer.",
+                                    "inactive_reason": "rejected",
+                                }
+                            },
+                        },
+                    },
+                ]
+            )
         return events
 
     _, bundle = transact(ai_dir, builder)
@@ -317,6 +535,7 @@ def answer_proposal(
 
 def defer_decision(ai_dir: str, session_id: str, *, decision_id: str, reason: str) -> dict[str, Any]:
     reason = _require_non_empty_text(reason, "reason")
+    now = utc_now()
 
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
         session = _require_mutable_session(bundle, session_id)
@@ -327,9 +546,22 @@ def defer_decision(ai_dir: str, session_id: str, *, decision_id: str, reason: st
         return [
             {
                 "session_id": session_id,
-                "event_type": "decision_deferred",
-                "payload": {"decision_id": decision_id, "reason": reason},
-            }
+                "event_type": "object_status_changed",
+                "payload": _status_change_payload(bundle, decision_id, "deferred", reason, now),
+            },
+            {
+                "session_id": session_id,
+                "event_type": "object_updated",
+                "payload": {
+                    "object_id": decision_id,
+                    "patch": {
+                        "metadata": {
+                            "frontier": "deferred",
+                            "notes": stable_unique([*decision.get("notes", []), reason]),
+                        }
+                    },
+                },
+            },
         ]
 
     _, bundle = transact(ai_dir, builder)
@@ -352,6 +584,8 @@ def resolve_by_evidence(
         raise ValueError("summary must not be empty")
     if not isinstance(evidence_refs, list):
         raise ValueError("evidence_refs must be a list")
+    evidence_refs = stable_unique(str(ref).strip() for ref in evidence_refs if str(ref).strip())
+    now = utc_now()
 
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
         session = _require_mutable_session(bundle, session_id)
@@ -361,18 +595,88 @@ def resolve_by_evidence(
         _require_decision_status(
             decision_id, decision, OPEN_MUTATION_STATUSES, "resolve by evidence"
         )
-        return [
+        events: list[dict[str, Any]] = [
             {
                 "session_id": session_id,
-                "event_type": "decision_resolved_by_evidence",
+                "event_type": "object_status_changed",
+                "payload": _status_change_payload(
+                    bundle,
+                    decision_id,
+                    "resolved-by-evidence",
+                    "Resolved by evidence.",
+                    now,
+                ),
+            },
+            {
+                "session_id": session_id,
+                "event_type": "object_updated",
                 "payload": {
-                    "decision_id": decision_id,
-                    "source": source,
-                    "summary": summary,
-                    "evidence_refs": evidence_refs,
+                    "object_id": decision_id,
+                    "patch": {
+                        "metadata": {
+                            "resolved_by_evidence": {
+                                "source": source,
+                                "summary": summary,
+                                "resolved_at": now,
+                                "evidence_refs": deepcopy(evidence_refs),
+                            },
+                            "accepted_answer": {
+                                "summary": summary,
+                                "accepted_at": now,
+                                "accepted_via": "evidence",
+                                "proposal_id": None,
+                            },
+                        }
+                    },
                 },
-            }
+            },
         ]
+        for evidence_ref in evidence_refs:
+            evidence_event_id = new_event_id()
+            link_event_id = new_event_id()
+            evidence_id = f"O-evidence-{_stable_id(evidence_ref)}"
+            existing_evidence = _find_object(bundle, evidence_id)
+            if existing_evidence is not None and existing_evidence.get("type") != "evidence":
+                raise ValueError(f"evidence object id collision: {evidence_id}")
+            if existing_evidence is None:
+                events.append(
+                    {
+                        "event_id": evidence_event_id,
+                        "session_id": session_id,
+                        "event_type": "object_recorded",
+                        "payload": {
+                            "object": _object_payload(
+                                object_id=evidence_id,
+                                object_type="evidence",
+                                title=evidence_ref,
+                                body=summary,
+                                status="active",
+                                created_at=now,
+                                event_id=evidence_event_id,
+                                metadata={"source": source, "ref": evidence_ref},
+                            )
+                        },
+                    }
+                )
+            events.append(
+                {
+                    "event_id": link_event_id,
+                    "session_id": session_id,
+                    "event_type": "object_linked",
+                    "payload": {
+                        "link": _link_payload(
+                            link_id=f"L-{evidence_id}-supports-{decision_id}",
+                            source_object_id=evidence_id,
+                            relation="supports",
+                            target_object_id=decision_id,
+                            rationale=summary,
+                            created_at=now,
+                            event_id=link_event_id,
+                        )
+                    },
+                }
+            )
+        return events
 
     _, bundle = transact(ai_dir, builder)
     return _lookup_decision(bundle, decision_id)
@@ -391,6 +695,7 @@ def resolve_decision_supersession(
         raise ValueError("reason must not be empty")
     if superseded_decision_id == superseding_decision_id:
         raise ValueError("decision cannot supersede itself")
+    now = utc_now()
 
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
         session = _require_session(bundle, session_id)
@@ -403,14 +708,49 @@ def resolve_decision_supersession(
             raise ValueError(
                 f"superseding decision {superseding_decision_id} must be accepted or resolved-by-evidence"
             )
+        link_event_id = new_event_id()
         return [
             {
                 "session_id": session_id,
-                "event_type": "decision_invalidated",
+                "event_type": "object_status_changed",
+                "payload": _status_change_payload(
+                    bundle,
+                    superseded_decision_id,
+                    "invalidated",
+                    reason,
+                    now,
+                ),
+            },
+            {
+                "session_id": session_id,
+                "event_type": "object_updated",
                 "payload": {
-                    "decision_id": superseded_decision_id,
-                    "invalidated_by_decision_id": superseding_decision_id,
-                    "reason": reason,
+                    "object_id": superseded_decision_id,
+                    "patch": {
+                        "metadata": {
+                            "invalidated_by": {
+                                "decision_id": superseding_decision_id,
+                                "reason": reason,
+                                "invalidated_at": now,
+                            }
+                        }
+                    },
+                },
+            },
+            {
+                "event_id": link_event_id,
+                "session_id": session_id,
+                "event_type": "object_linked",
+                "payload": {
+                    "link": _link_payload(
+                        link_id=f"L-{superseding_decision_id}-supersedes-{superseded_decision_id}",
+                        source_object_id=superseding_decision_id,
+                        relation="supersedes",
+                        target_object_id=superseded_decision_id,
+                        rationale=reason,
+                        created_at=now,
+                        event_id=link_event_id,
+                    )
                 },
             }
         ]
@@ -419,7 +759,7 @@ def resolve_decision_supersession(
     event = events[-1]
     resolution = {
         "kind": "decision-supersession",
-        "event_type": "decision_invalidated",
+        "event_type": "object_linked",
         "event_id": event["event_id"],
         "scope": {
             "kind": "decision",
@@ -451,33 +791,7 @@ def update_classification(
     search_terms: list[str] | None = None,
     source_refs: list[str] | None = None,
 ) -> dict[str, Any]:
-    now = utc_now()
-
-    def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
-        session = _require_mutable_session(bundle, session_id)
-        if domain is not None and domain not in DOMAIN_VALUES:
-            raise ValueError(f"invalid domain: {domain}")
-        classification = deepcopy(session["classification"])
-        classification.update(
-            {
-                "domain": domain,
-                "abstraction_level": abstraction_level,
-                "assigned_tags": assigned_tags or [],
-                "search_terms": search_terms or [],
-                "source_refs": source_refs or [],
-                "updated_at": now,
-            }
-        )
-        return [
-            {
-                "session_id": session_id,
-                "event_type": "classification_updated",
-                "payload": {"classification": classification},
-            }
-        ]
-
-    _, bundle = transact(ai_dir, builder)
-    return bundle["sessions"][session_id]["classification"]
+    raise ValueError("classification updates are unsupported by the Phase 5-3 event model")
 
 
 def render_question_block(decision: dict[str, Any], proposal: dict[str, Any]) -> str:
@@ -531,14 +845,206 @@ def _require_no_other_active_proposal(session: dict[str, Any], decision_id: str)
 
 
 def _lookup_decision(bundle: dict[str, Any], decision_id: str) -> dict[str, Any]:
-    for decision in bundle["project_state"]["decisions"]:
+    for decision in _decision_views(bundle):
         if decision["id"] == decision_id:
-            return deepcopy(decision)
+            return decision
     raise ValueError(f"unknown decision: {decision_id}")
 
 
+def _lookup_object(bundle: dict[str, Any], object_id: str) -> dict[str, Any]:
+    for obj in bundle["project_state"].get("objects", []):
+        if obj.get("id") == object_id:
+            return obj
+    raise ValueError(f"unknown object: {object_id}")
+
+
+def _find_object(bundle: dict[str, Any], object_id: str) -> dict[str, Any] | None:
+    for obj in bundle["project_state"].get("objects", []):
+        if obj.get("id") == object_id:
+            return obj
+    return None
+
+
+def _status_change_payload(
+    bundle: dict[str, Any],
+    object_id: str,
+    to_status: str,
+    reason: str,
+    changed_at: str,
+) -> dict[str, Any]:
+    obj = _lookup_object(bundle, object_id)
+    return {
+        "object_id": object_id,
+        "from_status": obj["status"],
+        "to_status": to_status,
+        "reason": reason,
+        "changed_at": changed_at,
+    }
+
+
 def _decision_exists(bundle: dict[str, Any], decision_id: str) -> bool:
-    return any(decision["id"] == decision_id for decision in bundle["project_state"]["decisions"])
+    return any(decision["id"] == decision_id for decision in _decision_objects(bundle))
+
+
+def _decision_objects(bundle: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        item
+        for item in bundle["project_state"].get("objects", [])
+        if item.get("type") == "decision"
+    ]
+
+
+def _decision_views(bundle: dict[str, Any]) -> list[dict[str, Any]]:
+    return [_decision_view(item) for item in _decision_objects(bundle)]
+
+
+def _decision_view(obj: dict[str, Any]) -> dict[str, Any]:
+    metadata = deepcopy(obj.get("metadata", {}))
+    accepted_answer = metadata.get("accepted_answer") or {
+        "summary": None,
+        "accepted_at": None,
+        "accepted_via": None,
+        "proposal_id": None,
+    }
+    resolved = metadata.get("resolved_by_evidence") or {
+        "source": None,
+        "summary": None,
+        "resolved_at": None,
+        "evidence_refs": [],
+    }
+    recommendation = metadata.get("recommendation") or {
+        "proposal_id": metadata.get("last_proposal_id"),
+        "version": 0,
+        "summary": None,
+        "why": None,
+        "if_not": None,
+    }
+    view = {
+        **metadata,
+        "id": obj["id"],
+        "title": obj.get("title"),
+        "body": obj.get("body"),
+        "context": metadata.get("context") or obj.get("body"),
+        "status": obj.get("status"),
+        "requirement_id": metadata.get("requirement_id"),
+        "kind": metadata.get("kind", "choice"),
+        "domain": metadata.get("domain", "other"),
+        "priority": metadata.get("priority", "P1"),
+        "frontier": metadata.get("frontier", "later"),
+        "resolvable_by": metadata.get("resolvable_by", "human"),
+        "reversibility": metadata.get("reversibility", "reversible"),
+        "notes": deepcopy(metadata.get("notes", [])),
+        "revisit_triggers": deepcopy(metadata.get("revisit_triggers", [])),
+        "recommendation": deepcopy(recommendation),
+        "accepted_answer": deepcopy(accepted_answer),
+        "resolved_by_evidence": deepcopy(resolved),
+        "evidence_refs": deepcopy(metadata.get("evidence_refs") or resolved.get("evidence_refs") or []),
+    }
+    return view
+
+
+def _object_payload(
+    *,
+    object_id: str,
+    object_type: str,
+    title: str | None,
+    body: str | None,
+    status: str,
+    created_at: str,
+    event_id: str,
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return {
+        "id": object_id,
+        "type": object_type,
+        "title": title,
+        "body": body,
+        "status": status,
+        "created_at": created_at,
+        "updated_at": None,
+        "source_event_ids": [event_id],
+        "metadata": deepcopy(metadata or {}),
+    }
+
+
+def _link_payload(
+    *,
+    link_id: str,
+    source_object_id: str,
+    relation: str,
+    target_object_id: str,
+    rationale: str | None,
+    created_at: str,
+    event_id: str,
+) -> dict[str, Any]:
+    return {
+        "id": link_id,
+        "source_object_id": source_object_id,
+        "relation": relation,
+        "target_object_id": target_object_id,
+        "rationale": rationale,
+        "created_at": created_at,
+        "source_event_ids": [event_id],
+    }
+
+
+def _decision_object_from_payload(decision: dict[str, Any], created_at: str, event_id: str) -> dict[str, Any]:
+    metadata = {
+        "requirement_id": decision["requirement_id"],
+        "kind": decision.get("kind", "choice"),
+        "domain": decision.get("domain", "other"),
+        "priority": decision.get("priority", "P1"),
+        "frontier": decision.get("frontier", "later"),
+        "resolvable_by": decision.get("resolvable_by", "human"),
+        "reversibility": decision.get("reversibility", "reversible"),
+        "notes": deepcopy(decision.get("notes", [])),
+        "recommendation": {
+            "proposal_id": None,
+            "version": 0,
+            "summary": None,
+            "why": None,
+            "if_not": None,
+        },
+        "accepted_answer": {
+            "summary": None,
+            "accepted_at": None,
+            "accepted_via": None,
+            "proposal_id": None,
+        },
+        "resolved_by_evidence": {
+            "source": None,
+            "summary": None,
+            "resolved_at": None,
+            "evidence_refs": [],
+        },
+    }
+    for key in (
+        "question",
+        "context",
+        "bundle_id",
+        "agent_relevant",
+        "depends_on",
+        "blocked_by",
+        "options",
+        "revisit_triggers",
+    ):
+        if key in decision:
+            metadata[key] = deepcopy(decision[key])
+    return _object_payload(
+        object_id=decision["id"],
+        object_type="decision",
+        title=decision["title"],
+        body=decision.get("context"),
+        status=decision.get("status") or "unresolved",
+        created_at=created_at,
+        event_id=event_id,
+        metadata=metadata,
+    )
+
+
+def _stable_id(*parts: Any) -> str:
+    material = "|".join(str(part) for part in parts)
+    return hashlib.sha1(material.encode("utf-8")).hexdigest()[:12]
 
 
 def _sanitize_discovered_decision(decision: dict[str, Any]) -> dict[str, Any]:
@@ -546,22 +1052,22 @@ def _sanitize_discovered_decision(decision: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("decision must be an object")
     for key in ("id", "title"):
         if not decision.get(key):
-            raise ValueError(f"decision_discovered requires {key}")
+            raise ValueError(f"decision object requires {key}")
     if "requirement_id" in decision:
-        raise ValueError("decision_discovered requirement_id is assigned by the runtime")
+        raise ValueError("decision object requirement_id is assigned by the runtime")
     forbidden = sorted(set(decision) & FORBIDDEN_DISCOVERED_DECISION_FIELDS)
     if forbidden:
-        raise ValueError(f"decision_discovered must not include {', '.join(forbidden)}")
+        raise ValueError(f"decision object must not include {', '.join(forbidden)}")
     allowed = DISCOVERABLE_DECISION_FIELDS | {"status"}
     unknown = sorted(set(decision) - allowed)
     if unknown:
-        raise ValueError(f"decision_discovered contains unsupported fields: {', '.join(unknown)}")
+        raise ValueError(f"decision object contains unsupported fields: {', '.join(unknown)}")
     status = decision.get("status") or "unresolved"
     if status not in DISCOVERABLE_DECISION_STATUSES:
         allowed_statuses = ", ".join(sorted(DISCOVERABLE_DECISION_STATUSES))
-        raise ValueError(f"decision_discovered may only create statuses: {allowed_statuses}")
+        raise ValueError(f"decision object may only be created with statuses: {allowed_statuses}")
     if "agent_relevant" in decision:
-        _validate_agent_relevant(decision["agent_relevant"], "decision_discovered.agent_relevant")
+        _validate_agent_relevant(decision["agent_relevant"], "decision.agent_relevant")
     sanitized = {key: deepcopy(value) for key, value in decision.items() if key in DISCOVERABLE_DECISION_FIELDS}
     sanitized["status"] = status
     return sanitized
@@ -630,7 +1136,7 @@ def _proposal_owner_session_id(bundle: dict[str, Any], proposal_id: str) -> str 
 
 
 def _invalidated_decision_id_for_proposal(bundle: dict[str, Any], proposal_id: str) -> str | None:
-    for decision in bundle["project_state"]["decisions"]:
+    for decision in _decision_views(bundle):
         if (
             decision.get("recommendation", {}).get("proposal_id") == proposal_id
             and decision.get("status") == "invalidated"
@@ -645,7 +1151,7 @@ def _resolve_decision_id(bundle: dict[str, Any], session_id: str, proposal_id: s
         target_id = session["summary"].get("active_decision_id")
         if target_id:
             return target_id
-    for decision in bundle["project_state"]["decisions"]:
+    for decision in _decision_views(bundle):
         if decision["accepted_answer"]["proposal_id"] == proposal_id:
             return decision["id"]
     active = session["working_state"]["active_proposal"]

@@ -6,6 +6,7 @@ from typing import Any
 from decide_me.exporters.common import (
     DecisionEventIndex,
     build_decision_event_index,
+    decision_views,
     decision_summary,
     project_head,
     referenced_evidence_refs,
@@ -53,7 +54,7 @@ def build_decision_register(
         "project_head": project_head(bundle),
         "decisions": [
             _decision_register_item(decision, index)
-            for decision in sorted(bundle["project_state"]["decisions"], key=lambda item: item["id"])
+            for decision in sorted(decision_views(bundle["project_state"]), key=lambda item: item["id"])
             if _include_decision(decision, include_invalidated=include_invalidated)
         ],
     }

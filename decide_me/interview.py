@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from decide_me.events import new_entity_id
+from decide_me.exporters.common import decision_views
 from decide_me.lifecycle import build_close_summary
 from decide_me.protocol import (
     accept_proposal,
@@ -793,7 +794,7 @@ def _runtime_evidence(
 ) -> dict[str, Any] | None:
     title = _normalize(decision.get("title"))
     suppressed_ids = suppressed_decision_ids(bundle["project_state"])
-    for candidate in bundle["project_state"]["decisions"]:
+    for candidate in decision_views(bundle["project_state"]):
         if candidate["id"] == decision["id"]:
             continue
         if candidate["id"] in suppressed_ids:
@@ -1197,7 +1198,7 @@ def _next_recommended_action(close_summary: dict[str, Any], session_id: str) -> 
 
 
 def _lookup_decision(bundle: dict[str, Any], decision_id: str) -> dict[str, Any]:
-    for decision in bundle["project_state"]["decisions"]:
+    for decision in decision_views(bundle["project_state"]):
         if decision["id"] == decision_id:
             return decision
     raise ValueError(f"unknown decision: {decision_id}")

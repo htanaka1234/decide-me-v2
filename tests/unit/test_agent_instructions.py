@@ -249,8 +249,28 @@ def _bundle(decisions: list[dict]) -> dict:
                 "updated_at": "2026-04-26T00:00:00Z",
                 "project_head": "H-test",
             },
-            "decisions": decisions,
+            "objects": [_decision_object(decision) for decision in decisions],
+            "links": [],
         }
+    }
+
+
+def _decision_object(decision: dict) -> dict:
+    metadata = {
+        key: value
+        for key, value in decision.items()
+        if key not in {"id", "title", "status"}
+    }
+    return {
+        "id": decision["id"],
+        "type": "decision",
+        "title": decision["title"],
+        "body": decision.get("context") or decision["title"],
+        "status": decision["status"],
+        "created_at": "2026-04-26T00:00:00Z",
+        "updated_at": "2026-04-26T00:00:00Z",
+        "source_event_ids": [f"E-{decision['id']}"],
+        "metadata": metadata,
     }
 
 

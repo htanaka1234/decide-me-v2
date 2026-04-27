@@ -23,7 +23,7 @@ Evidence-first resolution order:
 4. existing sessions and close summaries
 5. user
 
-When evidence resolves a decision, record a `decision_resolved_by_evidence` event and avoid asking
+When evidence resolves a decision, record neutral object status/update/link events and avoid asking
 the user again unless the evidence later becomes stale.
 
 Deterministic runtime helpers:

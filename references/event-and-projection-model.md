@@ -17,7 +17,7 @@ Event envelope:
   "tx_size": 2,
   "ts": "2026-04-23T10:15:00.123456Z",
   "session_id": "S-20260423-101500-a1",
-  "event_type": "proposal_issued",
+  "event_type": "object_recorded",
   "payload": {}
 }
 ```
@@ -34,13 +34,24 @@ Projection rules:
 - `validate-state` and `validate-state --full` perform full event-log validation;
   `validate-state --cached` / `--fast` validate only the projection checkpoint and index.
 - If validation fails, reject the write and keep the previous runtime files unchanged.
-- `decision_discovered` events carry a runtime-assigned `requirement_id`. Event logs without
-  decision-scoped requirement IDs are invalid for this schema version.
+- The accepted event whitelist is `project_initialized`, `session_created`,
+  `session_resumed`, `session_closed`, `close_summary_generated`, `plan_generated`,
+  `taxonomy_extended`, `transaction_rejected`, `object_recorded`, `object_updated`,
+  `object_status_changed`, `object_linked`, `object_unlinked`,
+  `session_question_asked`, and `session_answer_recorded`.
+- Domain state is recorded as objects and links. `object_recorded.payload.object` matches
+  `schemas/object.schema.json`; `object_linked.payload.link` matches
+  `schemas/link.schema.json`.
+- `object_updated.payload.patch` may contain only `title`, `body`, and `metadata`.
+  Object `id`, `type`, links, and status are immutable through this event.
+- `object_status_changed.payload` is `{object_id, from_status, to_status, reason, changed_at}`.
+  Rebuild and validation must reject transitions whose `from_status` does not match the current
+  projected object status.
+- `object_unlinked` removes the link from the active projection. Link history remains in the
+  event log.
+- `session_answer_recorded.payload.answer` is `{summary, answered_at, answered_via}`.
 - `project_state.state.project_head` is a SHA-256 chain hash over canonical event content and the
-  previous project head, replacing the old project-wide sequence number. For
-  `proposal_issued`, `based_on_project_head` is normalized before hashing so the proposal's
-  own auto-filled head does not make the hash self-referential. Projections preserve the event
-  payload value; AUTO proposal creation stores the post-event head in that payload.
+  previous project head, replacing the old project-wide sequence number.
 
 Legacy runtime layout:
 
@@ -63,31 +74,16 @@ Raw and effective streams:
 
 Session graph:
 
-- `session_linked` records explicit parent/child graph edges. Supported relationships are
-  `derived_from`, `refines`, `supersedes`, `depends_on`, and `contradicts`.
-- `derived_from`, `refines`, `supersedes`, and `depends_on` edges must stay acyclic.
-  `contradicts` is allowed to point back across the graph because it is not a lineage edge.
-- `project_state.graph` contains deterministic `nodes`, explicit `edges`,
-  `resolved_conflicts`, and an empty `inferred_candidates` list in persisted projections.
-- Inferred candidates are derived from shared decision ids, accepted-answer mismatches, workstream
-  overlap, and action-slice responsibility mismatches. They are generated on demand for graph
-  inspection and conflict detection, may be cached by `project_head`, and are never treated as
-  source-of-truth graph edges.
-- `semantic_conflict_resolved` records the user's selected winning session for a scoped
-  conflict across explicitly related sessions. It does not remove event files, but it suppresses
-  the losing scoped content from normal projections so future search, evidence reuse, session
-  views, and plans do not reuse the rejected context. Unrelated content from the losing session
-  remains visible.
+- `project_state.graph` contains deterministic `nodes`, `edges`, `resolved_conflicts`, and an
+  empty `inferred_candidates` list in persisted projections.
+- Phase 5-3 does not persist explicit session graph or semantic conflict resolution events.
+  Inferred candidates remain advisory output generated from projections when requested.
 
-Decision supersession:
+Object supersession:
 
-- `resolve-decision-supersession` is the preferred public command for project-wide replacement
-  of an older decision by a later one.
-- The underlying `decision_invalidated` event remains the source-of-truth event for this
-  replacement. Invalidated decisions remain in the event log and project projection for
-  auditability.
-- Normal outputs must hide superseded decisions from session views, interview turns, close
-  summaries, plans, and ADR exports.
+- Replacement is represented with normal object/link events: update the superseded object status,
+  update its metadata, and record a `supersedes` link from the replacement object to the
+  superseded object.
 
 Agent relevance metadata:
 

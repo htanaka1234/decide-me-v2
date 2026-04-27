@@ -6,9 +6,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from decide_me.lifecycle import create_session
-from decide_me.session_graph import link_session
 from decide_me.store import bootstrap_runtime, rebuild_and_persist, validate_runtime
-from decide_me.store import transact
 
 
 class ObjectLinkProjectionShapeTests(unittest.TestCase):
@@ -63,7 +61,7 @@ class ObjectLinkProjectionShapeTests(unittest.TestCase):
             self.assertIn("graph", persisted)
             self.assertEqual([], validate_runtime(ai_dir))
 
-    def test_session_linked_persists_graph_edge(self) -> None:
+    def test_explicit_session_graph_writes_are_no_longer_supported(self) -> None:
         with TemporaryDirectory() as tmp:
             ai_dir = Path(tmp) / ".ai" / "decide-me"
             bootstrap_runtime(
@@ -75,58 +73,12 @@ class ObjectLinkProjectionShapeTests(unittest.TestCase):
             parent = create_session(str(ai_dir), context="Parent")
             child = create_session(str(ai_dir), context="Child")
 
-            link_session(
-                str(ai_dir),
-                parent_session_id=parent["session"]["id"],
-                child_session_id=child["session"]["id"],
-                relationship="refines",
-                reason="Child refines parent.",
-            )
             project_state = json.loads((ai_dir / "project-state.json").read_text(encoding="utf-8"))
 
             self.assertNotIn("session_graph", project_state)
-            self.assertEqual(1, len(project_state["graph"]["edges"]))
-            self.assertEqual("refines", project_state["graph"]["edges"][0]["relationship"])
+            self.assertEqual([], project_state["graph"]["edges"])
             self.assertIn(parent["session"]["id"], project_state["sessions_index"])
             self.assertIn(child["session"]["id"], project_state["sessions_index"])
-            self.assertEqual([], validate_runtime(ai_dir))
-
-    def test_semantic_conflict_resolution_persists_graph_resolution(self) -> None:
-        with TemporaryDirectory() as tmp:
-            ai_dir = Path(tmp) / ".ai" / "decide-me"
-            bootstrap_runtime(
-                ai_dir,
-                project_name="Demo",
-                objective="Plan Phase 5-2.",
-                current_milestone="Phase 5-2",
-            )
-            winner = create_session(str(ai_dir), context="Winner")
-            loser = create_session(str(ai_dir), context="Loser")
-            winner_id = winner["session"]["id"]
-            loser_id = loser["session"]["id"]
-
-            def builder(_bundle: dict) -> list[dict]:
-                return [
-                    {
-                        "session_id": winner_id,
-                        "event_type": "semantic_conflict_resolved",
-                        "payload": {
-                            "conflict_id": "C-test",
-                            "winning_session_id": winner_id,
-                            "rejected_session_ids": [loser_id],
-                            "scope": {"kind": "session", "session_ids": [winner_id, loser_id]},
-                            "reason": "Keep winner.",
-                            "resolved_at": "2026-04-23T12:06:00Z",
-                        },
-                    }
-                ]
-
-            transact(ai_dir, builder)
-            project_state = json.loads((ai_dir / "project-state.json").read_text(encoding="utf-8"))
-
-            self.assertNotIn("session_graph", project_state)
-            self.assertEqual(1, len(project_state["graph"]["resolved_conflicts"]))
-            self.assertEqual("C-test", project_state["graph"]["resolved_conflicts"][0]["conflict_id"])
             self.assertEqual([], validate_runtime(ai_dir))
 
 
