@@ -64,7 +64,7 @@ def proposal_is_stale(
         for decision in project_state["objects"]:
             if decision["id"] == target_id and decision_is_invalidated(decision):
                 return True, "decision-invalidated"
-    if proposal.get("based_on_project_head") != project_state["state"]["project_head"]:
+    if proposal.get("based_on_project_head") and proposal.get("based_on_project_head") != project_state["state"]["project_head"]:
         return True, "project-head-changed"
     return False, None
 

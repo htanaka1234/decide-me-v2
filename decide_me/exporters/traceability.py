@@ -6,7 +6,7 @@ from io import StringIO
 from pathlib import Path
 from typing import Any
 
-from decide_me.exporters.common import project_head, snapshot_generated_at
+from decide_me.exporters.common import decision_views, project_head, snapshot_generated_at
 from decide_me.exporters.render import render_markdown_list, render_table_cell
 from decide_me.store import load_runtime, read_event_log, runtime_paths
 from decide_me.suppression import apply_semantic_suppression_to_session
@@ -326,7 +326,7 @@ def _session_ids_by_decision_id(sessions: list[dict[str, Any]]) -> dict[str, str
 
 def _requirement_ids_by_decision(project_state: dict[str, Any]) -> dict[str, str]:
     by_id: dict[str, str] = {}
-    for decision in project_state["decisions"]:
+    for decision in decision_views(project_state):
         requirement_id = decision.get("requirement_id")
         if not requirement_id:
             raise ValueError(f"decision {decision['id']} has no requirement_id")

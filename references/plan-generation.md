@@ -27,13 +27,14 @@ Conflict ids and resolution:
 
 - Planner conflicts include deterministic `conflict_id`, `session_ids`, `scope`, and
   `requires_resolution`.
-- `semantic_conflict_resolved` suppresses only the matching losing scope from normal projections.
+- Phase 5-3 does not persist explicit semantic conflict resolution events; plan generation should
+  surface unresolved conflicts rather than silently choosing between incompatible closed sessions.
 - When assembling an action plan after resolution, remove only the losing session's scoped item.
   Other accepted decisions, action slices, and workstreams from the losing session remain eligible.
 - `detect-session-conflicts --include-related` lists explicit graph relatives first, then reports
   unresolved and resolved semantic conflicts for that graph scope.
 - Decision replacements are resolved with `resolve-decision-supersession`, which emits the
-  underlying `decision_invalidated` event and removes the superseded decision from normal plan
+  underlying object status/update plus `supersedes` link events and removes the superseded decision from normal plan
   inputs.
 
 If unresolved `P0` decisions with `frontier=now` remain, the planner must return a conditional

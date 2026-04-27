@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from decide_me.events import utc_now
+from decide_me.exporters.common import lookup_decision
 from decide_me.exporters.agents import export_agent_instructions
 from decide_me.exporters.adr import export_structured_adr
 from decide_me.exporters.architecture import export_architecture_doc
@@ -15,7 +16,7 @@ from decide_me.store import load_runtime, runtime_paths
 def export_adr(ai_dir: str, decision_id: str) -> Path:
     paths = runtime_paths(ai_dir)
     bundle = load_runtime(paths)
-    decision = _lookup_decision(bundle, decision_id)
+    decision = lookup_decision(bundle, decision_id)
     if decision["status"] not in {"accepted", "resolved-by-evidence"}:
         raise ValueError(f"decision {decision_id} is not accepted")
     if decision["domain"] != "technical":
@@ -91,13 +92,6 @@ def export_github_issues(
     from decide_me.exporters.github import export_github_issues as _export_github_issues
 
     return _export_github_issues(ai_dir, session_ids, output_dir)
-
-
-def _lookup_decision(bundle: dict[str, Any], decision_id: str) -> dict[str, Any]:
-    for decision in bundle["project_state"]["decisions"]:
-        if decision["id"] == decision_id:
-            return decision
-    raise ValueError(f"unknown decision: {decision_id}")
 
 
 def _slugify(value: str) -> str:

@@ -7,6 +7,7 @@ from typing import Any
 from decide_me.exporters.common import (
     DecisionEventIndex,
     build_decision_event_index,
+    decision_views,
     decision_summary,
     project_head,
     referenced_evidence_refs,
@@ -317,7 +318,7 @@ def build_agent_instructions_payload(
     index = build_decision_event_index(events)
     rules = [
         rule
-        for decision in sorted(bundle["project_state"]["decisions"], key=lambda item: item["id"])
+        for decision in sorted(decision_views(bundle["project_state"]), key=lambda item: item["id"])
         for rule in [_agent_rule(decision, index)]
         if rule is not None
     ]

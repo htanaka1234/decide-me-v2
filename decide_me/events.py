@@ -5,63 +5,86 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
-from decide_me.constants import (
-    ACCEPTED_VIA_VALUES,
-    DISCOVERABLE_DECISION_FIELDS,
-    DISCOVERABLE_DECISION_STATUSES,
-    EVIDENCE_SOURCES,
-    FORBIDDEN_DISCOVERED_DECISION_FIELDS,
-)
-from decide_me.requirement_ids import is_requirement_id
 
-
-AUTO_PROJECT_HEAD = "__AUTO_PROJECT_HEAD__"
 PLAN_STATUSES = {"action-plan", "conflicts"}
-SESSION_RELATIONSHIPS = {"derived_from", "refines", "supersedes", "depends_on", "contradicts"}
+OBJECT_TYPES = {
+    "objective",
+    "constraint",
+    "criterion",
+    "option",
+    "proposal",
+    "decision",
+    "assumption",
+    "evidence",
+    "risk",
+    "action",
+    "verification",
+    "revisit_trigger",
+    "artifact",
+}
+LINK_RELATIONS = {
+    "depends_on",
+    "supports",
+    "challenges",
+    "recommends",
+    "accepts",
+    "addresses",
+    "verifies",
+    "revisits",
+    "supersedes",
+    "blocked_by",
+}
+OBJECT_KEYS = {
+    "id",
+    "type",
+    "title",
+    "body",
+    "status",
+    "created_at",
+    "updated_at",
+    "source_event_ids",
+    "metadata",
+}
+LINK_KEYS = {
+    "id",
+    "source_object_id",
+    "relation",
+    "target_object_id",
+    "rationale",
+    "created_at",
+    "source_event_ids",
+}
+OBJECT_PATCH_KEYS = {"type", "title", "body", "metadata"}
 
 EVENT_TYPES = {
     "project_initialized",
     "session_created",
     "session_resumed",
-    "decision_discovered",
-    "decision_enriched",
-    "question_asked",
-    "proposal_issued",
-    "proposal_accepted",
-    "proposal_rejected",
-    "decision_deferred",
-    "decision_resolved_by_evidence",
-    "decision_invalidated",
-    "classification_updated",
+    "object_recorded",
+    "object_updated",
+    "object_status_changed",
+    "object_linked",
+    "object_unlinked",
+    "session_question_asked",
+    "session_answer_recorded",
     "close_summary_generated",
     "session_closed",
     "plan_generated",
     "taxonomy_extended",
     "transaction_rejected",
-    "session_linked",
-    "semantic_conflict_resolved",
 }
 
 REQUIRED_PAYLOAD_KEYS: dict[str, tuple[str, ...]] = {
     "project_initialized": ("project",),
     "session_created": ("session",),
     "session_resumed": ("resumed_at",),
-    "decision_discovered": ("decision",),
-    "decision_enriched": ("decision_id",),
-    "question_asked": ("decision_id", "question_id", "question"),
-    "proposal_issued": ("proposal",),
-    "proposal_accepted": (
-        "proposal_id",
-        "origin_session_id",
-        "target_type",
-        "target_id",
-        "accepted_answer",
-    ),
-    "proposal_rejected": ("proposal_id", "origin_session_id", "target_type", "target_id", "reason"),
-    "decision_deferred": ("decision_id", "reason"),
-    "decision_resolved_by_evidence": ("decision_id", "source", "summary", "evidence_refs"),
-    "decision_invalidated": ("decision_id", "invalidated_by_decision_id", "reason"),
-    "classification_updated": ("classification",),
+    "object_recorded": ("object",),
+    "object_updated": ("object_id", "patch"),
+    "object_status_changed": ("object_id", "status"),
+    "object_linked": ("link",),
+    "object_unlinked": ("link_id",),
+    "session_question_asked": ("question_id", "target_object_id", "question"),
+    "session_answer_recorded": ("question_id", "target_object_id", "answer"),
     "close_summary_generated": ("close_summary",),
     "session_closed": ("closed_at",),
     "plan_generated": ("session_ids", "status"),
@@ -73,22 +96,6 @@ REQUIRED_PAYLOAD_KEYS: dict[str, tuple[str, ...]] = {
         "resolved_at",
         "conflict_kind",
         "conflict_summary",
-    ),
-    "session_linked": (
-        "parent_session_id",
-        "child_session_id",
-        "relationship",
-        "reason",
-        "linked_at",
-        "evidence_refs",
-    ),
-    "semantic_conflict_resolved": (
-        "conflict_id",
-        "winning_session_id",
-        "rejected_session_ids",
-        "scope",
-        "reason",
-        "resolved_at",
     ),
 }
 
@@ -150,13 +157,101 @@ def _require_bool_or_null(value: Any, label: str) -> None:
         raise EventValidationError(f"{label} must be a boolean or null")
 
 
+def _require_string_or_null(value: Any, label: str, *, non_empty: bool = False) -> None:
+    if value is None:
+        return
+    if not isinstance(value, str):
+        raise EventValidationError(f"{label} must be a string or null")
+    if non_empty and not value.strip():
+        raise EventValidationError(f"{label} must be a non-empty string or null")
+
+
+def _require_source_event_ids(value: Any, label: str) -> None:
+    if not isinstance(value, list) or not value:
+        raise EventValidationError(f"{label} must be a non-empty list")
+    seen: set[str] = set()
+    for event_id in value:
+        _require_non_empty_string(event_id, f"{label}[]")
+        if event_id in seen:
+            raise EventValidationError(f"{label} contains duplicate event ids")
+        seen.add(event_id)
+
+
+def _validate_object_payload(obj: dict[str, Any], label: str) -> None:
+    _require_keys(
+        obj,
+        (
+            "id",
+            "type",
+            "title",
+            "body",
+            "status",
+            "created_at",
+            "updated_at",
+            "source_event_ids",
+            "metadata",
+        ),
+        label,
+    )
+    unsupported = sorted(set(obj) - OBJECT_KEYS)
+    if unsupported:
+        raise EventValidationError(f"{label} contains unsupported fields: {', '.join(unsupported)}")
+    _require_non_empty_string(obj.get("id"), f"{label}.id")
+    if obj.get("type") not in OBJECT_TYPES:
+        allowed = ", ".join(sorted(OBJECT_TYPES))
+        raise EventValidationError(f"{label}.type must be one of: {allowed}")
+    _require_string_or_null(obj.get("title"), f"{label}.title", non_empty=True)
+    _require_string_or_null(obj.get("body"), f"{label}.body")
+    _require_non_empty_string(obj.get("status"), f"{label}.status")
+    _require_timestamp(obj.get("created_at"), f"{label}.created_at")
+    if obj.get("updated_at") is not None:
+        _require_timestamp(obj.get("updated_at"), f"{label}.updated_at")
+    _require_source_event_ids(obj.get("source_event_ids"), f"{label}.source_event_ids")
+    _require_dict(obj.get("metadata"), f"{label}.metadata")
+
+
+def _validate_object_patch(patch: dict[str, Any]) -> None:
+    if "type" in patch and patch["type"] not in OBJECT_TYPES:
+        allowed = ", ".join(sorted(OBJECT_TYPES))
+        raise EventValidationError(f"object_updated.payload.patch.type must be one of: {allowed}")
+    if "title" in patch:
+        _require_string_or_null(patch["title"], "object_updated.payload.patch.title", non_empty=True)
+    if "body" in patch:
+        _require_string_or_null(patch["body"], "object_updated.payload.patch.body")
+    if "metadata" in patch:
+        _require_dict(patch["metadata"], "object_updated.payload.patch.metadata")
+
+
+def _validate_link_payload(link: dict[str, Any], label: str) -> None:
+    _require_keys(
+        link,
+        (
+            "id",
+            "source_object_id",
+            "relation",
+            "target_object_id",
+            "rationale",
+            "created_at",
+            "source_event_ids",
+        ),
+        label,
+    )
+    unsupported = sorted(set(link) - LINK_KEYS)
+    if unsupported:
+        raise EventValidationError(f"{label} contains unsupported fields: {', '.join(unsupported)}")
+    _require_non_empty_string(link.get("id"), f"{label}.id")
+    _require_non_empty_string(link.get("source_object_id"), f"{label}.source_object_id")
+    if link.get("relation") not in LINK_RELATIONS:
+        allowed = ", ".join(sorted(LINK_RELATIONS))
+        raise EventValidationError(f"{label}.relation must be one of: {allowed}")
+    _require_non_empty_string(link.get("target_object_id"), f"{label}.target_object_id")
+    _require_string_or_null(link.get("rationale"), f"{label}.rationale")
+    _require_timestamp(link.get("created_at"), f"{label}.created_at")
+    _require_source_event_ids(link.get("source_event_ids"), f"{label}.source_event_ids")
+
+
 def prepare_payload(event_type: str, payload: dict[str, Any], project_head: str | None) -> dict[str, Any]:
-    prepared = deepcopy(payload)
-    if event_type == "proposal_issued":
-        proposal = _require_dict(prepared.get("proposal"), "proposal_issued.payload.proposal")
-        if proposal.get("based_on_project_head") in {None, AUTO_PROJECT_HEAD}:
-            proposal["based_on_project_head"] = project_head
-    return prepared
+    return deepcopy(payload)
 
 
 def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
@@ -173,155 +268,46 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
         _require_timestamp(session.get("last_seen_at"), "session_created.payload.session.last_seen_at")
     elif event_type == "session_resumed":
         _require_timestamp(payload.get("resumed_at"), "session_resumed.payload.resumed_at")
-    elif event_type == "decision_discovered":
-        decision = _require_dict(payload["decision"], "decision_discovered.payload.decision")
-        _require_keys(decision, ("id", "title", "requirement_id"), "decision")
-        _require_non_empty_string(decision.get("id"), "decision_discovered.payload.decision.id")
-        _require_non_empty_string(decision.get("title"), "decision_discovered.payload.decision.title")
-        forbidden = sorted(set(decision) & FORBIDDEN_DISCOVERED_DECISION_FIELDS)
-        if forbidden:
-            raise EventValidationError(
-                f"decision_discovered.payload.decision must not include {', '.join(forbidden)}"
-            )
-        unknown = sorted(set(decision) - (DISCOVERABLE_DECISION_FIELDS | {"status"}))
+    elif event_type == "object_recorded":
+        _validate_object_payload(
+            _require_dict(payload["object"], "object_recorded.payload.object"),
+            "object_recorded.payload.object",
+        )
+    elif event_type == "object_updated":
+        _require_non_empty_string(payload.get("object_id"), "object_updated.payload.object_id")
+        patch = _require_dict(payload["patch"], "object_updated.payload.patch")
+        unknown = sorted(set(patch) - OBJECT_PATCH_KEYS)
         if unknown:
             raise EventValidationError(
-                f"decision_discovered.payload.decision contains unsupported fields: {', '.join(unknown)}"
+                f"object_updated.payload.patch contains unsupported fields: {', '.join(unknown)}"
             )
-        status = decision.get("status")
-        if status is not None and status not in DISCOVERABLE_DECISION_STATUSES:
-            allowed = ", ".join(sorted(DISCOVERABLE_DECISION_STATUSES))
-            raise EventValidationError(f"decision_discovered.payload.decision.status must be one of: {allowed}")
-        if "agent_relevant" in decision:
-            _require_bool_or_null(
-                decision["agent_relevant"],
-                "decision_discovered.payload.decision.agent_relevant",
-            )
-        if not is_requirement_id(decision["requirement_id"]):
-            raise EventValidationError(
-                "decision_discovered.payload.decision.requirement_id must match R-001 with at least three digits"
-            )
-    elif event_type == "decision_enriched":
-        if "notes_append" in payload and not isinstance(payload["notes_append"], list):
-            raise EventValidationError("decision_enriched.payload.notes_append must be a list")
-        if "revisit_triggers_append" in payload and not isinstance(payload["revisit_triggers_append"], list):
-            raise EventValidationError(
-                "decision_enriched.payload.revisit_triggers_append must be a list"
-            )
-        if "context_append" in payload and not isinstance(payload["context_append"], str):
-            raise EventValidationError("decision_enriched.payload.context_append must be a string")
-        if "agent_relevant" in payload:
-            _require_bool_or_null(payload["agent_relevant"], "decision_enriched.payload.agent_relevant")
-    elif event_type == "question_asked":
-        _require_non_empty_string(payload.get("question_id"), "question_asked.payload.question_id")
-        _require_non_empty_string(payload.get("question"), "question_asked.payload.question")
-    elif event_type == "decision_deferred":
-        _require_non_empty_string(payload.get("reason"), "decision_deferred.payload.reason")
-    elif event_type == "decision_invalidated":
-        _require_non_empty_string(payload.get("decision_id"), "decision_invalidated.payload.decision_id")
-        _require_non_empty_string(
-            payload.get("invalidated_by_decision_id"),
-            "decision_invalidated.payload.invalidated_by_decision_id",
+        if not patch:
+            raise EventValidationError("object_updated.payload.patch must not be empty")
+        _validate_object_patch(patch)
+    elif event_type == "object_status_changed":
+        _require_non_empty_string(payload.get("object_id"), "object_status_changed.payload.object_id")
+        _require_non_empty_string(payload.get("status"), "object_status_changed.payload.status")
+    elif event_type == "object_linked":
+        _validate_link_payload(
+            _require_dict(payload["link"], "object_linked.payload.link"),
+            "object_linked.payload.link",
         )
-        _require_non_empty_string(payload.get("reason"), "decision_invalidated.payload.reason")
-        if payload["decision_id"] == payload["invalidated_by_decision_id"]:
-            raise EventValidationError("decision_invalidated must not self-reference")
+    elif event_type == "object_unlinked":
+        _require_non_empty_string(payload.get("link_id"), "object_unlinked.payload.link_id")
+    elif event_type == "session_question_asked":
+        _require_non_empty_string(payload.get("question_id"), "session_question_asked.payload.question_id")
+        _require_non_empty_string(payload.get("target_object_id"), "session_question_asked.payload.target_object_id")
+        _require_non_empty_string(payload.get("question"), "session_question_asked.payload.question")
+    elif event_type == "session_answer_recorded":
+        _require_non_empty_string(payload.get("question_id"), "session_answer_recorded.payload.question_id")
+        _require_non_empty_string(payload.get("target_object_id"), "session_answer_recorded.payload.target_object_id")
+        answer = _require_dict(payload["answer"], "session_answer_recorded.payload.answer")
+        _require_keys(answer, ("summary", "answered_at", "answered_via"), "session_answer_recorded.payload.answer")
+        _require_non_empty_string(answer.get("summary"), "session_answer_recorded.payload.answer.summary")
+        _require_timestamp(answer.get("answered_at"), "session_answer_recorded.payload.answer.answered_at")
+        _require_non_empty_string(answer.get("answered_via"), "session_answer_recorded.payload.answer.answered_via")
     elif event_type == "session_closed":
         _require_timestamp(payload.get("closed_at"), "session_closed.payload.closed_at")
-    elif event_type == "decision_resolved_by_evidence":
-        if payload["source"] not in EVIDENCE_SOURCES:
-            raise EventValidationError(f"invalid evidence source: {payload['source']}")
-        if not isinstance(payload["summary"], str) or not payload["summary"].strip():
-            raise EventValidationError("decision_resolved_by_evidence.payload.summary must be a non-empty string")
-        if not isinstance(payload["evidence_refs"], list):
-            raise EventValidationError("decision_resolved_by_evidence.payload.evidence_refs must be a list")
-    elif event_type == "proposal_issued":
-        proposal = _require_dict(payload["proposal"], "proposal_issued.payload.proposal")
-        _require_keys(
-            proposal,
-            (
-                "proposal_id",
-                "origin_session_id",
-                "target_type",
-                "target_id",
-                "recommendation_version",
-                "based_on_project_head",
-                "question_id",
-                "question",
-                "recommendation",
-                "why",
-                "if_not",
-                "is_active",
-                "activated_at",
-                "inactive_reason",
-            ),
-            "proposal",
-        )
-        for key in (
-            "proposal_id",
-            "origin_session_id",
-            "target_type",
-            "target_id",
-            "based_on_project_head",
-            "question_id",
-            "question",
-            "recommendation",
-            "why",
-            "if_not",
-        ):
-            _require_non_empty_string(proposal.get(key), f"proposal_issued.payload.proposal.{key}")
-        _require_timestamp(proposal.get("activated_at"), "proposal_issued.payload.proposal.activated_at")
-    elif event_type == "proposal_accepted":
-        for key in ("proposal_id", "origin_session_id", "target_type", "target_id"):
-            _require_non_empty_string(payload.get(key), f"proposal_accepted.payload.{key}")
-        accepted_answer = _require_dict(
-            payload["accepted_answer"], "proposal_accepted.payload.accepted_answer"
-        )
-        _require_keys(
-            accepted_answer,
-            ("summary", "accepted_at", "accepted_via", "proposal_id"),
-            "accepted_answer",
-        )
-        for key in ("summary", "proposal_id"):
-            _require_non_empty_string(
-                accepted_answer.get(key),
-                f"proposal_accepted.payload.accepted_answer.{key}",
-            )
-        _require_timestamp(
-            accepted_answer.get("accepted_at"),
-            "proposal_accepted.payload.accepted_answer.accepted_at",
-        )
-        if accepted_answer["accepted_via"] not in ACCEPTED_VIA_VALUES:
-            allowed = ", ".join(sorted(ACCEPTED_VIA_VALUES))
-            raise EventValidationError(
-                f"proposal_accepted.payload.accepted_answer.accepted_via must be one of: {allowed}"
-            )
-    elif event_type == "proposal_rejected":
-        for key in ("proposal_id", "origin_session_id", "target_type", "target_id", "reason"):
-            _require_non_empty_string(payload.get(key), f"proposal_rejected.payload.{key}")
-    elif event_type == "classification_updated":
-        classification = _require_dict(
-            payload["classification"], "classification_updated.payload.classification"
-        )
-        allowed_classification_key_tuple = (
-            "domain",
-            "abstraction_level",
-            "assigned_tags",
-            "search_terms",
-            "source_refs",
-            "updated_at",
-        )
-        allowed_classification_keys = set(allowed_classification_key_tuple)
-        _require_keys(classification, allowed_classification_key_tuple, "classification")
-        unsupported = sorted(set(classification) - allowed_classification_keys)
-        if unsupported:
-            raise EventValidationError(
-                f"classification_updated.payload.classification contains unsupported fields: {', '.join(unsupported)}"
-            )
-        _require_timestamp(
-            classification.get("updated_at"),
-            "classification_updated.payload.classification.updated_at",
-        )
     elif event_type == "close_summary_generated":
         close_summary = _require_dict(
             payload["close_summary"], "close_summary_generated.payload.close_summary"
@@ -389,53 +375,6 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
             seen.add(rejected_tx_id)
         if payload["kept_tx_id"] in seen:
             raise EventValidationError("transaction_rejected kept_tx_id must not be rejected")
-    elif event_type == "session_linked":
-        for key in ("parent_session_id", "child_session_id", "relationship", "reason"):
-            _require_non_empty_string(payload.get(key), f"session_linked.payload.{key}")
-        _require_timestamp(payload.get("linked_at"), "session_linked.payload.linked_at")
-        if payload["relationship"] not in SESSION_RELATIONSHIPS:
-            allowed = ", ".join(sorted(SESSION_RELATIONSHIPS))
-            raise EventValidationError(f"session_linked.payload.relationship must be one of: {allowed}")
-        if payload["parent_session_id"] == payload["child_session_id"]:
-            raise EventValidationError("session_linked must not self-reference")
-        evidence_refs = payload["evidence_refs"]
-        if not isinstance(evidence_refs, list):
-            raise EventValidationError("session_linked.payload.evidence_refs must be a list")
-        for evidence_ref in evidence_refs:
-            _require_non_empty_string(evidence_ref, "session_linked.payload.evidence_refs[]")
-    elif event_type == "semantic_conflict_resolved":
-        for key in ("conflict_id", "winning_session_id", "reason"):
-            _require_non_empty_string(payload.get(key), f"semantic_conflict_resolved.payload.{key}")
-        _require_timestamp(payload.get("resolved_at"), "semantic_conflict_resolved.payload.resolved_at")
-        rejected_session_ids = payload["rejected_session_ids"]
-        if not isinstance(rejected_session_ids, list) or not rejected_session_ids:
-            raise EventValidationError(
-                "semantic_conflict_resolved.payload.rejected_session_ids must be a non-empty list"
-            )
-        seen_sessions: set[str] = set()
-        for rejected_session_id in rejected_session_ids:
-            _require_non_empty_string(
-                rejected_session_id,
-                "semantic_conflict_resolved.payload.rejected_session_ids[]",
-            )
-            if rejected_session_id in seen_sessions:
-                raise EventValidationError(
-                    "semantic_conflict_resolved.payload.rejected_session_ids contains duplicate session_id: "
-                    f"{rejected_session_id}"
-                )
-            seen_sessions.add(rejected_session_id)
-        if payload["winning_session_id"] in seen_sessions:
-            raise EventValidationError("semantic_conflict_resolved winning_session_id must not be rejected")
-        scope = _require_dict(payload["scope"], "semantic_conflict_resolved.payload.scope")
-        _require_keys(scope, ("kind", "session_ids"), "semantic_conflict_resolved.payload.scope")
-        _require_non_empty_string(scope.get("kind"), "semantic_conflict_resolved.payload.scope.kind")
-        session_ids = scope["session_ids"]
-        if not isinstance(session_ids, list) or not session_ids:
-            raise EventValidationError(
-                "semantic_conflict_resolved.payload.scope.session_ids must be a non-empty list"
-            )
-        for session_id in session_ids:
-            _require_non_empty_string(session_id, "semantic_conflict_resolved.payload.scope.session_ids[]")
 
 
 def validate_event(event: dict[str, Any]) -> None:
@@ -458,21 +397,6 @@ def validate_event(event: dict[str, Any]) -> None:
         raise EventValidationError(f"unsupported event_type: {event['event_type']}")
     payload = _require_dict(event["payload"], "event.payload")
     validate_payload(event["event_type"], payload)
-    if event["event_type"] == "proposal_issued":
-        proposal = payload["proposal"]
-        if proposal["origin_session_id"] != event["session_id"]:
-            raise EventValidationError("proposal_issued origin_session_id must match event.session_id")
-    elif event["event_type"] in {"proposal_accepted", "proposal_rejected"}:
-        if payload["origin_session_id"] != event["session_id"]:
-            raise EventValidationError(f"{event['event_type']} origin_session_id must match event.session_id")
-    elif event["event_type"] == "session_linked":
-        if payload["child_session_id"] != event["session_id"]:
-            raise EventValidationError("session_linked child_session_id must match event.session_id")
-    elif event["event_type"] == "semantic_conflict_resolved":
-        if payload["winning_session_id"] != event["session_id"]:
-            raise EventValidationError(
-                "semantic_conflict_resolved winning_session_id must match event.session_id"
-            )
 
 
 def build_event(

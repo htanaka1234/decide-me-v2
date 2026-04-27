@@ -13,21 +13,23 @@ class DecisionEventIndex:
 
 def build_decision_event_index(events: list[dict[str, Any]]) -> DecisionEventIndex:
     index = DecisionEventIndex()
+    decision_ids: set[str] = set()
     for event in events:
         session_id = event["session_id"]
         payload = event["payload"]
         event_type = event["event_type"]
 
-        if event_type == "decision_discovered":
-            decision_id = payload["decision"]["id"]
+        if event_type == "object_recorded" and payload["object"].get("type") == "decision":
+            decision_id = payload["object"]["id"]
+            decision_ids.add(decision_id)
             index.session_ids.setdefault(decision_id, session_id)
         else:
-            for decision_id in _referenced_decision_ids(event):
+            for decision_id in _referenced_decision_ids(event, decision_ids):
                 index.session_ids.setdefault(decision_id, session_id)
 
-        if event_type == "decision_invalidated":
-            superseded_id = payload["decision_id"]
-            superseding_id = payload["invalidated_by_decision_id"]
+        if event_type == "object_linked" and payload["link"]["relation"] == "supersedes":
+            superseding_id = payload["link"]["source_object_id"]
+            superseded_id = payload["link"]["target_object_id"]
             index.superseded_by[superseded_id] = superseding_id
             supersedes = index.supersedes.setdefault(superseding_id, [])
             if superseded_id not in supersedes:
@@ -49,7 +51,7 @@ def decision_summary(decision: dict[str, Any]) -> str | None:
 
 
 def lookup_decision(bundle: dict[str, Any], decision_id: str) -> dict[str, Any]:
-    for decision in bundle["project_state"]["decisions"]:
+    for decision in decision_views(bundle["project_state"]):
         if decision["id"] == decision_id:
             return decision
     raise ValueError(f"unknown decision: {decision_id}")
@@ -90,20 +92,39 @@ def superseded_by(decision: dict[str, Any], index: DecisionEventIndex) -> str | 
     return None
 
 
-def _referenced_decision_ids(event: dict[str, Any]) -> list[str]:
+def decision_views(project_state: dict[str, Any]) -> list[dict[str, Any]]:
+    decisions = []
+    for obj in project_state.get("objects", []):
+        if obj.get("type") != "decision":
+            continue
+        metadata = obj.get("metadata", {})
+        decisions.append(
+            {
+                **metadata,
+                "id": obj["id"],
+                "title": obj.get("title"),
+                "body": obj.get("body"),
+                "status": obj.get("status"),
+                "accepted_answer": metadata.get("accepted_answer") or {},
+                "resolved_by_evidence": metadata.get("resolved_by_evidence") or {},
+                "evidence_refs": metadata.get("evidence_refs", []),
+            }
+        )
+    return decisions
+
+
+def _referenced_decision_ids(event: dict[str, Any], decision_ids: set[str]) -> list[str]:
     payload = event["payload"]
     event_type = event["event_type"]
-    if event_type == "proposal_issued":
-        return [payload["proposal"]["target_id"]]
-    if event_type in {"proposal_accepted", "proposal_rejected"}:
-        return [payload["target_id"]]
-    if event_type in {
-        "decision_enriched",
-        "question_asked",
-        "decision_deferred",
-        "decision_resolved_by_evidence",
-    }:
-        return [payload["decision_id"]]
-    if event_type == "decision_invalidated":
-        return [payload["decision_id"], payload["invalidated_by_decision_id"]]
+    if event_type in {"object_updated", "object_status_changed"} and payload["object_id"] in decision_ids:
+        return [payload["object_id"]]
+    if event_type in {"session_question_asked", "session_answer_recorded"} and payload["target_object_id"] in decision_ids:
+        return [payload["target_object_id"]]
+    if event_type == "object_linked":
+        link = payload["link"]
+        return [
+            object_id
+            for object_id in (link["source_object_id"], link["target_object_id"])
+            if object_id in decision_ids
+        ]
     return []

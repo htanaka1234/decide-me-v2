@@ -128,7 +128,7 @@ def close_session(ai_dir: str, session_id: str) -> dict[str, Any]:
 
 
 def build_close_summary(project_state: dict[str, Any], session_state: dict[str, Any]) -> dict[str, Any]:
-    decision_index = {decision["id"]: decision for decision in project_state["decisions"]}
+    decision_index = {decision["id"]: decision for decision in _decision_views(project_state)}
     active_target_id = session_state["working_state"]["active_proposal"].get("target_id")
     decisions = [
         _decision_for_close_summary(decision_index[decision_id], active_target_id)
@@ -213,6 +213,40 @@ def _decision_snapshot(decision: dict[str, Any]) -> dict[str, Any]:
         "evidence_refs": deepcopy(decision.get("evidence_refs", [])),
         "accepted_answer": answer,
     }
+
+
+def _decision_views(project_state: dict[str, Any]) -> list[dict[str, Any]]:
+    decisions = []
+    for obj in project_state.get("objects", []):
+        if obj.get("type") != "decision":
+            continue
+        metadata = deepcopy(obj.get("metadata", {}))
+        accepted_answer = metadata.get("accepted_answer") or {"summary": None}
+        resolved = metadata.get("resolved_by_evidence") or {
+            "source": None,
+            "summary": None,
+            "evidence_refs": [],
+        }
+        decisions.append(
+            {
+                **metadata,
+                "id": obj["id"],
+                "title": obj.get("title"),
+                "body": obj.get("body"),
+                "status": obj.get("status"),
+                "kind": metadata.get("kind", "choice"),
+                "domain": metadata.get("domain", "other"),
+                "priority": metadata.get("priority", "P1"),
+                "frontier": metadata.get("frontier", "later"),
+                "resolvable_by": metadata.get("resolvable_by", "human"),
+                "reversibility": metadata.get("reversibility", "reversible"),
+                "accepted_answer": accepted_answer,
+                "resolved_by_evidence": resolved,
+                "evidence_refs": metadata.get("evidence_refs") or resolved.get("evidence_refs", []),
+                "recommendation": metadata.get("recommendation") or {"summary": None},
+            }
+        )
+    return decisions
 
 
 def _decision_for_close_summary(decision: dict[str, Any], active_target_id: str | None) -> dict[str, Any]:

@@ -6,8 +6,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
-from decide_me.events import SESSION_RELATIONSHIPS, utc_now
-from decide_me.store import load_runtime, runtime_paths, transact
+from decide_me.store import load_runtime, runtime_paths
 
 
 ACYCLIC_RELATIONSHIPS = {"derived_from", "refines", "supersedes", "depends_on"}
@@ -77,45 +76,7 @@ def link_session(
     reason: str,
     evidence_refs: list[str] | None = None,
 ) -> dict[str, Any]:
-    reason = _require_text(reason, "reason")
-    evidence_refs = [ref.strip() for ref in (evidence_refs or []) if ref and ref.strip()]
-    now = utc_now()
-
-    def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
-        _require_session(bundle, parent_session_id)
-        _require_session(bundle, child_session_id)
-        if parent_session_id == child_session_id:
-            raise ValueError("parent_session_id and child_session_id must differ")
-        if relationship not in SESSION_RELATIONSHIPS:
-            allowed = ", ".join(sorted(SESSION_RELATIONSHIPS))
-            raise ValueError(f"relationship must be one of: {allowed}")
-        edges = _project_graph(bundle).get("edges", [])
-        if _has_duplicate_link(edges, parent_session_id, child_session_id, relationship):
-            raise ValueError("duplicate session_linked relationship")
-        if relationship in ACYCLIC_RELATIONSHIPS and _would_create_link_cycle(
-            edges,
-            parent_session_id=parent_session_id,
-            child_session_id=child_session_id,
-        ):
-            raise ValueError("session_linked would create a session graph cycle")
-        return [
-            {
-                "session_id": child_session_id,
-                "event_type": "session_linked",
-                "payload": {
-                    "parent_session_id": parent_session_id,
-                    "child_session_id": child_session_id,
-                    "relationship": relationship,
-                    "reason": reason,
-                    "linked_at": now,
-                    "evidence_refs": evidence_refs,
-                },
-            }
-        ]
-
-    events, bundle = transact(ai_dir, builder)
-    edge = next(edge for edge in _project_graph(bundle)["edges"] if edge["event_id"] == events[0]["event_id"])
-    return {"status": "ok", "edge": edge, "session_graph": _project_graph(bundle)}
+    raise ValueError("explicit session graph writes are unsupported by the Phase 5-3 event model")
 
 
 def show_session_graph(
@@ -189,54 +150,7 @@ def resolve_session_conflict(
     rejected_session_ids: list[str],
     reason: str,
 ) -> dict[str, Any]:
-    conflict_id = _require_text(conflict_id, "conflict_id")
-    reason = _require_text(reason, "reason")
-    rejected_session_ids = _normalize_session_ids(rejected_session_ids, "rejected_session_ids")
-    if winning_session_id in rejected_session_ids:
-        raise ValueError("winning_session_id must not be rejected")
-    now = utc_now()
-
-    def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
-        graph_conflicts = _explicit_graph_conflicts(bundle)
-        try:
-            conflict = next(item for item in graph_conflicts if item["conflict_id"] == conflict_id)
-        except StopIteration as exc:
-            raise ValueError(f"unknown unresolved session conflict: {conflict_id}") from exc
-
-        conflict_sessions = set(conflict["session_ids"])
-        if winning_session_id not in conflict_sessions:
-            raise ValueError("winning_session_id must be in the selected conflict")
-        for rejected_session_id in rejected_session_ids:
-            if rejected_session_id not in conflict_sessions:
-                raise ValueError("rejected_session_ids must be in the selected conflict")
-        if not set(rejected_session_ids):
-            raise ValueError("at least one rejected session is required")
-        return [
-            {
-                "session_id": winning_session_id,
-                "event_type": "semantic_conflict_resolved",
-                "payload": {
-                    "conflict_id": conflict_id,
-                    "winning_session_id": winning_session_id,
-                    "rejected_session_ids": rejected_session_ids,
-                    "scope": deepcopy(conflict["scope"]),
-                    "reason": reason,
-                    "resolved_at": now,
-                },
-            }
-        ]
-
-    events, bundle = transact(ai_dir, builder)
-    resolved = next(
-        item
-        for item in _project_graph(bundle)["resolved_conflicts"]
-        if item["event_id"] == events[0]["event_id"]
-    )
-    return {
-        "status": "ok",
-        "resolution": resolved,
-        "session_graph": _project_graph(bundle),
-    }
+    raise ValueError("session conflict resolution writes are unsupported by the Phase 5-3 event model")
 
 
 def related_session_scope(bundle: dict[str, Any], seed_session_ids: list[str]) -> list[dict[str, Any]]:

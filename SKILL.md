@@ -81,14 +81,14 @@ Runtime invariants:
   or recreate them from exports produced by the previous runtime before using this version.
 - `transaction_rejected` events record user-selected transaction rejection; rejected transaction
   files remain on disk for audit and are ignored only in the effective projection stream.
-- `session_linked` events are the source of truth for explicit session graph edges; inferred
-  candidates are advisory and must not silently become graph edges.
-- `semantic_conflict_resolved` events record user-selected session-level conflict resolution and
-  suppress the losing scoped content from normal projections, while keeping unrelated losing
-  session content available.
-- `decision_invalidated` events are emitted by the public decision-supersession resolution flow.
-- New `decision_discovered` events carry their runtime-assigned `requirement_id`; older event
-  logs without requirement IDs are invalid for this schema version.
+- Phase 5-3 accepts only the domain-neutral event whitelist:
+  `project_initialized`, `session_created`, `session_resumed`, `session_closed`,
+  `close_summary_generated`, `plan_generated`, `taxonomy_extended`,
+  `transaction_rejected`, `object_recorded`, `object_updated`,
+  `object_status_changed`, `object_linked`, `object_unlinked`,
+  `session_question_asked`, and `session_answer_recorded`.
+- Deleted decision/proposal/session-graph compatibility event names are invalid; do not emit
+  migration, backfill, or compatibility events.
 - `project-state.json`, `taxonomy-state.json`, and `sessions/*.json` are rebuildable projections
   and the normal hot-path read cache.
 - `runtime-index.json` checkpoints projection freshness; refresh it with `compact-runtime` only
