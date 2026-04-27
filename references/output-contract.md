@@ -68,6 +68,10 @@ Agent instruction export payloads must include:
 
 Each rule must include the rendered instruction text, its section, and the source decision ID.
 Normal exports must exclude invalidated decisions and include only final agent-relevant decisions.
+Decision metadata `agent_relevant` is a tri-state export override: `true` force-includes a final
+decision, `false` force-excludes it, and missing or `null` preserves keyword-based detection.
+Forced-included decisions use normal section keyword detection, falling back to `Development Rules`
+when no section keyword matches.
 AGENTS.md exports must use `<!-- decide-me:start -->` and `<!-- decide-me:end -->` markers when
 creating or updating managed content. Existing unmarked AGENTS.md files may be overwritten only
 when the user passes `--force`.

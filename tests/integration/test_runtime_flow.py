@@ -2231,7 +2231,7 @@ class RuntimeFlowTests(unittest.TestCase):
                 current_milestone="MVP",
             )
             session_id = create_session(ai_dir, context="Decision thread")["session"]["id"]
-            discover_decision(
+            discovered = discover_decision(
                 ai_dir,
                 session_id,
                 {
@@ -2241,8 +2241,10 @@ class RuntimeFlowTests(unittest.TestCase):
                     "frontier": "now",
                     "domain": "technical",
                     "question": "How should auth work?",
+                    "agent_relevant": True,
                 },
             )
+            self.assertIs(discovered["agent_relevant"], True)
 
             enriched = enrich_decision(ai_dir, session_id, decision_id="D-enrich", notes_append=["note"])
             self.assertIn("note", enriched["notes"])
@@ -2260,9 +2262,50 @@ class RuntimeFlowTests(unittest.TestCase):
                 context_append="Extra context.",
             )
             self.assertEqual("Extra context.", enriched["context"])
+            enriched = enrich_decision(ai_dir, session_id, decision_id="D-enrich", agent_relevant=False)
+            self.assertIs(enriched["agent_relevant"], False)
+            enriched = enrich_decision(ai_dir, session_id, decision_id="D-enrich", agent_relevant=True)
+            self.assertIs(enriched["agent_relevant"], True)
+            enriched = enrich_decision(ai_dir, session_id, decision_id="D-enrich", agent_relevant=None)
+            self.assertIsNone(enriched["agent_relevant"])
 
             event_log = _raw_event_log_text(ai_dir)
             self.assertNotIn('"context_append": null', event_log)
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_agent_relevant_rejects_invalid_values(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Validate agent relevance metadata",
+                current_milestone="MVP",
+            )
+            session_id = create_session(ai_dir, context="Agent relevance thread")["session"]["id"]
+
+            with self.assertRaisesRegex(ValueError, "agent_relevant"):
+                discover_decision(
+                    ai_dir,
+                    session_id,
+                    {
+                        "id": "D-invalid-agent-relevance",
+                        "title": "Invalid agent relevance",
+                        "agent_relevant": "yes",
+                    },
+                )
+
+            discover_decision(
+                ai_dir,
+                session_id,
+                {
+                    "id": "D-agent-relevance",
+                    "title": "Agent relevance",
+                    "agent_relevant": False,
+                },
+            )
+            with self.assertRaisesRegex(ValueError, "agent_relevant"):
+                enrich_decision(ai_dir, session_id, decision_id="D-agent-relevance", agent_relevant="yes")
             self.assertEqual([], validate_runtime(ai_dir))
 
     def test_noop_enrich_decision_still_validates_session_binding(self) -> None:
@@ -4789,6 +4832,7 @@ class RuntimeFlowTests(unittest.TestCase):
         self.assertIn("hard-to-reverse", decision_properties["reversibility"]["enum"])
         self.assertEqual("string", decision_properties["depends_on"]["items"]["type"])
         self.assertEqual("string", decision_properties["resolved_by_evidence"]["properties"]["evidence_refs"]["items"]["type"])
+        self.assertEqual(["boolean", "null"], decision_properties["agent_relevant"]["type"])
 
         all_of = decision_items["allOf"]
         accepted_branch = next(

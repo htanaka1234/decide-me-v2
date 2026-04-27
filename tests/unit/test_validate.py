@@ -32,6 +32,19 @@ def build_event(
 
 
 class ProjectionValidationTests(unittest.TestCase):
+    def test_accepts_optional_agent_relevant_metadata(self) -> None:
+        for value in (True, False, None):
+            bundle = _valid_bundle()
+            bundle["project_state"]["decisions"][0]["agent_relevant"] = value
+            validate_projection_bundle(bundle)
+
+    def test_rejects_invalid_agent_relevant_metadata(self) -> None:
+        bundle = _valid_bundle()
+        bundle["project_state"]["decisions"][0]["agent_relevant"] = "yes"
+
+        with self.assertRaisesRegex(StateValidationError, "agent_relevant"):
+            validate_projection_bundle(bundle)
+
     def test_rejects_unknown_session_decision_reference(self) -> None:
         bundle = _valid_bundle()
         bundle["sessions"]["S-001"]["session"]["decision_ids"] = ["D-missing"]

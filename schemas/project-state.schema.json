@@ -450,6 +450,12 @@
               "null"
             ]
           },
+          "agent_relevant": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
           "invalidated_by": {
             "type": [
               "object",

@@ -19,6 +19,7 @@ from decide_me.store import load_runtime, runtime_paths, transact
 OPEN_MUTATION_STATUSES = {"unresolved", "proposed", "rejected", "blocked"}
 PROPOSABLE_STATUSES = {"unresolved", "rejected", "blocked"}
 PROPOSAL_RESPONSE_STATUSES = {"proposed"}
+_UNSET = object()
 
 
 def discover_decision(ai_dir: str, session_id: str, decision: dict[str, Any]) -> dict[str, Any]:
@@ -49,13 +50,17 @@ def enrich_decision(
     notes_append: list[str] | None = None,
     revisit_triggers_append: list[str] | None = None,
     context_append: str | None = None,
+    agent_relevant: bool | None | object = _UNSET,
 ) -> dict[str, Any]:
     notes_append = [note.strip() for note in (notes_append or []) if note and note.strip()]
     revisit_triggers_append = [
         trigger.strip() for trigger in (revisit_triggers_append or []) if trigger and trigger.strip()
     ]
     context_append = context_append.strip() if context_append and context_append.strip() else None
-    if not notes_append and not revisit_triggers_append and not context_append:
+    if agent_relevant is not _UNSET:
+        _validate_agent_relevant(agent_relevant, "agent_relevant")
+    updates_agent_relevance = agent_relevant is not _UNSET
+    if not notes_append and not revisit_triggers_append and not context_append and not updates_agent_relevance:
         bundle = current_bundle(ai_dir)
         session = _require_mutable_session(bundle, session_id)
         _require_bound_decision(session, decision_id)
@@ -72,6 +77,8 @@ def enrich_decision(
         }
         if context_append is not None:
             payload["context_append"] = context_append
+        if updates_agent_relevance:
+            payload["agent_relevant"] = agent_relevant
         return [
             {
                 "session_id": session_id,
@@ -567,9 +574,16 @@ def _sanitize_discovered_decision(decision: dict[str, Any]) -> dict[str, Any]:
     if status not in DISCOVERABLE_DECISION_STATUSES:
         allowed_statuses = ", ".join(sorted(DISCOVERABLE_DECISION_STATUSES))
         raise ValueError(f"decision_discovered may only create statuses: {allowed_statuses}")
+    if "agent_relevant" in decision:
+        _validate_agent_relevant(decision["agent_relevant"], "decision_discovered.agent_relevant")
     sanitized = {key: deepcopy(value) for key, value in decision.items() if key in DISCOVERABLE_DECISION_FIELDS}
     sanitized["status"] = status
     return sanitized
+
+
+def _validate_agent_relevant(value: Any, label: str) -> None:
+    if value is not None and not isinstance(value, bool):
+        raise ValueError(f"{label} must be a boolean or null")
 
 
 def _resolve_proposal_target(

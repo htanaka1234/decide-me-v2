@@ -149,6 +149,63 @@ class AgentInstructionFilterTests(unittest.TestCase):
             payload["rules"][0]["text"],
         )
 
+    def test_agent_relevant_flag_overrides_keyword_filter(self) -> None:
+        inherited_keyword = _accepted(
+            "D-inherited-keyword",
+            "Python typing policy",
+            "technical",
+            "Require Python type hints for new runtime code.",
+        )
+        del inherited_keyword["agent_relevant"]
+        bundle = _bundle(
+            [
+                _accepted(
+                    "D-forced",
+                    "Release shape",
+                    "product",
+                    "Ship the planner-only release first.",
+                    agent_relevant=True,
+                ),
+                _accepted(
+                    "D-excluded",
+                    "Validation test policy",
+                    "ops",
+                    "Run tests after changes.",
+                    agent_relevant=False,
+                ),
+                _accepted(
+                    "D-null-release",
+                    "Release shape",
+                    "product",
+                    "Ship the planner-only release first.",
+                    agent_relevant=None,
+                ),
+                inherited_keyword,
+                _accepted(
+                    "D-open-forced",
+                    "Open release rule",
+                    "product",
+                    "Ship the planner-only release first.",
+                    status="unresolved",
+                    agent_relevant=True,
+                ),
+            ]
+        )
+
+        payload = build_agent_instructions_payload(bundle, [])
+
+        self.assertEqual(
+            ["D-forced", "D-inherited-keyword"],
+            [rule["decision_id"] for rule in payload["rules"]],
+        )
+        self.assertEqual(
+            {
+                "D-forced": "Development Rules",
+                "D-inherited-keyword": "Development Rules",
+            },
+            {rule["decision_id"]: rule["section"] for rule in payload["rules"]},
+        )
+
     def test_category_assignment_is_stable(self) -> None:
         bundle = _bundle(
             [
@@ -204,10 +261,13 @@ def _accepted(
     summary: str,
     *,
     status: str = "accepted",
+    agent_relevant: bool | None | object = Ellipsis,
 ) -> dict:
     decision = default_decision(decision_id, title)
     decision["domain"] = domain
     decision["status"] = status
+    if agent_relevant is not Ellipsis:
+        decision["agent_relevant"] = agent_relevant
     decision["accepted_answer"] = {
         "summary": summary,
         "accepted_at": "2026-04-26T00:00:00Z",

@@ -29,6 +29,7 @@ DISCOVERABLE_DECISION_FIELDS = {
     "revisit_triggers",
     "notes",
     "bundle_id",
+    "agent_relevant",
 }
 DISCOVERABLE_DECISION_STATUSES = {"unresolved", "blocked"}
 FORBIDDEN_DISCOVERED_DECISION_FIELDS = {

@@ -346,16 +346,20 @@ def render_agent_instructions(payload: dict[str, Any], target: str) -> str:
 def _agent_rule(decision: dict[str, Any], index: DecisionEventIndex) -> dict[str, Any] | None:
     if decision.get("status") not in EXPORTABLE_STATUSES:
         return None
+    agent_relevant = decision.get("agent_relevant")
+    if agent_relevant is False:
+        return None
 
     summary = _normalize_rule_text(decision_summary(decision))
     if not summary:
         return None
 
     search_text = _decision_search_text(decision, summary)
-    if not _is_agent_policy_decision(search_text):
+    forced = agent_relevant is True
+    if not forced and not _is_agent_policy_decision(search_text):
         return None
 
-    section = _section_for_text(search_text)
+    section = _section_for_text(search_text) or ("Development Rules" if forced else None)
     if section is None:
         return None
 
