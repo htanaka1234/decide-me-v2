@@ -699,23 +699,26 @@ def defer_decision(ai_dir: str, session_id: str, *, decision_id: str, reason: st
         decision = _lookup_decision(bundle, decision_id)
         _require_decision_status(decision_id, decision, OPEN_MUTATION_STATUSES, "defer")
         active = active_proposal_view(bundle["project_state"], session)
-        events = []
-        if active and active.get("target_id") == decision_id and active.get("is_active"):
-            events.append(
-                {
-                    "session_id": session_id,
-                    "event_type": "session_answer_recorded",
-                    "payload": {
-                        "question_id": active["question_id"],
-                        "target_object_id": decision_id,
-                        "answer": {
-                            "summary": reason,
-                            "answered_at": now,
-                            "answered_via": "defer",
-                        },
+        active_question_id = (
+            active["question_id"]
+            if active and active.get("target_id") == decision_id and active.get("is_active")
+            else None
+        )
+        events = [
+            {
+                "session_id": session_id,
+                "event_type": "session_answer_recorded",
+                "payload": {
+                    "question_id": active_question_id,
+                    "target_object_id": decision_id,
+                    "answer": {
+                        "summary": reason,
+                        "answered_at": now,
+                        "answered_via": "defer",
                     },
-                }
-            )
+                },
+            }
+        ]
         events.extend(
             [
                 {

@@ -93,6 +93,37 @@ class EventTests(unittest.TestCase):
                 },
             )
 
+    def test_session_answer_recorded_allows_null_question_id_for_defer(self) -> None:
+        event = _event(
+            event_type="session_answer_recorded",
+            payload={
+                "question_id": None,
+                "target_object_id": "O-001",
+                "answer": {
+                    "summary": "Blocked pending signoff.",
+                    "answered_at": "2026-04-23T12:00:00Z",
+                    "answered_via": "defer",
+                },
+            },
+        )
+
+        validate_event(event)
+
+    def test_session_answer_recorded_rejects_null_question_id_for_non_defer(self) -> None:
+        with self.assertRaisesRegex(EventValidationError, "may be null only"):
+            _event(
+                event_type="session_answer_recorded",
+                payload={
+                    "question_id": None,
+                    "target_object_id": "O-001",
+                    "answer": {
+                        "summary": "Use it.",
+                        "answered_at": "2026-04-23T12:00:00Z",
+                        "answered_via": "explicit",
+                    },
+                },
+            )
+
     def test_transaction_rejected_remains_valid(self) -> None:
         event = _event(
             event_type="transaction_rejected",

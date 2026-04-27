@@ -111,6 +111,35 @@ class ObjectBasedOkAcceptanceTests(unittest.TestCase):
                 defer_answers,
             )
 
+    def test_defer_without_active_proposal_records_null_question_answer(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = Path(tmp) / ".ai" / "decide-me"
+            session_id = _bootstrap_session(ai_dir)
+            _discover_auth_decision(ai_dir, session_id)
+            reason = "Blocked pending legal signoff."
+
+            result = handle_reply(str(ai_dir), session_id, f"Defer D-auth: {reason}", repo_root=tmp)
+
+            self.assertEqual("deferred", result["status"])
+            self.assertEqual([], validate_runtime(ai_dir))
+            bundle = load_runtime(runtime_paths(ai_dir))
+            objects = {obj["id"]: obj for obj in bundle["project_state"]["objects"]}
+            events = read_event_log(runtime_paths(ai_dir))
+            defer_answer_events = [
+                event
+                for event in events
+                if event["event_type"] == "session_answer_recorded"
+                and event["payload"]["target_object_id"] == "D-auth"
+            ]
+
+            self.assertEqual("deferred", objects["D-auth"]["status"])
+            self.assertEqual(1, len(defer_answer_events))
+            self.assertIsNone(defer_answer_events[0]["payload"]["question_id"])
+            self.assertEqual("defer", defer_answer_events[0]["payload"]["answer"]["answered_via"])
+            rebuilt = rebuild_and_persist(ai_dir)
+            rebuilt_objects = {obj["id"]: obj for obj in rebuilt["project_state"]["objects"]}
+            self.assertEqual("deferred", rebuilt_objects["D-auth"]["status"])
+
 
 def _bootstrap_session(ai_dir: Path) -> str:
     bootstrap_runtime(

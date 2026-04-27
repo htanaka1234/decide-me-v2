@@ -945,12 +945,16 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
                 )
             session_questions = pending_questions_by_session[event["session_id"]]
             question_id = payload["question_id"]
-            expected_target = session_questions.get(question_id)
-            if expected_target is None:
-                raise StateValidationError(f"session_answer_recorded references unknown pending question {question_id}")
-            if expected_target != target_object_id:
-                raise StateValidationError("session_answer_recorded target_object_id does not match pending question")
-            del session_questions[question_id]
+            if question_id is None:
+                if payload["answer"].get("answered_via") != "defer":
+                    raise StateValidationError("null session_answer_recorded question_id is only valid for defer")
+            else:
+                expected_target = session_questions.get(question_id)
+                if expected_target is None:
+                    raise StateValidationError(f"session_answer_recorded references unknown pending question {question_id}")
+                if expected_target != target_object_id:
+                    raise StateValidationError("session_answer_recorded target_object_id does not match pending question")
+                del session_questions[question_id]
         if event_type == "close_summary_generated":
             has_close_summary[event["session_id"]] = True
             pending_close_summary_session_id = event["session_id"]
