@@ -3,6 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
+from decide_me.object_views import active_proposal_view, decision_views, related_decision_ids
 from decide_me.events import new_entity_id, utc_now
 from decide_me.projections import OPEN_DECISION_STATUSES, decision_is_invalidated, effective_session_status
 from decide_me.search import search_sessions, session_list_entry
@@ -141,10 +142,14 @@ def close_session(ai_dir: str, session_id: str) -> dict[str, Any]:
 
 def build_close_summary(project_state: dict[str, Any], session_state: dict[str, Any]) -> dict[str, Any]:
     decision_index = {decision["id"]: decision for decision in _decision_views(project_state)}
-    active_target_id = session_state["working_state"]["active_proposal"].get("target_id")
+    active = active_proposal_view(project_state, session_state)
+    active_target_id = active.get("target_id") if active else None
+    session_decision_ids = related_decision_ids(
+        project_state, session_state["session"].get("related_object_ids", [])
+    )
     decisions = [
         _decision_for_close_summary(decision_index[decision_id], active_target_id)
-        for decision_id in session_state["session"]["decision_ids"]
+        for decision_id in session_decision_ids
         if decision_id in decision_index
         and not decision_is_invalidated(decision_index[decision_id])
     ]
@@ -178,7 +183,7 @@ def build_close_summary(project_state: dict[str, Any], session_state: dict[str, 
 
     bound_context = session_state["session"].get("bound_context_hint")
     latest_summary = session_state["summary"].get("latest_summary")
-    current_question = session_state["working_state"].get("current_question")
+    current_question = session_state["summary"].get("current_question_preview")
 
     return {
         "work_item_title": bound_context or latest_summary or session_state["session"]["id"],
@@ -217,26 +222,49 @@ def _proposal_boundary_status_events(
     changed_at: str,
     reason: str,
 ) -> list[dict[str, Any]]:
-    active = session["working_state"]["active_proposal"]
-    target_id = active.get("target_id")
-    if not target_id:
+    active = active_proposal_view(bundle["project_state"], session)
+    if not active or not active.get("is_active"):
         return []
-    for obj in bundle["project_state"].get("objects", []):
-        if obj.get("id") == target_id and obj.get("type") == "decision" and obj.get("status") == "proposed":
-            return [
-                {
-                    "session_id": session["session"]["id"],
-                    "event_type": "object_status_changed",
-                    "payload": {
-                        "object_id": target_id,
-                        "from_status": "proposed",
-                        "to_status": "unresolved",
-                        "reason": reason,
-                        "changed_at": changed_at,
-                    },
-                }
-            ]
-    return []
+    events = [
+        {
+            "session_id": session["session"]["id"],
+            "event_type": "object_status_changed",
+            "payload": {
+                "object_id": active["proposal_id"],
+                "from_status": "active",
+                "to_status": "inactive",
+                "reason": reason,
+                "changed_at": changed_at,
+            },
+        },
+        {
+            "session_id": session["session"]["id"],
+            "event_type": "object_updated",
+            "payload": {
+                "object_id": active["proposal_id"],
+                "patch": {"metadata": {"inactive_reason": "session-boundary"}},
+            },
+        },
+    ]
+    target_id = active.get("target_id")
+    if target_id:
+        for obj in bundle["project_state"].get("objects", []):
+            if obj.get("id") == target_id and obj.get("type") == "decision" and obj.get("status") == "proposed":
+                events.append(
+                    {
+                        "session_id": session["session"]["id"],
+                        "event_type": "object_status_changed",
+                        "payload": {
+                            "object_id": target_id,
+                            "from_status": "proposed",
+                            "to_status": "unresolved",
+                            "reason": reason,
+                            "changed_at": changed_at,
+                        },
+                    }
+                )
+                break
+    return events
 
 
 def _decision_snapshot(decision: dict[str, Any]) -> dict[str, Any]:
@@ -256,37 +284,7 @@ def _decision_snapshot(decision: dict[str, Any]) -> dict[str, Any]:
 
 
 def _decision_views(project_state: dict[str, Any]) -> list[dict[str, Any]]:
-    decisions = []
-    for obj in project_state.get("objects", []):
-        if obj.get("type") != "decision":
-            continue
-        metadata = deepcopy(obj.get("metadata", {}))
-        accepted_answer = metadata.get("accepted_answer") or {"summary": None}
-        resolved = metadata.get("resolved_by_evidence") or {
-            "source": None,
-            "summary": None,
-            "evidence_refs": [],
-        }
-        decisions.append(
-            {
-                **metadata,
-                "id": obj["id"],
-                "title": obj.get("title"),
-                "body": obj.get("body"),
-                "status": obj.get("status"),
-                "kind": metadata.get("kind", "choice"),
-                "domain": metadata.get("domain", "other"),
-                "priority": metadata.get("priority", "P1"),
-                "frontier": metadata.get("frontier", "later"),
-                "resolvable_by": metadata.get("resolvable_by", "human"),
-                "reversibility": metadata.get("reversibility", "reversible"),
-                "accepted_answer": accepted_answer,
-                "resolved_by_evidence": resolved,
-                "evidence_refs": metadata.get("evidence_refs") or resolved.get("evidence_refs", []),
-                "recommendation": metadata.get("recommendation") or {"summary": None},
-            }
-        )
-    return decisions
+    return decision_views(project_state)
 
 
 def _decision_for_close_summary(decision: dict[str, Any], active_target_id: str | None) -> dict[str, Any]:

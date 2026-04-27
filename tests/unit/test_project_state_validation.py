@@ -115,7 +115,7 @@ class ProjectStateValidationTests(unittest.TestCase):
 def _valid_project_state() -> dict:
     return deepcopy(
         {
-            "schema_version": 10,
+            "schema_version": 11,
             "project": {
                 "name": "Demo",
                 "objective": "Plan Phase 5-2.",
@@ -135,11 +135,11 @@ def _valid_project_state() -> dict:
             },
             "sessions_index": {},
             "counts": {
-                "object_total": 2,
-                "link_total": 1,
-                "by_type": {"decision": 1, "proposal": 1},
-                "by_status": {"unresolved": 1, "active": 1},
-                "by_relation": {"recommends": 1},
+                "object_total": 3,
+                "link_total": 2,
+                "by_type": {"decision": 1, "proposal": 1, "option": 1},
+                "by_status": {"unresolved": 1, "active": 2},
+                "by_relation": {"addresses": 1, "recommends": 1},
             },
             "objects": [
                 {
@@ -162,6 +162,17 @@ def _valid_project_state() -> dict:
                     },
                 },
                 {
+                    "id": "O-option-001",
+                    "type": "option",
+                    "title": "Use magic links.",
+                    "body": None,
+                    "status": "active",
+                    "created_at": "2026-04-23T12:00:00Z",
+                    "updated_at": None,
+                    "source_event_ids": ["E-001"],
+                    "metadata": {},
+                },
+                {
                     "id": "P-001",
                     "type": "proposal",
                     "title": "Use magic links.",
@@ -175,10 +186,19 @@ def _valid_project_state() -> dict:
             ],
             "links": [
                 {
-                    "id": "L-P-001-recommends-D-001",
+                    "id": "L-P-001-addresses-D-001",
+                    "source_object_id": "P-001",
+                    "relation": "addresses",
+                    "target_object_id": "D-001",
+                    "rationale": "Use magic links?",
+                    "created_at": "2026-04-23T12:00:00Z",
+                    "source_event_ids": ["E-001"],
+                },
+                {
+                    "id": "L-P-001-recommends-O-option-001",
                     "source_object_id": "P-001",
                     "relation": "recommends",
-                    "target_object_id": "D-001",
+                    "target_object_id": "O-option-001",
                     "rationale": "Smallest auth surface.",
                     "created_at": "2026-04-23T12:00:00Z",
                     "source_event_ids": ["E-001"],

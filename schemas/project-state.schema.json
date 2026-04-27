@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/decide-me/project-state.schema.json",
   "title": "Decide Me Project State",
-  "$comment": "Phase 5 runtime projection schema. Runtime project-state is the v10 protocol/session-index/object/link/graph state.",
+  "$comment": "Phase 5 runtime projection schema. Runtime project-state is the v11 protocol/session-index/object/link/graph state.",
   "type": "object",
   "required": [
     "schema_version",
@@ -18,7 +18,7 @@
   "properties": {
     "schema_version": {
       "type": "integer",
-      "const": 10
+      "const": 11
     },
     "project": {
       "type": "object",
@@ -305,7 +305,7 @@
         "last_seen_at",
         "closed_at",
         "bound_context_hint",
-        "decision_ids"
+        "related_object_ids"
       ],
       "properties": {
         "id": {
@@ -337,7 +337,7 @@
             "null"
           ]
         },
-        "decision_ids": {
+        "related_object_ids": {
           "type": "array",
           "items": {
             "type": "string"

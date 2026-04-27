@@ -17,7 +17,7 @@ SUMMARY_DECISION_SECTIONS = (
 def empty_suppressed_context() -> dict[str, Any]:
     return {
         "session_ids": [],
-        "decision_ids": [],
+        "related_object_ids": [],
         "action_slice_names": [],
         "workstream_names": [],
         "hidden_strings": [],
@@ -29,7 +29,7 @@ def suppressed_decision_ids(project_state: dict[str, Any]) -> set[str]:
     graph = project_state["graph"]
     for resolved in graph.get("resolved_conflicts", []):
         context = resolved.get("suppressed_context", {})
-        ids.update(context.get("decision_ids", []))
+        ids.update(object_id for object_id in context.get("related_object_ids", []) if str(object_id).startswith("D-"))
     return ids
 
 
@@ -95,7 +95,7 @@ def has_remaining_suppressed_scope(session: dict[str, Any], resolution: dict[str
     context = semantic_suppression_context_for_session(session, resolution)
     if resolution.get("scope", {}).get("kind") == "session":
         return bool(
-            context.get("decision_ids")
+            context.get("related_object_ids")
             or context.get("action_slice_names")
             or context.get("workstream_names")
         )
@@ -107,42 +107,35 @@ def has_suppressed_context_remainders(
     context: dict[str, Any],
     taxonomy_state: dict[str, Any] | None = None,
 ) -> bool:
-    decision_ids = set(context.get("decision_ids", []))
+    related_object_ids = set(context.get("related_object_ids", []))
+    decision_object_ids = {object_id for object_id in related_object_ids if str(object_id).startswith("D-")}
     action_slice_names = set(context.get("action_slice_names", []))
     workstream_names = set(context.get("workstream_names", []))
     hidden_strings = {_normalize_text(value) for value in context.get("hidden_strings", [])}
 
-    if decision_ids & set(session.get("session", {}).get("decision_ids", [])):
+    if related_object_ids & set(session.get("session", {}).get("related_object_ids", [])):
         return True
-    if session.get("summary", {}).get("active_decision_id") in decision_ids:
-        return True
-    proposal = session.get("working_state", {}).get("active_proposal", {})
-    if proposal.get("target_id") in decision_ids:
+    if session.get("working_state", {}).get("active_proposal_id") in related_object_ids:
         return True
 
     close_summary = session.get("close_summary", {})
     for section in SUMMARY_DECISION_SECTIONS:
-        if any(item.get("id") in decision_ids for item in close_summary.get(section, [])):
+        if any(item.get("id") in decision_object_ids for item in close_summary.get(section, [])):
             return True
     for action_slice in close_summary.get("candidate_action_slices", []):
-        if action_slice.get("decision_id") in decision_ids or action_slice.get("name") in action_slice_names:
+        if action_slice.get("decision_id") in decision_object_ids or action_slice.get("name") in action_slice_names:
             return True
     for workstream in close_summary.get("candidate_workstreams", []):
         if workstream.get("name") in workstream_names:
             return True
-        if decision_ids & set(workstream.get("scope", [])):
+        if decision_object_ids & set(workstream.get("scope", [])):
             return True
-        if decision_ids & set(workstream.get("implementation_ready_scope", [])):
+        if decision_object_ids & set(workstream.get("implementation_ready_scope", [])):
             return True
 
     text_values = [
         session.get("summary", {}).get("latest_summary"),
         session.get("summary", {}).get("current_question_preview"),
-        session.get("working_state", {}).get("current_question"),
-        proposal.get("question"),
-        proposal.get("recommendation"),
-        proposal.get("why"),
-        proposal.get("if_not"),
         close_summary.get("work_item_title"),
         close_summary.get("work_item_statement"),
         *session.get("classification", {}).get("search_terms", []),
@@ -179,7 +172,7 @@ def _add_decision_context(context: dict[str, Any], close_summary: dict[str, Any]
             _extend_hidden_strings(context, _item_hidden_strings(workstream))
 
     if found:
-        context["decision_ids"].append(decision_id)
+        context["related_object_ids"].append(decision_id)
 
 
 def _add_action_slice_context(context: dict[str, Any], close_summary: dict[str, Any], name: str) -> None:
@@ -188,7 +181,7 @@ def _add_action_slice_context(context: dict[str, Any], close_summary: dict[str, 
             continue
         context["action_slice_names"].append(name)
         if action_slice.get("decision_id"):
-            context["decision_ids"].append(action_slice["decision_id"])
+            context["related_object_ids"].append(action_slice["decision_id"])
         _extend_hidden_strings(context, _item_hidden_strings(action_slice))
         decision_id = action_slice.get("decision_id")
         if decision_id:
@@ -216,13 +209,13 @@ def _add_session_context(context: dict[str, Any], close_summary: dict[str, Any])
     for section in SUMMARY_DECISION_SECTIONS:
         for item in close_summary.get(section, []):
             if item.get("id"):
-                context["decision_ids"].append(item["id"])
+                context["related_object_ids"].append(item["id"])
             _extend_hidden_strings(context, _item_hidden_strings(item))
     for action_slice in close_summary.get("candidate_action_slices", []):
         if action_slice.get("name"):
             context["action_slice_names"].append(action_slice["name"])
         if action_slice.get("decision_id"):
-            context["decision_ids"].append(action_slice["decision_id"])
+            context["related_object_ids"].append(action_slice["decision_id"])
         _extend_hidden_strings(context, _item_hidden_strings(action_slice))
     for workstream in close_summary.get("candidate_workstreams", []):
         if workstream.get("name"):
@@ -231,36 +224,23 @@ def _add_session_context(context: dict[str, Any], close_summary: dict[str, Any])
 
 
 def _sanitize_session_bindings_by_context(session: dict[str, Any], context: dict[str, Any]) -> None:
-    decision_ids = set(context.get("decision_ids", []))
-    if not decision_ids:
-        return
+    related_object_ids = set(context.get("related_object_ids", []))
+    hidden_strings = {_normalize_text(value) for value in context.get("hidden_strings", [])}
 
     session_payload = session.get("session", {})
-    session_payload["decision_ids"] = [
-        decision_id
-        for decision_id in session_payload.get("decision_ids", [])
-        if decision_id not in decision_ids
+    session_payload["related_object_ids"] = [
+        object_id
+        for object_id in session_payload.get("related_object_ids", [])
+        if object_id not in related_object_ids
     ]
 
     summary = session.get("summary", {})
     working_state = session.get("working_state", {})
-    if summary.get("active_decision_id") in decision_ids:
-        summary["active_decision_id"] = None
+    preview_is_hidden = _normalize_text(summary.get("current_question_preview")) in hidden_strings
+    if working_state.get("active_proposal_id") in related_object_ids or preview_is_hidden:
         summary["current_question_preview"] = None
-        working_state["current_question_id"] = None
-        working_state["current_question"] = None
-
-    proposal = working_state.get("active_proposal", {})
-    if proposal.get("target_id") in decision_ids:
-        proposal["is_active"] = False
-        proposal["inactive_reason"] = proposal.get("inactive_reason") or "semantic-conflict-resolved"
-        proposal["target_type"] = None
-        proposal["target_id"] = None
-        proposal["question_id"] = None
-        proposal["question"] = None
-        proposal["recommendation"] = None
-        proposal["why"] = None
-        proposal["if_not"] = None
+        working_state["active_question_id"] = None
+        working_state["active_proposal_id"] = None
 
 
 def _sanitize_session_text(session: dict[str, Any], hidden_strings: set[str]) -> None:
@@ -268,7 +248,6 @@ def _sanitize_session_text(session: dict[str, Any], hidden_strings: set[str]) ->
     for section, key in (
         (session["summary"], "latest_summary"),
         (session["summary"], "current_question_preview"),
-        (session["working_state"], "current_question"),
     ):
         if _normalize_text(section.get(key)) in hidden:
             section[key] = None
@@ -353,20 +332,22 @@ def _related_taxonomy_ids(
 
 
 def _sanitize_close_summary_by_context(close_summary: dict[str, Any], context: dict[str, Any]) -> None:
-    decision_ids = set(context.get("decision_ids", []))
+    decision_object_ids = {
+        object_id for object_id in context.get("related_object_ids", []) if str(object_id).startswith("D-")
+    }
     action_slice_names = set(context.get("action_slice_names", []))
     workstream_names = set(context.get("workstream_names", []))
 
-    if decision_ids:
+    if decision_object_ids:
         for section in SUMMARY_DECISION_SECTIONS:
             close_summary[section] = [
-                item for item in close_summary.get(section, []) if item.get("id") not in decision_ids
+                item for item in close_summary.get(section, []) if item.get("id") not in decision_object_ids
             ]
 
     close_summary["candidate_action_slices"] = [
         item
         for item in close_summary.get("candidate_action_slices", [])
-        if item.get("decision_id") not in decision_ids and item.get("name") not in action_slice_names
+        if item.get("decision_id") not in decision_object_ids and item.get("name") not in action_slice_names
     ]
 
     accepted_ids = {item["id"] for item in close_summary.get("accepted_decisions", [])}
@@ -375,10 +356,10 @@ def _sanitize_close_summary_by_context(close_summary: dict[str, Any], context: d
         if workstream.get("name") in workstream_names:
             continue
         updated = deepcopy(workstream)
-        if decision_ids:
-            updated["scope"] = [item for item in updated.get("scope", []) if item not in decision_ids]
+        if decision_object_ids:
+            updated["scope"] = [item for item in updated.get("scope", []) if item not in decision_object_ids]
             updated["implementation_ready_scope"] = [
-                item for item in updated.get("implementation_ready_scope", []) if item not in decision_ids
+                item for item in updated.get("implementation_ready_scope", []) if item not in decision_object_ids
             ]
         if not updated.get("scope"):
             continue
@@ -437,7 +418,7 @@ def _extend_hidden_strings(context: dict[str, Any], values: Iterable[str]) -> No
 def _normalized_context(context: dict[str, Any]) -> dict[str, Any]:
     return {
         "session_ids": _stable_unique(context.get("session_ids", [])),
-        "decision_ids": _stable_unique(context.get("decision_ids", [])),
+        "related_object_ids": _stable_unique(context.get("related_object_ids", [])),
         "action_slice_names": _stable_unique(context.get("action_slice_names", [])),
         "workstream_names": _stable_unique(context.get("workstream_names", [])),
         "hidden_strings": _stable_unique(context.get("hidden_strings", [])),
@@ -447,7 +428,7 @@ def _normalized_context(context: dict[str, Any]) -> dict[str, Any]:
 def _has_suppressed_targets(context: dict[str, Any]) -> bool:
     return any(
         context.get(key)
-        for key in ("decision_ids", "action_slice_names", "workstream_names", "hidden_strings")
+        for key in ("related_object_ids", "action_slice_names", "workstream_names", "hidden_strings")
     )
 
 

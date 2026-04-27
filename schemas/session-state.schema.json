@@ -14,7 +14,7 @@
   "properties": {
     "schema_version": {
       "type": "integer",
-      "const": 9
+      "const": 10
     },
     "session": {
       "type": "object",
@@ -23,7 +23,7 @@
         "started_at",
         "last_seen_at",
         "bound_context_hint",
-        "decision_ids",
+        "related_object_ids",
         "lifecycle"
       ],
       "properties": {
@@ -42,7 +42,7 @@
             "null"
           ]
         },
-        "decision_ids": {
+        "related_object_ids": {
           "type": "array",
           "items": {
             "type": "string"
@@ -113,126 +113,22 @@
     "working_state": {
       "type": "object",
       "required": [
-        "current_question_id",
-        "current_question",
-        "active_proposal",
+        "active_question_id",
+        "active_proposal_id",
         "last_seen_project_head"
       ],
       "properties": {
-        "current_question_id": {
+        "active_question_id": {
           "type": [
             "string",
             "null"
           ]
         },
-        "current_question": {
+        "active_proposal_id": {
           "type": [
             "string",
             "null"
           ]
-        },
-        "active_proposal": {
-          "type": "object",
-          "required": [
-            "proposal_id",
-            "origin_session_id",
-            "target_type",
-            "target_id",
-            "recommendation_version",
-            "based_on_project_head",
-            "is_active",
-            "activated_at",
-            "inactive_reason",
-            "question_id",
-            "question",
-            "recommendation",
-            "why",
-            "if_not"
-          ],
-          "properties": {
-            "proposal_id": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "origin_session_id": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "target_type": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "target_id": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "recommendation_version": {
-              "type": [
-                "integer",
-                "null"
-              ]
-            },
-            "based_on_project_head": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "is_active": {
-              "type": "boolean"
-            },
-            "activated_at": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "inactive_reason": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "question_id": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "question": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "recommendation": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "why": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "if_not": {
-              "type": [
-                "string",
-                "null"
-              ]
-            }
-          },
-          "additionalProperties": true
         },
         "last_seen_project_head": {
           "type": [

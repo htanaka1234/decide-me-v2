@@ -296,7 +296,7 @@ def _session_node(session_id: str, session: dict[str, Any]) -> dict[str, Any]:
     return {
         "session_id": session_id,
         "status": session["session"]["lifecycle"]["status"],
-        "decision_ids": list(session["session"].get("decision_ids", [])),
+        "related_object_ids": list(session["session"].get("related_object_ids", [])),
         "close_summary_preview": {
             "work_item_title": close_summary.get("work_item_title"),
             "readiness": close_summary.get("readiness"),
@@ -321,7 +321,9 @@ def _infer_relationship_candidates(
                 continue
             left = sessions[left_id]
             right = sessions[right_id]
-            shared_decisions = sorted(set(left["session"].get("decision_ids", [])) & set(right["session"].get("decision_ids", [])))
+            shared_decisions = sorted(
+                set(_session_decision_object_ids(left)) & set(_session_decision_object_ids(right))
+            )
             if shared_decisions:
                 candidates.append(
                     _candidate(
@@ -330,7 +332,7 @@ def _infer_relationship_candidates(
                         [left_id, right_id],
                         "Sessions share decision ids.",
                         "medium",
-                        {"decision_ids": shared_decisions},
+                        {"related_decision_object_ids": shared_decisions},
                     )
                 )
             candidates.extend(_accepted_answer_candidates(left_id, left, right_id, right))
@@ -487,6 +489,14 @@ def _accepted_answers_by_decision(session: dict[str, Any]) -> dict[str, str | No
         item["id"]: item.get("accepted_answer")
         for item in session["close_summary"].get("accepted_decisions", [])
     }
+
+
+def _session_decision_object_ids(session: dict[str, Any]) -> list[str]:
+    return [
+        object_id
+        for object_id in session["session"].get("related_object_ids", [])
+        if object_id.startswith("D-")
+    ]
 
 
 def _filter_inferred_candidates(candidates: list[dict[str, Any]], session_ids: set[str]) -> list[dict[str, Any]]:

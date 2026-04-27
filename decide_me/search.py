@@ -55,7 +55,7 @@ def session_list_entry(
     detail = (
         close_summary.get("goal")
         if status == "closed"
-        else summary.get("latest_summary") or session["working_state"].get("current_question")
+        else summary.get("latest_summary") or summary.get("current_question_preview")
     )
 
     return {
@@ -67,7 +67,7 @@ def session_list_entry(
         "headline": headline,
         "detail": detail,
         "top_tags": _top_tags(session, taxonomy_state),
-        "active_decision_id": summary.get("active_decision_id"),
+        "active_proposal_id": session["working_state"].get("active_proposal_id"),
     }
 
 

@@ -10,7 +10,7 @@ from decide_me.store import bootstrap_runtime, rebuild_and_persist, validate_run
 
 
 class ObjectLinkProjectionShapeTests(unittest.TestCase):
-    def test_bootstrap_persists_v10_object_link_project_state(self) -> None:
+    def test_bootstrap_persists_v11_object_link_project_state(self) -> None:
         with TemporaryDirectory() as tmp:
             ai_dir = Path(tmp) / ".ai" / "decide-me"
 
@@ -23,7 +23,7 @@ class ObjectLinkProjectionShapeTests(unittest.TestCase):
             project_state = json.loads((ai_dir / "project-state.json").read_text(encoding="utf-8"))
             runtime_index = json.loads((ai_dir / "runtime-index.json").read_text(encoding="utf-8"))
 
-            self.assertEqual(10, project_state["schema_version"])
+            self.assertEqual(11, project_state["schema_version"])
             self.assertNotIn("decisions", project_state)
             self.assertNotIn("default_bundles", project_state)
             self.assertNotIn("session_graph", project_state)
@@ -34,7 +34,7 @@ class ObjectLinkProjectionShapeTests(unittest.TestCase):
             self.assertIn("graph", project_state)
             self.assertEqual(1, project_state["counts"]["object_total"])
             self.assertEqual(0, project_state["counts"]["link_total"])
-            self.assertEqual(10, runtime_index["projection_schema_version"])
+            self.assertEqual(11, runtime_index["projection_schema_version"])
             self.assertEqual([], validate_runtime(ai_dir))
 
     def test_rebuild_regenerates_object_link_project_state(self) -> None:
@@ -52,7 +52,7 @@ class ObjectLinkProjectionShapeTests(unittest.TestCase):
             persisted = json.loads((ai_dir / "project-state.json").read_text(encoding="utf-8"))
 
             self.assertEqual(rebuilt["project_state"], persisted)
-            self.assertEqual(10, persisted["schema_version"])
+            self.assertEqual(11, persisted["schema_version"])
             self.assertNotIn("decisions", persisted)
             self.assertIn("protocol", persisted)
             self.assertIn("sessions_index", persisted)

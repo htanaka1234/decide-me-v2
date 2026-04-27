@@ -87,13 +87,16 @@ class RuntimeFlowTests(unittest.TestCase):
             self.assertEqual("accepted", objects["D-auth"]["status"])
             self.assertEqual("accepted", objects[active_proposal["proposal_id"]]["status"])
             self.assertEqual(
-                "Use magic links.",
-                objects["D-auth"]["metadata"]["accepted_answer"]["summary"],
+                "addresses",
+                links[f"L-{active_proposal['proposal_id']}-addresses-D-auth"]["relation"],
             )
-            self.assertEqual(
-                "recommends",
-                links[f"L-{active_proposal['proposal_id']}-recommends-D-auth"]["relation"],
+            option_id = next(
+                link["target_object_id"]
+                for link in links.values()
+                if link["source_object_id"] == active_proposal["proposal_id"]
+                and link["relation"] == "recommends"
             )
+            self.assertEqual("Use magic links.", objects[option_id]["title"])
             self.assertEqual(
                 "accepts",
                 links[f"L-D-auth-accepts-{active_proposal['proposal_id']}"]["relation"],

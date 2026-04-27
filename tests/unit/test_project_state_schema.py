@@ -23,8 +23,8 @@ class ProjectStateSchemaTests(unittest.TestCase):
         )
         self.validator = Draft202012Validator(self.schema, resolver=resolver)
 
-    def test_project_state_uses_v10_object_link_shape(self) -> None:
-        self.assertEqual(10, self.schema["properties"]["schema_version"]["const"])
+    def test_project_state_uses_v11_object_link_shape(self) -> None:
+        self.assertEqual(11, self.schema["properties"]["schema_version"]["const"])
         self.assertEqual(
             [
                 "schema_version",
@@ -103,7 +103,7 @@ class ProjectStateSchemaTests(unittest.TestCase):
 def _valid_project_state() -> dict:
     return deepcopy(
         {
-            "schema_version": 10,
+            "schema_version": 11,
             "project": {
                 "name": "Demo",
                 "objective": "Plan the milestone.",

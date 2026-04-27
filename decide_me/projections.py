@@ -6,15 +6,14 @@ from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from decide_me.suppression import apply_semantic_suppression_to_session, merge_suppressed_contexts
 from decide_me.taxonomy import default_taxonomy_state, stable_unique
 
 
-OPEN_DECISION_STATUSES = {"unresolved", "proposed", "rejected", "blocked"}
+OPEN_DECISION_STATUSES = {"unresolved", "proposed", "blocked"}
 IDLE_AFTER = timedelta(hours=12)
 STALE_AFTER = timedelta(days=7)
-PROJECT_STATE_SCHEMA_VERSION = 10
-SESSION_STATE_SCHEMA_VERSION = 9
+PROJECT_STATE_SCHEMA_VERSION = 11
+SESSION_STATE_SCHEMA_VERSION = 10
 PROJECTION_SCHEMA_VERSION = PROJECT_STATE_SCHEMA_VERSION
 
 OBJECT_TYPES = {
@@ -113,13 +112,12 @@ def default_session_state(
             "started_at": started_at,
             "last_seen_at": started_at,
             "bound_context_hint": bound_context_hint,
-            "decision_ids": [],
+            "related_object_ids": [],
             "lifecycle": {"status": "active", "closed_at": None},
         },
         "summary": {
             "latest_summary": None,
             "current_question_preview": None,
-            "active_decision_id": None,
         },
         "classification": {
             "domain": None,
@@ -131,30 +129,10 @@ def default_session_state(
         },
         "close_summary": default_close_summary(),
         "working_state": {
-            "current_question_id": None,
-            "current_question": None,
-            "active_proposal": empty_active_proposal(),
+            "active_question_id": None,
+            "active_proposal_id": None,
             "last_seen_project_head": None,
         },
-    }
-
-
-def empty_active_proposal() -> dict[str, Any]:
-    return {
-        "proposal_id": None,
-        "origin_session_id": None,
-        "target_type": None,
-        "target_id": None,
-        "recommendation_version": None,
-        "based_on_project_head": None,
-        "is_active": False,
-        "activated_at": None,
-        "inactive_reason": None,
-        "question_id": None,
-        "question": None,
-        "recommendation": None,
-        "why": None,
-        "if_not": None,
     }
 
 
@@ -321,13 +299,11 @@ def apply_event(
         sessions[session_payload["id"]]["session"]["last_seen_at"] = session_payload["last_seen_at"]
     elif event_type == "session_resumed":
         session = sessions[session_id]
-        active = session["working_state"]["active_proposal"]
         session["session"]["last_seen_at"] = payload["resumed_at"]
         session["session"]["lifecycle"]["status"] = "active"
-        _deactivate_proposal(session, "session-boundary")
+        _clear_question_state(session, "session-boundary")
     elif event_type == "object_recorded":
         obj = _record_object(project_state, payload["object"], event["event_id"])
-        _maybe_activate_proposal_from_object(sessions, session_id, obj, project_head_after, ts)
         _touch_session_for_object(sessions, session_id, project_state, obj["id"], ts, project_head_after)
     elif event_type == "object_updated":
         obj = _require_object(project_state, payload["object_id"])
@@ -345,10 +321,10 @@ def apply_event(
         obj["status"] = payload["to_status"]
         _touch_object(obj, status_ts, event["event_id"])
         if (
-            obj.get("type") == "decision"
-            and payload["to_status"] in {"accepted", "rejected", "deferred", "resolved-by-evidence", "invalidated"}
+            obj.get("type") in {"decision", "proposal"}
+            and payload["to_status"] in {"accepted", "rejected", "deferred", "resolved-by-evidence", "invalidated", "inactive"}
             and session_id in sessions
-            and sessions[session_id]["summary"].get("active_decision_id") == obj["id"]
+            and _status_change_clears_active_question(sessions[session_id], project_state, obj)
         ):
             _clear_question_state(sessions[session_id], None)
         _touch_session_for_object(sessions, session_id, project_state, obj["id"], status_ts, project_head_after)
@@ -358,9 +334,8 @@ def apply_event(
             sessions,
             session_id,
             ts,
-            None,
+            [payload["link"]["source_object_id"], payload["link"]["target_object_id"]],
             project_head_after,
-            add_decision=False,
         )
     elif event_type == "object_unlinked":
         _remove_link(project_state, payload["link_id"])
@@ -368,19 +343,24 @@ def apply_event(
             sessions,
             session_id,
             ts,
-            None,
+            [],
             project_head_after,
-            add_decision=False,
         )
     elif event_type == "session_question_asked":
         target = _require_object(project_state, payload["target_object_id"])
         session = sessions[session_id]
-        session["working_state"]["current_question_id"] = payload["question_id"]
-        session["working_state"]["current_question"] = payload["question"]
+        session["working_state"]["active_question_id"] = payload["question_id"]
+        session["working_state"]["active_proposal_id"] = payload.get("proposal_id")
         session["summary"]["current_question_preview"] = payload["question"]
-        session["summary"]["active_decision_id"] = payload["target_object_id"] if target.get("type") == "decision" else None
         target["metadata"]["question"] = payload["question"]
         _touch_object(target, ts, event["event_id"])
+        proposal_id = payload.get("proposal_id")
+        if proposal_id:
+            proposal = _require_object(project_state, proposal_id)
+            if proposal.get("type") != "proposal":
+                raise ValueError(f"session_question_asked proposal_id {proposal_id} is not a proposal")
+            proposal["metadata"]["based_on_project_head"] = project_head_after
+            _touch_object(proposal, ts, event["event_id"])
         _touch_session_for_object(sessions, session_id, project_state, target["id"], ts, project_head_after)
     elif event_type == "session_answer_recorded":
         target = _require_object(project_state, payload["target_object_id"])
@@ -398,12 +378,11 @@ def apply_event(
             sessions,
             session_id,
             ts,
-            session["summary"].get("active_decision_id"),
+            [],
             project_head_after,
         )
     elif event_type == "session_closed":
         session = sessions[session_id]
-        active = session["working_state"]["active_proposal"]
         session["session"]["lifecycle"]["status"] = "closed"
         session["session"]["lifecycle"]["closed_at"] = payload["closed_at"]
         _clear_question_state(session, "session-closed")
@@ -411,7 +390,7 @@ def apply_event(
             sessions,
             session_id,
             ts,
-            session["summary"].get("active_decision_id"),
+            [],
             project_head_after,
         )
     elif event_type == "taxonomy_extended":
@@ -583,52 +562,9 @@ def _touch_session_for_object(
         sessions,
         session_id,
         timestamp,
-        object_id if obj and obj.get("type") == "decision" else None,
+        [object_id] if obj else [],
         project_head,
-        add_decision=bool(obj and obj.get("type") == "decision"),
     )
-
-
-def _maybe_activate_proposal_from_object(
-    sessions: dict[str, dict[str, Any]],
-    session_id: str,
-    obj: dict[str, Any],
-    project_head: str,
-    timestamp: str,
-) -> None:
-    if obj.get("type") != "proposal" or session_id not in sessions:
-        return
-    metadata = obj.get("metadata", {})
-    target_id = metadata.get("target_id")
-    question_id = metadata.get("question_id")
-    question = metadata.get("question")
-    recommendation = metadata.get("recommendation") or obj.get("title")
-    if not all(isinstance(value, str) and value.strip() for value in (target_id, question_id, question, recommendation)):
-        return
-    proposal = {
-        "proposal_id": obj["id"],
-        "origin_session_id": metadata.get("origin_session_id") or session_id,
-        "target_type": metadata.get("target_type") or "decision",
-        "target_id": target_id,
-        "recommendation_version": metadata.get("recommendation_version"),
-        "based_on_project_head": metadata.get("based_on_project_head"),
-        "is_active": bool(metadata.get("is_active", obj.get("status") == "active")),
-        "activated_at": metadata.get("activated_at") or timestamp,
-        "inactive_reason": metadata.get("inactive_reason"),
-        "question_id": question_id,
-        "question": question,
-        "recommendation": recommendation,
-        "why": metadata.get("why") or obj.get("body"),
-        "if_not": metadata.get("if_not"),
-    }
-    session = sessions[session_id]
-    session["working_state"]["active_proposal"] = proposal
-    if proposal["is_active"]:
-        session["working_state"]["current_question_id"] = question_id
-        session["working_state"]["current_question"] = question
-        session["summary"]["current_question_preview"] = question
-        session["summary"]["active_decision_id"] = target_id
-    session["summary"]["latest_summary"] = recommendation
 
 
 def _project_close_summary_objects(
@@ -706,7 +642,7 @@ def _sessions_index(sessions: dict[str, dict[str, Any]]) -> dict[str, dict[str, 
             "last_seen_at": session["last_seen_at"],
             "closed_at": lifecycle.get("closed_at"),
             "bound_context_hint": session.get("bound_context_hint"),
-            "decision_ids": list(session.get("decision_ids", [])),
+            "related_object_ids": list(session.get("related_object_ids", [])),
         }
     return index
 
@@ -720,10 +656,8 @@ def _touch_session(
     sessions: dict[str, dict[str, Any]],
     session_id: str,
     timestamp: str,
-    decision_id: str | None,
+    related_object_ids: list[str],
     project_head: str,
-    *,
-    add_decision: bool = True,
 ) -> None:
     if session_id not in sessions:
         return
@@ -732,48 +666,36 @@ def _touch_session(
     if session["session"]["lifecycle"]["status"] != "closed":
         session["session"]["lifecycle"]["status"] = "active"
     session["working_state"]["last_seen_project_head"] = project_head
-    if add_decision and decision_id:
-        session["session"]["decision_ids"] = stable_unique([*session["session"]["decision_ids"], decision_id])
+    if related_object_ids:
+        session["session"]["related_object_ids"] = stable_unique(
+            [*session["session"]["related_object_ids"], *related_object_ids]
+        )
 
 
 def _clear_question_state(session: dict[str, Any], latest_summary: str | None) -> None:
-    proposal = session["working_state"]["active_proposal"]
-    if proposal.get("proposal_id"):
-        proposal["is_active"] = False
-        proposal["inactive_reason"] = proposal.get("inactive_reason") or "resolved"
-    session["working_state"]["current_question_id"] = None
-    session["working_state"]["current_question"] = None
+    session["working_state"]["active_question_id"] = None
+    session["working_state"]["active_proposal_id"] = None
     session["summary"]["current_question_preview"] = None
-    session["summary"]["active_decision_id"] = None
     if latest_summary:
         session["summary"]["latest_summary"] = latest_summary
 
 
-def _deactivate_proposal(session: dict[str, Any], reason: str) -> None:
-    proposal = session["working_state"]["active_proposal"]
-    if not proposal.get("proposal_id"):
-        return
-    proposal["is_active"] = False
-    proposal["inactive_reason"] = reason
-    session["working_state"]["current_question_id"] = None
-    session["working_state"]["current_question"] = None
-    session["summary"]["current_question_preview"] = None
-    session["summary"]["active_decision_id"] = None
-
-
-def _invalidate_proposal(session: dict[str, Any], reason: str) -> None:
-    proposal = session["working_state"]["active_proposal"]
-    if not proposal.get("proposal_id"):
-        return
-    proposal["is_active"] = False
-    proposal["inactive_reason"] = reason
-    proposal["target_type"] = None
-    proposal["target_id"] = None
-    proposal["question_id"] = None
-    proposal["question"] = None
-    proposal["recommendation"] = None
-    proposal["why"] = None
-    proposal["if_not"] = None
+def _status_change_clears_active_question(
+    session: dict[str, Any], project_state: dict[str, Any], obj: dict[str, Any]
+) -> bool:
+    active_proposal_id = session["working_state"].get("active_proposal_id")
+    if not active_proposal_id:
+        return False
+    if obj["id"] == active_proposal_id:
+        return True
+    if obj.get("type") != "decision":
+        return False
+    return any(
+        link.get("source_object_id") == active_proposal_id
+        and link.get("relation") == "addresses"
+        and link.get("target_object_id") == obj["id"]
+        for link in project_state.get("links", [])
+    )
 
 
 def _deep_update(target: dict[str, Any], patch: dict[str, Any]) -> None:
@@ -791,141 +713,6 @@ def _upsert_taxonomy_node(taxonomy_state: dict[str, Any], node_patch: dict[str, 
             return
     taxonomy_state["nodes"].append(deepcopy(node_patch))
     taxonomy_state["nodes"].sort(key=lambda item: item["id"])
-
-
-def _decision_hidden_strings(decision: dict[str, Any]) -> set[str]:
-    metadata = decision.get("metadata", {})
-    values = {
-        decision.get("title"),
-        decision.get("body"),
-        metadata.get("question"),
-        metadata.get("context"),
-        metadata.get("accepted_answer", {}).get("summary"),
-        metadata.get("resolved_by_evidence", {}).get("summary"),
-    }
-    return {str(value).strip() for value in values if value and str(value).strip()}
-
-
-def _sanitize_session_after_invalidation(
-    session: dict[str, Any],
-    *,
-    decision_id: str,
-    hidden_strings: set[str],
-) -> bool:
-    affected = False
-    decision_ids = session["session"].get("decision_ids", [])
-    if decision_id in decision_ids:
-        session["session"]["decision_ids"] = [candidate for candidate in decision_ids if candidate != decision_id]
-        affected = True
-
-    if session["summary"].get("active_decision_id") == decision_id:
-        session["summary"]["active_decision_id"] = None
-        session["summary"]["current_question_preview"] = None
-        session["working_state"]["current_question_id"] = None
-        session["working_state"]["current_question"] = None
-        affected = True
-
-    proposal = session["working_state"]["active_proposal"]
-    if proposal.get("target_id") == decision_id:
-        _invalidate_proposal(session, "decision-invalidated")
-        session["summary"]["active_decision_id"] = None
-        session["summary"]["current_question_preview"] = None
-        session["working_state"]["current_question_id"] = None
-        session["working_state"]["current_question"] = None
-        affected = True
-
-    for section, key in (
-        (session["summary"], "latest_summary"),
-        (session["summary"], "current_question_preview"),
-        (session["working_state"], "current_question"),
-    ):
-        if section.get(key) in hidden_strings:
-            section[key] = None
-            affected = True
-
-    close_summary = session.get("close_summary")
-    if close_summary:
-        affected = _sanitize_close_summary(session, decision_id, hidden_strings) or affected
-    return affected
-
-
-def _sanitize_close_summary(
-    session: dict[str, Any], decision_id: str, hidden_strings: set[str]
-) -> bool:
-    close_summary = session["close_summary"]
-    changed = False
-    for key in ("accepted_decisions", "deferred_decisions", "unresolved_blockers", "unresolved_risks"):
-        before = close_summary[key]
-        filtered = [item for item in before if item.get("id") != decision_id]
-        if len(filtered) != len(before):
-            close_summary[key] = filtered
-            changed = True
-
-    before_slices = close_summary["candidate_action_slices"]
-    action_slices = [item for item in before_slices if item.get("decision_id") != decision_id]
-    if len(action_slices) != len(before_slices):
-        close_summary["candidate_action_slices"] = action_slices
-        changed = True
-
-    accepted_ids = {item["id"] for item in close_summary["accepted_decisions"]}
-    workstreams: list[dict[str, Any]] = []
-    for workstream in close_summary["candidate_workstreams"]:
-        scope = [candidate for candidate in workstream.get("scope", []) if candidate != decision_id]
-        if not scope:
-            changed = True
-            continue
-        implementation_ready_scope = [
-            candidate for candidate in workstream.get("implementation_ready_scope", []) if candidate != decision_id
-        ]
-        updated = deepcopy(workstream)
-        updated["scope"] = scope
-        updated["implementation_ready_scope"] = implementation_ready_scope
-        updated["accepted_count"] = len([candidate for candidate in scope if candidate in accepted_ids])
-        domain = updated["name"].removesuffix("-workstream")
-        if implementation_ready_scope:
-            updated["summary"] = (
-                f"Advance {domain} decisions for the current milestone. "
-                f"{len(implementation_ready_scope)} implementation-ready slice(s) are already grounded."
-            )
-        else:
-            updated["summary"] = f"Advance {domain} decisions for the current milestone."
-        if updated != workstream:
-            changed = True
-        workstreams.append(updated)
-    close_summary["candidate_workstreams"] = workstreams
-
-    visible_evidence_refs: list[str] = []
-    for item in close_summary["accepted_decisions"]:
-        visible_evidence_refs.extend(item.get("evidence_refs", []))
-    for item in close_summary["candidate_action_slices"]:
-        visible_evidence_refs.extend(item.get("evidence_refs", []))
-    filtered_evidence_refs = stable_unique(visible_evidence_refs)
-    if filtered_evidence_refs != close_summary.get("evidence_refs", []):
-        close_summary["evidence_refs"] = filtered_evidence_refs
-        changed = True
-
-    fallback_title = session["session"].get("bound_context_hint") or session["session"]["id"]
-    fallback_statement = session["session"].get("bound_context_hint") or close_summary.get("goal") or fallback_title
-    if close_summary.get("work_item_title") in hidden_strings:
-        close_summary["work_item_title"] = fallback_title
-        changed = True
-    if close_summary.get("work_item_statement") in hidden_strings:
-        close_summary["work_item_statement"] = fallback_statement
-        changed = True
-
-    readiness = _close_summary_readiness(close_summary)
-    if close_summary.get("readiness") != readiness:
-        close_summary["readiness"] = readiness
-        changed = True
-    return changed
-
-
-def _close_summary_readiness(close_summary: dict[str, Any]) -> str:
-    if close_summary.get("unresolved_blockers"):
-        return "blocked"
-    if close_summary.get("unresolved_risks"):
-        return "conditional"
-    return "ready"
 
 
 def _recompute_counts(project_state: dict[str, Any]) -> None:

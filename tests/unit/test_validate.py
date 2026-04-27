@@ -37,6 +37,51 @@ class EventLogValidationTests(unittest.TestCase):
 
         validate_event_log(events)
 
+    def test_accepts_null_question_id_for_defer_answer(self) -> None:
+        events = [
+            *_base_events(),
+            _event(3, "S-001", "object_recorded", {"object": _object("O-decision", "E-test-3")}),
+            _event(
+                4,
+                "S-001",
+                "session_answer_recorded",
+                {
+                    "question_id": None,
+                    "target_object_id": "O-decision",
+                    "answer": {
+                        "summary": "Blocked pending signoff.",
+                        "answered_at": "2026-04-23T12:04:00Z",
+                        "answered_via": "defer",
+                    },
+                },
+            ),
+        ]
+
+        validate_event_log(events)
+
+    def test_rejects_unknown_non_null_question_id_for_answer(self) -> None:
+        events = [
+            *_base_events(),
+            _event(3, "S-001", "object_recorded", {"object": _object("O-decision", "E-test-3")}),
+            _event(
+                4,
+                "S-001",
+                "session_answer_recorded",
+                {
+                    "question_id": "Q-missing",
+                    "target_object_id": "O-decision",
+                    "answer": {
+                        "summary": "Use it.",
+                        "answered_at": "2026-04-23T12:04:00Z",
+                        "answered_via": "explicit",
+                    },
+                },
+            ),
+        ]
+
+        with self.assertRaisesRegex(StateValidationError, "unknown pending question Q-missing"):
+            validate_event_log(events)
+
     def test_rejects_duplicate_object_recorded_ids(self) -> None:
         events = [
             *_base_events(),

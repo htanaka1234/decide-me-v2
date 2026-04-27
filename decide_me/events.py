@@ -299,13 +299,20 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
         _require_non_empty_string(payload.get("target_object_id"), "session_question_asked.payload.target_object_id")
         _require_non_empty_string(payload.get("question"), "session_question_asked.payload.question")
     elif event_type == "session_answer_recorded":
-        _require_non_empty_string(payload.get("question_id"), "session_answer_recorded.payload.question_id")
         _require_non_empty_string(payload.get("target_object_id"), "session_answer_recorded.payload.target_object_id")
         answer = _require_dict(payload["answer"], "session_answer_recorded.payload.answer")
         _require_keys(answer, ("summary", "answered_at", "answered_via"), "session_answer_recorded.payload.answer")
         _require_non_empty_string(answer.get("summary"), "session_answer_recorded.payload.answer.summary")
         _require_timestamp(answer.get("answered_at"), "session_answer_recorded.payload.answer.answered_at")
         _require_non_empty_string(answer.get("answered_via"), "session_answer_recorded.payload.answer.answered_via")
+        question_id = payload.get("question_id")
+        if question_id is None:
+            if answer.get("answered_via") != "defer":
+                raise EventValidationError(
+                    "session_answer_recorded.payload.question_id may be null only when answered_via is defer"
+                )
+        else:
+            _require_non_empty_string(question_id, "session_answer_recorded.payload.question_id")
     elif event_type == "session_closed":
         _require_timestamp(payload.get("closed_at"), "session_closed.payload.closed_at")
     elif event_type == "close_summary_generated":

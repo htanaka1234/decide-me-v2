@@ -9,14 +9,15 @@ from typing import Any, Iterable
 from decide_me.events import new_entity_id
 from decide_me.exporters.common import decision_views
 from decide_me.lifecycle import build_close_summary
+from decide_me.object_views import active_proposal_view
 from decide_me.protocol import (
     accept_proposal,
     answer_proposal,
     current_bundle,
     defer_decision,
     discover_decision,
-    enrich_decision,
     issue_proposal,
+    record_reply_artifacts,
     reject_proposal,
     render_question_block,
     resolve_by_evidence,
@@ -180,7 +181,6 @@ CONSTRAINT_PHRASES = (
     "before ",
     "after ",
 )
-TRIGGER_PREFIXES = ("if ", "when ", "unless ", "before ", "after ")
 DOMAIN_PRIORITY = ("legal", "ops", "data", "technical", "ux", "product", "other")
 DOMAIN_HINTS: dict[str, tuple[str, ...]] = {
     "product": (
@@ -462,8 +462,8 @@ def advance_session(
         if session["session"]["lifecycle"]["status"] == "closed":
             raise ValueError(f"session {session_id} is closed")
 
-        active = session["working_state"]["active_proposal"]
-        if active.get("proposal_id"):
+        active = active_proposal_view(bundle["project_state"], session)
+        if active and active.get("proposal_id"):
             stale, reason = proposal_is_stale(bundle["project_state"], session)
             if not stale:
                 decision = _lookup_decision(bundle, active["target_id"])
@@ -489,13 +489,13 @@ def advance_session(
         else:
             stale_proposal_id = None
 
-        decision_ids = session["session"].get("decision_ids", [])
+        related_object_ids = session["session"].get("related_object_ids", [])
         decision = select_next_decision(
             bundle["project_state"],
-            decision_ids=decision_ids,
+            related_object_ids=related_object_ids,
             scope="session",
         )
-        if decision is None and not decision_ids:
+        if decision is None and not related_object_ids:
             return {
                 "status": "unbound",
                 "session_id": session_id,
@@ -659,8 +659,8 @@ def handle_reply(
             "message": message,
         }
 
-    active = session["working_state"]["active_proposal"]
-    if active.get("proposal_id"):
+    active = active_proposal_view(bundle["project_state"], session)
+    if active and active.get("proposal_id"):
         stale, reason = proposal_is_stale(bundle["project_state"], session)
         if stale:
             raise ValueError(
@@ -966,10 +966,6 @@ def _evidence_phrases(decision: dict[str, Any]) -> list[str]:
     ):
         if field:
             source_texts.append(str(field))
-    options = decision.get("options", [])
-    if len(options) == 1 and options[0].get("summary"):
-        source_texts.append(str(options[0]["summary"]))
-
     phrases: list[str] = []
     for text in source_texts:
         tokens = _phrase_tokens(text)
@@ -1050,9 +1046,6 @@ def _proposal_recommendation(decision: dict[str, Any]) -> str:
     recommendation = decision.get("recommendation", {})
     if recommendation.get("summary"):
         return recommendation["summary"]
-    options = decision.get("options", [])
-    if len(options) == 1 and options[0].get("summary"):
-        return options[0]["summary"]
     return f"Choose the lowest-risk option for {decision['title']}."
 
 
@@ -1060,9 +1053,6 @@ def _evidence_resolution_summary(decision: dict[str, Any]) -> str | None:
     recommendation = decision.get("recommendation", {})
     if recommendation.get("summary"):
         return recommendation["summary"]
-    options = decision.get("options", [])
-    if len(options) == 1 and options[0].get("summary"):
-        return options[0]["summary"]
     return None
 
 
@@ -1304,14 +1294,13 @@ def _capture_reply_artifacts(
     updated_decision = decision
 
     if captured_constraints:
-        updated_decision = enrich_decision(
+        record_reply_artifacts(
             ai_dir,
             session_id,
             decision_id=decision["id"],
-            notes_append=[f"Constraint: {constraint}" for constraint in captured_constraints],
-            revisit_triggers_append=_revisit_triggers_from_constraints(captured_constraints),
-            context_append=_constraints_context_append(captured_constraints),
+            constraints=captured_constraints,
         )
+        updated_decision = _lookup_decision(current_bundle(ai_dir), decision["id"])
 
     discovered_decisions: list[dict[str, Any]] = []
     for clause in discovered_clauses:
@@ -1388,19 +1377,6 @@ def _strip_answer_prefixes(text: str) -> str:
     return stripped
 
 
-def _revisit_triggers_from_constraints(constraints: list[str]) -> list[str]:
-    triggers = []
-    for constraint in constraints:
-        normalized = _normalize(constraint)
-        if any(normalized.startswith(prefix) for prefix in TRIGGER_PREFIXES):
-            triggers.append(constraint)
-    return _stable_unique_strings(triggers)
-
-
-def _constraints_context_append(constraints: list[str]) -> str:
-    return "Additional constraints from user reply:\n" + "\n".join(f"- {constraint}" for constraint in constraints)
-
-
 def _build_discovered_decision(current_decision: dict[str, Any], clause: str) -> dict[str, Any]:
     normalized = _normalize(clause)
     title = _title_from_clause(clause)
@@ -1415,7 +1391,6 @@ def _build_discovered_decision(current_decision: dict[str, Any], clause: str) ->
         kind=kind,
         resolvable_by=resolvable_by,
     )
-    recommendation = _recommendation_from_clause(title, kind=kind, resolvable_by=resolvable_by)
     discovered = {
         "id": new_entity_id("D"),
         "title": title,
@@ -1430,8 +1405,6 @@ def _build_discovered_decision(current_decision: dict[str, Any], clause: str) ->
         "context": clause.strip(),
         "notes": [f"Discovered from reply while resolving {current_decision['id']}."],
     }
-    if recommendation is not None:
-        discovered["options"] = [{"summary": recommendation["summary"]}]
     return discovered
 
 
@@ -1615,31 +1588,6 @@ def _question_subject(title: str) -> str:
     if first_token.isupper() or any(char.isdigit() for char in first_token):
         return stripped
     return stripped[0].lower() + stripped[1:]
-
-
-def _recommendation_from_clause(title: str, *, kind: str, resolvable_by: str) -> dict[str, Any] | None:
-    subject = _question_subject(title)
-    if resolvable_by == "docs":
-        return {
-            "summary": f"Document {subject}.",
-            "rationale_short": "The follow-up clause points to documentation work.",
-        }
-    if resolvable_by == "tests":
-        return {
-            "summary": f"Add tests for {subject}.",
-            "rationale_short": "The follow-up clause points to test coverage work.",
-        }
-    if resolvable_by == "codebase":
-        if kind == "dependency":
-            return {
-                "summary": f"Implement {subject}.",
-                "rationale_short": "The follow-up clause points to implementation work in the repo.",
-            }
-        return {
-            "summary": f"Implement {subject}.",
-            "rationale_short": "The follow-up clause points to implementation work in the repo.",
-        }
-    return None
 
 
 def _accepted_reply_message(

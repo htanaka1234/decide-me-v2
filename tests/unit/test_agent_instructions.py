@@ -243,14 +243,44 @@ class AgentInstructionFilterTests(unittest.TestCase):
 
 
 def _bundle(decisions: list[dict]) -> dict:
+    objects: list[dict] = []
+    links: list[dict] = []
+    for decision in decisions:
+        objects.append(_decision_object(decision))
+        if decision["status"] == "accepted":
+            option_id = f"O-option-{decision['id']}"
+            proposal_id = f"P-{decision['id']}"
+            summary = decision["accepted_answer"]["summary"]
+            objects.append(_object(option_id, "option", summary, status="active"))
+            objects.append(_object(proposal_id, "proposal", summary, status="accepted", metadata={"accepted_via": "explicit"}))
+            links.extend(
+                [
+                    _link(f"L-{proposal_id}-addresses-{decision['id']}", proposal_id, "addresses", decision["id"]),
+                    _link(f"L-{proposal_id}-recommends-{option_id}", proposal_id, "recommends", option_id),
+                    _link(f"L-{decision['id']}-accepts-{proposal_id}", decision["id"], "accepts", proposal_id),
+                ]
+            )
+        if decision["status"] == "resolved-by-evidence":
+            evidence_id = f"O-evidence-{decision['id']}"
+            summary = decision["resolved_by_evidence"]["summary"]
+            objects.append(
+                _object(
+                    evidence_id,
+                    "evidence",
+                    decision["resolved_by_evidence"]["evidence_refs"][0],
+                    body=summary,
+                    metadata={"source": "docs", "ref": decision["resolved_by_evidence"]["evidence_refs"][0]},
+                )
+            )
+            links.append(_link(f"L-{evidence_id}-supports-{decision['id']}", evidence_id, "supports", decision["id"], summary))
     return {
         "project_state": {
             "state": {
                 "updated_at": "2026-04-26T00:00:00Z",
                 "project_head": "H-test",
             },
-            "objects": [_decision_object(decision) for decision in decisions],
-            "links": [],
+            "objects": objects,
+            "links": links,
         }
     }
 
@@ -259,7 +289,18 @@ def _decision_object(decision: dict) -> dict:
     metadata = {
         key: value
         for key, value in decision.items()
-        if key not in {"id", "title", "status"}
+        if key
+        not in {
+            "id",
+            "title",
+            "status",
+            "accepted_answer",
+            "resolved_by_evidence",
+            "evidence_refs",
+            "options",
+            "recommendation",
+            "revisit_triggers",
+        }
     }
     return {
         "id": decision["id"],
@@ -271,6 +312,46 @@ def _decision_object(decision: dict) -> dict:
         "updated_at": "2026-04-26T00:00:00Z",
         "source_event_ids": [f"E-{decision['id']}"],
         "metadata": metadata,
+    }
+
+
+def _object(
+    object_id: str,
+    object_type: str,
+    title: str,
+    *,
+    status: str = "active",
+    body: str | None = None,
+    metadata: dict | None = None,
+) -> dict:
+    return {
+        "id": object_id,
+        "type": object_type,
+        "title": title,
+        "body": body,
+        "status": status,
+        "created_at": "2026-04-26T00:00:00Z",
+        "updated_at": "2026-04-26T00:00:00Z",
+        "source_event_ids": [f"E-{object_id}"],
+        "metadata": metadata or {},
+    }
+
+
+def _link(
+    link_id: str,
+    source_object_id: str,
+    relation: str,
+    target_object_id: str,
+    rationale: str | None = None,
+) -> dict:
+    return {
+        "id": link_id,
+        "source_object_id": source_object_id,
+        "relation": relation,
+        "target_object_id": target_object_id,
+        "rationale": rationale,
+        "created_at": "2026-04-26T00:00:00Z",
+        "source_event_ids": [f"E-{link_id}"],
     }
 
 
