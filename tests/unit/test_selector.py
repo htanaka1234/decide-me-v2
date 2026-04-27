@@ -22,7 +22,7 @@ class SelectorTests(unittest.TestCase):
         project_state = default_project_state()
         project_state["objects"] = [
             _decision("D-000", priority="P0", frontier="now", status="invalidated", title="Superseded blocker"),
-            _decision("D-001", priority="P1", frontier="now", title="Visible blocker"),
+            _decision("D-001", priority="P0", frontier="now", title="Visible blocker"),
         ]
         project_state["links"] = [
             {
@@ -39,6 +39,28 @@ class SelectorTests(unittest.TestCase):
         selected = select_next_decision(project_state)
         self.assertIsNotNone(selected)
         self.assertEqual("D-001", selected["id"])
+
+    def test_select_next_decision_requires_p0_now(self) -> None:
+        project_state = default_project_state()
+        project_state["objects"] = [
+            _decision("D-p1", priority="P1", frontier="now", title="P1 now"),
+            _decision("D-later", priority="P0", frontier="later", title="P0 later"),
+        ]
+
+        selected = select_next_decision(project_state)
+
+        self.assertIsNone(selected)
+
+    def test_session_scoped_selection_requires_related_p0_now(self) -> None:
+        project_state = default_project_state()
+        project_state["objects"] = [
+            _decision("D-related", priority="P0", frontier="later", title="Related later"),
+            _decision("D-unrelated", priority="P0", frontier="now", title="Unrelated now"),
+        ]
+
+        selected = select_next_decision(project_state, related_object_ids=["D-related"], scope="session")
+
+        self.assertIsNone(selected)
 
     def test_session_scoped_selection_does_not_fallback_on_empty_related_objects(self) -> None:
         project_state = default_project_state()

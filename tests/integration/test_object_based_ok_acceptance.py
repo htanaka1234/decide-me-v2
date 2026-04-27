@@ -10,6 +10,7 @@ from decide_me.protocol import discover_decision
 from decide_me.store import (
     bootstrap_runtime,
     load_runtime,
+    read_event_log,
     rebuild_and_persist,
     runtime_paths,
     validate_runtime,
@@ -76,6 +77,39 @@ class ObjectBasedOkAcceptanceTests(unittest.TestCase):
             self.assertEqual("rejected", objects[proposal_id]["status"])
             self.assertEqual("unresolved", objects["D-auth"]["status"])
             self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_defer_active_proposal_records_answer_and_inactivates_proposal(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = Path(tmp) / ".ai" / "decide-me"
+            session_id = _bootstrap_session(ai_dir)
+            _discover_auth_decision(ai_dir, session_id)
+            turn = advance_session(str(ai_dir), session_id, repo_root=tmp)
+            proposal_id = turn["proposal_id"]
+            reason = "Blocked pending legal signoff."
+
+            result = handle_reply(str(ai_dir), session_id, f"Defer D-auth: {reason}", repo_root=tmp)
+
+            self.assertEqual("deferred", result["status"])
+            self.assertEqual([], validate_runtime(ai_dir))
+            bundle = load_runtime(runtime_paths(ai_dir))
+            session = bundle["sessions"][session_id]
+            objects = {obj["id"]: obj for obj in bundle["project_state"]["objects"]}
+            events = read_event_log(runtime_paths(ai_dir))
+            defer_answers = [
+                event["payload"]["answer"]
+                for event in events
+                if event["event_type"] == "session_answer_recorded"
+                and event["payload"]["target_object_id"] == "D-auth"
+            ]
+
+            self.assertEqual("deferred", objects["D-auth"]["status"])
+            self.assertEqual("inactive", objects[proposal_id]["status"])
+            self.assertIsNone(session["working_state"]["active_question_id"])
+            self.assertIsNone(session["working_state"]["active_proposal_id"])
+            self.assertEqual(
+                [{"summary": reason, "answered_at": defer_answers[0]["answered_at"], "answered_via": "defer"}],
+                defer_answers,
+            )
 
 
 def _bootstrap_session(ai_dir: Path) -> str:

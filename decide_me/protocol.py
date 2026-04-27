@@ -698,27 +698,46 @@ def defer_decision(ai_dir: str, session_id: str, *, decision_id: str, reason: st
         _require_no_other_active_proposal(bundle, session, decision_id)
         decision = _lookup_decision(bundle, decision_id)
         _require_decision_status(decision_id, decision, OPEN_MUTATION_STATUSES, "defer")
-        events = [
-            {
-                "session_id": session_id,
-                "event_type": "object_status_changed",
-                "payload": _status_change_payload(bundle, decision_id, "deferred", reason, now),
-            },
-            {
-                "session_id": session_id,
-                "event_type": "object_updated",
-                "payload": {
-                    "object_id": decision_id,
-                    "patch": {
-                        "metadata": {
-                            "frontier": "deferred",
-                            "notes": stable_unique([*decision.get("notes", []), reason]),
-                        }
+        active = active_proposal_view(bundle["project_state"], session)
+        events = []
+        if active and active.get("target_id") == decision_id and active.get("is_active"):
+            events.append(
+                {
+                    "session_id": session_id,
+                    "event_type": "session_answer_recorded",
+                    "payload": {
+                        "question_id": active["question_id"],
+                        "target_object_id": decision_id,
+                        "answer": {
+                            "summary": reason,
+                            "answered_at": now,
+                            "answered_via": "defer",
+                        },
+                    },
+                }
+            )
+        events.extend(
+            [
+                {
+                    "session_id": session_id,
+                    "event_type": "object_status_changed",
+                    "payload": _status_change_payload(bundle, decision_id, "deferred", reason, now),
+                },
+                {
+                    "session_id": session_id,
+                    "event_type": "object_updated",
+                    "payload": {
+                        "object_id": decision_id,
+                        "patch": {
+                            "metadata": {
+                                "frontier": "deferred",
+                                "notes": stable_unique([*decision.get("notes", []), reason]),
+                            }
+                        },
                     },
                 },
-            },
-        ]
-        active = active_proposal_view(bundle["project_state"], session)
+            ]
+        )
         if active and active.get("target_id") == decision_id and active.get("is_active"):
             events.append(
                 {
@@ -894,9 +913,9 @@ def record_reply_artifacts(
                     "event_type": "object_linked",
                     "payload": {
                         "link": _link_payload(
-                            link_id=f"L-{object_id}-challenges-{decision_id}",
+                            link_id=f"L-{object_id}-addresses-{decision_id}",
                             source_object_id=object_id,
-                            relation="challenges",
+                            relation="addresses",
                             target_object_id=decision_id,
                             rationale=text,
                             created_at=now,

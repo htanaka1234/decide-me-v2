@@ -86,6 +86,19 @@ class ObjectBasedInterviewFlowTests(unittest.TestCase):
                     for obj in objects.values()
                 )
             )
+            constraint_ids = [
+                obj["id"]
+                for obj in objects.values()
+                if obj["type"] == "constraint" and obj["title"] == "only if legal signs off"
+            ]
+            self.assertTrue(
+                any(
+                    link["source_object_id"] in constraint_ids
+                    and link["relation"] == "addresses"
+                    and link["target_object_id"] == "D-auth"
+                    for link in links
+                )
+            )
             self.assertTrue(
                 any(
                     obj["type"] == "decision"

@@ -100,11 +100,16 @@ def active_proposal_view(project_state: dict[str, Any], session_state: dict[str,
 
 
 def proposal_decision_id(project_state: dict[str, Any], proposal_id: str) -> str | None:
-    for link in links_for(project_state, source_object_id=proposal_id, relation="addresses"):
-        target = objects_by_id(project_state).get(link["target_object_id"])
-        if target and target.get("type") == "decision":
-            return target["id"]
-    return None
+    by_id = objects_by_id(project_state)
+    addresses = links_for(project_state, source_object_id=proposal_id, relation="addresses")
+    if len(addresses) != 1:
+        raise ValueError(f"proposal {proposal_id} must have exactly one addresses link")
+    target = by_id.get(addresses[0]["target_object_id"])
+    if target is None:
+        raise ValueError(f"proposal {proposal_id} addresses missing object")
+    if target.get("type") != "decision":
+        raise ValueError(f"proposal {proposal_id} addresses non-decision object")
+    return target["id"]
 
 
 def proposal_option(project_state: dict[str, Any], proposal_id: str) -> dict[str, Any] | None:

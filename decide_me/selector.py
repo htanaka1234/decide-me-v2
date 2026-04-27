@@ -37,6 +37,7 @@ def select_next_decision(
         decision
         for decision in open_decisions(project_state)
         if related_object_ids is None or decision["id"] in allowed
+        if _is_p0_now(decision)
     ]
     if not candidates:
         return None
@@ -45,8 +46,7 @@ def select_next_decision(
 
 def stop_reached(project_state: dict[str, Any]) -> bool:
     for decision in open_decisions(project_state):
-        metadata = decision.get("metadata", {})
-        if metadata.get("priority") == "P0" and metadata.get("frontier") == "now":
+        if _is_p0_now(decision):
             return False
     return True
 
@@ -94,3 +94,8 @@ def _decision_sort_key(
         dependency_count,
         decision["id"],
     )
+
+
+def _is_p0_now(decision: dict[str, Any]) -> bool:
+    metadata = decision.get("metadata", {})
+    return metadata.get("priority") == "P0" and metadata.get("frontier") == "now"
