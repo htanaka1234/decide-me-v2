@@ -25,6 +25,14 @@ class DistributionArtifactObjectNativeTests(unittest.TestCase):
         required = {
             "decide-me/SKILL.md",
             "decide-me/agents/openai.yaml",
+            "decide-me/decide_me/__init__.py",
+            "decide-me/decide_me/events.py",
+            "decide-me/decide_me/interview.py",
+            "decide-me/decide_me/lifecycle.py",
+            "decide-me/decide_me/planner.py",
+            "decide-me/decide_me/projections.py",
+            "decide-me/decide_me/store.py",
+            "decide-me/decide_me/validate.py",
             "decide-me/scripts/decide_me.py",
             "decide-me/schemas/close-summary.schema.json",
             "decide-me/schemas/plan.schema.json",
@@ -75,9 +83,22 @@ class DistributionArtifactObjectNativeTests(unittest.TestCase):
         self.assertFalse(close_schema.get("additionalProperties", True))
 
         action_plan_schema = _action_plan_object_schema(plan_schema)
+        self.assertTrue(
+            {
+                "actions",
+                "implementation_ready_actions",
+                "evidence",
+                "source_object_ids",
+                "source_link_ids",
+            }.issubset(set(action_plan_schema["required"]))
+        )
+        self.assertFalse(action_plan_schema.get("additionalProperties", True))
         action_plan_props = action_plan_schema["properties"]
         self.assertIn("actions", action_plan_props)
         self.assertIn("implementation_ready_actions", action_plan_props)
+        self.assertIn("evidence", action_plan_props)
+        self.assertIn("source_object_ids", action_plan_props)
+        self.assertIn("source_link_ids", action_plan_props)
         self.assertNotIn("action" + "_slices", action_plan_props)
         self.assertNotIn("implementation" + "_ready_slices", action_plan_props)
 
