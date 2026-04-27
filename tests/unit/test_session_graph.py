@@ -22,8 +22,8 @@ class SessionGraphTests(unittest.TestCase):
         bundle = _graph_bundle()
         parent = bundle["sessions"]["S-parent"]
         child = bundle["sessions"]["S-child"]
-        parent["session"]["decision_ids"] = ["D-shared"]
-        child["session"]["decision_ids"] = ["D-shared"]
+        parent["session"]["related_object_ids"] = ["D-shared"]
+        child["session"]["related_object_ids"] = ["D-shared"]
 
         graph = build_session_graph(bundle)
 

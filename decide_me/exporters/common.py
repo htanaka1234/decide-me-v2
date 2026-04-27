@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from decide_me.object_views import decision_views
+
 
 @dataclass
 class DecisionEventIndex:
@@ -13,7 +15,7 @@ class DecisionEventIndex:
 
 def build_decision_event_index(events: list[dict[str, Any]]) -> DecisionEventIndex:
     index = DecisionEventIndex()
-    decision_ids: set[str] = set()
+    known_decision_ids: set[str] = set()
     for event in events:
         session_id = event["session_id"]
         payload = event["payload"]
@@ -21,10 +23,10 @@ def build_decision_event_index(events: list[dict[str, Any]]) -> DecisionEventInd
 
         if event_type == "object_recorded" and payload["object"].get("type") == "decision":
             decision_id = payload["object"]["id"]
-            decision_ids.add(decision_id)
+            known_decision_ids.add(decision_id)
             index.session_ids.setdefault(decision_id, session_id)
         else:
-            for decision_id in _referenced_decision_ids(event, decision_ids):
+            for decision_id in _referenced_decision_objects(event, known_decision_ids):
                 index.session_ids.setdefault(decision_id, session_id)
 
         if event_type == "object_linked" and payload["link"]["relation"] == "supersedes":
@@ -35,8 +37,8 @@ def build_decision_event_index(events: list[dict[str, Any]]) -> DecisionEventInd
             if superseded_id not in supersedes:
                 supersedes.append(superseded_id)
 
-    for decision_ids in index.supersedes.values():
-        decision_ids.sort()
+    for superseded_ids in index.supersedes.values():
+        superseded_ids.sort()
     return index
 
 
@@ -92,39 +94,21 @@ def superseded_by(decision: dict[str, Any], index: DecisionEventIndex) -> str | 
     return None
 
 
-def decision_views(project_state: dict[str, Any]) -> list[dict[str, Any]]:
-    decisions = []
-    for obj in project_state.get("objects", []):
-        if obj.get("type") != "decision":
-            continue
-        metadata = obj.get("metadata", {})
-        decisions.append(
-            {
-                **metadata,
-                "id": obj["id"],
-                "title": obj.get("title"),
-                "body": obj.get("body"),
-                "status": obj.get("status"),
-                "accepted_answer": metadata.get("accepted_answer") or {},
-                "resolved_by_evidence": metadata.get("resolved_by_evidence") or {},
-                "evidence_refs": metadata.get("evidence_refs", []),
-            }
-        )
-    return decisions
-
-
-def _referenced_decision_ids(event: dict[str, Any], decision_ids: set[str]) -> list[str]:
+def _referenced_decision_objects(event: dict[str, Any], known_decision_ids: set[str]) -> list[str]:
     payload = event["payload"]
     event_type = event["event_type"]
-    if event_type in {"object_updated", "object_status_changed"} and payload["object_id"] in decision_ids:
+    if event_type in {"object_updated", "object_status_changed"} and payload["object_id"] in known_decision_ids:
         return [payload["object_id"]]
-    if event_type in {"session_question_asked", "session_answer_recorded"} and payload["target_object_id"] in decision_ids:
+    if (
+        event_type in {"session_question_asked", "session_answer_recorded"}
+        and payload["target_object_id"] in known_decision_ids
+    ):
         return [payload["target_object_id"]]
     if event_type == "object_linked":
         link = payload["link"]
         return [
             object_id
             for object_id in (link["source_object_id"], link["target_object_id"])
-            if object_id in decision_ids
+            if object_id in known_decision_ids
         ]
     return []

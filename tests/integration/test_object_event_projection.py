@@ -58,8 +58,8 @@ class ObjectEventProjectionIntegrationTests(unittest.TestCase):
                         "payload": {
                             "object_id": "O-decision",
                             "from_status": "unresolved",
-                            "to_status": "accepted",
-                            "reason": "Accepted in integration test.",
+                            "to_status": "blocked",
+                            "reason": "Blocked in integration test.",
                             "changed_at": "2026-04-23T12:05:00Z",
                         },
                     },
@@ -74,7 +74,7 @@ class ObjectEventProjectionIntegrationTests(unittest.TestCase):
             project_state = json.loads((ai_dir / "project-state.json").read_text(encoding="utf-8"))
             by_id = {item["id"]: item for item in project_state["objects"]}
 
-            self.assertEqual("accepted", by_id["O-decision"]["status"])
+            self.assertEqual("blocked", by_id["O-decision"]["status"])
             self.assertEqual("P0", by_id["O-decision"]["metadata"]["priority"])
             self.assertNotIn("L-evidence-supports-decision", {link["id"] for link in project_state["links"]})
             self.assertEqual([], validate_runtime(ai_dir))

@@ -72,7 +72,7 @@ class LegacySchemaRejectedTests(unittest.TestCase):
 
 def _valid_project_state() -> dict:
     payload = {
-        "schema_version": 10,
+        "schema_version": 11,
         "project": {
             "name": "Demo",
             "objective": "Plan the current milestone.",

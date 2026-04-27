@@ -25,8 +25,6 @@ DISCOVERABLE_DECISION_FIELDS = {
     "blocked_by",
     "question",
     "context",
-    "options",
-    "revisit_triggers",
     "notes",
     "bundle_id",
     "agent_relevant",
@@ -39,4 +37,6 @@ FORBIDDEN_DISCOVERED_DECISION_FIELDS = {
     "invalidated_by",
     "recommendation",
     "evidence_refs",
+    "options",
+    "revisit_triggers",
 }

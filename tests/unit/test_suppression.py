@@ -10,7 +10,7 @@ from decide_me.taxonomy import default_taxonomy_state, taxonomy_nodes
 def _suppressed_context() -> dict[str, list[str]]:
     return {
         "session_ids": ["S-loser"],
-        "decision_ids": ["D-hidden"],
+        "related_object_ids": ["D-hidden", "P-hidden"],
         "action_slice_names": [],
         "workstream_names": [],
         "hidden_strings": ["Hidden Tag"],
@@ -23,17 +23,12 @@ class SuppressionTests(unittest.TestCase):
 
         with self.subTest("decision binding"):
             session = default_session_state("S-loser", "2026-04-23T12:00:00Z", "Loser")
-            session["session"]["decision_ids"] = ["D-hidden"]
+            session["session"]["related_object_ids"] = ["D-hidden"]
             self.assertTrue(has_suppressed_context_remainders(session, context))
 
-        with self.subTest("active decision"):
+        with self.subTest("active proposal"):
             session = default_session_state("S-loser", "2026-04-23T12:00:00Z", "Loser")
-            session["summary"]["active_decision_id"] = "D-hidden"
-            self.assertTrue(has_suppressed_context_remainders(session, context))
-
-        with self.subTest("active proposal target"):
-            session = default_session_state("S-loser", "2026-04-23T12:00:00Z", "Loser")
-            session["working_state"]["active_proposal"]["target_id"] = "D-hidden"
+            session["working_state"]["active_proposal_id"] = "P-hidden"
             self.assertTrue(has_suppressed_context_remainders(session, context))
 
     def test_remainders_detect_hidden_taxonomy_tag_alias(self) -> None:
@@ -72,29 +67,10 @@ class SuppressionTests(unittest.TestCase):
             }
         )
         session = default_session_state("S-loser", "2026-04-23T12:00:00Z", "Loser")
-        session["session"]["decision_ids"] = ["D-hidden", "D-visible"]
-        session["summary"]["active_decision_id"] = "D-hidden"
+        session["session"]["related_object_ids"] = ["D-hidden", "D-visible", "P-hidden"]
         session["summary"]["current_question_preview"] = "Hidden Tag"
-        session["working_state"]["current_question_id"] = "Q-hidden"
-        session["working_state"]["current_question"] = "Hidden Tag"
-        session["working_state"]["active_proposal"].update(
-            {
-                "proposal_id": "P-hidden",
-                "origin_session_id": "S-loser",
-                "target_type": "decision",
-                "target_id": "D-hidden",
-                "recommendation_version": 1,
-                "based_on_project_head": "H-before",
-                "is_active": True,
-                "activated_at": "2026-04-23T12:01:00Z",
-                "inactive_reason": None,
-                "question_id": "Q-hidden",
-                "question": "Hidden Tag",
-                "recommendation": "Hidden Tag",
-                "why": "Hidden Tag",
-                "if_not": "Hidden Tag",
-            }
-        )
+        session["working_state"]["active_question_id"] = "Q-hidden"
+        session["working_state"]["active_proposal_id"] = "P-hidden"
         session["classification"]["search_terms"] = ["Hidden Tag", "visible"]
         session["classification"]["assigned_tags"] = ["tag:hidden"]
         session["close_summary"]["accepted_decisions"] = [{"id": "D-hidden", "title": "Hidden Tag"}]
@@ -111,17 +87,10 @@ class SuppressionTests(unittest.TestCase):
 
         context = apply_semantic_suppression_to_session(session, resolution, taxonomy)
 
-        self.assertEqual(["D-visible"], session["session"]["decision_ids"])
-        self.assertIsNone(session["summary"]["active_decision_id"])
+        self.assertEqual(["D-visible", "P-hidden"], session["session"]["related_object_ids"])
         self.assertIsNone(session["summary"]["current_question_preview"])
-        self.assertIsNone(session["working_state"]["current_question_id"])
-        self.assertIsNone(session["working_state"]["current_question"])
-        self.assertFalse(session["working_state"]["active_proposal"]["is_active"])
-        self.assertEqual("semantic-conflict-resolved", session["working_state"]["active_proposal"]["inactive_reason"])
-        self.assertIsNone(session["working_state"]["active_proposal"]["target_type"])
-        self.assertIsNone(session["working_state"]["active_proposal"]["target_id"])
-        self.assertIsNone(session["working_state"]["active_proposal"]["question"])
-        self.assertIsNone(session["working_state"]["active_proposal"]["recommendation"])
+        self.assertIsNone(session["working_state"]["active_question_id"])
+        self.assertIsNone(session["working_state"]["active_proposal_id"])
         self.assertEqual(["visible"], session["classification"]["search_terms"])
         self.assertEqual([], session["classification"]["assigned_tags"])
         self.assertFalse(has_suppressed_context_remainders(session, context, taxonomy))
