@@ -778,18 +778,18 @@ def resolve_by_evidence(
     decision_id: str,
     source: str,
     summary: str,
-    evidence_refs: list[str],
+    evidence: list[str],
 ) -> dict[str, Any]:
     if source not in EVIDENCE_SOURCES:
         raise ValueError(f"invalid evidence source: {source}")
     summary = summary.strip()
     if not summary:
         raise ValueError("summary must not be empty")
-    if not isinstance(evidence_refs, list):
-        raise ValueError("evidence_refs must be a list")
-    evidence_refs = stable_unique(str(ref).strip() for ref in evidence_refs if str(ref).strip())
-    if not evidence_refs:
-        evidence_refs = [summary]
+    if not isinstance(evidence, list):
+        raise ValueError("evidence must be a list")
+    evidence = stable_unique(str(ref).strip() for ref in evidence if str(ref).strip())
+    if not evidence:
+        evidence = [summary]
     now = utc_now()
 
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
@@ -813,7 +813,7 @@ def resolve_by_evidence(
                 ),
             },
         ]
-        for evidence_ref in evidence_refs:
+        for evidence_ref in evidence:
             evidence_event_id = new_event_id()
             link_event_id = new_event_id()
             evidence_id = f"O-evidence-{_stable_id(evidence_ref)}"

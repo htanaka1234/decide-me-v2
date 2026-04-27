@@ -185,11 +185,11 @@ def _action_plan_issues(
         bodies[body_path] = body
         emitted_decision_ids.add(blocker["id"])
 
-    for action_slice in action_plan.get("implementation_ready_actions", []):
+    for action in action_plan.get("implementation_ready_actions", []):
         issue, body_path, body = _task_issue(
-            action_slice,
+            action,
             evidence_by_id=evidence_by_id,
-            session_id=session_ids_by_decision_id.get(action_slice.get("decision_id", "")),
+            session_id=session_ids_by_decision_id.get(action.get("decision_id", "")),
             generated_at=generated_at,
             project_head=project_head,
         )
@@ -254,7 +254,7 @@ def _decision_issue(
             "domain": decision.get("domain") or "unknown",
             "kind": decision.get("kind") or "unknown",
             "resolvable_by": decision.get("resolvable_by") or "unknown",
-            "evidence_refs": render_markdown_list(_evidence_refs_for_item(decision, evidence_by_id)),
+            "evidence": render_markdown_list(_evidence_for_item(decision, evidence_by_id)),
             "generated_at": generated_at or "null",
             "project_head": project_head or "null",
         },
@@ -263,15 +263,15 @@ def _decision_issue(
 
 
 def _task_issue(
-    action_slice: dict[str, Any],
+    action: dict[str, Any],
     *,
     evidence_by_id: dict[str, dict[str, Any]],
     session_id: str | None,
     generated_at: str | None,
     project_head: str | None,
 ) -> tuple[dict[str, Any], str, str]:
-    decision_id = action_slice.get("decision_id") or action_slice.get("name") or "task"
-    name = action_slice.get("name") or decision_id
+    decision_id = action.get("decision_id") or action.get("name") or "task"
+    name = action.get("name") or decision_id
     body_path = f"issues/{_path_component(decision_id)}-task.md"
     issue = {
         "title": f"[task] {name}",
@@ -279,14 +279,14 @@ def _task_issue(
             [
                 "decide-me",
                 "task",
-                action_slice.get("priority"),
-                action_slice.get("responsibility"),
+                action.get("priority"),
+                action.get("responsibility"),
                 "implementation-ready",
             ]
         ),
         "body_path": body_path,
         "source": {
-            "decision_id": action_slice.get("decision_id"),
+            "decision_id": action.get("decision_id"),
             "session_id": session_id,
         },
     }
@@ -294,16 +294,16 @@ def _task_issue(
         "issue-task.md",
         {
             "title": name,
-            "summary": render_markdown_text(action_slice.get("summary")),
-            "next_step": render_markdown_text(action_slice.get("next_step")),
-            "decision_id": action_slice.get("decision_id") or "unknown",
+            "summary": render_markdown_text(action.get("summary")),
+            "next_step": render_markdown_text(action.get("next_step")),
+            "decision_id": action.get("decision_id") or "unknown",
             "session_id": session_id or "unknown",
-            "priority": action_slice.get("priority") or "unknown",
-            "status": action_slice.get("status") or "unknown",
-            "responsibility": action_slice.get("responsibility") or "unknown",
-            "kind": action_slice.get("kind") or "unknown",
-            "evidence_source": action_slice.get("evidence_source") or "none",
-            "evidence_refs": render_markdown_list(_evidence_refs_for_item(action_slice, evidence_by_id)),
+            "priority": action.get("priority") or "unknown",
+            "status": action.get("status") or "unknown",
+            "responsibility": action.get("responsibility") or "unknown",
+            "kind": action.get("kind") or "unknown",
+            "evidence_source": action.get("evidence_source") or "none",
+            "evidence": render_markdown_list(_evidence_for_item(action, evidence_by_id)),
             "generated_at": generated_at or "null",
             "project_head": project_head or "null",
         },
@@ -342,7 +342,7 @@ def _risk_issue(
             "status": risk.get("status") or "unknown",
             "domain": risk.get("domain") or "unknown",
             "resolvable_by": risk.get("resolvable_by") or "unknown",
-            "evidence_refs": render_markdown_list(_evidence_refs_for_item(risk, evidence_by_id)),
+            "evidence": render_markdown_list(_evidence_for_item(risk, evidence_by_id)),
             "generated_at": generated_at or "null",
             "project_head": project_head or "null",
         },
@@ -406,7 +406,7 @@ def _evidence_by_id(action_plan: dict[str, Any]) -> dict[str, dict[str, Any]]:
     }
 
 
-def _evidence_refs_for_item(item: dict[str, Any], evidence_by_id: dict[str, dict[str, Any]]) -> list[str]:
+def _evidence_for_item(item: dict[str, Any], evidence_by_id: dict[str, dict[str, Any]]) -> list[str]:
     return stable_unique(
         evidence["ref"]
         for evidence_id in item.get("evidence_ids", [])

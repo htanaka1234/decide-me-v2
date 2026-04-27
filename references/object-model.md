@@ -35,7 +35,7 @@ Object boundary rules:
 - An option is its own object. A proposal may recommend an option through a link.
 - A risk is its own object. It is not a decision kind or a decision attribute.
 - Evidence is its own object. It supports or challenges other objects through links.
-- An action is its own object. It is not an action slice embedded in a close summary.
+- An action is its own object. It is not embedded in a close summary.
 - A revisit trigger is its own object. It revisits another object through a link.
 - Relationships such as dependency, support, challenge, recommendation, acceptance, verification,
   supersession, and blocking are never duplicated as top-level object fields.
@@ -43,4 +43,3 @@ Object boundary rules:
 `metadata` is reserved for intrinsic structured details such as priority, frontier, confidence,
 source path, exported file path, or tool-specific identifiers. If a value points at another object,
 model it as a link instead of metadata.
-

@@ -34,7 +34,7 @@ Direction rules:
   proposal, action `addresses` risk.
 - Do not create inverse relation names. Query code can derive reverse views from the link set.
 - Do not store relation arrays on objects such as `depends_on`, `blocked_by`, `options`, or
-  `evidence_refs`.
+  `evidence`.
 - When a semantic relation changes, project a new event-derived link state instead of editing a
   human-readable export.
 

@@ -1,15 +1,15 @@
 # Migration From Legacy Model
 
-Phase 5 is a breaking migration from the legacy decision projection to the domain-neutral object
+Phase 5 is a breaking migration from the legacy projection model to the domain-neutral object
 graph.
 
 What is removed:
 
 - Top-level `project-state.json.decisions`.
 - Top-level `project-state.json.proposals`.
-- Top-level `project-state.json.action_slices`.
+- Top-level embedded action-list projections.
 - Decision attributes that embed options, recommendations, accepted answers, evidence refs, risks,
-  blockers, revisit triggers, or action slices as nested state.
+  blockers, revisit triggers, or actions as nested state.
 
 What replaces it:
 
@@ -21,7 +21,8 @@ What replaces it:
   `verifies`.
 - Legacy blockers and risks become `risk` or `constraint` objects linked with `blocked_by` or
   `challenges`.
-- Legacy action slices become `action` objects linked with `addresses`, `depends_on`, `blocked_by`,
+- Legacy embedded actions become `action` objects linked with `addresses`, `depends_on`,
+  `blocked_by`,
   or `verifies`.
 - Legacy revisit triggers become `revisit_trigger` objects linked with `revisits`.
 
@@ -51,5 +52,4 @@ Phase 5-2 scope:
 - Preserve project protocol settings, the lightweight `sessions_index`, and the session graph
   projection under top-level `graph`.
 - Keep session projections at their current schema version until interview runtime replacement.
-- Do not persist top-level `decisions`, compatibility projections, or legacy decision-shaped
-  project state.
+- Do not persist top-level decision records, compatibility projections, or legacy project state.

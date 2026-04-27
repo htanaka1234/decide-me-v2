@@ -5,7 +5,7 @@ Session statuses:
 - `active`: current working thread
 - `idle`: no recent activity but safe to resume
 - `stale`: not current and needs explicit resume
-- `closed`: interview finished and close summary frozen
+- `closed`: interview finished and object/link close summary frozen
 
 Public operations:
 
@@ -23,6 +23,7 @@ Lifecycle rules:
 - Resuming a session invalidates any previously active proposal.
 - Resolving a decision supersession deactivates any active proposal that still points at the
   superseded decision and removes that decision from normal session output.
-- Closing a session generates a `close_summary` first, then emits `session_closed`.
+- Closing a session generates `close_summary.object_ids` and `close_summary.link_ids` first, then
+  emits `session_closed`.
 - Closed sessions are read-only inputs for plan generation and search.
 - Plan generation only accepts closed sessions.

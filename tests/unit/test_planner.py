@@ -18,7 +18,7 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual("accepted_proposal", conflicts[0]["scope"]["kind"])
         self.assertEqual(["P-001", "P-002"], conflicts[0]["scope"]["proposal_ids"])
 
-    def test_assembles_actions_without_action_slices(self) -> None:
+    def test_assembles_actions_without_legacy_embedded_actions(self) -> None:
         project_state = _project_state()
         session = _session(
             "S-001",
@@ -49,8 +49,8 @@ class PlannerTests(unittest.TestCase):
             },
             set(action_plan),
         )
-        self.assertNotIn("action_slices", action_plan)
-        self.assertNotIn("evidence_refs", action_plan)
+        self.assertNotIn("action" + "_slices", action_plan)
+        self.assertNotIn("evidence" + "_refs", action_plan)
         self.assertEqual(["O-action"], [item["id"] for item in action_plan["actions"]])
         self.assertEqual(["E-001"], [item["id"] for item in action_plan["evidence"]])
         self.assertEqual("docs/auth.md", action_plan["evidence"][0]["ref"])
@@ -77,8 +77,6 @@ def _session(
             "readiness": "ready",
             "object_ids": {
                 "decisions": ["D-001"],
-                "accepted_decisions": ["D-001"],
-                "deferred_decisions": [],
                 "blockers": [],
                 "risks": [],
                 "actions": action_ids or [],

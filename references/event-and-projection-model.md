@@ -24,7 +24,11 @@ Event envelope:
 
 Projection rules:
 
-- Rebuild `project-state.json`, `taxonomy-state.json`, and `sessions/*.json` from the transaction files.
+- Rebuild `project-state.json`, `taxonomy-state.json`, and `sessions/*.json` from the transaction
+  files.
+- `project-state.json` is the object/link projection. It contains project metadata, projection
+  metadata, protocol settings, session index data, derived counts, `objects`, `links`, and the
+  persisted session graph.
 - Never mutate a projection directly without emitting an event.
 - Normal reads load the persisted projections plus `runtime-index.json`; they do not replay the
   event log.
@@ -51,7 +55,7 @@ Projection rules:
   event log.
 - `session_answer_recorded.payload.answer` is `{summary, answered_at, answered_via}`.
 - `project_state.state.project_head` is a SHA-256 chain hash over canonical event content and the
-  previous project head, replacing the old project-wide sequence number.
+  previous project head.
 
 Legacy runtime layout:
 
@@ -76,7 +80,8 @@ Session graph:
 
 - `project_state.graph` contains deterministic `nodes`, `edges`, `resolved_conflicts`, and an
   empty `inferred_candidates` list in persisted projections.
-- Phase 5-3 does not persist explicit session graph or semantic conflict resolution events.
+- The current domain-neutral event model does not persist explicit session graph or semantic
+  conflict resolution events.
   Inferred candidates remain advisory output generated from projections when requested.
 
 Object supersession:

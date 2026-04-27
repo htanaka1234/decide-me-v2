@@ -267,9 +267,9 @@ def _bundle(decisions: list[dict]) -> dict:
                 _object(
                     evidence_id,
                     "evidence",
-                    decision["resolved_by_evidence"]["evidence_refs"][0],
+                    decision["resolved_by_evidence"]["evidence"][0],
                     body=summary,
-                    metadata={"source": "docs", "ref": decision["resolved_by_evidence"]["evidence_refs"][0]},
+                    metadata={"source": "docs", "ref": decision["resolved_by_evidence"]["evidence"][0]},
                 )
             )
             links.append(_link(f"L-{evidence_id}-supports-{decision['id']}", evidence_id, "supports", decision["id"], summary))
@@ -296,7 +296,7 @@ def _decision_object(decision: dict) -> dict:
             "status",
             "accepted_answer",
             "resolved_by_evidence",
-            "evidence_refs",
+            "evidence",
             "options",
             "recommendation",
             "revisit_triggers",
@@ -414,9 +414,9 @@ def default_decision(decision_id: str, requirement_id: str, title: str | None = 
             "source": None,
             "summary": None,
             "resolved_at": None,
-            "evidence_refs": [],
+            "evidence": [],
         },
-        "evidence_refs": [],
+        "evidence": [],
         "revisit_triggers": [],
         "notes": [],
         "bundle_id": None,
@@ -439,7 +439,7 @@ def _resolved(decision_id: str, title: str, domain: str, summary: str) -> dict:
         "source": "docs",
         "summary": summary,
         "resolved_at": "2026-04-26T00:00:00Z",
-        "evidence_refs": ["docs/policy.md"],
+        "evidence": ["docs/policy.md"],
     }
     return decision
 

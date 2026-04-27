@@ -75,7 +75,11 @@ def detect_conflicts(
         close_summary = session["close_summary"]
         session_id = session["session"]["id"]
 
-        for decision_id in close_summary["object_ids"].get("accepted_decisions", []):
+        for decision_id in _summary_decision_ids_with_status(
+            project_state,
+            close_summary,
+            {"accepted", "resolved-by-evidence"},
+        ):
             proposal_ids = _accepted_proposal_ids_for_summary(project_state, close_summary, decision_id)
             if not proposal_ids:
                 continue
@@ -243,6 +247,20 @@ def _source_object_ids(project_state: dict[str, Any], close_summary: dict[str, A
     for link in _summary_links(project_state, close_summary):
         object_ids.extend([link.get("source_object_id"), link.get("target_object_id")])
     return stable_unique(object_id for object_id in object_ids if object_id)
+
+
+def _summary_decision_ids_with_status(
+    project_state: dict[str, Any],
+    close_summary: dict[str, Any],
+    statuses: set[str],
+) -> list[str]:
+    by_id = _objects_by_id(project_state)
+    return [
+        decision_id
+        for decision_id in close_summary.get("object_ids", {}).get("decisions", [])
+        if by_id.get(decision_id, {}).get("type") == "decision"
+        and by_id.get(decision_id, {}).get("status") in statuses
+    ]
 
 
 def _accepted_proposal_ids_for_summary(

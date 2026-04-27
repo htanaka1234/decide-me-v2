@@ -136,7 +136,7 @@ class ObjectBasedInterviewFlowTests(unittest.TestCase):
                 decision_id="D-docs",
                 source="docs",
                 summary="The architecture note is authoritative.",
-                evidence_refs=["docs/architecture.md"],
+                evidence=["docs/architecture.md"],
             )
 
             self.assertEqual([], validate_runtime(ai_dir))

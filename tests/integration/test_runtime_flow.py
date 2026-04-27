@@ -139,7 +139,7 @@ class RuntimeFlowTests(unittest.TestCase):
                     decision_id=decision_id,
                     source="docs",
                     summary="The architecture note resolves this.",
-                    evidence_refs=["docs/architecture.md"],
+                    evidence=["docs/architecture.md"],
                 )
 
             self.assertEqual([], validate_runtime(ai_dir))

@@ -242,8 +242,6 @@ def build_close_summary(
         "readiness": readiness,
         "object_ids": {
             "decisions": stable_unique(session_decision_ids),
-            "accepted_decisions": stable_unique(accepted_decision_ids),
-            "deferred_decisions": stable_unique(deferred_decision_ids),
             "blockers": stable_unique(blocker_ids),
             "risks": stable_unique(risk_ids),
             "actions": stable_unique(summary_action_ids),
@@ -642,7 +640,7 @@ def _action_object(
             "implementation_ready": _implementation_ready(decision, summary),
             "evidence_backed": bool(evidence),
             "evidence_source": evidence[0].get("source") if evidence else None,
-            "evidence_refs": [item["ref"] for item in evidence],
+            "evidence": [item["ref"] for item in evidence],
             "next_step": _action_next_step(decision),
         },
     }

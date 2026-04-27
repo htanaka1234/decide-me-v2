@@ -73,7 +73,6 @@ class SuppressionTests(unittest.TestCase):
         session["classification"]["search_terms"] = ["Hidden Tag", "visible"]
         session["classification"]["assigned_tags"] = ["tag:hidden"]
         session["close_summary"]["object_ids"]["decisions"] = ["D-hidden"]
-        session["close_summary"]["object_ids"]["accepted_decisions"] = ["D-hidden"]
         session["close_summary"]["work_item"]["title"] = "Hidden Tag"
 
         resolution = {

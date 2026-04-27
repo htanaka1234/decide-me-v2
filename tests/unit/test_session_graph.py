@@ -40,7 +40,7 @@ def _graph_bundle() -> dict:
             "relationship": "refines",
             "reason": "Child refines parent.",
             "linked_at": "2026-04-23T12:00:00Z",
-            "evidence_refs": [],
+            "evidence": [],
             "event_id": "E-link-1",
         },
         {
@@ -49,7 +49,7 @@ def _graph_bundle() -> dict:
             "relationship": "derived_from",
             "reason": "Grandchild follows child.",
             "linked_at": "2026-04-23T12:01:00Z",
-            "evidence_refs": [],
+            "evidence": [],
             "event_id": "E-link-2",
         },
     ]

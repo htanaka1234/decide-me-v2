@@ -36,7 +36,7 @@ FORBIDDEN_DISCOVERED_DECISION_FIELDS = {
     "resolved_by_evidence",
     "invalidated_by",
     "recommendation",
-    "evidence_refs",
+    "evidence",
     "options",
     "revisit_triggers",
 }

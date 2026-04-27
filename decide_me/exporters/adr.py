@@ -9,7 +9,7 @@ from decide_me.exporters.common import (
     decision_summary,
     lookup_decision,
     project_head,
-    referenced_evidence_refs,
+    referenced_evidence,
     snapshot_generated_at,
     superseded_by,
 )
@@ -36,7 +36,7 @@ def export_structured_adr(
 
     index = build_decision_event_index(events)
     title = decision["title"] or decision["id"]
-    evidence_refs = referenced_evidence_refs(decision)
+    evidence = referenced_evidence(decision)
     template = (
         Path(__file__).resolve().parents[2] / "templates" / "structured-adr-template.md"
     ).read_text(encoding="utf-8")
@@ -49,7 +49,7 @@ def export_structured_adr(
         .replace("{{alternatives}}", render_markdown_list(decision.get("options", [])))
         .replace("{{consequences}}", render_markdown_list(decision.get("notes", [])))
         .replace("{{revisit_triggers}}", render_markdown_list(decision.get("revisit_triggers", [])))
-        .replace("{{evidence}}", render_markdown_list(evidence_refs))
+        .replace("{{evidence}}", render_markdown_list(evidence))
     )
 
     output = paths.adr_dir / "structured" / f"{decision['id']}-{slugify(title)}.md"
@@ -78,7 +78,7 @@ def _frontmatter(
         "supersedes": index.supersedes.get(decision_id, []),
         "superseded_by": superseded_by(decision, index),
         "depends_on": decision.get("depends_on", []),
-        "evidence_refs": referenced_evidence_refs(decision),
+        "evidence": referenced_evidence(decision),
         "risk": {
             "technical": None,
             "operational": None,

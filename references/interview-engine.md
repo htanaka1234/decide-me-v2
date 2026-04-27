@@ -2,7 +2,7 @@
 
 The interview engine works in this order:
 
-1. Discover or refresh visible decisions.
+1. Discover or refresh visible decision objects and related objects.
 2. Try to resolve them with evidence.
 3. Select the highest-value unresolved decision.
 4. Issue a single proposal.
@@ -25,6 +25,16 @@ Evidence-first resolution order:
 
 When evidence resolves a decision, record neutral object status/update/link events and avoid asking
 the user again unless the evidence later becomes stale.
+
+Runtime writes:
+
+- Questions, proposals, answers, evidence, risks, actions, and follow-up constraints are projected
+  from `object_recorded`, `object_updated`, `object_status_changed`, `object_linked`,
+  `object_unlinked`, `session_question_asked`, and `session_answer_recorded`.
+- Proposals and decisions are objects. Acceptance is represented by a decision object linked to a
+  proposal object with `accepts`.
+- Evidence is an object linked with `supports`, `challenges`, or `verifies`; it is not embedded in
+  close-summary or plan payloads.
 
 Deterministic runtime helpers:
 

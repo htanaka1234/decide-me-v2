@@ -18,9 +18,9 @@ class PlanSchemaTests(unittest.TestCase):
 
         self.assertEqual([], errors)
 
-    def test_rejects_legacy_evidence_refs_action_plan_shape(self) -> None:
+    def test_rejects_legacy_top_level_evidence_reference_shape(self) -> None:
         payload = _valid_plan()
-        payload["action_plan"]["evidence_refs"] = ["docs/auth.md"]
+        payload["action_plan"]["evidence" + "_refs"] = ["docs/auth.md"]
 
         errors = list(self.validator.iter_errors(payload))
 

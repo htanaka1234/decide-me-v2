@@ -7,10 +7,11 @@ decisions it reaches, and can close one or more sessions into an implementation
 plan.
 
 The repository contains the v2 runtime behind that Skill: an event-sourced
-decision log, rebuildable projections, taxonomy-aware session search, close
-summaries, and local derived exports for plans, ADRs, registers, GitHub issue
-drafts, agent instruction fragments, arc42 architecture docs, traceability
-matrices, and verification gap reports.
+object/link graph, rebuildable projections, taxonomy-aware session search,
+object-native close summaries, and local derived exports for plans, ADRs,
+software-oriented decision registers, GitHub issue drafts, agent instruction
+fragments, arc42 architecture docs, traceability matrices, and verification gap
+reports.
 
 ## Development policy
 
@@ -64,7 +65,7 @@ Find prior decide-me decisions related to audit logging.
 Generate a plan from the closed decide-me sessions for the MVP.
 ```
 
-For a new thread, the Skill creates a session and binds discovered decisions to
+For a new thread, the Skill creates a session and binds discovered objects to
 that session. For a continuing thread, it resumes the existing session, validates
 state, and avoids treating stale proposals as silently accepted.
 
@@ -74,7 +75,7 @@ Before asking the user, the Skill should inspect available evidence:
 - docs and README-like files
 - tests
 - existing sessions
-- prior close summaries
+- prior object/link close summaries
 
 If evidence already resolves a decision, the Skill records that instead of
 asking again. Otherwise it asks exactly one question in this shape:
@@ -151,7 +152,7 @@ Inspect session graph context:
 
 1. Run `python3 scripts/decide_me.py show-session-graph --ai-dir .ai/decide-me --session-id S-... --include-inferred`.
 2. Treat inferred graph candidates as advisory. Explicit session graph writes are not part of
-   the Phase 5-3 event whitelist.
+   the domain-neutral event whitelist.
 
 Record object relationships:
 
@@ -167,7 +168,7 @@ Record object relationships:
 Reuse prior context:
 
 1. Search sessions by topic, domain, abstraction level, or tag.
-2. Inspect the prior decisions and close summaries.
+2. Inspect prior objects, links, and close summaries.
 3. Resume the matching session or start a new one with the old decisions as
    evidence.
 
@@ -178,23 +179,30 @@ The runtime lives under `.ai/decide-me/`.
 - `events/**/*.jsonl` transaction files are the source of truth.
 - `transaction_rejected` control events exclude rejected transaction IDs from
   the effective projection stream without deleting the rejected files.
-- The Phase 5-3 event whitelist is `project_initialized`, `session_created`,
+- The domain-neutral event whitelist is `project_initialized`, `session_created`,
   `session_resumed`, `session_closed`, `close_summary_generated`, `plan_generated`,
   `taxonomy_extended`, `transaction_rejected`, `object_recorded`, `object_updated`,
   `object_status_changed`, `object_linked`, `object_unlinked`,
   `session_question_asked`, and `session_answer_recorded`.
 - Deleted decision/proposal/session-graph compatibility event names are rejected rather than
   migrated or backfilled.
-- `project-state.json`, `taxonomy-state.json`, and `sessions/*.json` are
-  rebuildable projections and the normal hot-path read cache.
+- `project-state.json` is the rebuildable object/link projection. It contains project metadata,
+  projection metadata, protocol settings, session index data, counts, `objects`, `links`, and the
+  persisted session graph.
+- `taxonomy-state.json` and `sessions/*.json` are also rebuildable projections and the normal
+  hot-path read cache.
+- Close summaries store object and link reference sets in `close_summary.object_ids` and
+  `close_summary.link_ids`; generated plans consume those references and emit
+  `action_plan.actions` plus `action_plan.implementation_ready_actions`.
 - `runtime-index.json` checkpoints the current projection head, event count,
   rejected transaction IDs, last event sort key, and projection file manifest.
 - `session-graph-cache.json` may cache full inferred graph output by
   `project_head`; persisted project state keeps inferred candidates empty until
   a command asks for them.
-- `exports/` contains human-readable plans, ADRs, structured ADRs, decision registers, local
-  GitHub issue drafts, agent instruction fragments, arc42 architecture docs, traceability
-  matrices, and verification gap reports.
+- `exports/` contains human-readable plans, ADRs, structured ADRs, software-oriented decision
+  registers, local GitHub issue drafts, agent instruction fragments, arc42 architecture docs,
+  traceability matrices, and verification gap reports. These are derived exports, not runtime
+  state.
 - `write.lock` protects runtime writes.
 
 Legacy runtimes that still have `.ai/decide-me/event-log.jsonl` are not migrated
@@ -264,8 +272,8 @@ PYTHONPATH=. python3 -m unittest discover -v
 - `references/`: protocol, lifecycle, taxonomy, event model, plan generation,
   output contract, and examples
 - `schemas/`: JSON contracts for events and projections
-- `templates/`: ADR, structured ADR, action-plan, GitHub issue, and agent instruction export
-  templates
+- `templates/`: plan, ADR, structured ADR, GitHub issue, traceability, verification gap, and agent
+  instruction export templates
 - `decide_me/`: runtime implementation
 - `scripts/decide_me.py`: deterministic CLI
 - `requirements-dev.txt`: development-only dependencies for schema validation tests

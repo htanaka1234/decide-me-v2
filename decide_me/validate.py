@@ -71,22 +71,8 @@ SESSION_MUTATION_EVENT_TYPES = {
     "taxonomy_extended",
     "close_summary_generated",
 }
-LEGACY_CLOSE_SUMMARY_KEYS = {
-    "accepted_decisions",
-    "deferred_decisions",
-    "unresolved_blockers",
-    "unresolved_risks",
-    "candidate_workstreams",
-    "candidate_action_slices",
-    "evidence_refs",
-    "work_item_title",
-    "work_item_statement",
-    "goal",
-}
 CLOSE_SUMMARY_OBJECT_ID_KEYS = (
     "decisions",
-    "accepted_decisions",
-    "deferred_decisions",
     "blockers",
     "risks",
     "actions",
@@ -486,11 +472,6 @@ def validate_session_state(session_state: dict[str, Any]) -> None:
             + ", ".join(unsupported_classification_keys)
         )
     close_summary = session_state["close_summary"]
-    legacy_keys = sorted(set(close_summary) & LEGACY_CLOSE_SUMMARY_KEYS)
-    if legacy_keys:
-        raise StateValidationError(
-            "session_state.close_summary contains legacy fields: " + ", ".join(legacy_keys)
-        )
     _require_keys(
         close_summary,
         ("work_item", "readiness", "object_ids", "link_ids", "generated_at"),
@@ -813,11 +794,6 @@ def _validate_close_summary(
     session_decision_ids: set[str],
 ) -> None:
     close_summary = session["close_summary"]
-    legacy_keys = sorted(set(close_summary) & LEGACY_CLOSE_SUMMARY_KEYS)
-    if legacy_keys:
-        raise StateValidationError(
-            f"session {session_id} close_summary contains legacy fields: " + ", ".join(legacy_keys)
-        )
     expected_readiness = _close_summary_readiness(close_summary)
     if close_summary.get("readiness") != expected_readiness:
         raise StateValidationError(
@@ -832,8 +808,6 @@ def _validate_close_summary(
         raise StateValidationError(f"session {session_id} close_summary.work_item references unknown objective")
     for section, expected_type in (
         ("decisions", "decision"),
-        ("accepted_decisions", "decision"),
-        ("deferred_decisions", "decision"),
         ("blockers", "decision"),
         ("actions", "action"),
         ("evidence", "evidence"),
@@ -855,23 +829,17 @@ def _validate_close_summary(
     for decision_id in object_ids.get("decisions", []):
         if decision_id not in visible_session_ids:
             raise StateValidationError(f"session {session_id} close_summary.object_ids.decisions references non-visible decision {decision_id}")
-    for decision_id in object_ids.get("accepted_decisions", []):
-        if decision_id not in visible_session_ids:
-            raise StateValidationError(f"session {session_id} close_summary.object_ids.accepted_decisions references non-visible decision {decision_id}")
-        if decisions_by_id[decision_id]["status"] not in {"accepted", "resolved-by-evidence"}:
-            raise StateValidationError(f"session {session_id} close_summary.object_ids.accepted_decisions references non-accepted decision {decision_id}")
-    for decision_id in object_ids.get("deferred_decisions", []):
-        if decision_id not in visible_session_ids:
-            raise StateValidationError(f"session {session_id} close_summary.object_ids.deferred_decisions references non-visible decision {decision_id}")
-        if decisions_by_id[decision_id]["status"] != "deferred":
-            raise StateValidationError(f"session {session_id} close_summary.object_ids.deferred_decisions references non-deferred decision {decision_id}")
     for decision_id in object_ids.get("blockers", []):
         if decision_id not in visible_session_ids:
             raise StateValidationError(f"session {session_id} close_summary.object_ids.blockers references non-visible decision {decision_id}")
         decision = decisions_by_id[decision_id]
         if decision.get("status") not in OPEN_DECISION_STATUSES:
             raise StateValidationError(f"session {session_id} close_summary.object_ids.blockers references non-open decision {decision_id}")
-    accepted_ids = set(object_ids.get("accepted_decisions", []))
+    accepted_ids = {
+        decision_id
+        for decision_id in object_ids.get("decisions", [])
+        if decisions_by_id.get(decision_id, {}).get("status") in {"accepted", "resolved-by-evidence"}
+    }
     for action_id in object_ids.get("actions", []):
         addresses = [
             link
@@ -1142,7 +1110,7 @@ def _validate_graph(session_graph: dict[str, Any]) -> None:
                 "relationship",
                 "reason",
                 "linked_at",
-                "evidence_refs",
+                "evidence",
                 "event_id",
             ),
             "project_state.graph.edges[]",
@@ -1152,7 +1120,7 @@ def _validate_graph(session_graph: dict[str, Any]) -> None:
         _require_enum(edge_payload["relationship"], SESSION_RELATIONSHIPS, "project_state.graph.edges[].relationship")
         _require_non_empty_string(edge_payload["reason"], "project_state.graph.edges[].reason")
         _require_timestamp(edge_payload["linked_at"], "project_state.graph.edges[].linked_at")
-        _require_list(edge_payload["evidence_refs"], "project_state.graph.edges[].evidence_refs")
+        _require_list(edge_payload["evidence"], "project_state.graph.edges[].evidence")
         _require_non_empty_string(edge_payload["event_id"], "project_state.graph.edges[].event_id")
     for resolved in graph["resolved_conflicts"]:
         resolved_payload = _require_dict(resolved, "project_state.graph.resolved_conflicts[]")
@@ -1196,10 +1164,10 @@ def _validate_suppressed_context(context: Any, label: str) -> None:
     context_payload = _require_dict(context, label)
     _require_keys(
         context_payload,
-        ("session_ids", "related_object_ids", "action_slice_names", "workstream_names", "hidden_strings"),
+        ("session_ids", "related_object_ids", "link_ids", "hidden_strings"),
         label,
     )
-    for key in ("session_ids", "related_object_ids", "action_slice_names", "workstream_names", "hidden_strings"):
+    for key in ("session_ids", "related_object_ids", "link_ids", "hidden_strings"):
         _require_list(context_payload[key], f"{label}.{key}")
 
 

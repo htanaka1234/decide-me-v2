@@ -59,7 +59,7 @@ def decision_view(project_state: dict[str, Any], decision_id: str) -> dict[str, 
         "recommendation": _recommendation_view(project_state, latest_proposal),
         "accepted_answer": _accepted_answer_view(project_state, accepted),
         "resolved_by_evidence": _evidence_resolution_view(evidence),
-        "evidence_refs": [item["ref"] for item in evidence],
+        "evidence": [item["ref"] for item in evidence],
     }
 
 
@@ -222,13 +222,13 @@ def _accepted_answer_view(project_state: dict[str, Any], proposal: dict[str, Any
 
 def _evidence_resolution_view(evidence: list[dict[str, Any]]) -> dict[str, Any]:
     if not evidence:
-        return {"source": None, "summary": None, "resolved_at": None, "evidence_refs": []}
+        return {"source": None, "summary": None, "resolved_at": None, "evidence": []}
     first = evidence[0]
     return {
         "source": first.get("source"),
         "summary": first.get("summary"),
         "resolved_at": None,
-        "evidence_refs": [item["ref"] for item in evidence],
+        "evidence": [item["ref"] for item in evidence],
     }
 
 

@@ -48,21 +48,22 @@ class CloseSummaryTests(unittest.TestCase):
             close_summary = closed["close_summary"]
 
             for legacy_key in (
-                "accepted_decisions",
-                "deferred_decisions",
-                "unresolved_blockers",
-                "unresolved_risks",
-                "candidate_workstreams",
-                "candidate_action_slices",
-                "evidence_refs",
+                "accepted" + "_decisions",
+                "deferred" + "_decisions",
+                "unresolved" + "_blockers",
+                "unresolved" + "_risks",
+                "candidate" + "_workstreams",
+                "candidate" + "_action" + "_slices",
+                "evidence",
             ):
                 self.assertNotIn(legacy_key, close_summary)
-            self.assertEqual(["D-auth"], close_summary["object_ids"]["accepted_decisions"])
+            self.assertEqual(["D-auth"], close_summary["object_ids"]["decisions"])
             self.assertEqual(1, len(close_summary["object_ids"]["actions"]))
             self.assertTrue(close_summary["link_ids"])
 
             bundle = load_runtime(runtime_paths(ai_dir))
             objects = {obj["id"]: obj for obj in bundle["project_state"]["objects"]}
+            self.assertEqual("accepted", objects["D-auth"]["status"])
             action_id = close_summary["object_ids"]["actions"][0]
             self.assertEqual("action", objects[action_id]["type"])
 

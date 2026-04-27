@@ -68,7 +68,7 @@
               "domain",
               "kind",
               "accepted_via",
-              "evidence_refs"
+              "evidence"
             ],
             "properties": {
               "decision_id": {
@@ -121,7 +121,7 @@
                   "null"
                 ]
               },
-              "evidence_refs": {
+              "evidence": {
                 "type": "array",
                 "items": {
                   "type": "string"

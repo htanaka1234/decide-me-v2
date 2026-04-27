@@ -72,12 +72,12 @@ def project_head(bundle: dict[str, Any]) -> str | None:
     return bundle["project_state"].get("state", {}).get("project_head")
 
 
-def referenced_evidence_refs(decision: dict[str, Any]) -> list[str]:
+def referenced_evidence(decision: dict[str, Any]) -> list[str]:
     refs: list[str] = []
-    for ref in decision.get("evidence_refs", []):
+    for ref in decision.get("evidence", []):
         if ref not in refs:
             refs.append(ref)
-    for ref in decision.get("resolved_by_evidence", {}).get("evidence_refs", []):
+    for ref in decision.get("resolved_by_evidence", {}).get("evidence", []):
         if ref not in refs:
             refs.append(ref)
     return refs
