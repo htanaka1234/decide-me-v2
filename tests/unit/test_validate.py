@@ -932,7 +932,6 @@ class ProjectionValidationTests(unittest.TestCase):
                     "domain": "technical",
                     "abstraction_level": "architecture",
                     "assigned_tags": [],
-                    "compatibility_tags": [],
                     "search_terms": [],
                     "source_refs": [],
                     "updated_at": "2026-04-23T12:03:00Z",

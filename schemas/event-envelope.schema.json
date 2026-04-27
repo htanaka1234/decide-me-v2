@@ -54,7 +54,6 @@
         "session_closed",
         "plan_generated",
         "taxonomy_extended",
-        "compatibility_backfilled",
         "transaction_rejected",
         "session_linked",
         "semantic_conflict_resolved"

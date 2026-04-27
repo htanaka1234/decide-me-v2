@@ -24,5 +24,5 @@ Search semantics:
 - query matches labels, aliases, session summaries, and search terms
 - tag filters expand by descendant closure
 - replaced nodes remain searchable through the replacement chain
-- closed sessions keep assigned tags frozen and may add compatibility tags lazily
+- closed sessions keep assigned tags frozen; replacement-chain matches are computed at read time
 - deterministic classification may extend the taxonomy and update a session index in the same write

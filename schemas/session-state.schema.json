@@ -14,7 +14,7 @@
   "properties": {
     "schema_version": {
       "type": "integer",
-      "const": 8
+      "const": 9
     },
     "session": {
       "type": "object",
@@ -58,7 +58,54 @@
       "type": "object"
     },
     "classification": {
-      "type": "object"
+      "type": "object",
+      "required": [
+        "domain",
+        "abstraction_level",
+        "assigned_tags",
+        "search_terms",
+        "source_refs",
+        "updated_at"
+      ],
+      "properties": {
+        "domain": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "abstraction_level": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "assigned_tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "search_terms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "updated_at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
     },
     "close_summary": {
       "$ref": "./close-summary.schema.json"

@@ -66,6 +66,59 @@ class EventTests(unittest.TestCase):
 
         validate_event(event)
 
+    def test_validate_rejects_removed_compatibility_backfill_event(self) -> None:
+        with self.assertRaisesRegex(EventValidationError, "unsupported event_type: compatibility_backfilled"):
+            build_event(
+                sequence=1,
+                session_id="S-001",
+                event_type="compatibility_backfilled",
+                project_version_after=4,
+                payload={"additions": ["tag:replacement"]},
+                timestamp="2026-04-23T12:00:00Z",
+            )
+
+    def test_validate_accepts_classification_without_compatibility_tags(self) -> None:
+        event = build_event(
+            sequence=1,
+            session_id="S-001",
+            event_type="classification_updated",
+            project_version_after=4,
+            payload={
+                "classification": {
+                    "domain": "technical",
+                    "abstraction_level": "architecture",
+                    "assigned_tags": [],
+                    "search_terms": [],
+                    "source_refs": [],
+                    "updated_at": "2026-04-23T12:00:00Z",
+                }
+            },
+            timestamp="2026-04-23T12:00:00Z",
+        )
+
+        validate_event(event)
+
+    def test_validate_rejects_classification_compatibility_tags(self) -> None:
+        with self.assertRaisesRegex(EventValidationError, "unsupported fields: compatibility_tags"):
+            build_event(
+                sequence=1,
+                session_id="S-001",
+                event_type="classification_updated",
+                project_version_after=4,
+                payload={
+                    "classification": {
+                        "domain": "technical",
+                        "abstraction_level": "architecture",
+                        "assigned_tags": [],
+                        "compatibility_tags": [],
+                        "search_terms": [],
+                        "source_refs": [],
+                        "updated_at": "2026-04-23T12:00:00Z",
+                    }
+                },
+                timestamp="2026-04-23T12:00:00Z",
+            )
+
     def test_validate_accepts_agent_relevant_metadata_events(self) -> None:
         discovered = build_event(
             sequence=1,

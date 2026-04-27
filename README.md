@@ -158,8 +158,6 @@ Resolve decision replacements:
 
 1. Ensure the superseding decision is accepted or resolved by evidence.
 2. Run `python3 scripts/decide_me.py resolve-decision-supersession --ai-dir .ai/decide-me --session-id S-... --superseded-decision-id D-old --superseding-decision-id D-new --reason "..."`.
-3. The legacy `invalidate-decision` command remains as a compatibility alias, but new workflows
-   should use the resolution command above.
 
 Reuse prior context:
 

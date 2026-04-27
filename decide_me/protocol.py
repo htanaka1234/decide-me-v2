@@ -441,23 +441,6 @@ def resolve_decision_supersession(
     }
 
 
-def invalidate_decision(
-    ai_dir: str,
-    session_id: str,
-    *,
-    decision_id: str,
-    invalidated_by_decision_id: str,
-    reason: str,
-) -> dict[str, Any]:
-    return resolve_decision_supersession(
-        ai_dir,
-        session_id,
-        superseded_decision_id=decision_id,
-        superseding_decision_id=invalidated_by_decision_id,
-        reason=reason,
-    )
-
-
 def update_classification(
     ai_dir: str,
     session_id: str,
@@ -465,7 +448,6 @@ def update_classification(
     domain: str | None,
     abstraction_level: str | None,
     assigned_tags: list[str] | None = None,
-    compatibility_tags: list[str] | None = None,
     search_terms: list[str] | None = None,
     source_refs: list[str] | None = None,
 ) -> dict[str, Any]:
@@ -481,7 +463,6 @@ def update_classification(
                 "domain": domain,
                 "abstraction_level": abstraction_level,
                 "assigned_tags": assigned_tags or [],
-                "compatibility_tags": compatibility_tags or [],
                 "search_terms": search_terms or [],
                 "source_refs": source_refs or [],
                 "updated_at": now,

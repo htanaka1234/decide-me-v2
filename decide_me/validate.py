@@ -53,7 +53,6 @@ SESSION_SCOPED_EVENT_TYPES = {
     "close_summary_generated",
     "session_closed",
     "taxonomy_extended",
-    "compatibility_backfilled",
     "transaction_rejected",
     "session_linked",
     "semantic_conflict_resolved",
@@ -316,13 +315,21 @@ def validate_session_state(session_state: dict[str, Any]) -> None:
             "domain",
             "abstraction_level",
             "assigned_tags",
-            "compatibility_tags",
             "search_terms",
             "source_refs",
             "updated_at",
         ),
         "session_state.classification",
     )
+    unsupported_classification_keys = sorted(
+        set(session_state["classification"])
+        - {"domain", "abstraction_level", "assigned_tags", "search_terms", "source_refs", "updated_at"}
+    )
+    if unsupported_classification_keys:
+        raise StateValidationError(
+            "session_state.classification contains unsupported fields: "
+            + ", ".join(unsupported_classification_keys)
+        )
     _require_keys(
         session_state["close_summary"],
         (
@@ -346,7 +353,7 @@ def validate_session_state(session_state: dict[str, Any]) -> None:
         ("current_question_id", "current_question", "active_proposal", "last_seen_project_head"),
         "session_state.working_state",
     )
-    for key in ("assigned_tags", "compatibility_tags", "search_terms", "source_refs"):
+    for key in ("assigned_tags", "search_terms", "source_refs"):
         _require_list(session_state["classification"][key], f"session_state.classification.{key}")
     _require_optional_timestamp(
         session_state["classification"].get("updated_at"),
@@ -536,10 +543,11 @@ def _validate_classification_refs(
     domain = classification.get("domain")
     if domain is not None:
         _require_enum(domain, DOMAIN_VALUES, f"session {session_id} classification.domain")
-    for key in ("assigned_tags", "compatibility_tags"):
-        for tag_ref in classification.get(key, []):
-            if tag_ref not in taxonomy_ids:
-                raise StateValidationError(f"session {session_id} {key} references unknown taxonomy node {tag_ref}")
+    for tag_ref in classification.get("assigned_tags", []):
+        if tag_ref not in taxonomy_ids:
+            raise StateValidationError(
+                f"session {session_id} assigned_tags references unknown taxonomy node {tag_ref}"
+            )
 
 
 def _validate_active_proposal(
