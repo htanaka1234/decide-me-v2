@@ -5,9 +5,18 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from decide_me.events import new_event_id, utc_now
 from decide_me.lifecycle import build_close_summary, close_session, create_session
 from decide_me.protocol import accept_proposal, discover_decision, issue_proposal, record_reply_artifacts, resolve_by_evidence
-from decide_me.store import bootstrap_runtime, load_runtime, read_event_log, rebuild_and_persist, runtime_paths, validate_runtime
+from decide_me.store import (
+    bootstrap_runtime,
+    load_runtime,
+    read_event_log,
+    rebuild_and_persist,
+    runtime_paths,
+    transact,
+    validate_runtime,
+)
 
 
 class ObjectBasedCloseSummaryIntegrationTests(unittest.TestCase):
@@ -100,6 +109,64 @@ class ObjectBasedCloseSummaryIntegrationTests(unittest.TestCase):
             self.assertIn("D-auth", close_summary["object_ids"]["accepted_decisions"])
             self.assertEqual(closed["close_summary"]["object_ids"]["actions"], close_summary["object_ids"]["actions"])
 
+    def test_dependency_reachable_external_decision_does_not_get_session_action(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = Path(tmp) / ".ai" / "decide-me"
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Plan object-native close summaries.",
+                current_milestone="Phase 5-5",
+            )
+            session_a = _accepted_decision_session(
+                ai_dir,
+                context="External",
+                decision_id="D-external",
+                title="External platform choice",
+            )
+            close_session(str(ai_dir), session_a)
+            session_b = _accepted_decision_session(
+                ai_dir,
+                context="Local",
+                decision_id="D-local",
+                title="Local implementation choice",
+            )
+            _link_dependency(ai_dir, session_b, source_id="D-local", target_id="D-external")
+
+            closed_b = close_session(str(ai_dir), session_b)
+            bundle = load_runtime(runtime_paths(ai_dir))
+            objects = {obj["id"]: obj for obj in bundle["project_state"]["objects"]}
+            links = bundle["project_state"]["links"]
+            action_decision_ids = [
+                objects[action_id]["metadata"]["decision_id"]
+                for action_id in closed_b["close_summary"]["object_ids"]["actions"]
+            ]
+
+            self.assertEqual(["D-local"], action_decision_ids)
+            self.assertNotIn("D-external", closed_b["close_summary"]["object_ids"]["accepted_decisions"])
+            self.assertEqual(
+                [],
+                [
+                    obj["id"]
+                    for obj in objects.values()
+                    if obj.get("type") == "action"
+                    and obj.get("metadata", {}).get("origin_session_id") == session_b
+                    and obj.get("metadata", {}).get("decision_id") == "D-external"
+                ],
+            )
+            self.assertEqual(
+                [],
+                [
+                    link["id"]
+                    for link in links
+                    if link.get("relation") == "addresses"
+                    and link.get("target_object_id") == "D-external"
+                    and objects.get(link.get("source_object_id"), {}).get("metadata", {}).get("origin_session_id")
+                    == session_b
+                ],
+            )
+            self.assertEqual([], validate_runtime(ai_dir))
+
 
 def _accepted_decision_runtime(ai_dir: Path) -> str:
     bootstrap_runtime(
@@ -133,6 +200,61 @@ def _accepted_decision_runtime(ai_dir: Path) -> str:
     )
     accept_proposal(str(ai_dir), session_id)
     return session_id
+
+
+def _accepted_decision_session(ai_dir: Path, *, context: str, decision_id: str, title: str) -> str:
+    session_id = create_session(str(ai_dir), context=context)["session"]["id"]
+    discover_decision(
+        str(ai_dir),
+        session_id,
+        {
+            "id": decision_id,
+            "title": title,
+            "priority": "P0",
+            "frontier": "now",
+            "domain": "technical",
+            "resolvable_by": "codebase",
+            "question": f"What should we do for {title}?",
+        },
+    )
+    issue_proposal(
+        str(ai_dir),
+        session_id,
+        decision_id=decision_id,
+        question=f"Use the recommended path for {title}?",
+        recommendation=f"Use recommended path for {title}.",
+        why="It is the smallest viable scope.",
+        if_not="A broader choice adds coordination cost.",
+    )
+    accept_proposal(str(ai_dir), session_id)
+    return session_id
+
+
+def _link_dependency(ai_dir: Path, session_id: str, *, source_id: str, target_id: str) -> None:
+    event_id = new_event_id()
+    created_at = utc_now()
+
+    def builder(_: dict) -> list[dict]:
+        return [
+            {
+                "event_id": event_id,
+                "session_id": session_id,
+                "event_type": "object_linked",
+                "payload": {
+                    "link": {
+                        "id": f"L-{source_id}-depends_on-{target_id}",
+                        "source_object_id": source_id,
+                        "relation": "depends_on",
+                        "target_object_id": target_id,
+                        "rationale": "Local implementation depends on the external platform choice.",
+                        "created_at": created_at,
+                        "source_event_ids": [event_id],
+                    }
+                },
+            }
+        ]
+
+    transact(ai_dir, builder)
 
 
 def _runtime_with_connected_objects(ai_dir: Path) -> str:

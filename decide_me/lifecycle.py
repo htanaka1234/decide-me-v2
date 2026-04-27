@@ -13,6 +13,18 @@ from decide_me.store import load_runtime, runtime_paths, transact
 from decide_me.taxonomy import resolved_tag_nodes, stable_unique
 
 
+CLOSE_SUMMARY_TRAVERSAL_RELATIONS = {
+    "addresses",
+    "recommends",
+    "accepts",
+    "supports",
+    "verifies",
+    "revisits",
+    "blocked_by",
+    "challenges",
+}
+
+
 def create_session(ai_dir: str, context: str | None = None) -> dict[str, Any]:
     session_id = new_entity_id("S")
     now = utc_now()
@@ -166,14 +178,14 @@ def build_close_summary(
         session_state,
         extra_object_ids=action_ids or [],
     )
+    session_decision_ids = _session_summary_decision_ids(project_state, session_state, subset_object_ids)
     decisions = [
         by_id[decision_id]
-        for decision_id in subset_object_ids
+        for decision_id in session_decision_ids
         if decision_id in by_id
         and by_id[decision_id].get("type") == "decision"
         and not decision_is_invalidated(by_id[decision_id])
     ]
-    session_decision_ids = [decision["id"] for decision in decisions]
     accepted_decision_ids = [
         decision["id"]
         for decision in decisions
@@ -313,7 +325,7 @@ def _close_session_action_events(
 ) -> tuple[list[dict[str, Any]], list[str], list[str]]:
     by_id = objects_by_id(project_state)
     link_by_id = {link["id"]: link for link in project_state.get("links", [])}
-    session_decision_ids = _session_decision_ids(project_state, session_state)
+    session_decision_ids = _session_action_decision_ids(project_state, session_state)
     events: list[dict[str, Any]] = []
     action_ids: list[str] = []
     action_link_ids: list[str] = []
@@ -376,15 +388,103 @@ def _close_session_action_events(
     return events, stable_unique(action_ids), stable_unique(action_link_ids)
 
 
-def _session_decision_ids(project_state: dict[str, Any], session_state: dict[str, Any]) -> list[str]:
+def _session_summary_decision_ids(
+    project_state: dict[str, Any],
+    session_state: dict[str, Any],
+    subset_object_ids: list[str],
+) -> list[str]:
     by_id = objects_by_id(project_state)
-    subset_object_ids, _ = _session_graph_subset(project_state, session_state)
+    final_decision_ids = set(_session_final_decision_ids(project_state, session_state, for_action_generation=False))
     return stable_unique(
         object_id
         for object_id in subset_object_ids
         if by_id.get(object_id, {}).get("type") == "decision"
         and not decision_is_invalidated(by_id[object_id])
+        and (
+            by_id[object_id].get("status") not in {"accepted", "resolved-by-evidence"}
+            or object_id in final_decision_ids
+            or _decision_has_related_summary_anchor(project_state, session_state, object_id)
+        )
     )
+
+
+def _session_action_decision_ids(project_state: dict[str, Any], session_state: dict[str, Any]) -> list[str]:
+    by_id = objects_by_id(project_state)
+    return stable_unique(
+        decision_id
+        for decision_id in _session_final_decision_ids(project_state, session_state, for_action_generation=True)
+        if by_id.get(decision_id, {}).get("type") == "decision"
+        and by_id[decision_id].get("status") in {"accepted", "resolved-by-evidence"}
+        and not decision_is_invalidated(by_id[decision_id])
+    )
+
+
+def _decision_has_related_summary_anchor(
+    project_state: dict[str, Any],
+    session_state: dict[str, Any],
+    decision_id: str,
+) -> bool:
+    by_id = objects_by_id(project_state)
+    related_ids = set(session_state["session"].get("related_object_ids", []))
+    for link in project_state.get("links", []):
+        if link.get("relation") not in CLOSE_SUMMARY_TRAVERSAL_RELATIONS:
+            continue
+        source_id = link.get("source_object_id")
+        target_id = link.get("target_object_id")
+        if source_id == decision_id:
+            other_id = target_id
+        elif target_id == decision_id:
+            other_id = source_id
+        else:
+            continue
+        other = by_id.get(other_id)
+        if other_id in related_ids and other and other.get("type") != "decision":
+            return True
+    return False
+
+
+def _session_final_decision_ids(
+    project_state: dict[str, Any],
+    session_state: dict[str, Any],
+    *,
+    for_action_generation: bool,
+) -> list[str]:
+    by_id = objects_by_id(project_state)
+    session_id = session_state["session"]["id"]
+    related_ids = set(session_state["session"].get("related_object_ids", []))
+    final_ids: list[str] = []
+
+    for link in project_state.get("links", []):
+        relation = link.get("relation")
+        source_id = link.get("source_object_id")
+        target_id = link.get("target_object_id")
+        source = by_id.get(source_id)
+        target = by_id.get(target_id)
+        if relation == "accepts":
+            if (
+                source
+                and target
+                and source.get("type") == "decision"
+                and target.get("type") == "proposal"
+                and source.get("status") == "accepted"
+                and (
+                    target.get("metadata", {}).get("origin_session_id") == session_id
+                    or target_id in related_ids
+                )
+            ):
+                final_ids.append(source_id)
+        elif relation == "supports":
+            if (
+                source
+                and target
+                and source.get("type") == "evidence"
+                and target.get("type") == "decision"
+                and target.get("status") == "resolved-by-evidence"
+                and source_id in related_ids
+                and (not for_action_generation or target_id in related_ids)
+            ):
+                final_ids.append(target_id)
+    return stable_unique(final_ids)
 
 
 def _session_graph_subset(
@@ -425,6 +525,8 @@ def _session_graph_subset(
         visited.add(object_id)
         visited_order.append(object_id)
         for link in links:
+            if link.get("relation") not in CLOSE_SUMMARY_TRAVERSAL_RELATIONS:
+                continue
             source_id = link.get("source_object_id")
             target_id = link.get("target_object_id")
             if source_id != object_id and target_id != object_id:
