@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import unittest
 from copy import deepcopy
-from datetime import datetime
 from pathlib import Path
 
 from jsonschema import Draft202012Validator, FormatChecker
@@ -34,7 +33,7 @@ class ObjectSchemaTests(unittest.TestCase):
         self.schema = json.loads(object_schema_path.read_text(encoding="utf-8"))
         self.project_schema = json.loads(project_schema_path.read_text(encoding="utf-8"))
         self.validator = Draft202012Validator(self.schema)
-        self.format_validator = Draft202012Validator(self.schema, format_checker=_format_checker())
+        self.format_validator = Draft202012Validator(self.schema, format_checker=FormatChecker())
 
     def test_accepts_all_domain_object_types(self) -> None:
         for object_type in OBJECT_TYPES:
@@ -113,24 +112,6 @@ def _valid_object(object_type: str) -> dict:
         "metadata": {},
     }
     return deepcopy(payload)
-
-
-def _format_checker() -> FormatChecker:
-    checker = FormatChecker()
-
-    @checker.checks("date-time")
-    def is_date_time(value: object) -> bool:
-        if not isinstance(value, str):
-            return True
-        if "T" not in value:
-            return False
-        try:
-            datetime.fromisoformat(value.replace("Z", "+00:00"))
-        except ValueError:
-            return False
-        return True
-
-    return checker
 
 
 if __name__ == "__main__":
