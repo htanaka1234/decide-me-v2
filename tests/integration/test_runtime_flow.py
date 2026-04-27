@@ -4924,6 +4924,40 @@ class RuntimeFlowTests(unittest.TestCase):
         self.assertEqual("null", open_then["resolved_by_evidence"]["properties"]["summary"]["type"])
         # Cross-field equality constraints are enforced by validate_project_state().
 
+    def test_session_state_schema_covers_classification_contract(self) -> None:
+        schema_path = Path(__file__).resolve().parents[2] / "schemas" / "session-state.schema.json"
+        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+        classification = schema["properties"]["classification"]
+        self.assertEqual(
+            [
+                "domain",
+                "abstraction_level",
+                "assigned_tags",
+                "search_terms",
+                "source_refs",
+                "updated_at",
+            ],
+            classification["required"],
+        )
+        self.assertFalse(classification["additionalProperties"])
+        for key in ("assigned_tags", "search_terms", "source_refs"):
+            self.assertEqual("string", classification["properties"][key]["items"]["type"])
+
+        validator = Draft202012Validator(classification)
+        valid = {
+            "domain": "technical",
+            "abstraction_level": "architecture",
+            "assigned_tags": ["tag:auth"],
+            "search_terms": ["auth"],
+            "source_refs": ["latest_summary"],
+            "updated_at": "2026-04-23T12:00:00Z",
+        }
+        validator.validate(valid)
+
+        invalid = dict(valid)
+        invalid["compatibility_tags"] = []
+        self.assertTrue(list(validator.iter_errors(invalid)))
+
     def test_cli_bootstrap_works_with_pythonpath_repo_root(self) -> None:
         repo_root = Path(__file__).resolve().parents[2]
         with TemporaryDirectory() as tmp:
