@@ -72,7 +72,14 @@ class EventTests(unittest.TestCase):
             session_id="S-001",
             event_type="decision_discovered",
             project_version_after=2,
-            payload={"decision": {"id": "D-001", "title": "Decision", "agent_relevant": True}},
+            payload={
+                "decision": {
+                    "id": "D-001",
+                    "requirement_id": "R-001",
+                    "title": "Decision",
+                    "agent_relevant": True,
+                }
+            },
             timestamp="2026-04-23T12:00:00Z",
         )
         enriched = build_event(
@@ -94,7 +101,14 @@ class EventTests(unittest.TestCase):
                 session_id="S-001",
                 event_type="decision_discovered",
                 project_version_after=2,
-                payload={"decision": {"id": "D-001", "title": "Decision", "agent_relevant": "yes"}},
+                payload={
+                    "decision": {
+                        "id": "D-001",
+                        "requirement_id": "R-001",
+                        "title": "Decision",
+                        "agent_relevant": "yes",
+                    }
+                },
                 timestamp="2026-04-23T12:00:00Z",
             )
         with self.assertRaisesRegex(EventValidationError, "agent_relevant"):
@@ -460,7 +474,14 @@ class EventTests(unittest.TestCase):
                 session_id="S-001",
                 event_type="decision_discovered",
                 project_version_after=4,
-                payload={"decision": {"id": "D-001", "title": "Decision", "status": "accepted"}},
+                payload={
+                    "decision": {
+                        "id": "D-001",
+                        "requirement_id": "R-001",
+                        "title": "Decision",
+                        "status": "accepted",
+                    }
+                },
                 timestamp="2026-04-23T12:00:00Z",
             )
 
@@ -608,14 +629,14 @@ class EventTests(unittest.TestCase):
                 timestamp="2026-04-23T12:00:00Z",
             )
 
-    def test_decision_discovered_requires_non_empty_id_and_title(self) -> None:
+    def test_decision_discovered_requires_id_title_and_requirement_id(self) -> None:
         with self.assertRaisesRegex(EventValidationError, "decision.id"):
             build_event(
                 sequence=1,
                 session_id="S-001",
                 event_type="decision_discovered",
                 project_version_after=1,
-                payload={"decision": {"id": "", "title": "Decision"}},
+                payload={"decision": {"id": "", "requirement_id": "R-001", "title": "Decision"}},
                 timestamp="2026-04-23T12:00:00Z",
             )
         with self.assertRaisesRegex(EventValidationError, "decision.title"):
@@ -624,7 +645,25 @@ class EventTests(unittest.TestCase):
                 session_id="S-001",
                 event_type="decision_discovered",
                 project_version_after=1,
-                payload={"decision": {"id": "D-001", "title": ""}},
+                payload={"decision": {"id": "D-001", "requirement_id": "R-001", "title": ""}},
+                timestamp="2026-04-23T12:00:00Z",
+            )
+        with self.assertRaisesRegex(EventValidationError, "requirement_id"):
+            build_event(
+                sequence=1,
+                session_id="S-001",
+                event_type="decision_discovered",
+                project_version_after=1,
+                payload={"decision": {"id": "D-001", "title": "Decision"}},
+                timestamp="2026-04-23T12:00:00Z",
+            )
+        with self.assertRaisesRegex(EventValidationError, "requirement_id"):
+            build_event(
+                sequence=1,
+                session_id="S-001",
+                event_type="decision_discovered",
+                project_version_after=1,
+                payload={"decision": {"id": "D-001", "requirement_id": "REQ-001", "title": "Decision"}},
                 timestamp="2026-04-23T12:00:00Z",
             )
 

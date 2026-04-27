@@ -102,7 +102,9 @@ Traceability rows must include these matrix columns:
 - `Test / Verification`
 - `Status`
 
-`Requirement ID` is a stable derived `R-###` value from sorted export rows. Only
+`Requirement ID` is a decision-scoped persistent `R-###` value stored in runtime state.
+It must not be derived from the current export row order, and filtered exports may
+therefore contain non-contiguous IDs. Only
 `evidence_source=tests` or test-file evidence refs count as explicit verification.
 `resolvable_by=tests` is only a basis for suggested verification. Missing verification and missing
 evidence are reported in the verification gap export.

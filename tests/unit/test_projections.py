@@ -191,7 +191,7 @@ class ProjectionTests(unittest.TestCase):
                 session_id="S-001",
                 event_type="decision_discovered",
                 project_version_after=3,
-                payload={"decision": {"id": "D-001", "title": "Auth mode"}},
+                payload={"decision": {"id": "D-001", "requirement_id": "R-001", "title": "Auth mode"}},
                 timestamp="2026-04-23T12:02:00Z",
             ),
         ]
@@ -199,6 +199,54 @@ class ProjectionTests(unittest.TestCase):
         first = rebuild_projections(events)
         second = rebuild_projections(events)
         self.assertEqual(first, second)
+
+    def test_discovered_requirement_id_projects_and_incremental_matches_full_rebuild(self) -> None:
+        events = [
+            build_event(
+                sequence=1,
+                session_id="SYSTEM",
+                event_type="project_initialized",
+                project_version_after=1,
+                payload={
+                    "project": {
+                        "name": "Demo",
+                        "objective": "Test",
+                        "current_milestone": "MVP",
+                        "stop_rule": "Resolve blockers",
+                    }
+                },
+                timestamp="2026-04-23T12:00:00Z",
+            ),
+            build_event(
+                sequence=2,
+                session_id="S-001",
+                event_type="session_created",
+                project_version_after=2,
+                payload={
+                    "session": {
+                        "id": "S-001",
+                        "started_at": "2026-04-23T12:01:00Z",
+                        "last_seen_at": "2026-04-23T12:01:00Z",
+                        "bound_context_hint": "demo",
+                    }
+                },
+                timestamp="2026-04-23T12:01:00Z",
+            ),
+            build_event(
+                sequence=3,
+                session_id="S-001",
+                event_type="decision_discovered",
+                project_version_after=3,
+                payload={"decision": {"id": "D-001", "requirement_id": "R-001", "title": "Auth mode"}},
+                timestamp="2026-04-23T12:02:00Z",
+            ),
+        ]
+
+        full = rebuild_projections(events)
+        incremental = apply_events_to_bundle(deepcopy(rebuild_projections(events[:2])), events[2:])
+
+        self.assertEqual("R-001", full["project_state"]["decisions"][0]["requirement_id"])
+        self.assertEqual(full, incremental)
 
     def test_incremental_apply_matches_full_rebuild_project_head(self) -> None:
         events = [
@@ -237,7 +285,7 @@ class ProjectionTests(unittest.TestCase):
                 session_id="S-001",
                 event_type="decision_discovered",
                 project_version_after=3,
-                payload={"decision": {"id": "D-001", "title": "Auth mode"}},
+                payload={"decision": {"id": "D-001", "requirement_id": "R-001", "title": "Auth mode"}},
                 timestamp="2026-04-23T12:02:00Z",
             ),
         ]
@@ -285,7 +333,7 @@ class ProjectionTests(unittest.TestCase):
                 session_id="S-001",
                 event_type="decision_discovered",
                 project_version_after=3,
-                payload={"decision": {"id": "D-001", "title": "Auth mode"}},
+                payload={"decision": {"id": "D-001", "requirement_id": "R-001", "title": "Auth mode"}},
                 timestamp="2026-04-23T12:02:00Z",
             ),
             build_event(
@@ -365,7 +413,7 @@ class ProjectionTests(unittest.TestCase):
                 session_id="S-001",
                 event_type="decision_discovered",
                 project_version_after=3,
-                payload={"decision": {"id": "D-001", "title": "Auth mode"}},
+                payload={"decision": {"id": "D-001", "requirement_id": "R-001", "title": "Auth mode"}},
                 timestamp="2026-04-23T12:02:00Z",
             ),
             build_event(

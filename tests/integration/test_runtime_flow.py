@@ -3527,6 +3527,18 @@ class RuntimeFlowTests(unittest.TestCase):
                 list(csv_rows[0].keys()),
             )
             self.assertEqual("R-002", [row for row in csv_rows if row["Decision ID"] == "D-export"][0]["Requirement ID"])
+            ops_only_path = export_traceability(
+                ai_dir,
+                format="csv",
+                output=output_root / "ops-traceability.csv",
+                session_ids=[ops_session_id],
+            )
+            ops_rows = list(csv.DictReader(io.StringIO(ops_only_path.read_text(encoding="utf-8"))))
+            ops_requirement_id = [row for row in ops_rows if row["Decision ID"] == "D-ops"][0][
+                "Requirement ID"
+            ]
+            self.assertEqual(rows_by_decision["D-ops"]["requirement_id"], ops_requirement_id)
+            self.assertNotEqual("R-001", ops_requirement_id)
             self.assertIn("| Requirement ID | Decision ID |", markdown_path.read_text(encoding="utf-8"))
             gaps = gaps_path.read_text(encoding="utf-8")
             self.assertIn("## Missing tests", gaps)
@@ -3551,6 +3563,48 @@ class RuntimeFlowTests(unittest.TestCase):
                 if path.is_file()
             }
             self.assertEqual(first_render, second_render)
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_traceability_requirement_ids_remain_stable_after_new_decision(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = str(Path(tmp) / ".ai" / "decide-me")
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Demo",
+                objective="Keep traceability IDs stable",
+                current_milestone="MVP",
+            )
+            first_session_id = create_session(ai_dir, context="First slice")["session"]["id"]
+            _accept_runtime_decision(
+                ai_dir,
+                first_session_id,
+                decision_id="D-first",
+                title="First requirement",
+                domain="technical",
+                recommendation="Implement the first requirement.",
+            )
+            close_session(ai_dir, first_session_id)
+
+            first_payload = build_traceability_payload_for_runtime(ai_dir)
+            first_requirement_id = {
+                row["decision_id"]: row["requirement_id"] for row in first_payload["rows"]
+            }["D-first"]
+
+            second_session_id = create_session(ai_dir, context="Second slice")["session"]["id"]
+            _accept_runtime_decision(
+                ai_dir,
+                second_session_id,
+                decision_id="D-second",
+                title="Second requirement",
+                domain="technical",
+                recommendation="Implement the second requirement.",
+            )
+            close_session(ai_dir, second_session_id)
+
+            second_payload = build_traceability_payload_for_runtime(ai_dir)
+            rows_by_decision = {row["decision_id"]: row for row in second_payload["rows"]}
+            self.assertEqual(first_requirement_id, rows_by_decision["D-first"]["requirement_id"])
+            self.assertEqual("R-002", rows_by_decision["D-second"]["requirement_id"])
             self.assertEqual([], validate_runtime(ai_dir))
 
     def test_phase4_export_cli_and_errors(self) -> None:

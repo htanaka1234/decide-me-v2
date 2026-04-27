@@ -6,6 +6,7 @@ from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from decide_me.requirement_ids import require_requirement_id
 from decide_me.suppression import apply_semantic_suppression_to_session, merge_suppressed_contexts
 from decide_me.taxonomy import default_taxonomy_state, stable_unique
 
@@ -15,7 +16,7 @@ IDLE_AFTER = timedelta(hours=12)
 STALE_AFTER = timedelta(days=7)
 AUTO_PROJECT_HEAD_SENTINEL = "__AUTO_PROJECT_HEAD__"
 PROJECT_HEAD_PROPOSAL_BASE_SENTINEL = "__PROJECT_HEAD_PROPOSAL_BASE__"
-PROJECTION_SCHEMA_VERSION = 7
+PROJECTION_SCHEMA_VERSION = 8
 
 
 def default_project_state() -> dict[str, Any]:
@@ -124,9 +125,10 @@ def empty_active_proposal() -> dict[str, Any]:
     }
 
 
-def default_decision(decision_id: str, title: str | None = None) -> dict[str, Any]:
+def default_decision(decision_id: str, requirement_id: str, title: str | None = None) -> dict[str, Any]:
     return {
         "id": decision_id,
+        "requirement_id": require_requirement_id(requirement_id),
         "title": title,
         "kind": "choice",
         "domain": "other",
@@ -344,7 +346,12 @@ def apply_event(
             if decision and decision["status"] == "proposed":
                 decision["status"] = "unresolved"
     elif event_type == "decision_discovered":
-        decision = _ensure_decision(project_state, payload["decision"]["id"], payload["decision"].get("title"))
+        decision = _ensure_decision(
+            project_state,
+            payload["decision"]["id"],
+            payload["decision"]["requirement_id"],
+            payload["decision"].get("title"),
+        )
         _deep_update(decision, payload["decision"])
         _touch_session(sessions, session_id, ts, payload["decision"]["id"], project_head_after)
     elif event_type == "decision_enriched":
@@ -596,7 +603,6 @@ def apply_event(
         )
     elif event_type == "plan_generated":
         pass
-
     project_state["state"] = {
         "project_head": project_head_after,
         "event_count": event_count,
@@ -607,14 +613,19 @@ def apply_event(
 
 
 def _ensure_decision(
-    project_state: dict[str, Any], decision_id: str, title: str | None = None
+    project_state: dict[str, Any],
+    decision_id: str,
+    requirement_id: str | None = None,
+    title: str | None = None,
 ) -> dict[str, Any]:
     for decision in project_state["decisions"]:
         if decision["id"] == decision_id:
             if title and not decision.get("title"):
                 decision["title"] = title
             return decision
-    decision = default_decision(decision_id, title)
+    if requirement_id is None:
+        raise ValueError(f"cannot create decision {decision_id} without requirement_id")
+    decision = default_decision(decision_id, requirement_id, title)
     project_state["decisions"].append(decision)
     project_state["decisions"].sort(key=lambda item: item["id"])
     return decision

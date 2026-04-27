@@ -12,6 +12,16 @@
   source of truth; keep durable project guidance in this file, `README.md`, `SKILL.md`, and the
   files under `references/`.
 
+## Development Policy
+
+- This project is still in early development. Keeping the codebase clean is higher priority than
+  preserving backward compatibility for older runtime state or intermediate APIs.
+- Prefer direct schema, event, and projection contract changes over compatibility layers when the
+  new model is simpler. Remove temporary migration commands and legacy paths unless a maintainer
+  explicitly requires them for a release.
+- When a contract changes, update runtime code, schemas, docs, and tests together so invalid old
+  state fails clearly instead of being silently adapted.
+
 ## Source Of Truth
 
 - `SKILL.md` is the public Skill entrypoint and should remain lean.
