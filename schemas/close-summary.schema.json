@@ -53,8 +53,6 @@
       "type": "object",
       "required": [
         "decisions",
-        "accepted_decisions",
-        "deferred_decisions",
         "blockers",
         "risks",
         "actions",
@@ -64,12 +62,6 @@
       ],
       "properties": {
         "decisions": {
-          "$ref": "#/$defs/idList"
-        },
-        "accepted_decisions": {
-          "$ref": "#/$defs/idList"
-        },
-        "deferred_decisions": {
           "$ref": "#/$defs/idList"
         },
         "blockers": {

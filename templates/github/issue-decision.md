@@ -16,7 +16,7 @@
 
 ## Evidence
 
-{{evidence_refs}}
+{{evidence}}
 
 ## Audit
 

@@ -16,7 +16,7 @@
     "supersedes",
     "superseded_by",
     "depends_on",
-    "evidence_refs",
+    "evidence",
     "risk",
     "audit"
   ],
@@ -112,7 +112,7 @@
         "type": "string"
       }
     },
-    "evidence_refs": {
+    "evidence": {
       "type": "array",
       "items": {
         "type": "string"

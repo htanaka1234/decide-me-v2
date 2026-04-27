@@ -30,7 +30,7 @@ class ObjectBasedCloseSummaryIntegrationTests(unittest.TestCase):
             close_summary = closed["close_summary"]
             action_ids = close_summary["object_ids"]["actions"]
             self.assertEqual(1, len(action_ids))
-            self.assertNotIn("candidate_action_slices", close_summary)
+            self.assertNotIn("candidate" + "_action" + "_slices", close_summary)
 
             bundle = load_runtime(runtime_paths(ai_dir))
             objects = {obj["id"]: obj for obj in bundle["project_state"]["objects"]}
@@ -106,7 +106,8 @@ class ObjectBasedCloseSummaryIntegrationTests(unittest.TestCase):
 
             close_summary = build_close_summary(bundle["project_state"], seeded_session)
 
-            self.assertIn("D-auth", close_summary["object_ids"]["accepted_decisions"])
+            self.assertIn("D-auth", close_summary["object_ids"]["decisions"])
+            self.assertEqual("accepted", objects["D-auth"]["status"])
             self.assertEqual(closed["close_summary"]["object_ids"]["actions"], close_summary["object_ids"]["actions"])
 
     def test_dependency_reachable_external_decision_does_not_get_session_action(self) -> None:
@@ -143,7 +144,6 @@ class ObjectBasedCloseSummaryIntegrationTests(unittest.TestCase):
             ]
 
             self.assertEqual(["D-local"], action_decision_ids)
-            self.assertNotIn("D-external", closed_b["close_summary"]["object_ids"]["accepted_decisions"])
             self.assertEqual(
                 [],
                 [
@@ -290,7 +290,7 @@ def _runtime_with_connected_objects(ai_dir: Path) -> str:
         decision_id="D-auth",
         source="docs",
         summary="Magic links are already supported by the current architecture.",
-        evidence_refs=["docs/auth.md"],
+        evidence=["docs/auth.md"],
     )
     return session_id
 

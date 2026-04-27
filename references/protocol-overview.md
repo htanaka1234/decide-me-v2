@@ -12,6 +12,10 @@ Core rules:
 5. Treat plain `OK` as acceptance only when the active proposal is still valid.
 6. Stop when all relevant `P0` decisions with `frontier=now` are resolved, accepted, or explicitly
    deferred.
+7. Record durable state as object/link events. Projections and exports are derived from
+   `.ai/decide-me/events/**/*.jsonl`.
+8. Close summaries expose `close_summary.object_ids` and `close_summary.link_ids`; plans expose
+   `action_plan.actions` and `action_plan.implementation_ready_actions`.
 
 Question block contract:
 

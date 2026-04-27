@@ -379,8 +379,6 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
         )
         object_id_keys = (
             "decisions",
-            "accepted_decisions",
-            "deferred_decisions",
             "blockers",
             "risks",
             "actions",

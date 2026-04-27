@@ -55,7 +55,7 @@ class ObjectSchemaTests(unittest.TestCase):
             "options",
             "recommendation",
             "accepted_answer",
-            "evidence_refs",
+            "evidence",
             "revisit_triggers",
         )
 

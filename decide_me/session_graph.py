@@ -74,7 +74,7 @@ def link_session(
     child_session_id: str,
     relationship: str,
     reason: str,
-    evidence_refs: list[str] | None = None,
+    evidence: list[str] | None = None,
 ) -> dict[str, Any]:
     raise ValueError("explicit session graph writes are unsupported by the Phase 5-3 event model")
 

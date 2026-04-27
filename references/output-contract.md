@@ -16,7 +16,20 @@ Acceptance turns must include:
 Close-session turns must include:
 
 - `Closed: S-...`
-- the generated close summary
+- the generated object/link close summary
+
+Close summary payloads must include:
+
+- `work_item`
+- `readiness`
+- `object_ids`
+- `link_ids`
+- `generated_at`
+
+`close_summary.object_ids` groups referenced object IDs by section, including decisions, blockers,
+risks, actions, evidence, verifications, and revisit triggers. Decision acceptance or deferral is
+read from each referenced decision object’s `status`. `close_summary.link_ids` lists the links that
+justify or connect those objects.
 
 Plan-generation turns must include one of:
 
@@ -25,8 +38,9 @@ Plan-generation turns must include one of:
 
 Action plan payloads must include `readiness`, `goals`, `workstreams`, `actions`,
 `implementation_ready_actions`, `blockers`, `risks`, `evidence`, `source_object_ids`, and
-`source_link_ids`. Plan payloads must not include legacy `action_slices`,
-`implementation_ready_slices`, or top-level `evidence_refs`.
+`source_link_ids`. Plan payloads are closed to additional fields.
+In generated plan JSON, executable work lives under `plan.action_plan.actions`; already-ready work
+lives under `plan.action_plan.implementation_ready_actions`.
 
 Exported files are derived outputs, not runtime state.
 
@@ -34,7 +48,7 @@ Structured ADR exports must include stable YAML frontmatter with:
 
 - `id`, `title`, `status`, `domain`, `kind`, `priority`, `frontier`
 - `session_id`, `accepted_via`, `supersedes`, `superseded_by`, `depends_on`
-- `evidence_refs`
+- `evidence`
 - `risk`
 - `audit`
 
@@ -82,18 +96,20 @@ creating or updating managed content. Existing unmarked AGENTS.md files may be o
 when the user passes `--force`.
 
 Architecture documentation, traceability matrix, and verification gap reports are local derived
-outputs only. They must not record runtime events or call external services.
+outputs only. They must not record runtime events or call external services. These
+software-oriented exports may use software labels such as ADRs, issues, requirements, and
+verification, but they remain derived views over the object/link runtime.
 
-Phase 4 export commands:
+Derived export commands:
 
 - `export-architecture-doc --format arc42`
 - `export-traceability --format csv|markdown`
 - `export-verification-gaps`
 
-When `--session-id` is omitted, Phase 4 exports use all closed sessions sorted by session ID.
+When `--session-id` is omitted, derived exports use all closed sessions sorted by session ID.
 Repeated `--session-id` narrows the closed-session set. Unknown or non-closed sessions must fail.
 
-Phase 4 exports must fail before writing output when unresolved planner conflicts exist.
+Derived exports must fail before writing output when unresolved planner conflicts exist.
 
 Traceability rows must include these matrix columns:
 
@@ -110,6 +126,6 @@ Traceability rows must include these matrix columns:
 `Requirement ID` is a decision-scoped persistent `R-###` value stored in runtime state.
 It must not be derived from the current export row order, and filtered exports may
 therefore contain non-contiguous IDs. Only
-`evidence_source=tests` or test-file evidence refs count as explicit verification.
+`evidence_source=tests` or test-file evidence references count as explicit verification.
 `resolvable_by=tests` is only a basis for suggested verification. Missing verification and missing
 evidence are reported in the verification gap export.

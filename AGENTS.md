@@ -5,7 +5,8 @@
 - This repository maintains the `decide-me` Codex Skill.
 - The Skill turns ambiguous project work into decision-complete action plans by interviewing
   the user one decision at a time, inspecting available evidence before asking, recording
-  decisions, and generating close summaries or plans when the current milestone is clear.
+  domain objects and links, and generating close summaries or plans when the current milestone is
+  clear.
 - The core product values are low user fatigue, explicit recommendations, stateful continuity
   across sessions, taxonomy-aware reuse of prior decisions, and deterministic runtime behavior.
 - There is intentionally no separate `plan.md` project specification. Do not recreate one as a
@@ -39,13 +40,27 @@
 
 - Runtime state lives under `.ai/decide-me/` when the Skill is used in a target project.
 - `.ai/decide-me/events/**/*.jsonl` transaction files are the runtime source of truth.
-- `project-state.json`, `taxonomy-state.json`, `runtime-index.json`, `session-graph-cache.json`,
-  and `sessions/*.json` are derived projections or caches and must be rebuildable from events.
+- `project-state.json` is the derived objects/links projection and must be rebuildable from
+  events.
+- `taxonomy-state.json`, `runtime-index.json`, `session-graph-cache.json`, and `sessions/*.json`
+  are derived projections or caches and must be rebuildable from events.
 - Human-readable files under `.ai/decide-me/exports/` are exports, not runtime state.
 - `write.lock` protects runtime writes.
 - Rejected transaction files remain on disk for audit; rejection and suppression are represented
   by control events rather than deletion.
 - Legacy `.ai/decide-me/event-log.jsonl` runtimes are not migrated automatically by this version.
+
+## Domain-neutral Core Invariants
+
+- Runtime domain state is represented as objects and links. Do not reintroduce top-level
+  decision-centric projections or compatibility projections in `project-state.json`.
+- Close summaries are object/link reference sets. Their public contract is
+  `close_summary.object_ids` plus `close_summary.link_ids`.
+- Plan output uses `action_plan.actions` and `action_plan.implementation_ready_actions`.
+- ADR, GitHub issue, arc42, traceability, verification gap, agent instruction, and
+  software-oriented decision-register files are derived exports only.
+- Do not add backward compatibility layers for old runtime state unless a maintainer explicitly
+  starts a separate migration release.
 
 ## Skill Behavior Invariants
 
@@ -56,8 +71,8 @@
   `Recommendation:`, `Why:`, and `If not:`.
 - Plain `OK` accepts only the current valid active proposal in the same session. Use explicit
   `Accept P-...` when there is any ambiguity or staleness.
-- Closing a session generates a schema-shaped close summary and must not ask a new question in
-  the same response.
+- Closing a session generates a schema-shaped object/link close summary and must not ask a new
+  question in the same response.
 - Plan generation should consume closed sessions and surface unresolved conflicts rather than
   silently choosing between incompatible accepted decisions.
 

@@ -37,10 +37,10 @@ from decide_me.store import benchmark_runtime, bootstrap_runtime, compact_runtim
 def main(argv: list[str] | None = None) -> int:
     raw_argv = sys.argv[1:] if argv is None else list(argv)
 
-    parser = argparse.ArgumentParser(description="decide-me v2 runtime CLI")
+    parser = argparse.ArgumentParser(description="decide-me v2 object/link runtime CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    bootstrap = subparsers.add_parser("bootstrap", help="initialize a runtime")
+    bootstrap = subparsers.add_parser("bootstrap", help="initialize an object/link runtime")
     bootstrap.add_argument("--ai-dir", required=True)
     bootstrap.add_argument("--project-name", required=True)
     bootstrap.add_argument("--objective", required=True)
@@ -67,15 +67,15 @@ def main(argv: list[str] | None = None) -> int:
     resume.add_argument("--ai-dir", required=True)
     resume.add_argument("--session-id", required=True)
 
-    close = subparsers.add_parser("close-session", help="close a session")
+    close = subparsers.add_parser("close-session", help="close a session and emit object/link summary refs")
     close.add_argument("--ai-dir", required=True)
     close.add_argument("--session-id", required=True)
 
-    plan = subparsers.add_parser("generate-plan", help="generate a plan from closed sessions")
+    plan = subparsers.add_parser("generate-plan", help="generate actions from closed object/link sessions")
     plan.add_argument("--ai-dir", required=True)
     plan.add_argument("--session-id", action="append", required=True)
 
-    rebuild = subparsers.add_parser("rebuild-projections", help="rebuild derived state")
+    rebuild = subparsers.add_parser("rebuild-projections", help="rebuild object/link projections")
     rebuild.add_argument("--ai-dir", required=True)
 
     validate = subparsers.add_parser("validate-state", help="validate runtime consistency")
@@ -94,7 +94,7 @@ def main(argv: list[str] | None = None) -> int:
         help="validate only the persisted projection checkpoint and runtime index",
     )
 
-    compact = subparsers.add_parser("compact-runtime", help="refresh the projection checkpoint index")
+    compact = subparsers.add_parser("compact-runtime", help="refresh the object/link projection checkpoint index")
     compact.add_argument("--ai-dir", required=True)
 
     benchmark = subparsers.add_parser("benchmark-runtime", help="run opt-in runtime performance checks")
@@ -152,7 +152,7 @@ def main(argv: list[str] | None = None) -> int:
     structured_adr.add_argument("--include-invalidated", action="store_true")
 
     decision_register = subparsers.add_parser(
-        "export-decision-register", help="export the decision register"
+        "export-decision-register", help="export a derived software decision register"
     )
     decision_register.add_argument("--ai-dir", required=True)
     decision_register.add_argument("--format", choices=("yaml", "markdown"), default="yaml")
@@ -165,14 +165,14 @@ def main(argv: list[str] | None = None) -> int:
     github_templates.add_argument("--output-dir", required=True)
 
     github_issues = subparsers.add_parser(
-        "export-github-issues", help="export local GitHub issue draft files"
+        "export-github-issues", help="export local GitHub issue drafts from derived plan actions"
     )
     github_issues.add_argument("--ai-dir", required=True)
     github_issues.add_argument("--session-id", action="append", required=True)
     github_issues.add_argument("--output-dir", required=True)
 
     agent_instructions = subparsers.add_parser(
-        "export-agent-instructions", help="export local agent instruction files"
+        "export-agent-instructions", help="export derived local agent instruction files"
     )
     agent_instructions.add_argument("--ai-dir", required=True)
     agent_instructions.add_argument(
@@ -185,7 +185,7 @@ def main(argv: list[str] | None = None) -> int:
 
     architecture_doc = subparsers.add_parser(
         "export-architecture-doc",
-        help="export an architecture documentation markdown file",
+        help="export a derived architecture documentation markdown file",
     )
     architecture_doc.add_argument("--ai-dir", required=True)
     architecture_doc.add_argument("--format", choices=("arc42",), required=True)
@@ -194,7 +194,7 @@ def main(argv: list[str] | None = None) -> int:
 
     traceability = subparsers.add_parser(
         "export-traceability",
-        help="export a traceability matrix",
+        help="export a derived traceability matrix",
     )
     traceability.add_argument("--ai-dir", required=True)
     traceability.add_argument("--format", choices=("csv", "markdown"), required=True)
@@ -203,7 +203,7 @@ def main(argv: list[str] | None = None) -> int:
 
     verification_gaps = subparsers.add_parser(
         "export-verification-gaps",
-        help="export a verification gap report",
+        help="export a derived verification gap report",
     )
     verification_gaps.add_argument("--ai-dir", required=True)
     verification_gaps.add_argument("--output", required=True)

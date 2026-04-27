@@ -520,14 +520,14 @@ def advance_session(
                 decision_id=decision["id"],
                 source=evidence["source"],
                 summary=evidence["summary"],
-                evidence_refs=evidence["evidence_refs"],
+                evidence=evidence["evidence"],
             )
             auto_resolved.append(
                 {
                     "decision_id": decision["id"],
                     "source": evidence["source"],
                     "summary": evidence["summary"],
-                    "evidence_refs": evidence["evidence_refs"],
+                    "evidence": evidence["evidence"],
                 }
             )
             if len(auto_resolved) >= max_auto_resolutions:
@@ -741,16 +741,21 @@ def stopping_summary(bundle: dict[str, Any], session_id: str) -> dict[str, Any]:
     session = _require_session(bundle, session_id)
     close_summary = build_close_summary(bundle["project_state"], session)
     decisions = {decision["id"]: decision for decision in decision_views(bundle["project_state"])}
+    summary_decisions = [
+        decisions[decision_id]
+        for decision_id in close_summary["object_ids"]["decisions"]
+        if decision_id in decisions
+    ]
     return {
-        "accepted_decisions": [
-            decisions[decision_id]
-            for decision_id in close_summary["object_ids"]["accepted_decisions"]
-            if decision_id in decisions
+        "accepted_items": [
+            decision
+            for decision in summary_decisions
+            if decision.get("status") in {"accepted", "resolved-by-evidence"}
         ],
-        "deferred_decisions": [
-            decisions[decision_id]
-            for decision_id in close_summary["object_ids"]["deferred_decisions"]
-            if decision_id in decisions
+        "deferred_items": [
+            decision
+            for decision in summary_decisions
+            if decision.get("status") == "deferred"
         ],
         "remaining_risks": [
             decisions[decision_id]
@@ -797,7 +802,7 @@ def find_evidence_candidates(
             "decision_id": decision["id"],
             "source": source,
             "candidate_answer": summary,
-            "evidence_refs": refs,
+            "evidence": refs,
         }
     ]
 
@@ -807,7 +812,8 @@ def _runtime_evidence(
 ) -> dict[str, Any] | None:
     title = _normalize(decision.get("title"))
     suppressed_ids = suppressed_decision_ids(bundle["project_state"])
-    for candidate in decision_views(bundle["project_state"]):
+    decisions_by_id = {item["id"]: item for item in decision_views(bundle["project_state"])}
+    for candidate in decisions_by_id.values():
         if candidate["id"] == decision["id"]:
             continue
         if candidate["id"] in suppressed_ids:
@@ -817,11 +823,11 @@ def _runtime_evidence(
         candidate_title = _normalize(candidate.get("title"))
         if title and title == candidate_title:
             summary = candidate["accepted_answer"]["summary"] or candidate["resolved_by_evidence"]["summary"]
-            refs = candidate.get("evidence_refs", [])
+            refs = candidate.get("evidence", [])
             return {
                 "source": "existing-decisions",
                 "summary": summary,
-                "evidence_refs": refs,
+                "evidence": refs,
             }
 
     for candidate_session in bundle["sessions"].values():
@@ -834,14 +840,15 @@ def _runtime_evidence(
         if title and title == work_item_title:
             accepted_ids = [
                 decision_id
-                for decision_id in close_summary.get("object_ids", {}).get("accepted_decisions", [])
+                for decision_id in close_summary.get("object_ids", {}).get("decisions", [])
+                if decisions_by_id.get(decision_id, {}).get("status") in {"accepted", "resolved-by-evidence"}
                 if decision_id not in suppressed_ids
             ]
             if accepted_ids:
                 accepted = next(
                     (
                         candidate
-                        for candidate in decision_views(bundle["project_state"])
+                        for candidate in decisions_by_id.values()
                         if candidate["id"] == accepted_ids[0]
                     ),
                     None,
@@ -856,7 +863,7 @@ def _runtime_evidence(
                     return {
                         "source": "close-summaries",
                         "summary": summary,
-                        "evidence_refs": accepted.get("evidence_refs", []) if accepted else [],
+                        "evidence": accepted.get("evidence", []) if accepted else [],
                     }
     return None
 
@@ -1043,14 +1050,14 @@ def _resolve_discovered_decisions_by_evidence(
             decision_id=current["id"],
             source=evidence["source"],
             summary=evidence["summary"],
-            evidence_refs=evidence["evidence_refs"],
+            evidence=evidence["evidence"],
         )
         auto_resolved.append(
             {
                 "decision_id": current["id"],
                 "source": evidence["source"],
                 "summary": evidence["summary"],
-                "evidence_refs": evidence["evidence_refs"],
+                "evidence": evidence["evidence"],
             }
         )
 
@@ -1142,7 +1149,7 @@ def _prepend_auto_resolved(turn: dict[str, Any], auto_resolved: list[dict[str, A
 def _render_auto_resolved(auto_resolved: list[dict[str, Any]]) -> str:
     lines = []
     for item in auto_resolved:
-        refs = ", ".join(item["evidence_refs"]) if item["evidence_refs"] else "no refs recorded"
+        refs = ", ".join(item["evidence"]) if item["evidence"] else "no refs recorded"
         lines.append(f"Resolved by evidence: {item['decision_id']} ({item['source']}: {refs})")
     return "\n".join(lines)
 
@@ -1150,7 +1157,7 @@ def _render_auto_resolved(auto_resolved: list[dict[str, Any]]) -> str:
 def _render_evidence_candidates(evidence_candidates: list[dict[str, Any]]) -> str:
     lines = ["Evidence candidates (not applied automatically):"]
     for item in evidence_candidates:
-        refs = ", ".join(item["evidence_refs"]) if item["evidence_refs"] else "no refs recorded"
+        refs = ", ".join(item["evidence"]) if item["evidence"] else "no refs recorded"
         lines.append(
             f"- {item['decision_id']} ({item['source']}: {refs}) -> candidate answer: {item['candidate_answer']}"
         )
@@ -1164,9 +1171,9 @@ def _render_complete_message(auto_resolved: list[dict[str, Any]], summary: dict[
     parts.extend(
         [
             "Accepted decisions:",
-            _render_summary_items(summary["accepted_decisions"]),
+            _render_summary_items(summary["accepted_items"]),
             "Deferred decisions:",
-            _render_summary_items(summary["deferred_decisions"]),
+            _render_summary_items(summary["deferred_items"]),
             "Remaining risks:",
             _render_summary_items(summary["remaining_risks"]),
             f"Next recommended action: {summary['next_recommended_action']}",

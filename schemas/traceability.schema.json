@@ -42,14 +42,14 @@
           "requirement_id",
           "decision_id",
           "session_id",
-          "action_slice",
+          "action",
           "implementation_ready",
           "evidence_source",
           "risk",
           "test_verification",
           "verification_defined",
           "status",
-          "evidence_refs",
+          "evidence",
           "row_type",
           "suggested_verification"
         ],
@@ -70,7 +70,7 @@
               "null"
             ]
           },
-          "action_slice": {
+          "action": {
             "type": "string"
           },
           "implementation_ready": {
@@ -94,7 +94,7 @@
           "status": {
             "type": "string"
           },
-          "evidence_refs": {
+          "evidence": {
             "type": "array",
             "items": {
               "type": "string"
@@ -103,7 +103,7 @@
           "row_type": {
             "type": "string",
             "enum": [
-              "action-slice",
+              "action",
               "blocker",
               "risk"
             ]
@@ -145,7 +145,7 @@
         "requirement_id",
         "decision_id",
         "session_id",
-        "action_slice",
+        "action",
         "reason",
         "suggested_verification"
       ],
@@ -166,7 +166,7 @@
             "null"
           ]
         },
-        "action_slice": {
+        "action": {
           "type": "string"
         },
         "reason": {

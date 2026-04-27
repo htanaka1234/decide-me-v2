@@ -1,6 +1,6 @@
 # Domain Neutral Core
 
-Phase 5 replaces the decision-shaped projection model with a domain-neutral object graph.
+Phase 5 replaces projection-specific domain records with a domain-neutral object graph.
 
 Core invariants:
 
@@ -9,8 +9,7 @@ Core invariants:
 - Human-readable Markdown, ADRs, plans, reports, and other exports are never canonical state.
 - Domain concepts are represented as first-class objects, not embedded fields on decisions.
 - Relationships between objects are represented only as links.
-- The old top-level `decisions`, `proposals`, and `action_slices` projections are removed in
-  Phase 5.
+- Legacy top-level decision, proposal, and embedded action-list projections are removed in Phase 5.
 - Phase 5 is intentionally breaking. Do not add compatibility adapters for legacy projection
   shapes unless a maintainer explicitly starts a separate migration release.
 

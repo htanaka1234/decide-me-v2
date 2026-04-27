@@ -91,9 +91,13 @@ def _final_decisions(
     decisions: dict[str, dict[str, Any]] = {}
     for session in sessions:
         session_id = session["session"]["id"]
-        for decision_id in session["close_summary"].get("object_ids", {}).get("accepted_decisions", []):
+        for decision_id in session["close_summary"].get("object_ids", {}).get("decisions", []):
             decision = objects.get(decision_id)
-            if not decision or decision.get("type") != "decision":
+            if (
+                not decision
+                or decision.get("type") != "decision"
+                or decision.get("status") not in {"accepted", "resolved-by-evidence"}
+            ):
                 continue
             metadata = decision.get("metadata", {})
             action = actions_by_decision.get(decision_id, {})
@@ -107,7 +111,7 @@ def _final_decisions(
                 "kind": metadata.get("kind"),
                 "priority": metadata.get("priority"),
                 "resolvable_by": metadata.get("resolvable_by"),
-                "evidence_refs": _evidence_refs_for_item(action, evidence_by_id),
+                "evidence": _evidence_for_item(action, evidence_by_id),
             }
             item["session_id"] = session_id
             decisions.setdefault(item["id"], item)
@@ -242,8 +246,8 @@ def _render_decisions(decisions: list[dict[str, Any]]) -> str:
         return "- none"
     lines = []
     for decision in sorted(decisions, key=lambda item: item["id"]):
-        evidence_refs = decision.get("evidence_refs", [])
-        evidence = ", ".join(evidence_refs) if evidence_refs else "none recorded"
+        evidence = decision.get("evidence", [])
+        evidence = ", ".join(evidence) if evidence else "none recorded"
         summary = decision.get("accepted_answer") or decision.get("summary") or decision.get("title")
         labels = [
             decision.get("domain"),
@@ -278,7 +282,7 @@ def _render_actions(actions: list[dict[str, Any]], evidence_by_id: dict[str, dic
     lines = []
     for action in actions:
         ready = "yes" if action.get("implementation_ready") else "no"
-        evidence = ", ".join(_evidence_refs_for_item(action, evidence_by_id)) or "none recorded"
+        evidence = ", ".join(_evidence_for_item(action, evidence_by_id)) or "none recorded"
         lines.append(
             f"- {action.get('decision_id') or 'unknown'}: "
             f"{action.get('name') or 'Action'} "
@@ -296,7 +300,7 @@ def _evidence_by_id(action_plan: dict[str, Any]) -> dict[str, dict[str, Any]]:
     }
 
 
-def _evidence_refs_for_item(item: dict[str, Any], evidence_by_id: dict[str, dict[str, Any]]) -> list[str]:
+def _evidence_for_item(item: dict[str, Any], evidence_by_id: dict[str, dict[str, Any]]) -> list[str]:
     return stable_unique(
         evidence["ref"]
         for evidence_id in item.get("evidence_ids", [])

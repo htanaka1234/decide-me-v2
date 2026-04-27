@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import argparse
 import shutil
 import stat
 from pathlib import Path
@@ -9,8 +10,6 @@ from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SKILL_NAME = "decide-me"
 DIST_DIR = REPO_ROOT / "dist"
-STAGING_DIR = DIST_DIR / SKILL_NAME
-ZIP_PATH = DIST_DIR / f"{SKILL_NAME}.zip"
 
 INCLUDE_FILES = (
     "SKILL.md",
@@ -27,40 +26,51 @@ INCLUDE_DIRS = (
 
 EXCLUDE_NAMES = {"__pycache__"}
 EXCLUDE_SUFFIXES = {".pyc", ".pyo"}
+EXCLUDE_RELATIVE_PATHS = {
+    "references/migration-from-legacy-model.md",
+}
 FIXED_ZIP_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
 
 
-def main() -> int:
-    if STAGING_DIR.exists():
-        shutil.rmtree(STAGING_DIR)
-    if ZIP_PATH.exists():
-        ZIP_PATH.unlink()
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="build the decide-me distribution artifact")
+    parser.add_argument("--dist-dir", default=str(DIST_DIR), help="output directory for the staged package and zip")
+    args = parser.parse_args(argv)
 
-    DIST_DIR.mkdir(exist_ok=True)
-    STAGING_DIR.mkdir(parents=True, exist_ok=True)
+    dist_dir = Path(args.dist_dir)
+    staging_dir = dist_dir / SKILL_NAME
+    zip_path = dist_dir / f"{SKILL_NAME}.zip"
+
+    if staging_dir.exists():
+        shutil.rmtree(staging_dir)
+    if zip_path.exists():
+        zip_path.unlink()
+
+    dist_dir.mkdir(parents=True, exist_ok=True)
+    staging_dir.mkdir(parents=True, exist_ok=True)
 
     for relative_path in INCLUDE_FILES:
-        copy_file(relative_path)
+        copy_file(relative_path, staging_dir)
 
     for relative_dir in INCLUDE_DIRS:
-        copy_tree(relative_dir)
+        copy_tree(relative_dir, staging_dir)
 
-    write_zip()
-    print(f"Built {ZIP_PATH.relative_to(REPO_ROOT)}")
+    write_zip(dist_dir, staging_dir, zip_path)
+    print(f"Built {_display_path(zip_path)}")
     return 0
 
 
-def copy_tree(relative_dir: str) -> None:
+def copy_tree(relative_dir: str, staging_dir: Path) -> None:
     source_dir = REPO_ROOT / relative_dir
     for source in sorted(path for path in source_dir.rglob("*") if path.is_file()):
         if should_exclude(source):
             continue
-        copy_file(source.relative_to(REPO_ROOT).as_posix())
+        copy_file(source.relative_to(REPO_ROOT).as_posix(), staging_dir)
 
 
-def copy_file(relative_path: str) -> None:
+def copy_file(relative_path: str, staging_dir: Path) -> None:
     source = REPO_ROOT / relative_path
-    target = STAGING_DIR / relative_path
+    target = staging_dir / relative_path
     if not source.is_file():
         raise FileNotFoundError(relative_path)
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -68,14 +78,19 @@ def copy_file(relative_path: str) -> None:
 
 
 def should_exclude(path: Path) -> bool:
-    return any(part in EXCLUDE_NAMES for part in path.parts) or path.suffix in EXCLUDE_SUFFIXES
+    relative_path = path.relative_to(REPO_ROOT).as_posix()
+    return (
+        relative_path in EXCLUDE_RELATIVE_PATHS
+        or any(part in EXCLUDE_NAMES for part in path.parts)
+        or path.suffix in EXCLUDE_SUFFIXES
+    )
 
 
-def write_zip() -> None:
-    files = sorted(path for path in STAGING_DIR.rglob("*") if path.is_file())
-    with ZipFile(ZIP_PATH, "w", compression=ZIP_DEFLATED) as archive:
+def write_zip(dist_dir: Path, staging_dir: Path, zip_path: Path) -> None:
+    files = sorted(path for path in staging_dir.rglob("*") if path.is_file())
+    with ZipFile(zip_path, "w", compression=ZIP_DEFLATED) as archive:
         for file_path in files:
-            archive_name = file_path.relative_to(DIST_DIR).as_posix()
+            archive_name = file_path.relative_to(dist_dir).as_posix()
             info = ZipInfo(archive_name, FIXED_ZIP_TIMESTAMP)
             info.compress_type = ZIP_DEFLATED
             info.external_attr = unix_mode(file_path) << 16
@@ -87,6 +102,13 @@ def unix_mode(path: Path) -> int:
     if path.name == "decide_me.py" or path.name == "build_artifact.py":
         mode |= stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
     return stat.S_IFREG | mode
+
+
+def _display_path(path: Path) -> str:
+    try:
+        return str(path.relative_to(REPO_ROOT))
+    except ValueError:
+        return str(path)
 
 
 if __name__ == "__main__":

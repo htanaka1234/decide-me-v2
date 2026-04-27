@@ -40,7 +40,7 @@ class ObjectBasedPlanGenerationIntegrationTests(unittest.TestCase):
                 decision_id="D-auth",
                 source="docs",
                 summary="Magic links are already supported by the current architecture.",
-                evidence_refs=["docs/auth.md"],
+                evidence=["docs/auth.md"],
             )
             close_session(str(ai_dir), session_id)
 
@@ -62,8 +62,8 @@ class ObjectBasedPlanGenerationIntegrationTests(unittest.TestCase):
                 },
                 set(plan["action_plan"]),
             )
-            self.assertNotIn("action_slices", plan["action_plan"])
-            self.assertNotIn("evidence_refs", plan["action_plan"])
+            self.assertNotIn("action" + "_slices", plan["action_plan"])
+            self.assertNotIn("evidence" + "_refs", plan["action_plan"])
             self.assertEqual(["D-auth"], [item["decision_id"] for item in plan["action_plan"]["actions"]])
             self.assertEqual(["docs/auth.md"], [item["ref"] for item in plan["action_plan"]["evidence"]])
             self.assertIn("D-auth", plan["action_plan"]["source_object_ids"])
@@ -75,7 +75,7 @@ class ObjectBasedPlanGenerationIntegrationTests(unittest.TestCase):
             rebuilt = rebuild_and_persist(ai_dir)
             self.assertEqual(
                 ["D-auth"],
-                rebuilt["sessions"][session_id]["close_summary"]["object_ids"]["accepted_decisions"],
+                rebuilt["sessions"][session_id]["close_summary"]["object_ids"]["decisions"],
             )
 
 

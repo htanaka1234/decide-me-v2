@@ -34,7 +34,7 @@ def export_adr(ai_dir: str, decision_id: str) -> Path:
             decision["accepted_answer"]["summary"] or decision["resolved_by_evidence"]["summary"] or "",
         )
         .replace("{{consequences}}", _render_list(decision.get("revisit_triggers", [])))
-        .replace("{{evidence}}", _render_list(decision.get("evidence_refs", [])))
+        .replace("{{evidence}}", _render_list(decision.get("evidence", [])))
     )
     slug = _slugify(decision["title"] or decision["id"])
     output = paths.adr_dir / f"{decision['id']}-{slug}.md"

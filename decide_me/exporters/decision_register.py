@@ -9,7 +9,7 @@ from decide_me.exporters.common import (
     decision_views,
     decision_summary,
     project_head,
-    referenced_evidence_refs,
+    referenced_evidence,
     snapshot_generated_at,
     superseded_by,
 )
@@ -114,7 +114,7 @@ def _decision_register_item(decision: dict[str, Any], index: DecisionEventIndex)
         "summary": decision_summary(decision),
         "superseded_by": superseded_by(decision, index),
         "depends_on": decision.get("depends_on", []),
-        "evidence_refs": referenced_evidence_refs(decision),
+        "evidence": referenced_evidence(decision),
         "invalidated_by": _invalidated_by(decision),
     }
 

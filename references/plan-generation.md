@@ -29,8 +29,9 @@ Conflict ids and resolution:
 
 - Planner conflicts include deterministic `conflict_id`, `session_ids`, `scope`, and
   `requires_resolution`.
-- Phase 5-3 does not persist explicit semantic conflict resolution events; plan generation should
-  surface unresolved conflicts rather than silently choosing between incompatible closed sessions.
+- The current domain-neutral event model does not persist explicit semantic conflict resolution
+  events; plan generation should surface unresolved conflicts rather than silently choosing between
+  incompatible closed sessions.
 - When assembling an action plan after resolution, remove only the losing session's scoped item.
   Other object/link references from the losing session remain eligible.
 - `detect-session-conflicts --include-related` lists explicit graph relatives first, then reports
@@ -42,7 +43,7 @@ Conflict ids and resolution:
 If unresolved `P0` decisions with `frontier=now` remain, the planner must return a conditional
 plan instead of claiming the work is ready.
 
-Phase 4 derived exports:
+Derived software-oriented exports:
 
 - `export-architecture-doc --format arc42` renders a Markdown architecture skeleton from closed
   sessions, actions, final decisions, risks, blockers, and taxonomy terms.
@@ -51,6 +52,6 @@ Phase 4 derived exports:
 - `export-verification-gaps` reports implementation-ready rows with no explicit test evidence and
   rows with no recorded evidence.
 - The explicit verification rule is conservative: only `evidence_source=tests` or test-file
-  evidence refs count as verification already defined. `resolvable_by=tests` is only used for
+  evidence references count as verification already defined. `resolvable_by=tests` is only used for
   suggested verification.
 - Unresolved planner conflicts must fail these exports before writing output.

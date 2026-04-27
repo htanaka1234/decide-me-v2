@@ -95,8 +95,6 @@ def default_close_summary() -> dict[str, Any]:
         "readiness": "ready",
         "object_ids": {
             "decisions": [],
-            "accepted_decisions": [],
-            "deferred_decisions": [],
             "blockers": [],
             "risks": [],
             "actions": [],

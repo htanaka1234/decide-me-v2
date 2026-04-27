@@ -10,7 +10,7 @@ from decide_me.exporters.common import (
     decision_views,
     decision_summary,
     project_head,
-    referenced_evidence_refs,
+    referenced_evidence,
     snapshot_generated_at,
 )
 from decide_me.store import load_runtime, read_event_log, runtime_paths
@@ -377,7 +377,7 @@ def _agent_rule(decision: dict[str, Any], index: DecisionEventIndex) -> dict[str
             "domain": decision.get("domain"),
             "kind": decision.get("kind"),
             "accepted_via": decision.get("accepted_answer", {}).get("accepted_via"),
-            "evidence_refs": referenced_evidence_refs(decision),
+            "evidence": referenced_evidence(decision),
         },
     }
 
@@ -415,8 +415,8 @@ def _decision_search_text(decision: dict[str, Any], summary: str) -> str:
         decision.get("recommendation", {}).get("rationale_short"),
         *decision.get("notes", []),
         *decision.get("revisit_triggers", []),
-        *decision.get("evidence_refs", []),
-        *decision.get("resolved_by_evidence", {}).get("evidence_refs", []),
+        *decision.get("evidence", []),
+        *decision.get("resolved_by_evidence", {}).get("evidence", []),
     ]
     return "\n".join(str(value) for value in values if value is not None).casefold()
 
