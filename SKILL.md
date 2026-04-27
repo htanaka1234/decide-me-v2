@@ -70,6 +70,9 @@ User-facing commands:
 - `Export GitHub issue templates`
 - `Export GitHub issue drafts from sessions S-..., S-...`
 - `Export agent instructions for AGENTS.md, Cursor, Claude, or Codex`
+- `Export architecture doc as arc42`
+- `Export traceability matrix as CSV or Markdown`
+- `Export verification gaps`
 
 Runtime invariants:
 
@@ -89,6 +92,7 @@ Runtime invariants:
   and the normal hot-path read cache.
 - `runtime-index.json` checkpoints projection freshness; refresh it with `compact-runtime` only
   after it verifies projections against the event log, or regenerate it with `rebuild-projections`.
-- Human-readable plan, ADR, structured ADR, decision register, GitHub issue draft, and agent
-  instruction files are exports, not runtime state.
+- Human-readable plan, ADR, structured ADR, decision register, GitHub issue draft, agent
+  instruction, arc42 architecture, traceability matrix, and verification gap files are exports,
+  not runtime state.
 - Free-form answers apply only to the current active proposal in the current session.

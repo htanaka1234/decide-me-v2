@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/decide-me/traceability.schema.json",
+  "title": "Decide Me Traceability Export",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generated_at",
+    "project_head",
+    "source_session_ids",
+    "rows",
+    "verification_gaps"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "generated_at": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "project_head": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "source_session_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "requirement_id",
+          "decision_id",
+          "session_id",
+          "action_slice",
+          "implementation_ready",
+          "evidence_source",
+          "risk",
+          "test_verification",
+          "verification_defined",
+          "status",
+          "evidence_refs",
+          "row_type",
+          "suggested_verification"
+        ],
+        "properties": {
+          "requirement_id": {
+            "type": "string",
+            "pattern": "^R-[0-9]{3}$"
+          },
+          "decision_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "session_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "action_slice": {
+            "type": "string"
+          },
+          "implementation_ready": {
+            "type": "boolean"
+          },
+          "evidence_source": {
+            "type": "string"
+          },
+          "risk": {
+            "type": "string"
+          },
+          "test_verification": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "verification_defined": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "evidence_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "row_type": {
+            "type": "string",
+            "enum": [
+              "action-slice",
+              "blocker",
+              "risk"
+            ]
+          },
+          "suggested_verification": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "verification_gaps": {
+      "type": "object",
+      "required": [
+        "missing_tests",
+        "missing_evidence"
+      ],
+      "properties": {
+        "missing_tests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/gap"
+          }
+        },
+        "missing_evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/gap"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "gap": {
+      "type": "object",
+      "required": [
+        "requirement_id",
+        "decision_id",
+        "session_id",
+        "action_slice",
+        "reason",
+        "suggested_verification"
+      ],
+      "properties": {
+        "requirement_id": {
+          "type": "string",
+          "pattern": "^R-[0-9]{3}$"
+        },
+        "decision_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "session_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "action_slice": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "suggested_verification": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

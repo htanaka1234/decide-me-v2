@@ -9,7 +9,8 @@ plan.
 The repository contains the v2 runtime behind that Skill: an event-sourced
 decision log, rebuildable projections, taxonomy-aware session search, close
 summaries, and local derived exports for plans, ADRs, registers, GitHub issue
-drafts, and agent instruction fragments.
+drafts, agent instruction fragments, arc42 architecture docs, traceability
+matrices, and verification gap reports.
 
 ## What this Skill is for
 
@@ -180,7 +181,8 @@ The runtime lives under `.ai/decide-me/`.
   `project_head`; persisted project state keeps inferred candidates empty until
   a command asks for them.
 - `exports/` contains human-readable plans, ADRs, structured ADRs, decision registers, local
-  GitHub issue drafts, and agent instruction fragments.
+  GitHub issue drafts, agent instruction fragments, arc42 architecture docs, traceability
+  matrices, and verification gap reports.
 - `write.lock` protects runtime writes.
 
 Legacy runtimes that still have `.ai/decide-me/event-log.jsonl` are not migrated
@@ -218,6 +220,9 @@ reference. Common maintainer operations include:
   and `compact-runtime`
 - `benchmark-runtime` with `DECIDE_ME_PERF=1`
 - `export-github-templates` to write local issue forms under `.github/ISSUE_TEMPLATE`
+- `export-architecture-doc --format arc42` for a derived architecture skeleton
+- `export-traceability --format csv|markdown` for decision/action/verification traceability
+- `export-verification-gaps` for missing verification and evidence reports
 - `export-github-issues` to write local issue body Markdown and `issues.json` from closed sessions
   Re-exporting replaces the generated `issues/` directory, so do not keep hand-edited files there.
 - `export-agent-instructions` to write derived AGENTS.md, Cursor rule, Claude fragment, or Codex
