@@ -33,7 +33,13 @@
         "verifies",
         "revisits",
         "supersedes",
-        "blocked_by"
+        "blocked_by",
+        "constrains",
+        "enables",
+        "requires",
+        "invalidates",
+        "mitigates",
+        "derived_from"
       ]
     },
     "target_object_id": {

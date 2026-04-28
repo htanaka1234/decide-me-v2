@@ -27,6 +27,14 @@ Defined relations:
   the target in event history.
 - `blocked_by`: source is blocked by the target risk, constraint, missing evidence, open decision,
   or action.
+- `constrains`: source narrows or limits the acceptable target outcomes, designs, or execution
+  paths.
+- `enables`: source makes the target possible, easier, or appropriate to perform.
+- `requires`: source has the target as a required prerequisite.
+- `invalidates`: source makes the target no longer valid. Phase 6-1 records the edge only; it does
+  not cascade status changes.
+- `mitigates`: source reduces the likelihood or impact of the target risk or concern.
+- `derived_from`: source was produced from, refined from, or copied from the target.
 
 Direction rules:
 
@@ -37,4 +45,3 @@ Direction rules:
   `evidence`.
 - When a semantic relation changes, project a new event-derived link state instead of editing a
   human-readable export.
-

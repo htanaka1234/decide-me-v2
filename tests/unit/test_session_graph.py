@@ -33,28 +33,30 @@ class SessionGraphTests(unittest.TestCase):
 
 def _graph_bundle() -> dict:
     project_state = default_project_state()
-    project_state["graph"]["edges"] = [
-        {
-            "parent_session_id": "S-parent",
-            "child_session_id": "S-child",
-            "relationship": "refines",
-            "reason": "Child refines parent.",
-            "linked_at": "2026-04-23T12:00:00Z",
-            "evidence": [],
-            "event_id": "E-link-1",
-        },
-        {
-            "parent_session_id": "S-child",
-            "child_session_id": "S-grandchild",
-            "relationship": "derived_from",
-            "reason": "Grandchild follows child.",
-            "linked_at": "2026-04-23T12:01:00Z",
-            "evidence": [],
-            "event_id": "E-link-2",
-        },
-    ]
     return {
         "project_state": project_state,
+        "session_graph": {
+            "edges": [
+                {
+                    "parent_session_id": "S-parent",
+                    "child_session_id": "S-child",
+                    "relationship": "refines",
+                    "reason": "Child refines parent.",
+                    "linked_at": "2026-04-23T12:00:00Z",
+                    "evidence": [],
+                    "event_id": "E-link-1",
+                },
+                {
+                    "parent_session_id": "S-child",
+                    "child_session_id": "S-grandchild",
+                    "relationship": "derived_from",
+                    "reason": "Grandchild follows child.",
+                    "linked_at": "2026-04-23T12:01:00Z",
+                    "evidence": [],
+                    "event_id": "E-link-2",
+                },
+            ]
+        },
         "taxonomy_state": {},
         "sessions": {
             "S-child": default_session_state("S-child", "2026-04-23T12:00:00Z"),

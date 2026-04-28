@@ -28,7 +28,7 @@ Projection rules:
   files.
 - `project-state.json` is the object/link projection. It contains project metadata, projection
   metadata, protocol settings, session index data, derived counts, `objects`, `links`, and the
-  persisted session graph.
+  derived Decision Stack Graph.
 - Never mutate a projection directly without emitting an event.
 - Normal reads load the persisted projections plus `runtime-index.json`; they do not replay the
   event log.
@@ -76,13 +76,19 @@ Raw and effective streams:
 - Same-session semantic merge conflicts are resolved with
   `detect-merge-conflicts` followed by `resolve-merge-conflict --keep-tx-id ... --reject-tx-id ...`.
 
-Session graph:
+Decision Stack Graph:
 
-- `project_state.graph` contains deterministic `nodes`, `edges`, `resolved_conflicts`, and an
-  empty `inferred_candidates` list in persisted projections.
+- `project_state.graph` contains deterministic Decision Stack `nodes` and `edges` rebuilt from
+  `project_state.objects` and `project_state.links`.
+- Graph nodes expose `object_id`, `object_type`, inferred or explicit `layer`, `status`, `title`,
+  `is_frontier`, and `is_invalidated`.
+- Graph edges expose `link_id`, source and target object ids, relation, and source/target layers.
+- `project_state.graph` is a projection and must not be treated as source data.
+- Persisted projections keep `inferred_candidates` empty. Commands may generate advisory inferred
+  session graph candidates when requested.
 - The current domain-neutral event model does not persist explicit session graph or semantic
   conflict resolution events.
-  Inferred candidates remain advisory output generated from projections when requested.
+- Phase 6-1 does not implement impact analysis or cascading invalidation.
 
 Object supersession:
 

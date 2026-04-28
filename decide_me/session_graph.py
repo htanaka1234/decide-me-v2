@@ -13,7 +13,19 @@ ACYCLIC_RELATIONSHIPS = {"derived_from", "refines", "supersedes", "depends_on"}
 
 
 def _project_graph(bundle: dict[str, Any]) -> dict[str, Any]:
-    return bundle["project_state"]["graph"]
+    """Return the session-graph auxiliary view.
+
+    `project_state.graph.nodes/edges` is the Phase 6-1 Decision Stack Graph. Session graph callers
+    must not interpret those object/link projection edges as session relationships.
+    """
+    decision_stack_graph = bundle["project_state"].get("graph", {})
+    session_graph = bundle.get("session_graph", {})
+    return {
+        "nodes": [],
+        "edges": deepcopy(session_graph.get("edges", [])),
+        "inferred_candidates": [],
+        "resolved_conflicts": deepcopy(decision_stack_graph.get("resolved_conflicts", [])),
+    }
 
 
 def build_session_graph(
@@ -89,8 +101,7 @@ def show_session_graph(
     if include_inferred:
         graph = _session_graph_with_inferred(ai_dir, bundle, seed_session_ids=[session_id] if session_id else None)
     else:
-        graph = deepcopy(_project_graph(bundle))
-        graph["inferred_candidates"] = []
+        graph = build_session_graph(bundle)
     result: dict[str, Any] = {"status": "ok", "session_graph": graph}
     if session_id:
         result["related_sessions"] = related_session_scope(bundle, [session_id])
@@ -122,8 +133,7 @@ def detect_session_conflicts(
     sessions = [bundle["sessions"][session_id] for session_id in related_ids]
     from decide_me.planner import detect_conflicts
 
-    graph = deepcopy(_project_graph(bundle))
-    graph["inferred_candidates"] = infer_relationship_candidates(bundle, seed_session_ids=related_ids)
+    graph = build_session_graph(bundle, include_inferred=True, seed_session_ids=related_ids)
     semantic_conflicts = detect_conflicts(
         sessions,
         bundle["project_state"],

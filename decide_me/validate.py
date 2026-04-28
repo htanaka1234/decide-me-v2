@@ -1,17 +1,25 @@
 from __future__ import annotations
 
+import json
 from collections import defaultdict
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
-from decide_me.constants import ACCEPTED_VIA_VALUES, DOMAIN_VALUES, EVIDENCE_SOURCES
+from decide_me.constants import (
+    ACCEPTED_VIA_VALUES,
+    DECISION_STACK_LAYERS,
+    DOMAIN_VALUES,
+    EVIDENCE_SOURCES,
+    LINK_RELATIONS,
+    OBJECT_TYPES,
+)
 from decide_me.events import EVENT_TYPES, validate_event
 from decide_me.object_views import active_proposal_view, proposal_decision_id, proposal_option, related_decision_ids
 from decide_me.projections import (
-    LINK_RELATIONS,
-    OBJECT_TYPES,
     PROJECT_STATE_SCHEMA_VERSION,
     SESSION_STATE_SCHEMA_VERSION,
+    build_decision_stack_graph,
 )
 from decide_me.requirement_ids import is_requirement_id
 from decide_me.suppression import (
@@ -39,7 +47,6 @@ SESSION_LIFECYCLE_STATUSES = {"active", "closed"}
 TAXONOMY_AXES = {"domain", "abstraction_level", "tag"}
 TAXONOMY_STATUSES = {"active", "replaced"}
 SYSTEM_SESSION_ID = "SYSTEM"
-SESSION_RELATIONSHIPS = {"derived_from", "refines", "supersedes", "depends_on", "contradicts"}
 SYSTEM_EVENT_TYPES = {
     "project_initialized",
     "plan_generated",
@@ -173,7 +180,6 @@ def validate_project_state(project_state: dict[str, Any]) -> None:
 
     _validate_protocol(project_state["protocol"])
     _validate_sessions_index(project_state["sessions_index"])
-    _validate_graph(project_state["graph"])
     objects = project_state["objects"]
     links = project_state["links"]
     _require_list(objects, "project_state.objects")
@@ -220,6 +226,7 @@ def validate_project_state(project_state: dict[str, Any]) -> None:
         _require_optional_timestamp(obj.get("updated_at"), f"object {obj['id']}.updated_at")
         _require_source_event_ids(obj.get("source_event_ids"), f"object {obj['id']}.source_event_ids")
         metadata = _require_dict(obj.get("metadata"), f"object {obj['id']}.metadata")
+        _validate_object_metadata_layer(obj, metadata)
         if obj["id"] in object_ids:
             raise StateValidationError(f"duplicate object id: {obj['id']}")
         object_ids.add(obj["id"])
@@ -270,6 +277,8 @@ def validate_project_state(project_state: dict[str, Any]) -> None:
     if project_state["counts"] != expected_counts:
         raise StateValidationError("project_state.counts does not match object/link state")
     _validate_object_link_contracts(objects, links)
+    _validate_graph(project_state["graph"], objects, links)
+    _validate_schema_relation_enums()
 
 
 def _validate_object_link_contracts(objects: list[dict[str, Any]], links: list[dict[str, Any]]) -> None:
@@ -316,6 +325,12 @@ def _validate_object_link_contracts(objects: list[dict[str, Any]], links: list[d
             for link in support_links:
                 if by_id[link["source_object_id"]]["type"] != "evidence":
                     raise StateValidationError(f"decision {decision['id']} is supported by non-evidence object")
+
+
+def _validate_object_metadata_layer(obj: dict[str, Any], metadata: dict[str, Any]) -> None:
+    if "layer" not in metadata:
+        return
+    _require_enum(metadata["layer"], DECISION_STACK_LAYERS, f"object {obj['id']}.metadata.layer")
 
 
 def _validate_protocol(protocol: Any) -> None:
@@ -1074,54 +1089,30 @@ def _validate_event_transactions(events: list[dict[str, Any]]) -> None:
             raise StateValidationError(f"transaction {tx_id} contains multiple session_ids")
 
 
-def _validate_graph(session_graph: dict[str, Any]) -> None:
-    graph = _require_dict(session_graph, "project_state.graph")
+def _validate_graph(
+    decision_stack_graph: dict[str, Any],
+    objects: list[dict[str, Any]],
+    links: list[dict[str, Any]],
+) -> None:
+    graph = _require_dict(decision_stack_graph, "project_state.graph")
     _require_keys(
         graph,
         ("nodes", "edges", "inferred_candidates", "resolved_conflicts"),
         "project_state.graph",
     )
+    unsupported = sorted(set(graph) - {"nodes", "edges", "inferred_candidates", "resolved_conflicts"})
+    if unsupported:
+        raise StateValidationError(
+            "project_state.graph contains unsupported fields: " + ", ".join(unsupported)
+        )
     for key in ("nodes", "edges", "inferred_candidates", "resolved_conflicts"):
         _require_list(graph[key], f"project_state.graph.{key}")
-    node_ids: set[str] = set()
+    _validate_decision_stack_graph_nodes(graph["nodes"], objects, links)
+    _validate_decision_stack_graph_edges(graph["edges"], objects, links)
     for node in graph["nodes"]:
-        node_payload = _require_dict(node, "project_state.graph.nodes[]")
-        _require_keys(
-            node_payload,
-            ("session_id", "status", "related_object_ids", "close_summary_preview"),
-            "project_state.graph.nodes[]",
-        )
-        _require_non_empty_string(node_payload.get("session_id"), "project_state.graph.nodes[].session_id")
-        if node_payload["session_id"] in node_ids:
-            raise StateValidationError(f"duplicate session graph node: {node_payload['session_id']}")
-        node_ids.add(node_payload["session_id"])
-        _require_list(node_payload["related_object_ids"], "project_state.graph.nodes[].related_object_ids")
-        _require_dict(
-            node_payload["close_summary_preview"],
-            "project_state.graph.nodes[].close_summary_preview",
-        )
+        _require_dict(node, "project_state.graph.nodes[]")
     for edge in graph["edges"]:
-        edge_payload = _require_dict(edge, "project_state.graph.edges[]")
-        _require_keys(
-            edge_payload,
-            (
-                "parent_session_id",
-                "child_session_id",
-                "relationship",
-                "reason",
-                "linked_at",
-                "evidence",
-                "event_id",
-            ),
-            "project_state.graph.edges[]",
-        )
-        _require_non_empty_string(edge_payload["parent_session_id"], "project_state.graph.edges[].parent_session_id")
-        _require_non_empty_string(edge_payload["child_session_id"], "project_state.graph.edges[].child_session_id")
-        _require_enum(edge_payload["relationship"], SESSION_RELATIONSHIPS, "project_state.graph.edges[].relationship")
-        _require_non_empty_string(edge_payload["reason"], "project_state.graph.edges[].reason")
-        _require_timestamp(edge_payload["linked_at"], "project_state.graph.edges[].linked_at")
-        _require_list(edge_payload["evidence"], "project_state.graph.edges[].evidence")
-        _require_non_empty_string(edge_payload["event_id"], "project_state.graph.edges[].event_id")
+        _require_dict(edge, "project_state.graph.edges[]")
     for resolved in graph["resolved_conflicts"]:
         resolved_payload = _require_dict(resolved, "project_state.graph.resolved_conflicts[]")
         _require_keys(
@@ -1158,6 +1149,133 @@ def _validate_graph(session_graph: dict[str, Any]) -> None:
         _require_non_empty_string(resolved_payload["reason"], "project_state.graph.resolved_conflicts[].reason")
         _require_timestamp(resolved_payload["resolved_at"], "project_state.graph.resolved_conflicts[].resolved_at")
         _require_non_empty_string(resolved_payload["event_id"], "project_state.graph.resolved_conflicts[].event_id")
+
+
+def _validate_decision_stack_graph_nodes(
+    nodes: list[dict[str, Any]],
+    objects: list[dict[str, Any]],
+    links: list[dict[str, Any]],
+) -> None:
+    expected_nodes = {
+        node["object_id"]: node
+        for node in build_decision_stack_graph({"objects": objects, "links": links, "graph": {}})["nodes"]
+    }
+    object_ids = set(expected_nodes)
+    node_ids: set[str] = set()
+    for node in nodes:
+        node_payload = _require_dict(node, "project_state.graph.nodes[]")
+        _require_keys(
+            node_payload,
+            ("object_id", "object_type", "layer", "status", "title", "is_frontier", "is_invalidated"),
+            "project_state.graph.nodes[]",
+        )
+        unsupported = sorted(
+            set(node_payload)
+            - {"object_id", "object_type", "layer", "status", "title", "is_frontier", "is_invalidated"}
+        )
+        if unsupported:
+            raise StateValidationError(
+                "project_state.graph.nodes[] contains unsupported fields: " + ", ".join(unsupported)
+            )
+        _require_non_empty_string(node_payload.get("object_id"), "project_state.graph.nodes[].object_id")
+        _require_enum(node_payload.get("object_type"), OBJECT_TYPES, "project_state.graph.nodes[].object_type")
+        _require_enum(node_payload.get("layer"), DECISION_STACK_LAYERS, "project_state.graph.nodes[].layer")
+        _require_non_empty_string(node_payload.get("status"), "project_state.graph.nodes[].status")
+        if node_payload.get("title") is not None:
+            _require_non_empty_string(node_payload.get("title"), "project_state.graph.nodes[].title")
+        if not isinstance(node_payload.get("is_frontier"), bool):
+            raise StateValidationError("project_state.graph.nodes[].is_frontier must be a boolean")
+        if not isinstance(node_payload.get("is_invalidated"), bool):
+            raise StateValidationError("project_state.graph.nodes[].is_invalidated must be a boolean")
+        object_id = node_payload["object_id"]
+        if object_id in node_ids:
+            raise StateValidationError(f"duplicate decision stack graph node: {object_id}")
+        node_ids.add(object_id)
+        if object_id not in object_ids:
+            raise StateValidationError(f"graph node {object_id} references missing object")
+        if node_payload != expected_nodes[object_id]:
+            raise StateValidationError(f"graph node {object_id} does not match object projection")
+    if node_ids != object_ids:
+        missing = sorted(object_ids - node_ids)
+        extra = sorted(node_ids - object_ids)
+        detail = []
+        if missing:
+            detail.append("missing nodes for objects: " + ", ".join(missing))
+        if extra:
+            detail.append("extra nodes: " + ", ".join(extra))
+        raise StateValidationError("project_state.graph.nodes do not match objects: " + "; ".join(detail))
+
+
+def _validate_decision_stack_graph_edges(
+    edges: list[dict[str, Any]],
+    objects: list[dict[str, Any]],
+    links: list[dict[str, Any]],
+) -> None:
+    objects_by_id = {obj["id"]: obj for obj in objects}
+    expected_edges = {
+        edge["link_id"]: edge
+        for edge in build_decision_stack_graph({"objects": objects, "links": links, "graph": {}})["edges"]
+    }
+    link_ids = set(expected_edges)
+    edge_ids: set[str] = set()
+    for edge in edges:
+        edge_payload = _require_dict(edge, "project_state.graph.edges[]")
+        _require_keys(
+            edge_payload,
+            ("link_id", "source_object_id", "relation", "target_object_id", "source_layer", "target_layer"),
+            "project_state.graph.edges[]",
+        )
+        unsupported = sorted(
+            set(edge_payload)
+            - {"link_id", "source_object_id", "relation", "target_object_id", "source_layer", "target_layer"}
+        )
+        if unsupported:
+            raise StateValidationError(
+                "project_state.graph.edges[] contains unsupported fields: " + ", ".join(unsupported)
+            )
+        _require_non_empty_string(edge_payload.get("link_id"), "project_state.graph.edges[].link_id")
+        _require_non_empty_string(
+            edge_payload.get("source_object_id"),
+            "project_state.graph.edges[].source_object_id",
+        )
+        _require_enum(edge_payload.get("relation"), LINK_RELATIONS, "project_state.graph.edges[].relation")
+        _require_non_empty_string(
+            edge_payload.get("target_object_id"),
+            "project_state.graph.edges[].target_object_id",
+        )
+        _require_enum(edge_payload.get("source_layer"), DECISION_STACK_LAYERS, "project_state.graph.edges[].source_layer")
+        _require_enum(edge_payload.get("target_layer"), DECISION_STACK_LAYERS, "project_state.graph.edges[].target_layer")
+        link_id = edge_payload["link_id"]
+        if link_id in edge_ids:
+            raise StateValidationError(f"duplicate decision stack graph edge: {link_id}")
+        edge_ids.add(link_id)
+        if link_id not in link_ids:
+            raise StateValidationError(f"graph edge {link_id} references missing link")
+        if edge_payload["source_object_id"] not in objects_by_id:
+            raise StateValidationError(f"graph edge {link_id} source_object_id references missing object")
+        if edge_payload["target_object_id"] not in objects_by_id:
+            raise StateValidationError(f"graph edge {link_id} target_object_id references missing object")
+        if edge_payload != expected_edges[link_id]:
+            raise StateValidationError(f"graph edge {link_id} does not match link projection")
+    if edge_ids != link_ids:
+        missing = sorted(link_ids - edge_ids)
+        extra = sorted(edge_ids - link_ids)
+        detail = []
+        if missing:
+            detail.append("missing edges for links: " + ", ".join(missing))
+        if extra:
+            detail.append("extra edges: " + ", ".join(extra))
+        raise StateValidationError("project_state.graph.edges do not match links: " + "; ".join(detail))
+
+
+def _validate_schema_relation_enums() -> None:
+    schema_root = Path(__file__).resolve().parents[1] / "schemas"
+    link_schema = json.loads((schema_root / "link.schema.json").read_text(encoding="utf-8"))
+    project_schema = json.loads((schema_root / "project-state.schema.json").read_text(encoding="utf-8"))
+    link_schema_relations = set(link_schema["properties"]["relation"]["enum"])
+    project_schema_relations = set(project_schema["$defs"]["link_relation"]["enum"])
+    if link_schema_relations != project_schema_relations or link_schema_relations != LINK_RELATIONS:
+        raise StateValidationError("link relation enum and project-state schema relation enum must match")
 
 
 def _validate_suppressed_context(context: Any, label: str) -> None:

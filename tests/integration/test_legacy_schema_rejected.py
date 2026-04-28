@@ -72,7 +72,7 @@ class LegacySchemaRejectedTests(unittest.TestCase):
 
 def _valid_project_state() -> dict:
     payload = {
-        "schema_version": 11,
+        "schema_version": 12,
         "project": {
             "name": "Demo",
             "objective": "Plan the current milestone.",
@@ -143,8 +143,36 @@ def _valid_project_state() -> dict:
             }
         ],
         "graph": {
-            "nodes": [],
-            "edges": [],
+            "nodes": [
+                {
+                    "object_id": "O-objective",
+                    "object_type": "objective",
+                    "layer": "purpose",
+                    "status": "active",
+                    "title": "Milestone objective",
+                    "is_frontier": False,
+                    "is_invalidated": False,
+                },
+                {
+                    "object_id": "O-evidence",
+                    "object_type": "evidence",
+                    "layer": "verification",
+                    "status": "active",
+                    "title": "Existing tests",
+                    "is_frontier": False,
+                    "is_invalidated": False,
+                },
+            ],
+            "edges": [
+                {
+                    "link_id": "L-evidence-supports-objective",
+                    "source_object_id": "O-evidence",
+                    "relation": "supports",
+                    "target_object_id": "O-objective",
+                    "source_layer": "verification",
+                    "target_layer": "purpose",
+                }
+            ],
             "resolved_conflicts": [],
             "inferred_candidates": [],
         },

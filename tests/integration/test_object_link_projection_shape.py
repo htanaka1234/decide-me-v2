@@ -11,7 +11,7 @@ from tests.helpers.legacy_term_policy import LEGACY_PROJECT_STATE_TERMS
 
 
 class ObjectLinkProjectionShapeTests(unittest.TestCase):
-    def test_bootstrap_persists_v11_object_link_project_state(self) -> None:
+    def test_bootstrap_persists_v12_object_link_project_state(self) -> None:
         with TemporaryDirectory() as tmp:
             ai_dir = Path(tmp) / ".ai" / "decide-me"
 
@@ -24,7 +24,7 @@ class ObjectLinkProjectionShapeTests(unittest.TestCase):
             project_state = json.loads((ai_dir / "project-state.json").read_text(encoding="utf-8"))
             runtime_index = json.loads((ai_dir / "runtime-index.json").read_text(encoding="utf-8"))
 
-            self.assertEqual(11, project_state["schema_version"])
+            self.assertEqual(12, project_state["schema_version"])
             self.assertNotIn("decisions", project_state)
             for legacy_key in LEGACY_PROJECT_STATE_TERMS:
                 self.assertNotIn(legacy_key, project_state)
@@ -36,7 +36,7 @@ class ObjectLinkProjectionShapeTests(unittest.TestCase):
             self.assertIn("graph", project_state)
             self.assertEqual(1, project_state["counts"]["object_total"])
             self.assertEqual(0, project_state["counts"]["link_total"])
-            self.assertEqual(11, runtime_index["projection_schema_version"])
+            self.assertEqual(12, runtime_index["projection_schema_version"])
             self.assertEqual([], validate_runtime(ai_dir))
 
     def test_rebuild_regenerates_object_link_project_state(self) -> None:
@@ -54,7 +54,7 @@ class ObjectLinkProjectionShapeTests(unittest.TestCase):
             persisted = json.loads((ai_dir / "project-state.json").read_text(encoding="utf-8"))
 
             self.assertEqual(rebuilt["project_state"], persisted)
-            self.assertEqual(11, persisted["schema_version"])
+            self.assertEqual(12, persisted["schema_version"])
             self.assertNotIn("decisions", persisted)
             self.assertIn("protocol", persisted)
             self.assertIn("sessions_index", persisted)
@@ -78,6 +78,10 @@ class ObjectLinkProjectionShapeTests(unittest.TestCase):
             project_state = json.loads((ai_dir / "project-state.json").read_text(encoding="utf-8"))
 
             self.assertNotIn("session" + "_graph", project_state)
+            self.assertEqual(
+                [{"object_id", "object_type", "layer", "status", "title", "is_frontier", "is_invalidated"}],
+                [set(node) for node in project_state["graph"]["nodes"]],
+            )
             self.assertEqual([], project_state["graph"]["edges"])
             self.assertIn(parent["session"]["id"], project_state["sessions_index"])
             self.assertIn(child["session"]["id"], project_state["sessions_index"])

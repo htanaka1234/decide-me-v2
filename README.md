@@ -151,8 +151,8 @@ Resolve same-session transaction merge conflicts:
 Inspect session graph context:
 
 1. Run `python3 scripts/decide_me.py show-session-graph --ai-dir .ai/decide-me --session-id S-... --include-inferred`.
-2. Treat inferred graph candidates as advisory. Explicit session graph writes are not part of
-   the domain-neutral event whitelist.
+2. Treat inferred graph candidates as advisory. `project_state.graph.nodes/edges` is the
+   Decision Stack Graph over objects and links, not persisted session relationships.
 
 Record object relationships:
 
@@ -188,7 +188,7 @@ The runtime lives under `.ai/decide-me/`.
   migrated or backfilled.
 - `project-state.json` is the rebuildable object/link projection. It contains project metadata,
   projection metadata, protocol settings, session index data, counts, `objects`, `links`, and the
-  persisted session graph.
+  derived Decision Stack Graph.
 - `taxonomy-state.json` and `sessions/*.json` are also rebuildable projections and the normal
   hot-path read cache.
 - Close summaries store object and link reference sets in `close_summary.object_ids` and
@@ -196,9 +196,9 @@ The runtime lives under `.ai/decide-me/`.
   `action_plan.actions` plus `action_plan.implementation_ready_actions`.
 - `runtime-index.json` checkpoints the current projection head, event count,
   rejected transaction IDs, last event sort key, and projection file manifest.
-- `session-graph-cache.json` may cache full inferred graph output by
-  `project_head`; persisted project state keeps inferred candidates empty until
-  a command asks for them.
+- `session-graph-cache.json` may cache full inferred session graph output by
+  `project_head`; persisted project state keeps Decision Stack Graph nodes and edges plus empty
+  inferred candidates until a command asks for session graph inference.
 - `exports/` contains human-readable plans, ADRs, structured ADRs, software-oriented decision
   registers, local GitHub issue drafts, agent instruction fragments, arc42 architecture docs,
   traceability matrices, and verification gap reports. These are derived exports, not runtime
