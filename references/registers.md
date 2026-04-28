@@ -79,3 +79,7 @@ Register projections intentionally stop before safety gate behavior. Step 3 is r
 machine evaluation such as evidence coverage, approval requirement, risk tier blocking reasons,
 and gate result status. Step 4 is responsible for stale evidence, stale assumptions, verification
 gaps, and due revisit diagnostics.
+
+Step 3 safety gate evaluation is exposed through `show-safety-gate` and `show-safety-gates`.
+Those commands consume the same object/link facts but remain read-only diagnostics. They do not
+persist register or gate state.

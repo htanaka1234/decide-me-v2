@@ -32,6 +32,7 @@ from decide_me.lifecycle import close_session, create_session, list_sessions, re
 from decide_me.planner import generate_plan
 from decide_me.protocol import resolve_decision_supersession
 from decide_me.registers import build_assumption_register, build_evidence_register, build_risk_register
+from decide_me.safety_gate import build_safety_gate_report, evaluate_safety_gate
 from decide_me.session_graph import (
     detect_session_conflicts,
     show_session_graph,
@@ -197,6 +198,19 @@ def main(argv: list[str] | None = None) -> int:
         help="show a read-only risk register projection",
     )
     show_risk_register.add_argument("--ai-dir", required=True)
+
+    show_safety_gate = subparsers.add_parser(
+        "show-safety-gate",
+        help="show a read-only safety gate result for one object",
+    )
+    show_safety_gate.add_argument("--ai-dir", required=True)
+    show_safety_gate.add_argument("--object-id", required=True)
+
+    show_safety_gates = subparsers.add_parser(
+        "show-safety-gates",
+        help="show read-only safety gate results for live decisions and actions",
+    )
+    show_safety_gates.add_argument("--ai-dir", required=True)
 
     adr = subparsers.add_parser("export-adr", help="export an ADR markdown file")
     adr.add_argument("--ai-dir", required=True)
@@ -417,6 +431,12 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "show-risk-register":
             bundle = load_runtime(runtime_paths(args.ai_dir))
             _print_json(build_risk_register(bundle["project_state"]))
+        elif args.command == "show-safety-gate":
+            bundle = load_runtime(runtime_paths(args.ai_dir))
+            _print_json(evaluate_safety_gate(bundle["project_state"], args.object_id))
+        elif args.command == "show-safety-gates":
+            bundle = load_runtime(runtime_paths(args.ai_dir))
+            _print_json(build_safety_gate_report(bundle["project_state"]))
         elif args.command == "export-adr":
             path = export_adr(args.ai_dir, args.decision_id)
             _print_json({"path": str(path)})

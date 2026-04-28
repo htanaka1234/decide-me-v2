@@ -183,6 +183,10 @@ The register commands aggregate typed metadata and relation ids from `project_st
 `project_state.links`; they do not add fields to `project_state.graph` and do not evaluate safety
 gates. See `references/registers.md` for the register output contract.
 
+Step 3 adds read-only safety gate diagnostics using the same object/link projection. Safety gate
+commands do not add graph fields, persist gate state, apply candidates, or emit approval events.
+See `references/safety-gates.md` for the evaluation contract.
+
 ## Phase 6-1 Boundary
 
 Phase 6-1 fixes only the layer set, relation enum, graph node and edge shape, projection rebuild,
