@@ -131,6 +131,11 @@ and adds `path.node_ids` plus `path.link_ids` for each returned item. It is inte
 diagnostics that need path evidence, including impact analysis, without changing the existing
 `descendants()` shape.
 
+Path output uses the same node-level visited traversal as `descendants()`. It is representative
+path evidence, not exhaustive all-path enumeration through convergent graph nodes. Duplicate direct
+paths to the same target may be returned, but once traversal reaches a convergent node, deeper
+descendants are explored from the first visited route.
+
 Use `direct_upstream_ids()`, `direct_downstream_ids()`, `ancestor_ids()`, or `descendant_ids()`
 when only stable unique object IDs are needed.
 

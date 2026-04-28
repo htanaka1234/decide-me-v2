@@ -26,6 +26,10 @@ Allowed `change_kind` values are:
 The function validates that the root object exists in `project_state.graph.nodes[]`. Unknown root
 objects and unknown change kinds raise `ValueError`.
 
+In Phase 6-3, `change_kind` is metadata only. It is validated and echoed in the output so humans
+can understand the triggering condition, but it does not change traversal, severity, impact kind,
+or recommended action rules yet.
+
 ## Traversal
 
 Impact analysis uses `descendants_with_paths(..., direction="influence")` from the graph traversal
@@ -34,6 +38,12 @@ changing the existing `descendants()` return shape.
 
 `max_depth=None` walks all reachable downstream objects. `max_depth=0` returns no affected
 objects. Cycles are bounded by the traversal visited set and cannot loop forever.
+
+Paths are representative traversal evidence, not an exhaustive all-path enumeration. The traversal
+uses the same node-level visited behavior as `descendants()`: duplicate direct paths to a target
+can appear, but after graph paths converge, downstream objects are explored from the first visited
+route only. Full alternative-path evidence would require a later path-bounded traversal contract
+with explicit caps.
 
 By default, invalidated target objects are excluded from the affected object list. Traversal still
 walks through invalidated bridge nodes, so a live downstream object is not hidden only because an
@@ -52,9 +62,9 @@ The result matches `schemas/impact-analysis.schema.json` and contains:
 - `affected_links`
 - `paths`
 
-`affected_objects` has one entry per affected object. Duplicate routes to the same object are kept
-in `paths`; the object entry keeps the strongest severity, then shortest distance, then smallest
-link ID when multiple routes exist.
+`affected_objects` has one entry per affected object. Representative duplicate routes to the same
+object are kept in `paths` when traversal records them; the object entry keeps the strongest
+severity, then shortest distance, then smallest link ID when multiple routes exist.
 
 `affected_links` is a stable unique list of link IDs from retained paths. `summary.affected_count`
 counts unique affected objects. `summary.affected_layers` follows the Decision Stack Graph layer

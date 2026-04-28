@@ -7,10 +7,14 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
-from decide_me.impact_analysis import analyze_impact
+from decide_me.constants import LINK_RELATIONS
+from decide_me.impact_analysis import CHANGE_KINDS, _RELATION_SEVERITY, analyze_impact
 
 
 class ImpactAnalysisTests(unittest.TestCase):
+    def test_relation_severity_covers_all_link_relations(self) -> None:
+        self.assertEqual(LINK_RELATIONS, set(_RELATION_SEVERITY))
+
     def test_constraint_change_detects_downstream_review_candidates(self) -> None:
         project_state = _impact_project_state()
         original = deepcopy(project_state)
@@ -124,6 +128,20 @@ class ImpactAnalysisTests(unittest.TestCase):
             analyze_impact(project_state, "CON-privacy", change_kind="renamed")
         with self.assertRaisesRegex(ValueError, "unknown object_id"):
             analyze_impact(project_state, "O-missing", change_kind="changed")
+
+    def test_change_kind_is_metadata_only_for_phase_6_3(self) -> None:
+        project_state = _impact_project_state()
+        baseline = analyze_impact(project_state, "CON-privacy", change_kind="changed")
+        baseline["change_kind"] = "<normalized>"
+        baseline["generated_at"] = "<normalized>"
+
+        for change_kind in sorted(CHANGE_KINDS):
+            with self.subTest(change_kind=change_kind):
+                report = analyze_impact(project_state, "CON-privacy", change_kind=change_kind)
+                report["change_kind"] = "<normalized>"
+                report["generated_at"] = "<normalized>"
+
+                self.assertEqual(baseline, report)
 
     def test_valid_report_matches_schema(self) -> None:
         schema_path = Path(__file__).resolve().parents[2] / "schemas" / "impact-analysis.schema.json"
