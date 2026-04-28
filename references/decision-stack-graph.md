@@ -177,8 +177,8 @@ Phase 6-3 adds read-only impact analysis on top of these helpers. Phase 6-4 adds
 invalidation candidates derived from that impact report. Phase 6-5 exposes these diagnostics
 through CLI commands and derived Markdown impact reports. These diagnostics do not cascade
 invalidation, create links, change object status, accept candidates, or run approval workflows.
-Step 5 lets invalidation candidates include deterministic draft `proposed_events`; the diagnostic
-still does not apply those drafts or persist candidate lifecycle state.
+Step 5 lets invalidation candidates include deterministic `proposed_events` event specs. The
+diagnostic still does not apply those specs or persist candidate lifecycle state.
 
 Phase 7 preparation adds read-only register projections for evidence, assumptions, and risks.
 The register commands aggregate typed metadata and relation ids from `project_state.objects` and

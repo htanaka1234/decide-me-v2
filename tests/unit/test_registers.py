@@ -117,6 +117,8 @@ class RegisterProjectionTests(unittest.TestCase):
                 _link("L-AS-001-constrains-D-001", "AS-001", "constrains", "D-001"),
                 _link("L-AS-001-derived-from-E-001", "AS-001", "derived_from", "E-001"),
                 _link("L-AS-001-invalidates-D-002", "AS-001", "invalidates", "D-002"),
+                _link("L-D-001-requires-AS-001", "D-001", "requires", "AS-001"),
+                _link("L-D-002-derived-from-AS-001", "D-002", "derived_from", "AS-001"),
             ],
         )
 
@@ -131,12 +133,16 @@ class RegisterProjectionTests(unittest.TestCase):
         self.assertEqual(["A-001"], item["requires_object_ids"])
         self.assertEqual(["E-001"], item["derived_from_object_ids"])
         self.assertEqual(["D-002"], item["invalidates_object_ids"])
+        self.assertEqual(["D-001"], item["required_by_object_ids"])
+        self.assertEqual(["D-002"], item["derived_into_object_ids"])
         self.assertEqual(
             [
                 "L-AS-001-constrains-D-001",
                 "L-AS-001-derived-from-E-001",
                 "L-AS-001-invalidates-D-002",
                 "L-AS-001-requires-A-001",
+                "L-D-001-requires-AS-001",
+                "L-D-002-derived-from-AS-001",
             ],
             item["related_link_ids"],
         )

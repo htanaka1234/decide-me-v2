@@ -163,7 +163,8 @@ Inspect Decision Stack Graph diagnostics:
 5. Impact report output paths must resolve under `.ai/decide-me/exports/impact/`.
 6. These commands are read-only diagnostics. They do not emit events, change object status, create
    invalidation or supersession links, accept candidates, or start an approval workflow.
-   Invalidation candidates may include draft `proposed_events`, but those drafts are not applied.
+   Invalidation candidates may include `proposed_events` event specs, but those specs are not
+   applied.
 
 Inspect Phase 7 register inputs:
 
@@ -172,7 +173,8 @@ Inspect Phase 7 register inputs:
 3. Run `python3 scripts/decide_me.py show-risk-register --ai-dir .ai/decide-me`.
 4. These commands return schema-shaped JSON from `project-state.json` only. They do not persist
    register state, evaluate safety gates, mark stale assumptions or evidence, or start approval
-   workflows.
+   workflows. The assumption register includes incoming `requires` / `derived_from` dependencies
+   so it shows the same assumption dependency direction used by Safety Gate evaluation.
 
 Inspect Phase 7 safety gates:
 
@@ -190,6 +192,8 @@ Inspect Phase 7 stale diagnostics:
 5. These commands return structured read-only diagnostics. They do not change safety gate status,
    write events, update projections, apply invalidation candidates, or create approval objects.
    `export-verification-gaps` remains the Markdown export command.
+   Stale evidence output includes indirect affected decisions and representative paths when stale
+   evidence reaches decisions through verification, assumption, or proposal links.
 
 Record object relationships:
 

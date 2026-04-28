@@ -47,6 +47,7 @@ def build_evidence_register(project_state: dict[str, Any]) -> dict[str, Any]:
 
 def build_assumption_register(project_state: dict[str, Any]) -> dict[str, Any]:
     links = _links_by_source(project_state)
+    links_by_target = _links_by_target(project_state)
     items = []
     for obj in _objects_of_type(project_state, "assumption"):
         metadata = obj.get("metadata", {})
@@ -54,9 +55,20 @@ def build_assumption_register(project_state: dict[str, Any]) -> dict[str, Any]:
         requires = _target_ids(links.get(obj["id"], []), "requires")
         derived_from = _target_ids(links.get(obj["id"], []), "derived_from")
         invalidates = _target_ids(links.get(obj["id"], []), "invalidates")
-        related_links = _link_ids(
+        outgoing_related_links = _link_ids(
             links.get(obj["id"], []),
             {"constrains", "requires", "derived_from", "invalidates"},
+        )
+        incoming_dependency_links = _links_with_relation(links_by_target.get(obj["id"], []), "requires")
+        incoming_derived_links = _links_with_relation(links_by_target.get(obj["id"], []), "derived_from")
+        required_by = _sorted_strings(link["source_object_id"] for link in incoming_dependency_links)
+        derived_into = _sorted_strings(link["source_object_id"] for link in incoming_derived_links)
+        related_links = _sorted_strings(
+            [
+                *outgoing_related_links,
+                *(link["id"] for link in incoming_dependency_links),
+                *(link["id"] for link in incoming_derived_links),
+            ]
         )
         items.append(
             {
@@ -71,6 +83,8 @@ def build_assumption_register(project_state: dict[str, Any]) -> dict[str, Any]:
                 "requires_object_ids": requires,
                 "derived_from_object_ids": derived_from,
                 "invalidates_object_ids": invalidates,
+                "required_by_object_ids": required_by,
+                "derived_into_object_ids": derived_into,
                 "related_link_ids": related_links,
             }
         )

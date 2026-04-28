@@ -387,6 +387,8 @@
             "requires_object_ids",
             "derived_from_object_ids",
             "invalidates_object_ids",
+            "required_by_object_ids",
+            "derived_into_object_ids",
             "related_link_ids"
           ],
           "properties": {
@@ -427,6 +429,12 @@
               "$ref": "#/$defs/string_array"
             },
             "invalidates_object_ids": {
+              "$ref": "#/$defs/string_array"
+            },
+            "required_by_object_ids": {
+              "$ref": "#/$defs/string_array"
+            },
+            "derived_into_object_ids": {
               "$ref": "#/$defs/string_array"
             },
             "related_link_ids": {

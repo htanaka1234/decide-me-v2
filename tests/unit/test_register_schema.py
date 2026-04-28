@@ -56,6 +56,7 @@ class RegisterSchemaTests(unittest.TestCase):
         cases = (
             (build_evidence_register(_valid_project_state()), ["items", 0, "related_link_ids"], [None]),
             (build_assumption_register(_valid_project_state()), ["items", 0, "invalidates_if_false"], "D-001"),
+            (build_assumption_register(_valid_project_state()), ["items", 0, "required_by_object_ids"], [None]),
             (build_evidence_register(_valid_project_state()), ["items", 0, "source_ref"], None),
             (build_risk_register(_valid_project_state()), ["items", 0, "mitigation_object_ids"], [None]),
         )
@@ -91,6 +92,7 @@ def _valid_project_state() -> dict:
         "links": [
             _link("L-E-001-supports-D-001", "E-001", "supports", "D-001"),
             _link("L-AS-001-constrains-D-001", "AS-001", "constrains", "D-001"),
+            _link("L-D-001-requires-AS-001", "D-001", "requires", "AS-001"),
             _link("L-A-001-mitigates-RISK-001", "A-001", "mitigates", "RISK-001"),
         ],
     }

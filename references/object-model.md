@@ -61,5 +61,7 @@ enum/timestamp/list shapes are strict runtime and schema contracts.
 
 Phase 7 preparation also exposes derived register projections for evidence, assumptions, and
 risks. These registers copy the typed metadata into schema-shaped JSON diagnostics and aggregate
-related object/link ids, but they are not persisted in `project-state.json`. Use
-`show-evidence-register`, `show-assumption-register`, and `show-risk-register` to inspect them.
+related object/link ids, but they are not persisted in `project-state.json`. The assumption
+register includes both outgoing assumption links and incoming dependency links used by Safety Gate
+evaluation. Use `show-evidence-register`, `show-assumption-register`, and `show-risk-register` to
+inspect them.

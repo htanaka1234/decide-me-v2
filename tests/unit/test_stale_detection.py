@@ -67,7 +67,55 @@ class StaleDetectionTests(unittest.TestCase):
         self.assertEqual(["freshness_stale"], by_id["E-002"]["stale_reasons"])
         self.assertEqual(["D-001"], by_id["E-001"]["affected_decision_ids"])
         self.assertEqual(["D-002"], by_id["E-002"]["affected_decision_ids"])
+        self.assertEqual(
+            [
+                {
+                    "decision_id": "D-001",
+                    "node_ids": ["E-001", "D-001"],
+                    "link_ids": ["L-E-001-supports-D-001"],
+                }
+            ],
+            by_id["E-001"]["affected_decision_paths"],
+        )
         self.assertEqual(2, payload["summary"]["affected_decision_count"])
+
+    def test_stale_evidence_reports_indirect_affected_decisions(self) -> None:
+        project_state = _project_state(
+            objects=[
+                _object("D-verification", "decision", status="accepted"),
+                _object("D-assumption", "decision", status="accepted"),
+                _object("D-proposal", "decision", status="accepted"),
+                _object("V-001", "verification", verification_metadata()),
+                _object("AS-001", "assumption", assumption_metadata()),
+                _object("P-001", "proposal"),
+                _object("E-001", "evidence", evidence_metadata(valid_until=PAST)),
+            ],
+            links=[
+                _link("L-E-001-verifies-V-001", "E-001", "verifies", "V-001"),
+                _link("L-V-001-verifies-D-verification", "V-001", "verifies", "D-verification"),
+                _link("L-E-001-supports-AS-001", "E-001", "supports", "AS-001"),
+                _link("L-D-assumption-requires-AS-001", "D-assumption", "requires", "AS-001"),
+                _link("L-E-001-supports-P-001", "E-001", "supports", "P-001"),
+                _link("L-D-proposal-accepts-P-001", "D-proposal", "accepts", "P-001"),
+            ],
+        )
+
+        payload = detect_stale_evidence(project_state, now=NOW)
+
+        item = payload["items"][0]
+        self.assertEqual(
+            ["D-assumption", "D-proposal", "D-verification"],
+            item["affected_decision_ids"],
+        )
+        self.assertEqual(3, payload["summary"]["affected_decision_count"])
+        self.assertEqual(
+            {
+                "D-assumption": ["E-001", "AS-001", "D-assumption"],
+                "D-proposal": ["E-001", "P-001", "D-proposal"],
+                "D-verification": ["E-001", "V-001", "D-verification"],
+            },
+            {path["decision_id"]: path["node_ids"] for path in item["affected_decision_paths"]},
+        )
 
     def test_verification_gap_reports_completed_action_as_high_severity(self) -> None:
         project_state = _project_state(

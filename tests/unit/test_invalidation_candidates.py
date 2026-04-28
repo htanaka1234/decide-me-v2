@@ -8,8 +8,11 @@ from pathlib import Path
 from jsonschema import Draft202012Validator
 
 from decide_me.constants import DECISION_STACK_LAYERS, LINK_RELATIONS, OBJECT_TYPES
+from decide_me.events import build_event
 from decide_me.impact_analysis import CHANGE_KINDS
 from decide_me.invalidation_candidates import CANDIDATE_KINDS, generate_invalidation_candidates
+from decide_me.projections import apply_events_to_bundle, rebuild_projections
+from decide_me.validate import validate_projection_bundle
 
 
 class InvalidationCandidatesTests(unittest.TestCase):
@@ -59,8 +62,14 @@ class InvalidationCandidatesTests(unittest.TestCase):
 
     def test_invalidated_accepted_decision_generates_invalidate_candidate(self) -> None:
         report = generate_invalidation_candidates(
-            _decision_project_state(status="accepted"),
-            "CON-privacy",
+            _project_state(
+                nodes=[
+                    _node("D-root", "decision", "strategy", status="accepted"),
+                    _node("D-auth", "decision", "strategy", status="accepted"),
+                ],
+                edges=[_edge("L-root-constrains-decision", "D-root", "constrains", "D-auth")],
+            ),
+            "D-root",
             change_kind="invalidated",
         )
 
@@ -69,33 +78,28 @@ class InvalidationCandidatesTests(unittest.TestCase):
         self.assertTrue(candidate["requires_human_approval"])
         self.assertEqual("explicit_acceptance", candidate["approval_threshold"])
         self.assertEqual("materialized", candidate["materialization_status"])
+        self.assertEqual(["object_status_changed", "object_updated"], _event_types(candidate))
+        status_change, metadata_update = candidate["proposed_events"]
+        self.assertEqual(report["generated_at"], status_change["ts"])
+        self.assertEqual(report["generated_at"], status_change["payload"]["changed_at"])
         self.assertEqual(
-            [
-                {
-                    "event_type": "object_status_changed",
-                    "payload": {
-                        "object_id": "D-auth",
-                        "from_status": "accepted",
-                        "to_status": "invalidated",
-                        "reason": "Accepted decision is affected by an invalidated upstream object.",
-                    },
-                },
-                {
-                    "event_type": "object_updated",
-                    "payload": {
-                        "object_id": "D-auth",
-                        "patch": {
-                            "metadata": {
-                                "invalidated_by": {
-                                    "decision_id": "CON-privacy",
-                                    "reason": "Accepted decision is affected by an invalidated upstream object.",
-                                }
-                            }
-                        },
-                    },
-                },
-            ],
-            candidate["proposed_events"],
+            {
+                "object_id": "D-auth",
+                "from_status": "accepted",
+                "to_status": "invalidated",
+                "reason": "Accepted decision is affected by an invalidated upstream object.",
+                "changed_at": report["generated_at"],
+            },
+            status_change["payload"],
+        )
+        self.assertEqual(report["generated_at"], metadata_update["ts"])
+        self.assertEqual(
+            {
+                "decision_id": "D-root",
+                "invalidated_at": report["generated_at"],
+                "reason": "Accepted decision is affected by an invalidated upstream object.",
+            },
+            metadata_update["payload"]["patch"]["metadata"]["invalidated_by"],
         )
 
     def test_superseded_accepted_decision_generates_supersede_candidate(self) -> None:
@@ -127,8 +131,9 @@ class InvalidationCandidatesTests(unittest.TestCase):
         self.assertEqual("materialized", candidate["materialization_status"])
         self.assertEqual(
             ["object_status_changed", "object_updated", "object_linked"],
-            [event["event_type"] for event in candidate["proposed_events"]],
+            _event_types(candidate),
         )
+        link_event = candidate["proposed_events"][2]
         self.assertEqual(
             {
                 "id": "L-D-new-supersedes-D-old",
@@ -136,8 +141,10 @@ class InvalidationCandidatesTests(unittest.TestCase):
                 "relation": "supersedes",
                 "target_object_id": "D-old",
                 "rationale": "Accepted decision is affected by a superseded upstream object.",
+                "created_at": report["generated_at"],
+                "source_event_ids": [link_event["event_id"]],
             },
-            candidate["proposed_events"][2]["payload"]["link"],
+            link_event["payload"]["link"],
         )
 
     def test_unresolved_proposed_and_blocked_decisions_generate_review_candidates(self) -> None:
@@ -175,8 +182,9 @@ class InvalidationCandidatesTests(unittest.TestCase):
         self.assertEqual("materialized", add_verification["materialization_status"])
         self.assertEqual(
             ["object_recorded", "object_linked"],
-            [event["event_type"] for event in add_verification["proposed_events"]],
+            _event_types(add_verification),
         )
+        object_event, link_event = add_verification["proposed_events"]
         self.assertEqual(
             {
                 "id": verification_id,
@@ -184,6 +192,9 @@ class InvalidationCandidatesTests(unittest.TestCase):
                 "title": "Verify A-auth",
                 "body": "Add verification for A-auth after changed impact from D-auth.",
                 "status": "planned",
+                "created_at": report["generated_at"],
+                "updated_at": None,
+                "source_event_ids": [object_event["event_id"]],
                 "metadata": {
                     "method": "review",
                     "expected_result": "A-auth remains valid after changed impact from D-auth.",
@@ -191,7 +202,7 @@ class InvalidationCandidatesTests(unittest.TestCase):
                     "result": "pending",
                 },
             },
-            add_verification["proposed_events"][0]["payload"]["object"],
+            object_event["payload"]["object"],
         )
         self.assertEqual(
             {
@@ -200,9 +211,68 @@ class InvalidationCandidatesTests(unittest.TestCase):
                 "relation": "verifies",
                 "target_object_id": "A-auth",
                 "rationale": "Add verification for A-auth after changed impact from D-auth.",
+                "created_at": report["generated_at"],
+                "source_event_ids": [link_event["event_id"]],
             },
-            add_verification["proposed_events"][1]["payload"]["link"],
+            link_event["payload"]["link"],
         )
+
+    def test_invalidate_candidate_event_specs_apply_and_validate(self) -> None:
+        bundle = _supersede_bundle()
+        report = generate_invalidation_candidates(
+            bundle["project_state"],
+            "D-new",
+            change_kind="invalidated",
+        )
+        candidate = next(candidate for candidate in report["candidates"] if candidate["target_object_id"] == "D-old")
+
+        updated = _apply_candidate_event_specs(bundle, candidate)
+        validate_projection_bundle(updated)
+
+        decision = _object_by_id(updated["project_state"], "D-old")
+        self.assertEqual("invalidated", decision["status"])
+        self.assertEqual(
+            {
+                "decision_id": "D-new",
+                "invalidated_at": report["generated_at"],
+                "reason": "Accepted decision is affected by an invalidated upstream object.",
+            },
+            decision["metadata"]["invalidated_by"],
+        )
+
+    def test_supersede_candidate_event_specs_apply_and_validate(self) -> None:
+        bundle = _supersede_bundle()
+        report = generate_invalidation_candidates(
+            bundle["project_state"],
+            "D-new",
+            change_kind="superseded",
+        )
+        candidate = next(candidate for candidate in report["candidates"] if candidate["target_object_id"] == "D-old")
+
+        updated = _apply_candidate_event_specs(bundle, candidate)
+        validate_projection_bundle(updated)
+
+        old_decision = _object_by_id(updated["project_state"], "D-old")
+        self.assertEqual("invalidated", old_decision["status"])
+        self.assertIn("L-D-new-supersedes-D-old", _links_by_id(updated["project_state"]))
+
+    def test_add_verification_candidate_event_specs_apply_and_validate(self) -> None:
+        bundle = _action_without_verification_bundle()
+        report = generate_invalidation_candidates(
+            bundle["project_state"],
+            "D-auth",
+            change_kind="changed",
+        )
+        candidate = next(candidate for candidate in report["candidates"] if candidate["candidate_kind"] == "add_verification")
+
+        updated = _apply_candidate_event_specs(bundle, candidate)
+        validate_projection_bundle(updated)
+
+        verification_id = f"VER-{candidate['candidate_id'][3:]}"
+        verification = _object_by_id(updated["project_state"], verification_id)
+        self.assertEqual("verification", verification["type"])
+        link = _links_by_id(updated["project_state"])[f"L-{verification_id}-verifies-A-auth"]
+        self.assertEqual("A-auth", link["target_object_id"])
 
     def test_invalidated_root_decision_also_generates_action_invalidation_candidate(self) -> None:
         report = generate_invalidation_candidates(
@@ -468,8 +538,14 @@ class InvalidationCandidatesTests(unittest.TestCase):
         schema = json.loads(schema_path.read_text(encoding="utf-8"))
         validator = Draft202012Validator(schema)
         report = generate_invalidation_candidates(
-            _decision_project_state(status="accepted"),
-            "CON-privacy",
+            _project_state(
+                nodes=[
+                    _node("D-root", "decision", "strategy", status="accepted"),
+                    _node("D-auth", "decision", "strategy", status="accepted"),
+                ],
+                edges=[_edge("L-root-constrains-decision", "D-root", "constrains", "D-auth")],
+            ),
+            "D-root",
             change_kind="invalidated",
         )
 
@@ -477,6 +553,7 @@ class InvalidationCandidatesTests(unittest.TestCase):
             (["candidates", 0, "approval_threshold"], "human_review"),
             (["candidates", 0, "proposed_events", 0, "event_type"], "session_closed"),
             (["candidates", 0, "proposed_events", 0, "payload"], None),
+            (["candidates", 0, "proposed_events", 0, "payload", "changed_at"], None),
         )
         for path, value in cases:
             with self.subTest(path=path):
@@ -506,6 +583,147 @@ def _decision_project_state(*, status: str) -> dict:
         ],
         edges=[_edge("L-constraint-constrains-decision", "CON-privacy", "constrains", "D-auth")],
     )
+
+
+def _supersede_bundle() -> dict:
+    events = [
+        *_base_runtime_events(),
+        _runtime_event(3, "S-001", "object_recorded", {"object": _runtime_object("D-new", "decision", "E-test-3", status="accepted")}),
+        _runtime_event(4, "S-001", "object_recorded", {"object": _runtime_object("P-new", "proposal", "E-test-4")}),
+        _runtime_event(5, "S-001", "object_recorded", {"object": _runtime_object("O-new", "option", "E-test-5")}),
+        _runtime_event(6, "S-001", "object_recorded", {"object": _runtime_object("D-old", "decision", "E-test-6", status="accepted")}),
+        _runtime_event(7, "S-001", "object_recorded", {"object": _runtime_object("P-old", "proposal", "E-test-7")}),
+        _runtime_event(8, "S-001", "object_recorded", {"object": _runtime_object("O-old", "option", "E-test-8")}),
+        _runtime_event(9, "S-001", "object_linked", {"link": _runtime_link("L-P-new-addresses-D-new", "P-new", "addresses", "D-new", "E-test-9")}),
+        _runtime_event(10, "S-001", "object_linked", {"link": _runtime_link("L-P-new-recommends-O-new", "P-new", "recommends", "O-new", "E-test-10")}),
+        _runtime_event(11, "S-001", "object_linked", {"link": _runtime_link("L-D-new-accepts-P-new", "D-new", "accepts", "P-new", "E-test-11")}),
+        _runtime_event(12, "S-001", "object_linked", {"link": _runtime_link("L-P-old-addresses-D-old", "P-old", "addresses", "D-old", "E-test-12")}),
+        _runtime_event(13, "S-001", "object_linked", {"link": _runtime_link("L-P-old-recommends-O-old", "P-old", "recommends", "O-old", "E-test-13")}),
+        _runtime_event(14, "S-001", "object_linked", {"link": _runtime_link("L-D-old-accepts-P-old", "D-old", "accepts", "P-old", "E-test-14")}),
+        _runtime_event(15, "S-001", "object_linked", {"link": _runtime_link("L-new-constrains-old", "D-new", "constrains", "D-old", "E-test-15")}),
+    ]
+    bundle = rebuild_projections(events)
+    validate_projection_bundle(bundle)
+    return bundle
+
+
+def _action_without_verification_bundle() -> dict:
+    events = [
+        *_base_runtime_events(),
+        _runtime_event(3, "S-001", "object_recorded", {"object": _runtime_object("D-auth", "decision", "E-test-3", status="accepted")}),
+        _runtime_event(4, "S-001", "object_recorded", {"object": _runtime_object("P-auth", "proposal", "E-test-4")}),
+        _runtime_event(5, "S-001", "object_recorded", {"object": _runtime_object("O-auth", "option", "E-test-5")}),
+        _runtime_event(6, "S-001", "object_recorded", {"object": _runtime_object("A-auth", "action", "E-test-6")}),
+        _runtime_event(7, "S-001", "object_linked", {"link": _runtime_link("L-P-auth-addresses-D-auth", "P-auth", "addresses", "D-auth", "E-test-7")}),
+        _runtime_event(8, "S-001", "object_linked", {"link": _runtime_link("L-P-auth-recommends-O-auth", "P-auth", "recommends", "O-auth", "E-test-8")}),
+        _runtime_event(9, "S-001", "object_linked", {"link": _runtime_link("L-D-auth-accepts-P-auth", "D-auth", "accepts", "P-auth", "E-test-9")}),
+        _runtime_event(10, "S-001", "object_linked", {"link": _runtime_link("L-action-addresses-decision", "A-auth", "addresses", "D-auth", "E-test-10")}),
+    ]
+    bundle = rebuild_projections(events)
+    validate_projection_bundle(bundle)
+    return bundle
+
+
+def _base_runtime_events() -> list[dict]:
+    return [
+        _runtime_event(
+            1,
+            "SYSTEM",
+            "project_initialized",
+            {
+                "project": {
+                    "name": "Demo",
+                    "objective": "Plan it.",
+                    "current_milestone": "MVP",
+                    "stop_rule": "Resolve blockers.",
+                }
+            },
+        ),
+        _runtime_event(
+            2,
+            "S-001",
+            "session_created",
+            {
+                "session": {
+                    "id": "S-001",
+                    "started_at": "2026-04-23T13:02:00Z",
+                    "last_seen_at": "2026-04-23T13:02:00Z",
+                    "bound_context_hint": "Invalidation candidate test",
+                }
+            },
+        ),
+    ]
+
+
+def _runtime_event(sequence: int, session_id: str, event_type: str, payload: dict) -> dict:
+    return build_event(
+        tx_id=f"T-test-{sequence}",
+        tx_index=1,
+        tx_size=1,
+        event_id=f"E-test-{sequence}",
+        session_id=session_id,
+        event_type=event_type,
+        payload=payload,
+        timestamp=f"2026-04-23T13:{sequence:02d}:00Z",
+        project_head="H-before",
+    )
+
+
+def _runtime_object(object_id: str, object_type: str, event_id: str, *, status: str = "active") -> dict:
+    return {
+        "id": object_id,
+        "type": object_type,
+        "title": object_id,
+        "body": None,
+        "status": status,
+        "created_at": "2026-04-23T13:00:00Z",
+        "updated_at": None,
+        "source_event_ids": [event_id],
+        "metadata": {},
+    }
+
+
+def _runtime_link(link_id: str, source: str, relation: str, target: str, event_id: str) -> dict:
+    return {
+        "id": link_id,
+        "source_object_id": source,
+        "relation": relation,
+        "target_object_id": target,
+        "rationale": "Invalidation candidate test link.",
+        "created_at": "2026-04-23T13:00:00Z",
+        "source_event_ids": [event_id],
+    }
+
+
+def _apply_candidate_event_specs(bundle: dict, candidate: dict) -> dict:
+    tx_size = len(candidate["proposed_events"])
+    events = [
+        build_event(
+            tx_id=f"T-{candidate['candidate_id']}",
+            tx_index=index,
+            tx_size=tx_size,
+            event_id=spec["event_id"],
+            session_id="S-001",
+            event_type=spec["event_type"],
+            payload=spec["payload"],
+            timestamp=spec["ts"],
+            project_head=bundle["project_state"]["state"]["project_head"],
+        )
+        for index, spec in enumerate(candidate["proposed_events"], start=1)
+    ]
+    return apply_events_to_bundle(deepcopy(bundle), events)
+
+
+def _object_by_id(project_state: dict, object_id: str) -> dict:
+    return next(obj for obj in project_state["objects"] if obj["id"] == object_id)
+
+
+def _links_by_id(project_state: dict) -> dict:
+    return {link["id"]: link for link in project_state["links"]}
+
+
+def _event_types(candidate: dict) -> list[str]:
+    return [event["event_type"] for event in candidate["proposed_events"]]
 
 
 def _project_state(*, nodes: list[dict], edges: list[dict]) -> dict:

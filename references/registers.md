@@ -56,7 +56,10 @@ Assumption items expose:
 - `owner`
 
 The register also groups outgoing `constrains`, `requires`, `derived_from`, and `invalidates`
-links into relation-specific target id lists and `related_link_ids`.
+links into relation-specific target id lists. To match Safety Gate dependency semantics, it also
+exposes incoming `requires` and `derived_from` dependencies as `required_by_object_ids` and
+`derived_into_object_ids`. `related_link_ids` includes both outgoing assumption links and those
+incoming dependency links.
 
 ## Risk Register
 

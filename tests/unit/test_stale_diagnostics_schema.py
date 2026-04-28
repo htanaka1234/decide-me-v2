@@ -60,6 +60,11 @@ class StaleDiagnosticsSchemaTests(unittest.TestCase):
         cases = (
             (detect_stale_assumptions(_valid_project_state(), now=NOW), ["items", 0, "related_object_ids"], [None]),
             (detect_stale_evidence(_valid_project_state(), now=NOW), ["items", 0, "affected_decision_ids"], [None]),
+            (
+                detect_stale_evidence(_valid_project_state(), now=NOW),
+                ["items", 0, "affected_decision_paths", 0, "node_ids"],
+                [None],
+            ),
             (detect_verification_gaps(_valid_project_state(), now=NOW), ["items", 0, "related_link_ids"], [None]),
             (detect_revisit_due(_valid_project_state(), now=NOW), ["items", 0, "target_object_ids"], [None]),
         )
@@ -77,6 +82,7 @@ class StaleDiagnosticsSchemaTests(unittest.TestCase):
 
         stale_evidence = detect_stale_evidence(_valid_project_state(), now=NOW)
         stale_evidence["summary"].pop("affected_decision_count")
+        stale_evidence["items"][0].pop("affected_decision_paths")
 
         verification_gaps = detect_verification_gaps(_valid_project_state(), now=NOW)
         verification_gaps["items"][0].pop("gap_reason")

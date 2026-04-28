@@ -329,6 +329,7 @@
             "stale_reasons",
             "affected_object_ids",
             "affected_decision_ids",
+            "affected_decision_paths",
             "related_link_ids"
           ],
           "properties": {
@@ -386,12 +387,39 @@
             "affected_decision_ids": {
               "$ref": "#/$defs/string_array"
             },
+            "affected_decision_paths": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/decision_path"
+              }
+            },
             "related_link_ids": {
               "$ref": "#/$defs/string_array"
             }
           }
         }
       ]
+    },
+    "decision_path": {
+      "type": "object",
+      "required": [
+        "decision_id",
+        "node_ids",
+        "link_ids"
+      ],
+      "properties": {
+        "decision_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "node_ids": {
+          "$ref": "#/$defs/string_array"
+        },
+        "link_ids": {
+          "$ref": "#/$defs/string_array"
+        }
+      },
+      "additionalProperties": false
     },
     "verification_gap_item": {
       "unevaluatedProperties": false,

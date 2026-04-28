@@ -4,10 +4,16 @@ from copy import deepcopy
 from datetime import datetime
 from typing import Any
 
+from decide_me.constants import INFLUENCE_FORWARD_RELATIONS, INFLUENCE_REVERSED_RELATIONS
 from decide_me.events import utc_now
+from decide_me.graph_traversal import build_graph_index
+from decide_me.projections import build_decision_stack_graph
 
 
 STALE_DIAGNOSTIC_SCHEMA_VERSION = 1
+_LIVE_DECISION_STATUSES = {"accepted", "active", "unresolved", "proposed", "blocked"}
+_STALE_EVIDENCE_FORWARD_RELATIONS = INFLUENCE_FORWARD_RELATIONS | {"verifies"}
+_STALE_EVIDENCE_REVERSED_RELATIONS = INFLUENCE_REVERSED_RELATIONS - {"verifies"}
 
 
 def detect_stale_assumptions(project_state: dict[str, Any], *, now: str | None = None) -> dict[str, Any]:
@@ -61,23 +67,11 @@ def detect_stale_evidence(project_state: dict[str, Any], *, now: str | None = No
             "stale_reasons": sorted(reasons),
             "affected_object_ids": _sorted_strings(link["target_object_id"] for link in outgoing_links),
             "affected_decision_ids": [],
+            "affected_decision_paths": [],
             "related_link_ids": _sorted_strings(link["id"] for link in outgoing_links),
         }
 
-    objects_by_id = _objects_by_id(project_state)
-    for link in project_state.get("links", []):
-        if link.get("relation") not in {"supports", "verifies"}:
-            continue
-        evidence = evidence_items.get(link.get("source_object_id"))
-        if evidence is None:
-            continue
-        decision = objects_by_id.get(link.get("target_object_id"))
-        if not decision or decision.get("type") != "decision" or not _is_live(decision):
-            continue
-        if decision.get("status") not in {"accepted", "active", "unresolved", "proposed", "blocked"}:
-            continue
-        evidence["affected_decision_ids"] = _sorted_strings([*evidence["affected_decision_ids"], decision["id"]])
-        evidence["related_link_ids"] = _sorted_strings([*evidence["related_link_ids"], link["id"]])
+    _attach_stale_evidence_decision_impacts(project_state, evidence_items)
 
     items = [evidence_items[object_id] for object_id in sorted(evidence_items)]
     return _diagnostic_payload(project_state, "stale_evidence", as_of, items)
@@ -170,6 +164,87 @@ def _verification_links(project_state: dict[str, Any], action_id: str) -> list[d
         if obj.get("type") in {"verification", "evidence"}:
             links.append(deepcopy(link))
     return sorted(links, key=lambda link: link["id"])
+
+
+def _attach_stale_evidence_decision_impacts(
+    project_state: dict[str, Any],
+    evidence_items: dict[str, dict[str, Any]],
+) -> None:
+    if not evidence_items:
+        return
+    graph_state = _state_with_graph(project_state)
+    index = build_graph_index(graph_state)
+    objects_by_id = _objects_by_id(project_state)
+    for evidence_id, item in evidence_items.items():
+        paths = _stale_evidence_decision_paths(index, objects_by_id, evidence_id)
+        item["affected_decision_ids"] = _sorted_strings(path["decision_id"] for path in paths)
+        item["affected_decision_paths"] = paths
+        item["related_link_ids"] = _sorted_strings(
+            [
+                *item["related_link_ids"],
+                *(link_id for path in paths for link_id in path["link_ids"]),
+            ]
+        )
+
+
+def _stale_evidence_decision_paths(
+    index: dict[str, Any],
+    objects_by_id: dict[str, dict[str, Any]],
+    evidence_id: str,
+) -> list[dict[str, Any]]:
+    queue: list[tuple[str, list[str], list[str]]] = [(evidence_id, [evidence_id], [])]
+    visited = {evidence_id}
+    paths_by_decision: dict[str, dict[str, Any]] = {}
+
+    while queue:
+        current_id, node_path, link_path = queue.pop(0)
+        for next_id, link_id in _stale_evidence_downstream(index, current_id):
+            if next_id in node_path:
+                continue
+            next_node_path = [*node_path, next_id]
+            next_link_path = [*link_path, link_id]
+            obj = objects_by_id.get(next_id)
+            if obj and _is_live_decision(obj):
+                paths_by_decision.setdefault(
+                    next_id,
+                    {
+                        "decision_id": next_id,
+                        "node_ids": next_node_path,
+                        "link_ids": next_link_path,
+                    },
+                )
+            if next_id in visited:
+                continue
+            visited.add(next_id)
+            queue.append((next_id, next_node_path, next_link_path))
+
+    return [paths_by_decision[decision_id] for decision_id in sorted(paths_by_decision)]
+
+
+def _stale_evidence_downstream(index: dict[str, Any], object_id: str) -> list[tuple[str, str]]:
+    items: list[tuple[str, str]] = []
+    for item in index["raw_downstream"].get(object_id, []):
+        edge = item["edge"]
+        if edge["relation"] in _STALE_EVIDENCE_FORWARD_RELATIONS:
+            items.append((item["object_id"], edge["link_id"]))
+    for item in index["raw_upstream"].get(object_id, []):
+        edge = item["edge"]
+        if edge["relation"] in _STALE_EVIDENCE_REVERSED_RELATIONS:
+            items.append((item["object_id"], edge["link_id"]))
+    return sorted(items, key=lambda item: (item[1], item[0]))
+
+
+def _is_live_decision(obj: dict[str, Any]) -> bool:
+    return obj.get("type") == "decision" and _is_live(obj) and obj.get("status") in _LIVE_DECISION_STATUSES
+
+
+def _state_with_graph(project_state: dict[str, Any]) -> dict[str, Any]:
+    graph = project_state.get("graph")
+    if isinstance(graph, dict) and isinstance(graph.get("nodes"), list) and isinstance(graph.get("edges"), list):
+        return project_state
+    copied = deepcopy(project_state)
+    copied["graph"] = build_decision_stack_graph(copied)
+    return copied
 
 
 def _objects_by_id(project_state: dict[str, Any]) -> dict[str, dict[str, Any]]:

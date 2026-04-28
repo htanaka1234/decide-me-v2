@@ -256,28 +256,73 @@
     "proposed_event": {
       "oneOf": [
         {
-          "$ref": "#/$defs/object_status_changed_draft"
+          "$ref": "#/$defs/object_status_changed_event_spec"
         },
         {
-          "$ref": "#/$defs/object_updated_draft"
+          "$ref": "#/$defs/object_updated_event_spec"
         },
         {
-          "$ref": "#/$defs/object_recorded_draft"
+          "$ref": "#/$defs/object_recorded_event_spec"
         },
         {
-          "$ref": "#/$defs/object_linked_draft"
+          "$ref": "#/$defs/object_linked_event_spec"
         }
       ]
     },
-    "object_status_changed_draft": {
+    "event_spec_common": {
       "type": "object",
       "required": [
+        "event_id",
         "event_type",
+        "ts",
         "payload"
       ],
       "properties": {
+        "event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ts": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "source_event_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "nullable_date_time": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "object_status_changed_event_spec": {
+      "type": "object",
+      "required": [
+        "event_id",
+        "event_type",
+        "ts",
+        "payload"
+      ],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "minLength": 1
+        },
         "event_type": {
           "const": "object_status_changed"
+        },
+        "ts": {
+          "type": "string",
+          "format": "date-time"
         },
         "payload": {
           "type": "object",
@@ -285,7 +330,8 @@
             "object_id",
             "from_status",
             "to_status",
-            "reason"
+            "reason",
+            "changed_at"
           ],
           "properties": {
             "object_id": {
@@ -303,6 +349,10 @@
             "reason": {
               "type": "string",
               "minLength": 1
+            },
+            "changed_at": {
+              "type": "string",
+              "format": "date-time"
             }
           },
           "additionalProperties": false
@@ -310,15 +360,25 @@
       },
       "additionalProperties": false
     },
-    "object_updated_draft": {
+    "object_updated_event_spec": {
       "type": "object",
       "required": [
+        "event_id",
         "event_type",
+        "ts",
         "payload"
       ],
       "properties": {
+        "event_id": {
+          "type": "string",
+          "minLength": 1
+        },
         "event_type": {
           "const": "object_updated"
+        },
+        "ts": {
+          "type": "string",
+          "format": "date-time"
         },
         "payload": {
           "type": "object",
@@ -347,12 +407,17 @@
                       "type": "object",
                       "required": [
                         "decision_id",
+                        "invalidated_at",
                         "reason"
                       ],
                       "properties": {
                         "decision_id": {
                           "type": "string",
                           "minLength": 1
+                        },
+                        "invalidated_at": {
+                          "type": "string",
+                          "format": "date-time"
                         },
                         "reason": {
                           "type": "string",
@@ -373,15 +438,25 @@
       },
       "additionalProperties": false
     },
-    "object_recorded_draft": {
+    "object_recorded_event_spec": {
       "type": "object",
       "required": [
+        "event_id",
         "event_type",
+        "ts",
         "payload"
       ],
       "properties": {
+        "event_id": {
+          "type": "string",
+          "minLength": 1
+        },
         "event_type": {
           "const": "object_recorded"
+        },
+        "ts": {
+          "type": "string",
+          "format": "date-time"
         },
         "payload": {
           "type": "object",
@@ -397,6 +472,9 @@
                 "title",
                 "body",
                 "status",
+                "created_at",
+                "updated_at",
+                "source_event_ids",
                 "metadata"
               ],
               "properties": {
@@ -418,6 +496,16 @@
                   "type": "string",
                   "minLength": 1
                 },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "updated_at": {
+                  "$ref": "#/$defs/nullable_date_time"
+                },
+                "source_event_ids": {
+                  "$ref": "#/$defs/source_event_ids"
+                },
                 "metadata": {
                   "$ref": "#/$defs/verification_metadata"
                 }
@@ -430,15 +518,25 @@
       },
       "additionalProperties": false
     },
-    "object_linked_draft": {
+    "object_linked_event_spec": {
       "type": "object",
       "required": [
+        "event_id",
         "event_type",
+        "ts",
         "payload"
       ],
       "properties": {
+        "event_id": {
+          "type": "string",
+          "minLength": 1
+        },
         "event_type": {
           "const": "object_linked"
+        },
+        "ts": {
+          "type": "string",
+          "format": "date-time"
         },
         "payload": {
           "type": "object",
@@ -453,7 +551,9 @@
                 "source_object_id",
                 "relation",
                 "target_object_id",
-                "rationale"
+                "rationale",
+                "created_at",
+                "source_event_ids"
               ],
               "properties": {
                 "id": {
@@ -474,6 +574,13 @@
                 "rationale": {
                   "type": "string",
                   "minLength": 1
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "source_event_ids": {
+                  "$ref": "#/$defs/source_event_ids"
                 }
               },
               "additionalProperties": false

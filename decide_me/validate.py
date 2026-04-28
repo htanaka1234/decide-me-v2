@@ -811,7 +811,10 @@ def _validate_session_integrity(
             raise StateValidationError(f"session {session_id} references unknown related object {object_id}")
     session_decision_ids = set(related_decision_ids(project_state, related_object_ids))
     for decision_id in session_decision_ids:
-        if decision_id not in visible_ids:
+        if decision_id in visible_ids:
+            continue
+        decision = decisions_by_id.get(decision_id)
+        if not decision or decision.get("status") != "invalidated":
             raise StateValidationError(f"session {session_id} references non-visible decision {decision_id}")
 
     _validate_classification_refs(session_id, session, taxonomy_ids)

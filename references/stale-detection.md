@@ -70,6 +70,9 @@ Stale evidence:
 - `valid_until: null` is not stale unless freshness is explicitly `stale`.
 - Items include affected object ids, affected decision ids, and related link ids for outgoing
   `supports`, `verifies`, and `challenges` links.
+- `affected_decision_ids` includes indirect live decisions reached through verification,
+  assumption, and proposal paths. `affected_decision_paths` records the representative node/link
+  path used for each affected decision.
 
 Verification gaps:
 
