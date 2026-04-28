@@ -28,6 +28,7 @@ class DistributionArtifactObjectNativeTests(unittest.TestCase):
             "decide-me/decide_me/__init__.py",
             "decide-me/decide_me/events.py",
             "decide-me/decide_me/impact_analysis.py",
+            "decide-me/decide_me/impact_report.py",
             "decide-me/decide_me/invalidation_candidates.py",
             "decide-me/decide_me/interview.py",
             "decide-me/decide_me/lifecycle.py",
@@ -42,6 +43,7 @@ class DistributionArtifactObjectNativeTests(unittest.TestCase):
             "decide-me/schemas/impact-analysis.schema.json",
             "decide-me/schemas/invalidation-candidates.schema.json",
             "decide-me/schemas/plan.schema.json",
+            "decide-me/templates/impact-report-template.md",
             "decide-me/templates/plan-template.md",
         }
         self.assertTrue(required.issubset(names))

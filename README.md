@@ -10,7 +10,7 @@ The repository contains the v2 runtime behind that Skill: an event-sourced
 object/link graph, rebuildable projections, taxonomy-aware session search,
 object-native close summaries, and local derived exports for plans, ADRs,
 software-oriented decision registers, GitHub issue drafts, agent instruction
-fragments, arc42 architecture docs, traceability matrices, and verification gap
+fragments, arc42 architecture docs, impact reports, traceability matrices, and verification gap
 reports.
 
 ## Development policy
@@ -154,6 +154,15 @@ Inspect session graph context:
 2. Treat inferred graph candidates as advisory. `project_state.graph.nodes/edges` is the
    Decision Stack Graph over objects and links, not persisted session relationships.
 
+Inspect Decision Stack Graph diagnostics:
+
+1. Run `python3 scripts/decide_me.py show-impact --ai-dir .ai/decide-me --object-id O-... --change-kind changed`.
+2. Run `python3 scripts/decide_me.py show-invalidation-candidates --ai-dir .ai/decide-me --object-id O-... --change-kind changed`.
+3. Run `python3 scripts/decide_me.py show-decision-stack --ai-dir .ai/decide-me --object-id O-... --upstream-depth 1 --downstream-depth 2`.
+4. Export a human-readable report with `python3 scripts/decide_me.py export-impact-report --ai-dir .ai/decide-me --object-id O-... --change-kind changed --output .ai/decide-me/exports/impact/O-...md`.
+5. These commands are read-only diagnostics. They do not emit events, change object status, create
+   invalidation or supersession links, accept candidates, or start an approval workflow.
+
 Record object relationships:
 
 1. Domain state changes are represented by `object_recorded`, `object_updated`,
@@ -199,9 +208,9 @@ The runtime lives under `.ai/decide-me/`.
 - `session-graph-cache.json` may cache full inferred session graph output by
   `project_head`; persisted project state keeps Decision Stack Graph nodes and edges plus empty
   inferred candidates until a command asks for session graph inference.
-- `exports/` contains human-readable plans, ADRs, structured ADRs, software-oriented decision
-  registers, local GitHub issue drafts, agent instruction fragments, arc42 architecture docs,
-  traceability matrices, and verification gap reports. These are derived exports, not runtime
+- `exports/` contains human-readable plans, impact reports, ADRs, structured ADRs,
+  software-oriented decision registers, local GitHub issue drafts, agent instruction fragments,
+  arc42 architecture docs, traceability matrices, and verification gap reports. These are derived exports, not runtime
   state.
 - `write.lock` protects runtime writes.
 
@@ -239,6 +248,9 @@ reference. Common maintainer operations include:
   `validate-state --cached` / `--fast` for projection/index validation, `rebuild-projections`,
   and `compact-runtime`
 - `benchmark-runtime` with `DECIDE_ME_PERF=1`
+- `show-impact`, `show-invalidation-candidates`, and `show-decision-stack` for read-only Decision
+  Stack Graph diagnostics
+- `export-impact-report` to write a derived Markdown impact report without changing runtime state
 - `export-github-templates` to write local issue forms under `.github/ISSUE_TEMPLATE`
 - `export-architecture-doc --format arc42` for a derived architecture skeleton
 - `export-traceability --format csv|markdown` for decision/action/verification traceability

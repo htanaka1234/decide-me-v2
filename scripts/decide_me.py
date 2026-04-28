@@ -19,11 +19,15 @@ from decide_me.exports import (
     export_decision_register,
     export_github_issues,
     export_github_templates,
+    export_impact_report,
     export_structured_adr,
     export_traceability,
     export_verification_gaps,
 )
+from decide_me.graph_traversal import bounded_subgraph, build_graph_index
+from decide_me.impact_analysis import CHANGE_KINDS, analyze_impact
 from decide_me.interview import advance_session, handle_reply
+from decide_me.invalidation_candidates import generate_invalidation_candidates
 from decide_me.lifecycle import close_session, create_session, list_sessions, resume_session, show_session
 from decide_me.planner import generate_plan
 from decide_me.protocol import resolve_decision_supersession
@@ -31,7 +35,15 @@ from decide_me.session_graph import (
     detect_session_conflicts,
     show_session_graph,
 )
-from decide_me.store import benchmark_runtime, bootstrap_runtime, compact_runtime, rebuild_and_persist, validate_runtime
+from decide_me.store import (
+    benchmark_runtime,
+    bootstrap_runtime,
+    compact_runtime,
+    load_runtime,
+    rebuild_and_persist,
+    runtime_paths,
+    validate_runtime,
+)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -140,6 +152,33 @@ def main(argv: list[str] | None = None) -> int:
     resolve_supersession.add_argument("--reason", required=True)
     resolve_supersession.set_defaults(handler_command="resolve-decision-supersession")
 
+    show_impact = subparsers.add_parser("show-impact", help="show read-only impact analysis for an object")
+    show_impact.add_argument("--ai-dir", required=True)
+    show_impact.add_argument("--object-id", required=True)
+    show_impact.add_argument("--change-kind", required=True, choices=sorted(CHANGE_KINDS))
+    show_impact.add_argument("--max-depth", type=int)
+    show_impact.add_argument("--include-invalidated", action="store_true")
+
+    show_invalidation_candidates = subparsers.add_parser(
+        "show-invalidation-candidates",
+        help="show read-only invalidation candidates for an object",
+    )
+    show_invalidation_candidates.add_argument("--ai-dir", required=True)
+    show_invalidation_candidates.add_argument("--object-id", required=True)
+    show_invalidation_candidates.add_argument("--change-kind", required=True, choices=sorted(CHANGE_KINDS))
+    show_invalidation_candidates.add_argument("--max-depth", type=int)
+    show_invalidation_candidates.add_argument("--include-low-severity", action="store_true")
+    show_invalidation_candidates.add_argument("--include-invalidated", action="store_true")
+
+    show_decision_stack = subparsers.add_parser(
+        "show-decision-stack",
+        help="show a bounded Decision Stack Graph around an object",
+    )
+    show_decision_stack.add_argument("--ai-dir", required=True)
+    show_decision_stack.add_argument("--object-id", required=True)
+    show_decision_stack.add_argument("--upstream-depth", type=int, default=1)
+    show_decision_stack.add_argument("--downstream-depth", type=int, default=2)
+
     adr = subparsers.add_parser("export-adr", help="export an ADR markdown file")
     adr.add_argument("--ai-dir", required=True)
     adr.add_argument("--decision-id", required=True)
@@ -208,6 +247,18 @@ def main(argv: list[str] | None = None) -> int:
     verification_gaps.add_argument("--ai-dir", required=True)
     verification_gaps.add_argument("--output", required=True)
     verification_gaps.add_argument("--session-id", action="append")
+
+    impact_report = subparsers.add_parser(
+        "export-impact-report",
+        help="export a read-only impact analysis Markdown report",
+    )
+    impact_report.add_argument("--ai-dir", required=True)
+    impact_report.add_argument("--object-id", required=True)
+    impact_report.add_argument("--change-kind", required=True, choices=sorted(CHANGE_KINDS))
+    impact_report.add_argument("--max-depth", type=int)
+    impact_report.add_argument("--include-low-severity", action="store_true")
+    impact_report.add_argument("--include-invalidated", action="store_true")
+    impact_report.add_argument("--output", required=True)
 
     advance = subparsers.add_parser("advance-session", help="advance a session by evidence scan and question selection")
     advance.add_argument("--ai-dir", required=True)
@@ -304,6 +355,40 @@ def main(argv: list[str] | None = None) -> int:
                     reason=args.reason,
                 )
             )
+        elif args.command == "show-impact":
+            bundle = load_runtime(runtime_paths(args.ai_dir))
+            _print_json(
+                analyze_impact(
+                    bundle["project_state"],
+                    args.object_id,
+                    change_kind=args.change_kind,
+                    max_depth=args.max_depth,
+                    include_invalidated=args.include_invalidated,
+                )
+            )
+        elif args.command == "show-invalidation-candidates":
+            bundle = load_runtime(runtime_paths(args.ai_dir))
+            _print_json(
+                generate_invalidation_candidates(
+                    bundle["project_state"],
+                    args.object_id,
+                    change_kind=args.change_kind,
+                    max_depth=args.max_depth,
+                    include_low_severity=args.include_low_severity,
+                    include_invalidated=args.include_invalidated,
+                )
+            )
+        elif args.command == "show-decision-stack":
+            bundle = load_runtime(runtime_paths(args.ai_dir))
+            index = build_graph_index(bundle["project_state"])
+            _print_json(
+                bounded_subgraph(
+                    index,
+                    args.object_id,
+                    upstream_depth=args.upstream_depth,
+                    downstream_depth=args.downstream_depth,
+                )
+            )
         elif args.command == "export-adr":
             path = export_adr(args.ai_dir, args.decision_id)
             _print_json({"path": str(path)})
@@ -363,6 +448,17 @@ def main(argv: list[str] | None = None) -> int:
                 args.ai_dir,
                 output=args.output,
                 session_ids=args.session_id,
+            )
+            _print_json({"path": str(path)})
+        elif args.command == "export-impact-report":
+            path = export_impact_report(
+                args.ai_dir,
+                args.object_id,
+                change_kind=args.change_kind,
+                max_depth=args.max_depth,
+                include_low_severity=args.include_low_severity,
+                include_invalidated=args.include_invalidated,
+                output=args.output,
             )
             _print_json({"path": str(path)})
         elif args.command == "advance-session":

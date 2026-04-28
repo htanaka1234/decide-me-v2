@@ -6,7 +6,8 @@ human review, revalidate, revise, invalidate, supersede, verify, or update next?
 
 Invalidation candidates are recommendations only. This phase does not mutate runtime state, does
 not write events, does not change object status, and does not create `invalidates` or `supersedes`
-links. Approval, CLI display, exports, and conversion into events are deferred to later phases.
+links. Phase 6-5 exposes candidates through CLI and impact report exports, but approval,
+candidate acceptance, and conversion into events remain out of scope.
 
 ## API
 
@@ -32,6 +33,24 @@ Allowed candidate kinds are:
 - `supersede`
 - `add_verification`
 - `update_revisit_trigger`
+
+## CLI
+
+Use `show-invalidation-candidates` for a JSON diagnostic view:
+
+```bash
+python3 scripts/decide_me.py show-invalidation-candidates \
+  --ai-dir .ai/decide-me \
+  --object-id CON-001 \
+  --change-kind changed \
+  --max-depth 3
+```
+
+Optional `--include-low-severity` includes low-severity candidate rows. Optional
+`--include-invalidated` includes already invalidated targets in the underlying impact analysis.
+The command prints `generate_invalidation_candidates()` output as JSON and remains read-only:
+`proposed_events` is empty, no candidates are accepted, and no `object_status_changed` or
+`object_linked` events are emitted.
 
 ## Output
 
