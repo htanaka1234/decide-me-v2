@@ -44,6 +44,7 @@ Read only the reference file needed for the turn:
 - [references/object-model.md](references/object-model.md)
 - [references/link-relations.md](references/link-relations.md)
 - [references/decision-stack-graph.md](references/decision-stack-graph.md)
+- [references/impact-analysis.md](references/impact-analysis.md)
 - [references/invalidation-candidates.md](references/invalidation-candidates.md)
 - [references/event-and-projection-model.md](references/event-and-projection-model.md)
 - [references/plan-generation.md](references/plan-generation.md)
@@ -70,9 +71,13 @@ User-facing commands:
 - `Detect session conflicts`
 - `Resolve session conflict by choosing session S-...`
 - `Resolve decision supersession by choosing decision D-... over D-...`
+- `Show impact for object O-...`
+- `Show invalidation candidates for object O-...`
+- `Show decision stack around object O-...`
 - `Classify session S-...`
 - `Advance session S-...`
 - `Handle reply for session S-...`
+- `Export impact report for object O-...`
 - `Export GitHub issue templates`
 - `Export GitHub issue drafts from sessions S-..., S-...`
 - `Export agent instructions for AGENTS.md, Cursor, Claude, or Codex`
@@ -109,7 +114,11 @@ Runtime invariants:
   and the normal hot-path read cache.
 - `runtime-index.json` checkpoints projection freshness; refresh it with `compact-runtime` only
   after it verifies projections against the event log, or regenerate it with `rebuild-projections`.
-- Human-readable plan, ADR, structured ADR, decision register, GitHub issue draft, agent
+- Decision Stack Graph impact analysis, invalidation candidates, bounded stack graph views, and
+  impact report exports are read-only diagnostics. They must not emit events, change object
+  status, create invalidation or supersession links, accept candidates, or run an approval
+  workflow.
+- Human-readable plan, impact report, ADR, structured ADR, decision register, GitHub issue draft, agent
   instruction, arc42 architecture, traceability matrix, and verification gap files are derived
   exports, not runtime state. Software-oriented exports are allowed, but they must be derived from
   the domain-neutral object/link core.

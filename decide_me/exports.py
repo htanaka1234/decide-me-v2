@@ -10,6 +10,9 @@ from decide_me.exporters.adr import export_structured_adr
 from decide_me.exporters.architecture import export_architecture_doc
 from decide_me.exporters.decision_register import export_decision_register
 from decide_me.exporters.traceability import export_traceability, export_verification_gaps
+from decide_me.impact_analysis import analyze_impact
+from decide_me.impact_report import render_impact_report
+from decide_me.invalidation_candidates import generate_invalidation_candidates
 from decide_me.store import load_runtime, runtime_paths
 
 
@@ -95,6 +98,59 @@ def export_github_issues(
     from decide_me.exporters.github import export_github_issues as _export_github_issues
 
     return _export_github_issues(ai_dir, session_ids, output_dir)
+
+
+def export_impact_report(
+    ai_dir: str | Path,
+    object_id: str,
+    *,
+    change_kind: str,
+    output: str | Path,
+    max_depth: int | None = None,
+    include_low_severity: bool = False,
+    include_invalidated: bool = False,
+) -> Path:
+    paths = runtime_paths(ai_dir)
+    bundle = load_runtime(paths)
+    project_state = bundle["project_state"]
+    impact = analyze_impact(
+        project_state,
+        object_id,
+        change_kind=change_kind,
+        max_depth=max_depth,
+        include_invalidated=include_invalidated,
+    )
+    candidates = generate_invalidation_candidates(
+        project_state,
+        object_id,
+        change_kind=change_kind,
+        max_depth=max_depth,
+        include_low_severity=include_low_severity,
+        include_invalidated=include_invalidated,
+    )
+    template = (
+        Path(__file__).resolve().parent.parent / "templates" / "impact-report-template.md"
+    ).read_text(encoding="utf-8")
+    output_path = Path(output)
+    _assert_safe_impact_report_output(paths, output_path)
+    body = render_impact_report(
+        template,
+        impact,
+        candidates,
+        max_depth=max_depth,
+        include_low_severity=include_low_severity,
+        include_invalidated=include_invalidated,
+    )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(body + "\n", encoding="utf-8")
+    return output_path
+
+
+def _assert_safe_impact_report_output(paths: Any, output_path: Path) -> None:
+    resolved_output = output_path.resolve()
+    impact_dir = (paths.exports_dir / "impact").resolve()
+    if not resolved_output.is_relative_to(impact_dir):
+        raise ValueError("impact report output must be inside ai-dir exports/impact/")
 
 
 def _slugify(value: str) -> str:

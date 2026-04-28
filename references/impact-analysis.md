@@ -6,8 +6,9 @@ evidence retracted, which downstream objects should a human reconsider?
 
 Impact analysis is diagnostic only. It does not mutate runtime state, does not write events, does
 not create `invalidates` links, and does not call `object_status_changed`. Phase 6-4 adds
-read-only invalidation candidates on top of this report. Automatic invalidation, approval
-workflow, CLI commands, and exports are deferred to later phases.
+read-only invalidation candidates on top of this report. Phase 6-5 exposes the report through
+CLI and Markdown export surfaces, but automatic invalidation, candidate acceptance, approval
+workflow, and event emission remain out of scope.
 
 ## API
 
@@ -30,6 +31,38 @@ In impact analysis itself, `change_kind` is metadata only. It is validated and e
 output so humans can understand the triggering condition, but it does not change traversal,
 severity, impact kind, or recommended action rules. Phase 6-4 invalidation candidates may use the
 same `change_kind` to choose candidate actions.
+
+## CLI
+
+Use `show-impact` for a JSON diagnostic view:
+
+```bash
+python3 scripts/decide_me.py show-impact \
+  --ai-dir .ai/decide-me \
+  --object-id CON-001 \
+  --change-kind changed \
+  --max-depth 3
+```
+
+Optional `--include-invalidated` includes targets whose graph nodes are already invalidated.
+The command reads the derived projection and prints the `analyze_impact()` result as JSON. It
+does not emit events, update projections, or create links.
+
+Use `export-impact-report` for a derived Markdown document that combines impact analysis,
+invalidation candidates, and path evidence:
+
+```bash
+python3 scripts/decide_me.py export-impact-report \
+  --ai-dir .ai/decide-me \
+  --object-id CON-001 \
+  --change-kind changed \
+  --output .ai/decide-me/exports/impact/CON-001.md
+```
+
+The Markdown report is a human-readable export, not runtime state. It may be regenerated or
+overwritten without changing the event log source of truth. `--output` must resolve under
+`.ai/decide-me/exports/impact/`; paths inside the runtime directory but outside `exports/impact`
+are rejected so derived reports cannot overwrite runtime state.
 
 ## Traversal
 

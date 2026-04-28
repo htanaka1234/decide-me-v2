@@ -154,13 +154,28 @@ even when a layer filter is present. When `layers` is set, matching reachable no
 but bridge nodes and edges required to show the path from the root to each matching node are also
 included so the returned subgraph is not disconnected from its traversal evidence.
 
+Use `show-decision-stack` for a JSON bounded graph view from the CLI:
+
+```bash
+python3 scripts/decide_me.py show-decision-stack \
+  --ai-dir .ai/decide-me \
+  --object-id DEC-001 \
+  --upstream-depth 2 \
+  --downstream-depth 3
+```
+
+The command reads `project-state.json`, builds the graph index, calls `bounded_subgraph()`, and
+prints `root_object_id`, `nodes`, and `edges`. It is a read-only diagnostic and does not emit
+events or update runtime projections.
+
 `objects_by_layer(project_state, layer)` reads only `project_state.graph.nodes[]`, returns graph
 node payloads for the requested layer, and excludes invalidated nodes unless
 `include_invalidated=True` is passed.
 
 Phase 6-3 adds read-only impact analysis on top of these helpers. Phase 6-4 adds read-only
-invalidation candidates derived from that impact report. These diagnostics do not cascade
-invalidation, create links, change object status, add CLI commands, or write export output.
+invalidation candidates derived from that impact report. Phase 6-5 exposes these diagnostics
+through CLI commands and derived Markdown impact reports. These diagnostics do not cascade
+invalidation, create links, change object status, accept candidates, or run approval workflows.
 
 ## Phase 6-1 Boundary
 
