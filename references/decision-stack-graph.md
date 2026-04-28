@@ -82,6 +82,75 @@ The Decision Stack Graph uses the object/link relation enum:
 - `mitigates`: source reduces the likelihood or impact of the target risk or concern.
 - `derived_from`: source was produced from, refined from, or copied from the target.
 
+## Traversal Direction Semantics
+
+Phase 6-2 adds read-only traversal helpers over `project_state.graph.nodes[]` and
+`project_state.graph.edges[]`. The helpers do not read `project_state.objects`,
+`project_state.links`, or event logs, and they do not edit graph projection state.
+
+Traversal supports two direction modes. Public traversal helpers default to `influence`; callers
+must explicitly pass `direction="raw"` when they need stored edge direction.
+
+- `raw`: always follows the stored link direction, `source_object_id -> target_object_id`.
+- `influence`: follows the direction in which one object influences another for later impact
+  analysis foundations.
+
+In `influence` mode, these relations are traversed in reverse of the stored link direction:
+
+- `depends_on`
+- `blocked_by`
+- `requires`
+- `addresses`
+- `accepts`
+- `derived_from`
+
+In `influence` mode, these relations are traversed in the stored link direction:
+
+- `constrains`
+- `enables`
+- `invalidates`
+- `mitigates`
+- `supports`
+- `challenges`
+- `verifies`
+- `revisits`
+- `supersedes`
+- `recommends`
+
+`direct_upstream()`, `direct_downstream()`, `ancestors()`, and `descendants()` return edge context
+items, not only object IDs:
+
+- `object_id`
+- `layer`
+- `via_link_id`
+- `relation`
+- `distance`
+
+Use `direct_upstream_ids()`, `direct_downstream_ids()`, `ancestor_ids()`, or `descendant_ids()`
+when only stable unique object IDs are needed.
+
+`ancestors()` and `descendants()` perform breadth-first traversal, exclude the seed object from
+returned items, and track visited object IDs so cycles cannot loop forever. `max_depth=None` means
+unbounded traversal, `max_depth=0` returns no transitive items, and negative depths are invalid.
+
+`relations` filters by raw relation name and is a traversal boundary. `layers` filters returned
+neighboring node layers only; traversal continues through non-matching intermediate layers. For
+example, `objective -> decision -> action` with `layers={"execution"}` still reaches the action.
+
+`bounded_subgraph()` returns `root_object_id`, `nodes`, and `edges`. It uses asymmetric
+`upstream_depth` and `downstream_depth`, defaults to one upstream hop and two downstream hops, and
+returns original graph edge records rather than synthetic oriented edges. The seed node is included
+even when a layer filter is present. When `layers` is set, matching reachable nodes are filtered,
+but bridge nodes and edges required to show the path from the root to each matching node are also
+included so the returned subgraph is not disconnected from its traversal evidence.
+
+`objects_by_layer(project_state, layer)` reads only `project_state.graph.nodes[]`, returns graph
+node payloads for the requested layer, and excludes invalidated nodes unless
+`include_invalidated=True` is passed.
+
+These helpers are only a foundation for later impact analysis. Phase 6-2 does not implement
+impact analysis, cascading invalidation, CLI commands, or export output.
+
 ## Phase 6-1 Boundary
 
 Phase 6-1 fixes only the layer set, relation enum, graph node and edge shape, projection rebuild,
