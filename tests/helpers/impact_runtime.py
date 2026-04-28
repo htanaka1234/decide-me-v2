@@ -14,6 +14,7 @@ from decide_me.store import bootstrap_runtime, rebuild_and_persist, transact
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = REPO_ROOT / "scripts" / "decide_me.py"
+CLI_TIMEOUT_SECONDS = 30
 
 
 def build_impact_runtime(tmp: Path) -> Path:
@@ -39,6 +40,7 @@ def run_cli(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
         check=False,
         capture_output=True,
         text=True,
+        timeout=CLI_TIMEOUT_SECONDS,
     )
     if check and result.returncode != 0:
         raise AssertionError(

@@ -14,6 +14,7 @@ from decide_me.store import load_runtime, read_event_log, runtime_paths
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = REPO_ROOT / "scripts" / "decide_me.py"
+CLI_TIMEOUT_SECONDS = 30
 
 
 def run_cli(*args: str, cwd: str | Path = REPO_ROOT) -> dict[str, Any]:
@@ -25,6 +26,7 @@ def run_cli(*args: str, cwd: str | Path = REPO_ROOT) -> dict[str, Any]:
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
+        timeout=CLI_TIMEOUT_SECONDS,
     )
     return json.loads(result.stdout)
 

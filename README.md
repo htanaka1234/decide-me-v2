@@ -273,7 +273,15 @@ Install development test dependencies before running the full test suite:
 python3 -m pip install -r requirements-dev.txt
 ```
 
-Run the test suite with:
+Run the focused suites with:
+
+```bash
+PYTHONPATH=. python3 -m unittest discover -s tests/unit -v
+PYTHONPATH=. python3 -m unittest discover -s tests/smoke -v
+PYTHONPATH=. python3 -m unittest discover -s tests/integration -v
+```
+
+Run the full test suite with:
 
 ```bash
 PYTHONPATH=. python3 -m unittest discover -v

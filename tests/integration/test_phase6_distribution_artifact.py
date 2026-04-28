@@ -12,6 +12,7 @@ from zipfile import ZipFile
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+CLI_TIMEOUT_SECONDS = 30
 
 
 class Phase6DistributionArtifactTests(unittest.TestCase):
@@ -52,6 +53,7 @@ class Phase6DistributionArtifactTests(unittest.TestCase):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
+                timeout=CLI_TIMEOUT_SECONDS,
             )
             subprocess.run(
                 [
@@ -68,6 +70,7 @@ class Phase6DistributionArtifactTests(unittest.TestCase):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
+                timeout=CLI_TIMEOUT_SECONDS,
             )
 
 
@@ -90,6 +93,7 @@ def _build_artifact(dist_dir: Path) -> Path:
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
+        timeout=CLI_TIMEOUT_SECONDS,
     )
     return dist_dir / "decide-me.zip"
 

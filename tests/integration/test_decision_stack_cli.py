@@ -14,6 +14,7 @@ from decide_me.store import bootstrap_runtime, rebuild_and_persist, transact
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = REPO_ROOT / "scripts" / "decide_me.py"
+CLI_TIMEOUT_SECONDS = 30
 
 
 class DecisionStackCliTests(unittest.TestCase):
@@ -78,6 +79,7 @@ def _run_cli(*args: str) -> subprocess.CompletedProcess[str]:
         check=False,
         capture_output=True,
         text=True,
+        timeout=CLI_TIMEOUT_SECONDS,
     )
     if result.returncode != 0:
         raise AssertionError(f"CLI failed with {result.returncode}\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}")

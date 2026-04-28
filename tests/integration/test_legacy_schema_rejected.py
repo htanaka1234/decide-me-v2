@@ -1,28 +1,15 @@
 from __future__ import annotations
 
-import json
 import unittest
 from copy import deepcopy
-from pathlib import Path
 
-from jsonschema import Draft202012Validator, RefResolver
+from tests.helpers.schema_validation import load_project_state_schema_bundle, project_state_schema_validator
 
 
 class LegacySchemaRejectedTests(unittest.TestCase):
     def setUp(self) -> None:
-        schema_root = Path(__file__).resolve().parents[2] / "schemas"
-        schema_path = schema_root / "project-state.schema.json"
-        self.schema = json.loads(schema_path.read_text(encoding="utf-8"))
-        object_schema = json.loads((schema_root / "object.schema.json").read_text(encoding="utf-8"))
-        link_schema = json.loads((schema_root / "link.schema.json").read_text(encoding="utf-8"))
-        resolver = RefResolver.from_schema(
-            self.schema,
-            store={
-                object_schema["$id"]: object_schema,
-                link_schema["$id"]: link_schema,
-            },
-        )
-        self.validator = Draft202012Validator(self.schema, resolver=resolver)
+        self.schema, _object_schema, _link_schema = load_project_state_schema_bundle()
+        self.validator = project_state_schema_validator(self.schema)
 
     def test_accepts_domain_neutral_project_state_shape(self) -> None:
         self.validator.validate(_valid_project_state())

@@ -65,6 +65,52 @@ class ProjectStateValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(StateValidationError, "metadata.layer"):
             validate_project_state(payload)
 
+    def test_rejects_invalid_decision_metadata_enums(self) -> None:
+        for key, value in (
+            ("priority", "BAD"),
+            ("frontier", "someday"),
+            ("kind", "unknown"),
+            ("domain", "NOT_A_DOMAIN"),
+            ("resolvable_by", "committee"),
+            ("reversibility", "not-reversible"),
+        ):
+            with self.subTest(key=key):
+                payload = _valid_project_state()
+                payload["objects"][0]["metadata"][key] = value
+
+                with self.assertRaisesRegex(StateValidationError, f"metadata.{key}"):
+                    validate_project_state(payload)
+
+    def test_rejects_invalidated_by_on_non_invalidated_decision(self) -> None:
+        payload = _valid_project_state()
+        payload["objects"][0]["metadata"]["invalidated_by"] = {
+            "decision_id": "D-other",
+            "invalidated_at": "2026-04-23T12:30:00Z",
+        }
+
+        with self.assertRaisesRegex(StateValidationError, "non-invalidated decision object D-001"):
+            validate_project_state(payload)
+
+    def test_rejects_invalidated_decision_without_invalidated_by_metadata(self) -> None:
+        payload = _valid_project_state()
+        payload["objects"][0]["status"] = "invalidated"
+        payload["counts"]["by_status"] = {"invalidated": 1, "active": 2}
+
+        with self.assertRaisesRegex(StateValidationError, "metadata.invalidated_by"):
+            validate_project_state(payload)
+
+    def test_rejects_invalidated_decision_with_invalid_invalidated_at(self) -> None:
+        payload = _valid_project_state()
+        payload["objects"][0]["status"] = "invalidated"
+        payload["objects"][0]["metadata"]["invalidated_by"] = {
+            "decision_id": "D-other",
+            "invalidated_at": "not-a-timestamp",
+        }
+        payload["counts"]["by_status"] = {"invalidated": 1, "active": 2}
+
+        with self.assertRaisesRegex(StateValidationError, "invalidated_at"):
+            validate_project_state(payload)
+
     def test_rejects_graph_node_referencing_missing_object(self) -> None:
         payload = _valid_project_state()
         payload["graph"]["nodes"][0]["object_id"] = "D-missing"

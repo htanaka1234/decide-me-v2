@@ -227,6 +227,8 @@ def validate_project_state(project_state: dict[str, Any]) -> None:
         _require_source_event_ids(obj.get("source_event_ids"), f"object {obj['id']}.source_event_ids")
         metadata = _require_dict(obj.get("metadata"), f"object {obj['id']}.metadata")
         _validate_object_metadata_layer(obj, metadata)
+        if obj["type"] == "decision":
+            _validate_decision_object_metadata(obj)
         if obj["id"] in object_ids:
             raise StateValidationError(f"duplicate object id: {obj['id']}")
         object_ids.add(obj["id"])

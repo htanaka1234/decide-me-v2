@@ -125,7 +125,7 @@
     "sessions_index": {
       "type": "object",
       "additionalProperties": {
-        "$ref": "#/$defs/session_index_entry"
+        "$ref": "https://example.invalid/decide-me/project-state.schema.json#/$defs/session_index_entry"
       }
     },
     "counts": {
@@ -147,7 +147,7 @@
           "minimum": 0
         },
         "by_type": {
-          "$ref": "#/$defs/object_type_counts"
+          "$ref": "https://example.invalid/decide-me/project-state.schema.json#/$defs/object_type_counts"
         },
         "by_status": {
           "type": "object",
@@ -157,7 +157,7 @@
           }
         },
         "by_relation": {
-          "$ref": "#/$defs/relation_counts"
+          "$ref": "https://example.invalid/decide-me/project-state.schema.json#/$defs/relation_counts"
         }
       },
       "additionalProperties": false
@@ -165,13 +165,13 @@
     "objects": {
       "type": "array",
       "items": {
-        "$ref": "object.schema.json"
+        "$ref": "https://example.invalid/decide-me/object.schema.json"
       }
     },
     "links": {
       "type": "array",
       "items": {
-        "$ref": "link.schema.json"
+        "$ref": "https://example.invalid/decide-me/link.schema.json"
       }
     },
     "graph": {
@@ -186,13 +186,13 @@
         "nodes": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/decision_stack_graph_node"
+            "$ref": "https://example.invalid/decide-me/project-state.schema.json#/$defs/decision_stack_graph_node"
           }
         },
         "edges": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/decision_stack_graph_edge"
+            "$ref": "https://example.invalid/decide-me/project-state.schema.json#/$defs/decision_stack_graph_edge"
           }
         },
         "resolved_conflicts": {
@@ -338,10 +338,10 @@
           "minLength": 1
         },
         "object_type": {
-          "$ref": "#/$defs/object_type"
+          "$ref": "https://example.invalid/decide-me/project-state.schema.json#/$defs/object_type"
         },
         "layer": {
-          "$ref": "#/$defs/decision_stack_layer"
+          "$ref": "https://example.invalid/decide-me/project-state.schema.json#/$defs/decision_stack_layer"
         },
         "status": {
           "type": "string",
@@ -383,17 +383,17 @@
           "minLength": 1
         },
         "relation": {
-          "$ref": "#/$defs/link_relation"
+          "$ref": "https://example.invalid/decide-me/project-state.schema.json#/$defs/link_relation"
         },
         "target_object_id": {
           "type": "string",
           "minLength": 1
         },
         "source_layer": {
-          "$ref": "#/$defs/decision_stack_layer"
+          "$ref": "https://example.invalid/decide-me/project-state.schema.json#/$defs/decision_stack_layer"
         },
         "target_layer": {
-          "$ref": "#/$defs/decision_stack_layer"
+          "$ref": "https://example.invalid/decide-me/project-state.schema.json#/$defs/decision_stack_layer"
         }
       },
       "additionalProperties": false
@@ -451,7 +451,7 @@
     "object_type_counts": {
       "type": "object",
       "propertyNames": {
-        "$ref": "#/$defs/object_type"
+        "$ref": "https://example.invalid/decide-me/project-state.schema.json#/$defs/object_type"
       },
       "additionalProperties": {
         "type": "integer",
@@ -461,7 +461,7 @@
     "relation_counts": {
       "type": "object",
       "propertyNames": {
-        "$ref": "#/$defs/link_relation"
+        "$ref": "https://example.invalid/decide-me/project-state.schema.json#/$defs/link_relation"
       },
       "additionalProperties": {
         "type": "integer",

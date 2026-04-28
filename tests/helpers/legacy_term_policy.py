@@ -12,6 +12,7 @@ from zipfile import ZipFile
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+CLI_TIMEOUT_SECONDS = 30
 TEXT_SUFFIXES = {
     ".json",
     ".md",
@@ -161,6 +162,7 @@ def cli_help_legacy_term_findings(commands: Iterable[tuple[str, ...]] = CLI_HELP
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
+            timeout=CLI_TIMEOUT_SECONDS,
         )
         label = " ".join(command) or "<root>"
         findings.extend(scan_text(result.stdout, f"help {label}"))

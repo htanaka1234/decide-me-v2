@@ -6,6 +6,7 @@ from copy import deepcopy
 from pathlib import Path
 
 from jsonschema import Draft202012Validator
+from tests.helpers.schema_validation import OBJECT_SCHEMA_ID
 
 
 OBJECT_TYPES = [
@@ -70,7 +71,7 @@ class ObjectSchemaTests(unittest.TestCase):
                 self.assertTrue(any(error.validator == "additionalProperties" for error in errors))
 
     def test_project_state_references_standalone_object_schema(self) -> None:
-        self.assertEqual({"$ref": "object.schema.json"}, self.project_schema["properties"]["objects"]["items"])
+        self.assertEqual({"$ref": OBJECT_SCHEMA_ID}, self.project_schema["properties"]["objects"]["items"])
 
     def test_schema_declares_date_time_fields(self) -> None:
         self.assertEqual("date-time", self.schema["properties"]["created_at"]["format"])
