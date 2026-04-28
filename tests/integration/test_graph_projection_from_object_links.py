@@ -47,6 +47,46 @@ class GraphProjectionFromObjectLinksTests(unittest.TestCase):
                         },
                     },
                     {
+                        "event_id": "E-assumption",
+                        "session_id": session_id,
+                        "event_type": "object_recorded",
+                        "payload": {
+                            "object": _object("O-assumption", "assumption", "E-assumption")
+                        },
+                    },
+                    {
+                        "event_id": "E-criterion",
+                        "session_id": session_id,
+                        "event_type": "object_recorded",
+                        "payload": {
+                            "object": _object("O-criterion", "criterion", "E-criterion")
+                        },
+                    },
+                    {
+                        "event_id": "E-option",
+                        "session_id": session_id,
+                        "event_type": "object_recorded",
+                        "payload": {
+                            "object": _object("O-option", "option", "E-option")
+                        },
+                    },
+                    {
+                        "event_id": "E-artifact",
+                        "session_id": session_id,
+                        "event_type": "object_recorded",
+                        "payload": {
+                            "object": _object("O-artifact", "artifact", "E-artifact")
+                        },
+                    },
+                    {
+                        "event_id": "E-decision",
+                        "session_id": session_id,
+                        "event_type": "object_recorded",
+                        "payload": {
+                            "object": _object("D-decision", "decision", "E-decision")
+                        },
+                    },
+                    {
                         "event_id": "E-link",
                         "session_id": session_id,
                         "event_type": "object_linked",
@@ -71,6 +111,11 @@ class GraphProjectionFromObjectLinksTests(unittest.TestCase):
             self.assertEqual("purpose", nodes["O-project-objective"]["layer"])
             self.assertEqual("review", nodes["O-evidence"]["layer"])
             self.assertEqual("execution", nodes["O-action"]["layer"])
+            self.assertEqual("constraint", nodes["O-assumption"]["layer"])
+            self.assertEqual("principle", nodes["O-criterion"]["layer"])
+            self.assertEqual("strategy", nodes["O-option"]["layer"])
+            self.assertEqual("design", nodes["O-artifact"]["layer"])
+            self.assertEqual("strategy", nodes["D-decision"]["layer"])
             self.assertEqual(
                 {
                     "link_id": "L-action-derived-from-evidence",
@@ -101,7 +146,7 @@ def _object(
         "type": object_type,
         "title": object_id,
         "body": "Projected into the decision stack graph.",
-        "status": "active",
+        "status": "unresolved" if object_type == "decision" else "active",
         "created_at": "2026-04-23T12:00:00Z",
         "updated_at": None,
         "source_event_ids": [event_id],

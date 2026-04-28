@@ -9,10 +9,10 @@ state and must not be edited directly. The event log remains the only runtime so
 The fixed decision stack layers are:
 
 - `purpose`: desired outcomes and intent.
-- `principle`: assumptions or standing rules that guide choices.
-- `constraint`: boundaries, risks, and limits.
-- `strategy`: recommended direction before detailed design.
-- `design`: concrete choices, options, and design decisions.
+- `principle`: criteria and standing rules that guide choices.
+- `constraint`: assumptions, boundaries, risks, and limits.
+- `strategy`: recommended direction, options, and decisions before detailed design.
+- `design`: concrete design artifacts and specified solution shape.
 - `execution`: implementation work and produced artifacts.
 - `verification`: checks, criteria, evidence, and proof.
 - `review`: revisit and review triggers.
@@ -26,13 +26,16 @@ enforces the layer contract.
 When `metadata.layer` is missing, the graph projection uses this default mapping:
 
 - `objective` -> `purpose`
-- `assumption` -> `principle`
-- `constraint`, `risk` -> `constraint`
-- `proposal` -> `strategy`
-- `decision`, `option` -> `design`
-- `action`, `artifact` -> `execution`
-- `criterion`, `evidence`, `verification` -> `verification`
+- `assumption`, `constraint`, `risk` -> `constraint`
+- `criterion` -> `principle`
+- `proposal`, `option`, `decision` -> `strategy`
+- `artifact` -> `design`
+- `action` -> `execution`
+- `evidence`, `verification` -> `verification`
 - `revisit_trigger` -> `review`
+
+`metadata.stack_role` is intentionally deferred from Phase 6-1. It must not affect graph
+projection or validation until a later contract explicitly defines stack roles.
 
 ## Graph Shape
 

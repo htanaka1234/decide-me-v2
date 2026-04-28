@@ -6,6 +6,7 @@ from copy import deepcopy
 from pathlib import Path
 
 from jsonschema import Draft202012Validator, RefResolver
+from decide_me.constants import DECISION_STACK_LAYERS
 from tests.helpers.legacy_term_policy import LEGACY_PLAN_TERMS, LEGACY_PROJECT_STATE_TERMS
 
 
@@ -57,6 +58,12 @@ class ProjectStateSchemaTests(unittest.TestCase):
 
     def test_accepts_valid_object_link_state(self) -> None:
         self.validator.validate(_valid_project_state())
+
+    def test_decision_stack_layer_enum_matches_runtime_constants(self) -> None:
+        self.assertEqual(
+            DECISION_STACK_LAYERS,
+            set(self.schema["$defs"]["decision_stack_layer"]["enum"]),
+        )
 
     def test_accepts_uninitialized_skeleton(self) -> None:
         payload = _valid_project_state()
