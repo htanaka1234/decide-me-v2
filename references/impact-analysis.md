@@ -60,7 +60,9 @@ python3 scripts/decide_me.py export-impact-report \
 ```
 
 The Markdown report is a human-readable export, not runtime state. It may be regenerated or
-overwritten without changing the event log source of truth.
+overwritten without changing the event log source of truth. `--output` must resolve under
+`.ai/decide-me/exports/impact/`; paths inside the runtime directory but outside `exports/impact`
+are rejected so derived reports cannot overwrite runtime state.
 
 ## Traversal
 

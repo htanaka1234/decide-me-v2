@@ -7,11 +7,19 @@ def render_impact_report(
     template: str,
     impact: dict[str, Any],
     invalidation_candidates: dict[str, Any],
+    *,
+    max_depth: int | None = None,
+    include_low_severity: bool = False,
+    include_invalidated: bool = False,
 ) -> str:
     summary = impact["summary"]
     replacements = {
         "{{ root_object_id }}": impact["root_object_id"],
         "{{ change_kind }}": impact["change_kind"],
+        "{{ generated_at }}": impact["generated_at"],
+        "{{ max_depth }}": str(max_depth) if max_depth is not None else "unbounded",
+        "{{ include_low_severity }}": _render_bool(include_low_severity),
+        "{{ include_invalidated }}": _render_bool(include_invalidated),
         "{{ affected_count }}": str(summary["affected_count"]),
         "{{ highest_severity }}": summary["highest_severity"],
         "{{ affected_layers }}": _render_inline_list(summary["affected_layers"]),
@@ -82,6 +90,10 @@ def _render_paths(paths: list[dict[str, Any]]) -> str:
 
 def _render_inline_list(values: list[str]) -> str:
     return ", ".join(values) if values else "none"
+
+
+def _render_bool(value: bool) -> str:
+    return "true" if value else "false"
 
 
 def _object_label(object_id: str, title: str | None) -> str:

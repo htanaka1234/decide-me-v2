@@ -131,11 +131,26 @@ def export_impact_report(
     template = (
         Path(__file__).resolve().parent.parent / "templates" / "impact-report-template.md"
     ).read_text(encoding="utf-8")
-    body = render_impact_report(template, impact, candidates)
     output_path = Path(output)
+    _assert_safe_impact_report_output(paths, output_path)
+    body = render_impact_report(
+        template,
+        impact,
+        candidates,
+        max_depth=max_depth,
+        include_low_severity=include_low_severity,
+        include_invalidated=include_invalidated,
+    )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(body + "\n", encoding="utf-8")
     return output_path
+
+
+def _assert_safe_impact_report_output(paths: Any, output_path: Path) -> None:
+    resolved_output = output_path.resolve()
+    impact_dir = (paths.exports_dir / "impact").resolve()
+    if not resolved_output.is_relative_to(impact_dir):
+        raise ValueError("impact report output must be inside ai-dir exports/impact/")
 
 
 def _slugify(value: str) -> str:

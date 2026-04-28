@@ -3,6 +3,10 @@
 ## Summary
 
 - Change kind: {{ change_kind }}
+- Generated at: {{ generated_at }}
+- Max depth: {{ max_depth }}
+- Include low severity: {{ include_low_severity }}
+- Include invalidated: {{ include_invalidated }}
 - Affected objects: {{ affected_count }}
 - Highest severity: {{ highest_severity }}
 - Affected layers: {{ affected_layers }}

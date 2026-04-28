@@ -160,7 +160,8 @@ Inspect Decision Stack Graph diagnostics:
 2. Run `python3 scripts/decide_me.py show-invalidation-candidates --ai-dir .ai/decide-me --object-id O-... --change-kind changed`.
 3. Run `python3 scripts/decide_me.py show-decision-stack --ai-dir .ai/decide-me --object-id O-... --upstream-depth 1 --downstream-depth 2`.
 4. Export a human-readable report with `python3 scripts/decide_me.py export-impact-report --ai-dir .ai/decide-me --object-id O-... --change-kind changed --output .ai/decide-me/exports/impact/O-...md`.
-5. These commands are read-only diagnostics. They do not emit events, change object status, create
+5. Impact report output paths must resolve under `.ai/decide-me/exports/impact/`.
+6. These commands are read-only diagnostics. They do not emit events, change object status, create
    invalidation or supersession links, accept candidates, or start an approval workflow.
 
 Record object relationships:

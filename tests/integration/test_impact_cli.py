@@ -38,10 +38,10 @@ class ImpactCliTests(unittest.TestCase):
 
             self.assertEqual("O-privacy", impact["root_object_id"])
             self.assertEqual("changed", impact["change_kind"])
-            self.assertEqual(3, impact["summary"]["affected_count"])
+            self.assertEqual(4, impact["summary"]["affected_count"])
             self.assertEqual("high", impact["summary"]["highest_severity"])
             self.assertEqual(
-                ["D-auth", "A-implement-auth", "V-auth-flow"],
+                ["D-auth", "A-implement-auth", "R-auth-revisit", "V-auth-flow"],
                 [item["object_id"] for item in impact["affected_objects"]],
             )
 
@@ -71,6 +71,102 @@ class ImpactCliTests(unittest.TestCase):
 
             self.assertEqual(event_snapshot, _event_snapshot(ai_dir))
             self.assertEqual(project_state, (ai_dir / "project-state.json").read_text(encoding="utf-8"))
+
+    def test_cli_flags_include_low_severity_and_invalidated_targets(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = _runtime_with_stack(Path(tmp))
+
+            default_candidates = json.loads(
+                _run_cli(
+                    "show-invalidation-candidates",
+                    "--ai-dir",
+                    str(ai_dir),
+                    "--object-id",
+                    "O-privacy",
+                    "--change-kind",
+                    "changed",
+                    "--max-depth",
+                    "3",
+                ).stdout
+            )
+            low_candidates = json.loads(
+                _run_cli(
+                    "show-invalidation-candidates",
+                    "--ai-dir",
+                    str(ai_dir),
+                    "--object-id",
+                    "O-privacy",
+                    "--change-kind",
+                    "changed",
+                    "--max-depth",
+                    "3",
+                    "--include-low-severity",
+                ).stdout
+            )
+
+            self.assertNotIn(
+                "R-auth-revisit",
+                [candidate["target_object_id"] for candidate in default_candidates["candidates"]],
+            )
+            self.assertIn(
+                "R-auth-revisit",
+                [candidate["target_object_id"] for candidate in low_candidates["candidates"]],
+            )
+
+            default_impact = json.loads(
+                _run_cli(
+                    "show-impact",
+                    "--ai-dir",
+                    str(ai_dir),
+                    "--object-id",
+                    "O-privacy",
+                    "--change-kind",
+                    "changed",
+                    "--max-depth",
+                    "3",
+                ).stdout
+            )
+            invalidated_impact = json.loads(
+                _run_cli(
+                    "show-impact",
+                    "--ai-dir",
+                    str(ai_dir),
+                    "--object-id",
+                    "O-privacy",
+                    "--change-kind",
+                    "changed",
+                    "--max-depth",
+                    "3",
+                    "--include-invalidated",
+                ).stdout
+            )
+            invalidated_candidates = json.loads(
+                _run_cli(
+                    "show-invalidation-candidates",
+                    "--ai-dir",
+                    str(ai_dir),
+                    "--object-id",
+                    "O-privacy",
+                    "--change-kind",
+                    "changed",
+                    "--max-depth",
+                    "3",
+                    "--include-invalidated",
+                ).stdout
+            )
+
+            self.assertNotIn(
+                "A-invalidated-auth",
+                [affected["object_id"] for affected in default_impact["affected_objects"]],
+            )
+            self.assertIn(
+                "A-invalidated-auth",
+                [affected["object_id"] for affected in invalidated_impact["affected_objects"]],
+            )
+            self.assertIn(
+                "A-invalidated-auth",
+                [candidate["target_object_id"] for candidate in invalidated_candidates["candidates"]],
+            )
 
     def test_show_impact_reports_clear_cli_errors(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -163,6 +259,25 @@ def _events(session_id: str) -> list[dict]:
             "payload": {"object": _object("V-auth-flow", "verification", "E-verification")},
         },
         {
+            "event_id": "E-revisit-trigger",
+            "session_id": session_id,
+            "event_type": "object_recorded",
+            "payload": {"object": _object("R-auth-revisit", "revisit_trigger", "E-revisit-trigger")},
+        },
+        {
+            "event_id": "E-invalidated-action",
+            "session_id": session_id,
+            "event_type": "object_recorded",
+            "payload": {
+                "object": _object(
+                    "A-invalidated-auth",
+                    "action",
+                    "E-invalidated-action",
+                    status="invalidated",
+                )
+            },
+        },
+        {
             "event_id": "E-link-constraint-decision",
             "session_id": session_id,
             "event_type": "object_linked",
@@ -187,6 +302,34 @@ def _events(session_id: str) -> list[dict]:
                     "addresses",
                     "D-auth",
                     "E-link-action-decision",
+                )
+            },
+        },
+        {
+            "event_id": "E-link-decision-revisit-trigger",
+            "session_id": session_id,
+            "event_type": "object_linked",
+            "payload": {
+                "link": _link(
+                    "L-decision-revisits-trigger",
+                    "D-auth",
+                    "revisits",
+                    "R-auth-revisit",
+                    "E-link-decision-revisit-trigger",
+                )
+            },
+        },
+        {
+            "event_id": "E-link-invalidated-action-decision",
+            "session_id": session_id,
+            "event_type": "object_linked",
+            "payload": {
+                "link": _link(
+                    "L-invalidated-action-addresses-decision",
+                    "A-invalidated-auth",
+                    "addresses",
+                    "D-auth",
+                    "E-link-invalidated-action-decision",
                 )
             },
         },

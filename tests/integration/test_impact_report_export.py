@@ -34,6 +34,8 @@ class ImpactReportExportTests(unittest.TestCase):
                 "changed",
                 "--max-depth",
                 "3",
+                "--include-low-severity",
+                "--include-invalidated",
                 "--output",
                 str(output),
             )
@@ -44,6 +46,10 @@ class ImpactReportExportTests(unittest.TestCase):
             self.assertIn("# Impact Report: O-privacy", report)
             self.assertIn("## Summary", report)
             self.assertIn("- Change kind: changed", report)
+            self.assertIn("- Generated at: ", report)
+            self.assertIn("- Max depth: 3", report)
+            self.assertIn("- Include low severity: true", report)
+            self.assertIn("- Include invalidated: true", report)
             self.assertIn("- Affected objects: 3", report)
             self.assertIn("- Highest severity: high", report)
             self.assertIn("## Affected Objects", report)
@@ -59,8 +65,32 @@ class ImpactReportExportTests(unittest.TestCase):
             self.assertEqual(event_snapshot, _event_snapshot(ai_dir))
             self.assertEqual(project_state, (ai_dir / "project-state.json").read_text(encoding="utf-8"))
 
+    def test_export_impact_report_rejects_runtime_state_output(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = _runtime_with_stack(Path(tmp))
+            output = ai_dir / "project-state.json"
+            project_state = output.read_text(encoding="utf-8")
 
-def _run_cli(*args: str) -> subprocess.CompletedProcess[str]:
+            result = _run_cli(
+                "export-impact-report",
+                "--ai-dir",
+                str(ai_dir),
+                "--object-id",
+                "O-privacy",
+                "--change-kind",
+                "changed",
+                "--output",
+                str(output),
+                check=False,
+            )
+
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn("impact report output must be inside ai-dir exports/impact/", result.stderr)
+            self.assertEqual(project_state, output.read_text(encoding="utf-8"))
+            self.assertFalse((ai_dir / "exports" / "impact").exists())
+
+
+def _run_cli(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
     env = dict(os.environ)
     env["PYTHONPATH"] = str(REPO_ROOT)
     result = subprocess.run(
@@ -71,7 +101,7 @@ def _run_cli(*args: str) -> subprocess.CompletedProcess[str]:
         capture_output=True,
         text=True,
     )
-    if result.returncode != 0:
+    if check and result.returncode != 0:
         raise AssertionError(f"CLI failed with {result.returncode}\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}")
     return result
 
