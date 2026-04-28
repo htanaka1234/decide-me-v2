@@ -126,6 +126,11 @@ items, not only object IDs:
 - `relation`
 - `distance`
 
+`descendants_with_paths()` preserves the same downstream traversal semantics as `descendants()`
+and adds `path.node_ids` plus `path.link_ids` for each returned item. It is intended for
+diagnostics that need path evidence, including impact analysis, without changing the existing
+`descendants()` shape.
+
 Use `direct_upstream_ids()`, `direct_downstream_ids()`, `ancestor_ids()`, or `descendant_ids()`
 when only stable unique object IDs are needed.
 
@@ -148,8 +153,9 @@ included so the returned subgraph is not disconnected from its traversal evidenc
 node payloads for the requested layer, and excludes invalidated nodes unless
 `include_invalidated=True` is passed.
 
-These helpers are only a foundation for later impact analysis. Phase 6-2 does not implement
-impact analysis, cascading invalidation, CLI commands, or export output.
+Phase 6-3 adds read-only impact analysis on top of these helpers. Impact analysis lists affected
+downstream objects and graph paths only; it does not cascade invalidation, create links, change
+object status, add CLI commands, or write export output.
 
 ## Phase 6-1 Boundary
 
