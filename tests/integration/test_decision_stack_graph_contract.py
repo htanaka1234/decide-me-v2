@@ -8,6 +8,7 @@ from tempfile import TemporaryDirectory
 
 from decide_me.lifecycle import create_session
 from decide_me.store import bootstrap_runtime, transact, validate_runtime
+from tests.helpers.typed_metadata import evidence_metadata
 
 
 class DecisionStackGraphContractTests(unittest.TestCase):
@@ -112,7 +113,7 @@ def _evidence_object() -> dict:
         "created_at": "2026-04-23T12:00:00Z",
         "updated_at": None,
         "source_event_ids": ["E-evidence"],
-        "metadata": {},
+        "metadata": evidence_metadata(summary="Evidence supports the project objective."),
     }
 
 

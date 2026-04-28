@@ -160,8 +160,11 @@
         "severity",
         "candidate_kind",
         "reason",
-        "proposed_events",
         "requires_human_approval",
+        "approval_threshold",
+        "materialization_status",
+        "materialization_reason",
+        "proposed_events",
         "source_impact"
       ],
       "properties": {
@@ -193,12 +196,30 @@
           "type": "string",
           "minLength": 1
         },
-        "proposed_events": {
-          "type": "array",
-          "maxItems": 0
-        },
         "requires_human_approval": {
           "type": "boolean"
+        },
+        "approval_threshold": {
+          "enum": [
+            "none",
+            "explicit_acceptance"
+          ]
+        },
+        "materialization_status": {
+          "enum": [
+            "materialized",
+            "manual"
+          ]
+        },
+        "materialization_reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "proposed_events": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/proposed_event"
+          }
         },
         "source_impact": {
           "$ref": "#/$defs/source_impact"
@@ -231,6 +252,384 @@
         }
       },
       "additionalProperties": false
+    },
+    "proposed_event": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/object_status_changed_event_spec"
+        },
+        {
+          "$ref": "#/$defs/object_updated_event_spec"
+        },
+        {
+          "$ref": "#/$defs/object_recorded_event_spec"
+        },
+        {
+          "$ref": "#/$defs/object_linked_event_spec"
+        }
+      ]
+    },
+    "event_spec_common": {
+      "type": "object",
+      "required": [
+        "event_id",
+        "event_type",
+        "ts",
+        "payload"
+      ],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ts": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "source_event_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "nullable_date_time": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "object_status_changed_event_spec": {
+      "type": "object",
+      "required": [
+        "event_id",
+        "event_type",
+        "ts",
+        "payload"
+      ],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "event_type": {
+          "const": "object_status_changed"
+        },
+        "ts": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "payload": {
+          "type": "object",
+          "required": [
+            "object_id",
+            "from_status",
+            "to_status",
+            "reason",
+            "changed_at"
+          ],
+          "properties": {
+            "object_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "from_status": {
+              "type": "string",
+              "minLength": 1
+            },
+            "to_status": {
+              "type": "string",
+              "minLength": 1
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            },
+            "changed_at": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "object_updated_event_spec": {
+      "type": "object",
+      "required": [
+        "event_id",
+        "event_type",
+        "ts",
+        "payload"
+      ],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "event_type": {
+          "const": "object_updated"
+        },
+        "ts": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "payload": {
+          "type": "object",
+          "required": [
+            "object_id",
+            "patch"
+          ],
+          "properties": {
+            "object_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "patch": {
+              "type": "object",
+              "required": [
+                "metadata"
+              ],
+              "properties": {
+                "metadata": {
+                  "type": "object",
+                  "required": [
+                    "invalidated_by"
+                  ],
+                  "properties": {
+                    "invalidated_by": {
+                      "type": "object",
+                      "required": [
+                        "decision_id",
+                        "invalidated_at",
+                        "reason"
+                      ],
+                      "properties": {
+                        "decision_id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "invalidated_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "reason": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "object_recorded_event_spec": {
+      "type": "object",
+      "required": [
+        "event_id",
+        "event_type",
+        "ts",
+        "payload"
+      ],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "event_type": {
+          "const": "object_recorded"
+        },
+        "ts": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "payload": {
+          "type": "object",
+          "required": [
+            "object"
+          ],
+          "properties": {
+            "object": {
+              "type": "object",
+              "required": [
+                "id",
+                "type",
+                "title",
+                "body",
+                "status",
+                "created_at",
+                "updated_at",
+                "source_event_ids",
+                "metadata"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "type": {
+                  "const": "verification"
+                },
+                "title": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "body": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "updated_at": {
+                  "$ref": "#/$defs/nullable_date_time"
+                },
+                "source_event_ids": {
+                  "$ref": "#/$defs/source_event_ids"
+                },
+                "metadata": {
+                  "$ref": "#/$defs/verification_metadata"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "object_linked_event_spec": {
+      "type": "object",
+      "required": [
+        "event_id",
+        "event_type",
+        "ts",
+        "payload"
+      ],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "event_type": {
+          "const": "object_linked"
+        },
+        "ts": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "payload": {
+          "type": "object",
+          "required": [
+            "link"
+          ],
+          "properties": {
+            "link": {
+              "type": "object",
+              "required": [
+                "id",
+                "source_object_id",
+                "relation",
+                "target_object_id",
+                "rationale",
+                "created_at",
+                "source_event_ids"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "source_object_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "relation": {
+                  "$ref": "#/$defs/link_relation"
+                },
+                "target_object_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "rationale": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "source_event_ids": {
+                  "$ref": "#/$defs/source_event_ids"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "verification_metadata": {
+      "type": "object",
+      "required": [
+        "method",
+        "expected_result",
+        "verified_at",
+        "result"
+      ],
+      "properties": {
+        "method": {
+          "enum": [
+            "inspection",
+            "test",
+            "review",
+            "analysis",
+            "monitoring"
+          ]
+        },
+        "expected_result": {
+          "type": "string",
+          "minLength": 1
+        },
+        "verified_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "result": {
+          "enum": [
+            "pass",
+            "fail",
+            "inconclusive",
+            "pending"
+          ]
+        }
+      },
+      "additionalProperties": true
     }
   }
 }

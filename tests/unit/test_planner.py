@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 
 from decide_me.planner import assemble_action_plan, detect_conflicts
+from tests.helpers.typed_metadata import evidence_metadata, metadata_for_object_type
 
 
 class PlannerTests(unittest.TestCase):
@@ -104,7 +105,7 @@ def _project_state() -> dict:
                 "evidence",
                 "Auth docs",
                 body="Magic links fit the current architecture.",
-                metadata={"source": "docs", "ref": "docs/auth.md"},
+                metadata=evidence_metadata(source_ref="docs/auth.md", summary="Magic links fit the current architecture."),
             ),
             _object(
                 "O-action",
@@ -148,7 +149,7 @@ def _object(
         "created_at": "2026-04-23T12:00:00Z",
         "updated_at": None,
         "source_event_ids": ["E-001"],
-        "metadata": metadata or {},
+        "metadata": metadata if metadata is not None else metadata_for_object_type(object_type),
     }
 
 

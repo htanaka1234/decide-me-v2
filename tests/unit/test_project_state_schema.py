@@ -1,29 +1,23 @@
 from __future__ import annotations
 
-import json
 import unittest
 from copy import deepcopy
-from pathlib import Path
 
-from jsonschema import Draft202012Validator, RefResolver
 from decide_me.constants import DECISION_STACK_LAYERS
 from tests.helpers.legacy_term_policy import LEGACY_PLAN_TERMS, LEGACY_PROJECT_STATE_TERMS
+from tests.helpers.schema_validation import (
+    LINK_SCHEMA_ID,
+    OBJECT_SCHEMA_ID,
+    PROJECT_STATE_SCHEMA_ID,
+    load_project_state_schema_bundle,
+    project_state_schema_validator,
+)
 
 
 class ProjectStateSchemaTests(unittest.TestCase):
     def setUp(self) -> None:
-        schema_root = Path(__file__).resolve().parents[2] / "schemas"
-        self.schema = json.loads((schema_root / "project-state.schema.json").read_text(encoding="utf-8"))
-        self.object_schema = json.loads((schema_root / "object.schema.json").read_text(encoding="utf-8"))
-        self.link_schema = json.loads((schema_root / "link.schema.json").read_text(encoding="utf-8"))
-        resolver = RefResolver.from_schema(
-            self.schema,
-            store={
-                self.object_schema["$id"]: self.object_schema,
-                self.link_schema["$id"]: self.link_schema,
-            },
-        )
-        self.validator = Draft202012Validator(self.schema, resolver=resolver)
+        self.schema, self.object_schema, self.link_schema = load_project_state_schema_bundle()
+        self.validator = project_state_schema_validator(self.schema)
 
     def test_project_state_uses_v12_object_link_shape(self) -> None:
         self.assertEqual(12, self.schema["properties"]["schema_version"]["const"])
@@ -45,14 +39,14 @@ class ProjectStateSchemaTests(unittest.TestCase):
         legacy_session_key = "session" + "_graph"
         for legacy_key in ("decisions", "proposals", *LEGACY_PROJECT_STATE_TERMS, legacy_session_key, legacy_action_key):
             self.assertNotIn(legacy_key, self.schema["properties"])
-        self.assertEqual({"$ref": "object.schema.json"}, self.schema["properties"]["objects"]["items"])
-        self.assertEqual({"$ref": "link.schema.json"}, self.schema["properties"]["links"]["items"])
+        self.assertEqual({"$ref": OBJECT_SCHEMA_ID}, self.schema["properties"]["objects"]["items"])
+        self.assertEqual({"$ref": LINK_SCHEMA_ID}, self.schema["properties"]["links"]["items"])
         self.assertEqual(
-            {"$ref": "#/$defs/decision_stack_graph_node"},
+            {"$ref": f"{PROJECT_STATE_SCHEMA_ID}#/$defs/decision_stack_graph_node"},
             self.schema["properties"]["graph"]["properties"]["nodes"]["items"],
         )
         self.assertEqual(
-            {"$ref": "#/$defs/decision_stack_graph_edge"},
+            {"$ref": f"{PROJECT_STATE_SCHEMA_ID}#/$defs/decision_stack_graph_edge"},
             self.schema["properties"]["graph"]["properties"]["edges"]["items"],
         )
 

@@ -26,6 +26,9 @@ from decide_me.store import (
 )
 
 
+CLI_TIMEOUT_SECONDS = 30
+
+
 class RuntimeFlowTests(unittest.TestCase):
     def test_decision_workflow_emits_only_domain_neutral_events(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -147,7 +150,7 @@ class RuntimeFlowTests(unittest.TestCase):
             evidence_objects = [
                 obj
                 for obj in rebuilt["project_state"]["objects"]
-                if obj["type"] == "evidence" and obj["metadata"].get("ref") == "docs/architecture.md"
+                if obj["type"] == "evidence" and obj["metadata"].get("source_ref") == "docs/architecture.md"
             ]
             self.assertEqual(1, len(evidence_objects))
             support_links = [
@@ -165,6 +168,7 @@ class RuntimeFlowTests(unittest.TestCase):
             check=True,
             capture_output=True,
             text=True,
+            timeout=CLI_TIMEOUT_SECONDS,
         )
         self.assertNotIn("classify-session", help_result.stdout)
         self.assertNotIn("link-session", help_result.stdout)
@@ -175,6 +179,7 @@ class RuntimeFlowTests(unittest.TestCase):
             check=False,
             capture_output=True,
             text=True,
+            timeout=CLI_TIMEOUT_SECONDS,
         )
         self.assertNotEqual(0, invalid_result.returncode)
         self.assertIn("invalid choice", invalid_result.stderr)

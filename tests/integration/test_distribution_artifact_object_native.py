@@ -15,6 +15,7 @@ from tests.helpers.legacy_term_policy import format_findings, zip_legacy_term_fi
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+CLI_TIMEOUT_SECONDS = 30
 
 
 class DistributionArtifactObjectNativeTests(unittest.TestCase):
@@ -137,6 +138,7 @@ def _built_artifact() -> Iterator[ZipFile]:
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
+            timeout=CLI_TIMEOUT_SECONDS,
         )
         with ZipFile(dist_dir / "decide-me.zip") as archive:
             yield archive

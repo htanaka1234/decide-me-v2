@@ -8,6 +8,7 @@ from tempfile import TemporaryDirectory
 from decide_me.graph_traversal import ancestor_ids, build_graph_index, descendant_ids, descendants
 from decide_me.lifecycle import create_session
 from decide_me.store import bootstrap_runtime, rebuild_and_persist, transact, validate_runtime
+from tests.helpers.typed_metadata import metadata_for_object_type
 
 
 class DecisionStackGraphTraversalIntegrationTests(unittest.TestCase):
@@ -175,7 +176,7 @@ def _object(object_id: str, object_type: str, event_id: str) -> dict:
         "created_at": "2026-04-23T12:00:00Z",
         "updated_at": None,
         "source_event_ids": [event_id],
-        "metadata": {},
+        "metadata": metadata_for_object_type(object_type),
     }
 
 

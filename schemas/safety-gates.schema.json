@@ -1,0 +1,494 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/decide-me/safety-gates.schema.json",
+  "title": "Decide Me Safety Gate",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/safety_gate_result"
+    },
+    {
+      "$ref": "#/$defs/safety_gate_report"
+    }
+  ],
+  "$defs": {
+    "nullable_date_time": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "nullable_string": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "string_array": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "string_counts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "gate_status": {
+      "enum": [
+        "passed",
+        "needs_approval",
+        "blocked"
+      ]
+    },
+    "risk_tier": {
+      "enum": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "reversibility": {
+      "enum": [
+        "unknown",
+        "reversible",
+        "partially_reversible",
+        "irreversible"
+      ]
+    },
+    "evidence_coverage": {
+      "enum": [
+        "sufficient",
+        "insufficient",
+        "challenged"
+      ]
+    },
+    "approval_threshold": {
+      "enum": [
+        "none",
+        "explicit_acceptance",
+        "human_review",
+        "external_review"
+      ]
+    },
+    "blocking_reason": {
+      "enum": [
+        "target_invalidated",
+        "critical_risk_tier",
+        "insufficient_evidence",
+        "challenged_evidence"
+      ]
+    },
+    "warning_reason": {
+      "enum": [
+        "medium_risk_tier",
+        "partially_reversible_change",
+        "low_confidence_assumption"
+      ]
+    },
+    "approval_reason": {
+      "enum": [
+        "high_risk_tier",
+        "irreversible_change",
+        "external_review_required",
+        "human_review_required",
+        "explicit_acceptance_required"
+      ]
+    },
+    "confidence": {
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "evidence_freshness": {
+      "enum": [
+        "current",
+        "stale",
+        "unknown"
+      ]
+    },
+    "evidence_source": {
+      "enum": [
+        "codebase",
+        "docs",
+        "tests",
+        "external",
+        "existing-decisions",
+        "close-summaries"
+      ]
+    },
+    "risk_severity": {
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "risk_likelihood": {
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "risk_reversibility": {
+      "enum": [
+        "reversible",
+        "partially_reversible",
+        "irreversible"
+      ]
+    },
+    "evidence_item": {
+      "type": "object",
+      "required": [
+        "object_id",
+        "status",
+        "relation",
+        "link_id",
+        "source",
+        "source_ref",
+        "summary",
+        "confidence",
+        "freshness",
+        "observed_at",
+        "valid_until"
+      ],
+      "properties": {
+        "object_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "relation": {
+          "enum": [
+            "supports",
+            "verifies",
+            "challenges"
+          ]
+        },
+        "link_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "$ref": "#/$defs/evidence_source"
+        },
+        "source_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "freshness": {
+          "$ref": "#/$defs/evidence_freshness"
+        },
+        "observed_at": {
+          "$ref": "#/$defs/nullable_date_time"
+        },
+        "valid_until": {
+          "$ref": "#/$defs/nullable_date_time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "assumption_item": {
+      "type": "object",
+      "required": [
+        "object_id",
+        "status",
+        "relation",
+        "link_id",
+        "statement",
+        "confidence",
+        "validation",
+        "invalidates_if_false",
+        "expires_at",
+        "owner"
+      ],
+      "properties": {
+        "object_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "relation": {
+          "enum": [
+            "constrains",
+            "invalidates",
+            "requires",
+            "derived_from"
+          ]
+        },
+        "link_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "validation": {
+          "$ref": "#/$defs/nullable_string"
+        },
+        "invalidates_if_false": {
+          "$ref": "#/$defs/string_array"
+        },
+        "expires_at": {
+          "$ref": "#/$defs/nullable_date_time"
+        },
+        "owner": {
+          "$ref": "#/$defs/nullable_string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "risk_item": {
+      "type": "object",
+      "required": [
+        "object_id",
+        "status",
+        "relation",
+        "link_id",
+        "statement",
+        "severity",
+        "likelihood",
+        "risk_tier",
+        "reversibility",
+        "mitigation_object_ids",
+        "approval_threshold"
+      ],
+      "properties": {
+        "object_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "relation": {
+          "enum": [
+            "challenges",
+            "constrains",
+            "invalidates",
+            "blocked_by",
+            "addresses",
+            "mitigates",
+            "mitigation_metadata"
+          ]
+        },
+        "link_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "severity": {
+          "$ref": "#/$defs/risk_severity"
+        },
+        "likelihood": {
+          "$ref": "#/$defs/risk_likelihood"
+        },
+        "risk_tier": {
+          "$ref": "#/$defs/risk_tier"
+        },
+        "reversibility": {
+          "$ref": "#/$defs/risk_reversibility"
+        },
+        "mitigation_object_ids": {
+          "$ref": "#/$defs/string_array"
+        },
+        "approval_threshold": {
+          "$ref": "#/$defs/approval_threshold"
+        }
+      },
+      "additionalProperties": false
+    },
+    "safety_gate_result": {
+      "type": "object",
+      "required": [
+        "object_id",
+        "object_type",
+        "title",
+        "status",
+        "gate_status",
+        "risk_tier",
+        "reversibility",
+        "evidence_coverage",
+        "approval_required",
+        "approval_threshold",
+        "blocking_reasons",
+        "warning_reasons",
+        "approval_reasons",
+        "evidence",
+        "assumptions",
+        "risks",
+        "source_link_ids"
+      ],
+      "properties": {
+        "object_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "object_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "$ref": "#/$defs/nullable_string"
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "gate_status": {
+          "$ref": "#/$defs/gate_status"
+        },
+        "risk_tier": {
+          "$ref": "#/$defs/risk_tier"
+        },
+        "reversibility": {
+          "$ref": "#/$defs/reversibility"
+        },
+        "evidence_coverage": {
+          "$ref": "#/$defs/evidence_coverage"
+        },
+        "approval_required": {
+          "type": "boolean"
+        },
+        "approval_threshold": {
+          "$ref": "#/$defs/approval_threshold"
+        },
+        "blocking_reasons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/blocking_reason"
+          },
+          "uniqueItems": true
+        },
+        "warning_reasons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/warning_reason"
+          },
+          "uniqueItems": true
+        },
+        "approval_reasons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/approval_reason"
+          },
+          "uniqueItems": true
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence_item"
+          }
+        },
+        "assumptions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/assumption_item"
+          }
+        },
+        "risks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/risk_item"
+          }
+        },
+        "source_link_ids": {
+          "$ref": "#/$defs/string_array"
+        }
+      },
+      "additionalProperties": false
+    },
+    "safety_gate_report": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "project_head",
+        "generated_at",
+        "summary",
+        "results"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "integer",
+          "const": 1
+        },
+        "project_head": {
+          "$ref": "#/$defs/nullable_string"
+        },
+        "generated_at": {
+          "$ref": "#/$defs/nullable_date_time"
+        },
+        "summary": {
+          "type": "object",
+          "required": [
+            "evaluated_count",
+            "by_gate_status",
+            "approval_required_count",
+            "blocking_count"
+          ],
+          "properties": {
+            "evaluated_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "by_gate_status": {
+              "$ref": "#/$defs/string_counts"
+            },
+            "approval_required_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "blocking_count": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false
+        },
+        "results": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safety_gate_result"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

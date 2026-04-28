@@ -20,8 +20,9 @@ The fixed decision stack layers are:
 ## Layer Inference
 
 Objects may carry optional `metadata.layer`. When present, validation requires it to be one of
-the fixed layer names above. `schemas/object.schema.json` keeps metadata open; runtime validation
-enforces the layer contract.
+the fixed layer names above. `schemas/object.schema.json` keeps metadata extensible, but runtime
+and schema validation enforce the typed metadata contracts for evidence, assumptions, risks,
+verifications, and revisit triggers.
 
 When `metadata.layer` is missing, the graph projection uses this default mapping:
 
@@ -176,6 +177,17 @@ Phase 6-3 adds read-only impact analysis on top of these helpers. Phase 6-4 adds
 invalidation candidates derived from that impact report. Phase 6-5 exposes these diagnostics
 through CLI commands and derived Markdown impact reports. These diagnostics do not cascade
 invalidation, create links, change object status, accept candidates, or run approval workflows.
+Step 5 lets invalidation candidates include deterministic `proposed_events` event specs. The
+diagnostic still does not apply those specs or persist candidate lifecycle state.
+
+Phase 7 preparation adds read-only register projections for evidence, assumptions, and risks.
+The register commands aggregate typed metadata and relation ids from `project_state.objects` and
+`project_state.links`; they do not add fields to `project_state.graph` and do not evaluate safety
+gates. See `references/registers.md` for the register output contract.
+
+Step 3 adds read-only safety gate diagnostics using the same object/link projection. Safety gate
+commands do not add graph fields, persist gate state, apply candidates, or emit approval events.
+See `references/safety-gates.md` for the evaluation contract.
 
 ## Phase 6-1 Boundary
 

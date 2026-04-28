@@ -91,6 +91,16 @@ EVIDENCE_SOURCES = {
     "existing-decisions",
     "close-summaries",
 }
+METADATA_CONFIDENCE_VALUES = {"low", "medium", "high"}
+EVIDENCE_FRESHNESS_VALUES = {"current", "stale", "unknown"}
+RISK_SEVERITY_VALUES = {"low", "medium", "high", "critical"}
+RISK_LIKELIHOOD_VALUES = {"low", "medium", "high"}
+RISK_TIER_VALUES = {"low", "medium", "high", "critical"}
+RISK_REVERSIBILITY_VALUES = {"reversible", "partially_reversible", "irreversible"}
+APPROVAL_THRESHOLD_VALUES = {"none", "explicit_acceptance", "human_review", "external_review"}
+VERIFICATION_METHOD_VALUES = {"inspection", "test", "review", "analysis", "monitoring"}
+VERIFICATION_RESULT_VALUES = {"pass", "fail", "inconclusive", "pending"}
+REVISIT_TRIGGER_TYPE_VALUES = {"time", "evidence", "outcome", "dependency"}
 
 DISCOVERABLE_DECISION_FIELDS = {
     "id",

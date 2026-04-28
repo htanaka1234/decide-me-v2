@@ -31,9 +31,17 @@ from decide_me.invalidation_candidates import generate_invalidation_candidates
 from decide_me.lifecycle import close_session, create_session, list_sessions, resume_session, show_session
 from decide_me.planner import generate_plan
 from decide_me.protocol import resolve_decision_supersession
+from decide_me.registers import build_assumption_register, build_evidence_register, build_risk_register
+from decide_me.safety_gate import build_safety_gate_report, evaluate_safety_gate
 from decide_me.session_graph import (
     detect_session_conflicts,
     show_session_graph,
+)
+from decide_me.stale_detection import (
+    detect_revisit_due,
+    detect_stale_assumptions,
+    detect_stale_evidence,
+    detect_verification_gaps,
 )
 from decide_me.store import (
     benchmark_runtime,
@@ -178,6 +186,65 @@ def main(argv: list[str] | None = None) -> int:
     show_decision_stack.add_argument("--object-id", required=True)
     show_decision_stack.add_argument("--upstream-depth", type=int, default=1)
     show_decision_stack.add_argument("--downstream-depth", type=int, default=2)
+
+    show_evidence_register = subparsers.add_parser(
+        "show-evidence-register",
+        help="show a read-only evidence register projection",
+    )
+    show_evidence_register.add_argument("--ai-dir", required=True)
+
+    show_assumption_register = subparsers.add_parser(
+        "show-assumption-register",
+        help="show a read-only assumption register projection",
+    )
+    show_assumption_register.add_argument("--ai-dir", required=True)
+
+    show_risk_register = subparsers.add_parser(
+        "show-risk-register",
+        help="show a read-only risk register projection",
+    )
+    show_risk_register.add_argument("--ai-dir", required=True)
+
+    show_safety_gate = subparsers.add_parser(
+        "show-safety-gate",
+        help="show a read-only safety gate result for one object",
+    )
+    show_safety_gate.add_argument("--ai-dir", required=True)
+    show_safety_gate.add_argument("--object-id", required=True)
+
+    show_safety_gates = subparsers.add_parser(
+        "show-safety-gates",
+        help="show read-only safety gate results for live decisions and actions",
+    )
+    show_safety_gates.add_argument("--ai-dir", required=True)
+
+    show_stale_assumptions = subparsers.add_parser(
+        "show-stale-assumptions",
+        help="show read-only stale assumption diagnostics",
+    )
+    show_stale_assumptions.add_argument("--ai-dir", required=True)
+    show_stale_assumptions.add_argument("--now")
+
+    show_stale_evidence = subparsers.add_parser(
+        "show-stale-evidence",
+        help="show read-only stale evidence diagnostics",
+    )
+    show_stale_evidence.add_argument("--ai-dir", required=True)
+    show_stale_evidence.add_argument("--now")
+
+    show_verification_gaps = subparsers.add_parser(
+        "show-verification-gaps",
+        help="show read-only structured verification gap diagnostics",
+    )
+    show_verification_gaps.add_argument("--ai-dir", required=True)
+    show_verification_gaps.add_argument("--now")
+
+    show_revisit_due = subparsers.add_parser(
+        "show-revisit-due",
+        help="show read-only due revisit trigger diagnostics",
+    )
+    show_revisit_due.add_argument("--ai-dir", required=True)
+    show_revisit_due.add_argument("--now")
 
     adr = subparsers.add_parser("export-adr", help="export an ADR markdown file")
     adr.add_argument("--ai-dir", required=True)
@@ -389,6 +456,33 @@ def main(argv: list[str] | None = None) -> int:
                     downstream_depth=args.downstream_depth,
                 )
             )
+        elif args.command == "show-evidence-register":
+            bundle = load_runtime(runtime_paths(args.ai_dir))
+            _print_json(build_evidence_register(bundle["project_state"]))
+        elif args.command == "show-assumption-register":
+            bundle = load_runtime(runtime_paths(args.ai_dir))
+            _print_json(build_assumption_register(bundle["project_state"]))
+        elif args.command == "show-risk-register":
+            bundle = load_runtime(runtime_paths(args.ai_dir))
+            _print_json(build_risk_register(bundle["project_state"]))
+        elif args.command == "show-safety-gate":
+            bundle = load_runtime(runtime_paths(args.ai_dir))
+            _print_json(evaluate_safety_gate(bundle["project_state"], args.object_id))
+        elif args.command == "show-safety-gates":
+            bundle = load_runtime(runtime_paths(args.ai_dir))
+            _print_json(build_safety_gate_report(bundle["project_state"]))
+        elif args.command == "show-stale-assumptions":
+            bundle = load_runtime(runtime_paths(args.ai_dir))
+            _print_json(detect_stale_assumptions(bundle["project_state"], now=args.now))
+        elif args.command == "show-stale-evidence":
+            bundle = load_runtime(runtime_paths(args.ai_dir))
+            _print_json(detect_stale_evidence(bundle["project_state"], now=args.now))
+        elif args.command == "show-verification-gaps":
+            bundle = load_runtime(runtime_paths(args.ai_dir))
+            _print_json(detect_verification_gaps(bundle["project_state"], now=args.now))
+        elif args.command == "show-revisit-due":
+            bundle = load_runtime(runtime_paths(args.ai_dir))
+            _print_json(detect_revisit_due(bundle["project_state"], now=args.now))
         elif args.command == "export-adr":
             path = export_adr(args.ai_dir, args.decision_id)
             _print_json({"path": str(path)})

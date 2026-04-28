@@ -6,6 +6,13 @@ from copy import deepcopy
 from decide_me.events import build_event as runtime_build_event
 from decide_me.projections import build_decision_stack_graph, default_project_state, rebuild_projections
 from decide_me.validate import StateValidationError, validate_project_state, validate_projection_bundle
+from tests.helpers.typed_metadata import (
+    assumption_metadata,
+    evidence_metadata,
+    revisit_trigger_metadata,
+    risk_metadata,
+    verification_metadata,
+)
 
 
 class ProjectStateValidationTests(unittest.TestCase):
@@ -64,6 +71,97 @@ class ProjectStateValidationTests(unittest.TestCase):
 
         with self.assertRaisesRegex(StateValidationError, "metadata.layer"):
             validate_project_state(payload)
+
+    def test_rejects_invalid_decision_metadata_enums(self) -> None:
+        for key, value in (
+            ("priority", "BAD"),
+            ("frontier", "someday"),
+            ("kind", "unknown"),
+            ("domain", "NOT_A_DOMAIN"),
+            ("resolvable_by", "committee"),
+            ("reversibility", "not-reversible"),
+        ):
+            with self.subTest(key=key):
+                payload = _valid_project_state()
+                payload["objects"][0]["metadata"][key] = value
+
+                with self.assertRaisesRegex(StateValidationError, f"metadata.{key}"):
+                    validate_project_state(payload)
+
+    def test_rejects_invalidated_by_on_non_invalidated_decision(self) -> None:
+        payload = _valid_project_state()
+        payload["objects"][0]["metadata"]["invalidated_by"] = {
+            "decision_id": "D-other",
+            "invalidated_at": "2026-04-23T12:30:00Z",
+        }
+
+        with self.assertRaisesRegex(StateValidationError, "non-invalidated decision object D-001"):
+            validate_project_state(payload)
+
+    def test_rejects_invalidated_decision_without_invalidated_by_metadata(self) -> None:
+        payload = _valid_project_state()
+        payload["objects"][0]["status"] = "invalidated"
+        payload["counts"]["by_status"] = {"invalidated": 1, "active": 2}
+
+        with self.assertRaisesRegex(StateValidationError, "metadata.invalidated_by"):
+            validate_project_state(payload)
+
+    def test_rejects_invalidated_decision_with_invalid_invalidated_at(self) -> None:
+        payload = _valid_project_state()
+        payload["objects"][0]["status"] = "invalidated"
+        payload["objects"][0]["metadata"]["invalidated_by"] = {
+            "decision_id": "D-other",
+            "invalidated_at": "not-a-timestamp",
+        }
+        payload["counts"]["by_status"] = {"invalidated": 1, "active": 2}
+
+        with self.assertRaisesRegex(StateValidationError, "invalidated_at"):
+            validate_project_state(payload)
+
+    def test_accepts_typed_metadata_objects(self) -> None:
+        for object_type, metadata in _typed_metadata_cases():
+            with self.subTest(object_type=object_type):
+                payload = _valid_project_state()
+                _append_object(payload, _typed_object(f"O-{object_type}", object_type, metadata))
+
+                validate_project_state(payload)
+
+    def test_rejects_missing_typed_metadata_keys(self) -> None:
+        for object_type, metadata, missing_key in (
+            ("evidence", evidence_metadata(), "source_ref"),
+            ("assumption", assumption_metadata(), "statement"),
+            ("risk", risk_metadata(), "approval_threshold"),
+            ("verification", verification_metadata(), "expected_result"),
+            ("revisit_trigger", revisit_trigger_metadata(target_object_ids=["D-001"]), "target_object_ids"),
+        ):
+            with self.subTest(object_type=object_type, missing_key=missing_key):
+                payload = _valid_project_state()
+                metadata.pop(missing_key)
+                _append_object(payload, _typed_object(f"O-{object_type}", object_type, metadata))
+
+                with self.assertRaisesRegex(StateValidationError, "missing required keys"):
+                    validate_project_state(payload)
+
+    def test_rejects_invalid_typed_metadata_values(self) -> None:
+        cases = (
+            ("evidence", evidence_metadata(confidence="certain"), "metadata.confidence"),
+            ("evidence", evidence_metadata(observed_at="not-a-timestamp"), "metadata.observed_at"),
+            ("assumption", assumption_metadata(invalidates_if_false=[None]), "invalidates_if_false"),
+            ("assumption", assumption_metadata(expires_at="not-a-timestamp"), "metadata.expires_at"),
+            ("risk", risk_metadata(risk_tier="severe"), "metadata.risk_tier"),
+            ("risk", risk_metadata(mitigation_object_ids=["A-001", "A-001"]), "duplicate values"),
+            ("verification", verification_metadata(result="unknown"), "metadata.result"),
+            ("verification", verification_metadata(verified_at="not-a-timestamp"), "metadata.verified_at"),
+            ("revisit_trigger", revisit_trigger_metadata(trigger_type="manual"), "metadata.trigger_type"),
+            ("revisit_trigger", revisit_trigger_metadata(target_object_ids=[]), "target_object_ids"),
+        )
+        for object_type, metadata, pattern in cases:
+            with self.subTest(object_type=object_type, pattern=pattern):
+                payload = _valid_project_state()
+                _append_object(payload, _typed_object(f"O-{object_type}", object_type, metadata))
+
+                with self.assertRaisesRegex(StateValidationError, pattern):
+                    validate_project_state(payload)
 
     def test_rejects_graph_node_referencing_missing_object(self) -> None:
         payload = _valid_project_state()
@@ -270,6 +368,52 @@ def _event(
         timestamp=timestamp,
         project_head=f"H-{sequence}",
     )
+
+
+def _typed_metadata_cases() -> list[tuple[str, dict]]:
+    return [
+        ("evidence", evidence_metadata()),
+        ("assumption", assumption_metadata()),
+        ("risk", risk_metadata()),
+        ("verification", verification_metadata()),
+        ("revisit_trigger", revisit_trigger_metadata(target_object_ids=["D-001"])),
+    ]
+
+
+def _typed_object(object_id: str, object_type: str, metadata: dict) -> dict:
+    return {
+        "id": object_id,
+        "type": object_type,
+        "title": object_type.replace("_", " ").title(),
+        "body": "Typed metadata validation fixture.",
+        "status": "active",
+        "created_at": "2026-04-23T12:00:00Z",
+        "updated_at": None,
+        "source_event_ids": ["E-typed"],
+        "metadata": metadata,
+    }
+
+
+def _append_object(payload: dict, obj: dict) -> None:
+    payload["objects"].append(obj)
+    _refresh_counts_and_graph(payload)
+
+
+def _refresh_counts_and_graph(payload: dict) -> None:
+    payload["counts"] = {
+        "object_total": len(payload["objects"]),
+        "link_total": len(payload["links"]),
+        "by_type": {},
+        "by_status": {},
+        "by_relation": {},
+    }
+    for obj in payload["objects"]:
+        payload["counts"]["by_type"][obj["type"]] = payload["counts"]["by_type"].get(obj["type"], 0) + 1
+        payload["counts"]["by_status"][obj["status"]] = payload["counts"]["by_status"].get(obj["status"], 0) + 1
+    for link in payload["links"]:
+        relation = link["relation"]
+        payload["counts"]["by_relation"][relation] = payload["counts"]["by_relation"].get(relation, 0) + 1
+    payload["graph"] = build_decision_stack_graph(payload)
 
 
 if __name__ == "__main__":

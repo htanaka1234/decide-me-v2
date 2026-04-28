@@ -6,6 +6,8 @@ from copy import deepcopy
 from pathlib import Path
 
 from jsonschema import Draft202012Validator
+from tests.helpers.schema_validation import OBJECT_SCHEMA_ID
+from tests.helpers.typed_metadata import metadata_for_object_type
 
 
 OBJECT_TYPES = [
@@ -70,11 +72,50 @@ class ObjectSchemaTests(unittest.TestCase):
                 self.assertTrue(any(error.validator == "additionalProperties" for error in errors))
 
     def test_project_state_references_standalone_object_schema(self) -> None:
-        self.assertEqual({"$ref": "object.schema.json"}, self.project_schema["properties"]["objects"]["items"])
+        self.assertEqual({"$ref": OBJECT_SCHEMA_ID}, self.project_schema["properties"]["objects"]["items"])
 
     def test_schema_declares_date_time_fields(self) -> None:
         self.assertEqual("date-time", self.schema["properties"]["created_at"]["format"])
         self.assertEqual("date-time", self.schema["properties"]["updated_at"]["format"])
+
+    def test_accepts_typed_metadata_contracts(self) -> None:
+        for object_type in ("evidence", "assumption", "risk", "verification", "revisit_trigger"):
+            with self.subTest(object_type=object_type):
+                self.validator.validate(_valid_object(object_type))
+
+    def test_rejects_missing_typed_metadata_fields(self) -> None:
+        for object_type, field in (
+            ("evidence", "source_ref"),
+            ("assumption", "statement"),
+            ("risk", "risk_tier"),
+            ("verification", "method"),
+            ("revisit_trigger", "target_object_ids"),
+        ):
+            with self.subTest(object_type=object_type, field=field):
+                payload = _valid_object(object_type)
+                payload["metadata"].pop(field)
+
+                errors = list(self.validator.iter_errors(payload))
+
+                self.assertTrue(errors)
+                self.assertTrue(any(error.validator == "required" for error in errors))
+
+    def test_rejects_invalid_typed_metadata_values(self) -> None:
+        cases = (
+            ("evidence", "confidence", "certain"),
+            ("assumption", "invalidates_if_false", [None]),
+            ("risk", "approval_threshold", "auto"),
+            ("verification", "verified_at", 123),
+            ("revisit_trigger", "trigger_type", "manual"),
+        )
+        for object_type, field, value in cases:
+            with self.subTest(object_type=object_type, field=field):
+                payload = _valid_object(object_type)
+                payload["metadata"][field] = value
+
+                errors = list(self.validator.iter_errors(payload))
+
+                self.assertTrue(errors)
 
 
 def _valid_object(object_type: str) -> dict:
@@ -87,9 +128,13 @@ def _valid_object(object_type: str) -> dict:
         "created_at": "2026-04-23T12:00:00Z",
         "updated_at": None,
         "source_event_ids": ["E-001"],
-        "metadata": {},
+        "metadata": _valid_metadata(object_type),
     }
     return deepcopy(payload)
+
+
+def _valid_metadata(object_type: str) -> dict:
+    return metadata_for_object_type(object_type)
 
 
 if __name__ == "__main__":

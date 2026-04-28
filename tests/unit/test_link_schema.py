@@ -6,6 +6,7 @@ from copy import deepcopy
 from pathlib import Path
 
 from jsonschema import Draft202012Validator
+from tests.helpers.schema_validation import LINK_SCHEMA_ID
 
 
 LINK_RELATIONS = [
@@ -61,7 +62,7 @@ class LinkSchemaTests(unittest.TestCase):
         self.assertTrue(any(error.validator == "additionalProperties" for error in errors))
 
     def test_project_state_references_standalone_link_schema(self) -> None:
-        self.assertEqual({"$ref": "link.schema.json"}, self.project_schema["properties"]["links"]["items"])
+        self.assertEqual({"$ref": LINK_SCHEMA_ID}, self.project_schema["properties"]["links"]["items"])
 
     def test_project_state_relation_enum_matches_link_schema(self) -> None:
         self.assertEqual(

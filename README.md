@@ -163,6 +163,37 @@ Inspect Decision Stack Graph diagnostics:
 5. Impact report output paths must resolve under `.ai/decide-me/exports/impact/`.
 6. These commands are read-only diagnostics. They do not emit events, change object status, create
    invalidation or supersession links, accept candidates, or start an approval workflow.
+   Invalidation candidates may include `proposed_events` event specs, but those specs are not
+   applied.
+
+Inspect Phase 7 register inputs:
+
+1. Run `python3 scripts/decide_me.py show-evidence-register --ai-dir .ai/decide-me`.
+2. Run `python3 scripts/decide_me.py show-assumption-register --ai-dir .ai/decide-me`.
+3. Run `python3 scripts/decide_me.py show-risk-register --ai-dir .ai/decide-me`.
+4. These commands return schema-shaped JSON from `project-state.json` only. They do not persist
+   register state, evaluate safety gates, mark stale assumptions or evidence, or start approval
+   workflows. The assumption register includes incoming `requires` / `derived_from` dependencies
+   so it shows the same assumption dependency direction used by Safety Gate evaluation.
+
+Inspect Phase 7 safety gates:
+
+1. Run `python3 scripts/decide_me.py show-safety-gate --ai-dir .ai/decide-me --object-id O-...`.
+2. Run `python3 scripts/decide_me.py show-safety-gates --ai-dir .ai/decide-me`.
+3. These commands return read-only safety diagnostics. They do not persist gate state, mark stale
+   objects, create approval objects, apply invalidation candidates, or write events.
+
+Inspect Phase 7 stale diagnostics:
+
+1. Run `python3 scripts/decide_me.py show-stale-assumptions --ai-dir .ai/decide-me --now 2026-04-28T12:00:00Z`.
+2. Run `python3 scripts/decide_me.py show-stale-evidence --ai-dir .ai/decide-me --now 2026-04-28T12:00:00Z`.
+3. Run `python3 scripts/decide_me.py show-verification-gaps --ai-dir .ai/decide-me --now 2026-04-28T12:00:00Z`.
+4. Run `python3 scripts/decide_me.py show-revisit-due --ai-dir .ai/decide-me --now 2026-04-28T12:00:00Z`.
+5. These commands return structured read-only diagnostics. They do not change safety gate status,
+   write events, update projections, apply invalidation candidates, or create approval objects.
+   `export-verification-gaps` remains the Markdown export command.
+   Stale evidence output includes indirect affected decisions and representative paths when stale
+   evidence reaches decisions through verification, assumption, or proposal links.
 
 Record object relationships:
 
@@ -251,11 +282,16 @@ reference. Common maintainer operations include:
 - `benchmark-runtime` with `DECIDE_ME_PERF=1`
 - `show-impact`, `show-invalidation-candidates`, and `show-decision-stack` for read-only Decision
   Stack Graph diagnostics
+- `show-evidence-register`, `show-assumption-register`, and `show-risk-register` for read-only
+  Phase 7 register inputs
+- `show-safety-gate` and `show-safety-gates` for read-only Phase 7 safety gate diagnostics
+- `show-stale-assumptions`, `show-stale-evidence`, `show-verification-gaps`, and
+  `show-revisit-due` for read-only Phase 7 stale diagnostics
 - `export-impact-report` to write a derived Markdown impact report without changing runtime state
 - `export-github-templates` to write local issue forms under `.github/ISSUE_TEMPLATE`
 - `export-architecture-doc --format arc42` for a derived architecture skeleton
 - `export-traceability --format csv|markdown` for decision/action/verification traceability
-- `export-verification-gaps` for missing verification and evidence reports
+- `export-verification-gaps` for Markdown missing verification and evidence reports
 - `export-github-issues` to write local issue body Markdown and `issues.json` from closed sessions
   Re-exporting replaces the generated `issues/` directory, so do not keep hand-edited files there.
 - `export-agent-instructions` to write derived AGENTS.md, Cursor rule, Claude fragment, or Codex
@@ -273,7 +309,15 @@ Install development test dependencies before running the full test suite:
 python3 -m pip install -r requirements-dev.txt
 ```
 
-Run the test suite with:
+Run the focused suites with:
+
+```bash
+PYTHONPATH=. python3 -m unittest discover -s tests/unit -v
+PYTHONPATH=. python3 -m unittest discover -s tests/smoke -v
+PYTHONPATH=. python3 -m unittest discover -s tests/integration -v
+```
+
+Run the full test suite with:
 
 ```bash
 PYTHONPATH=. python3 -m unittest discover -v

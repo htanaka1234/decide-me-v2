@@ -1,0 +1,504 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/decide-me/registers.schema.json",
+  "title": "Decide Me Register Projection",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "register_type",
+    "project_head",
+    "generated_at",
+    "summary",
+    "items"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "register_type": {
+      "enum": [
+        "evidence",
+        "assumption",
+        "risk"
+      ]
+    },
+    "project_head": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "generated_at": {
+      "$ref": "#/$defs/nullable_date_time"
+    },
+    "summary": {
+      "type": "object"
+    },
+    "items": {
+      "type": "array"
+    }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "register_type": {
+            "const": "evidence"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "summary": {
+            "$ref": "#/$defs/evidence_summary"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/evidence_item"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "register_type": {
+            "const": "assumption"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "summary": {
+            "$ref": "#/$defs/assumption_summary"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/assumption_item"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "register_type": {
+            "const": "risk"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "summary": {
+            "$ref": "#/$defs/risk_summary"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/risk_item"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "nullable_date_time": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "string_counts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "string_array": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "confidence": {
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "evidence_freshness": {
+      "enum": [
+        "current",
+        "stale",
+        "unknown"
+      ]
+    },
+    "evidence_source": {
+      "enum": [
+        "codebase",
+        "docs",
+        "tests",
+        "external",
+        "existing-decisions",
+        "close-summaries"
+      ]
+    },
+    "risk_severity": {
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "risk_likelihood": {
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "risk_tier": {
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "risk_reversibility": {
+      "enum": [
+        "reversible",
+        "partially_reversible",
+        "irreversible"
+      ]
+    },
+    "approval_threshold": {
+      "enum": [
+        "none",
+        "explicit_acceptance",
+        "human_review",
+        "external_review"
+      ]
+    },
+    "common_item": {
+      "type": "object",
+      "required": [
+        "object_id",
+        "title",
+        "status",
+        "created_at",
+        "updated_at",
+        "source_event_ids"
+      ],
+      "properties": {
+        "object_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "$ref": "#/$defs/nullable_date_time"
+        },
+        "source_event_ids": {
+          "$ref": "#/$defs/string_array"
+        }
+      }
+    },
+    "evidence_summary": {
+      "type": "object",
+      "required": [
+        "item_count",
+        "by_status",
+        "by_confidence",
+        "by_freshness"
+      ],
+      "properties": {
+        "item_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "by_status": {
+          "$ref": "#/$defs/string_counts"
+        },
+        "by_confidence": {
+          "$ref": "#/$defs/string_counts"
+        },
+        "by_freshness": {
+          "$ref": "#/$defs/string_counts"
+        }
+      },
+      "additionalProperties": false
+    },
+    "assumption_summary": {
+      "type": "object",
+      "required": [
+        "item_count",
+        "by_status",
+        "by_confidence"
+      ],
+      "properties": {
+        "item_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "by_status": {
+          "$ref": "#/$defs/string_counts"
+        },
+        "by_confidence": {
+          "$ref": "#/$defs/string_counts"
+        }
+      },
+      "additionalProperties": false
+    },
+    "risk_summary": {
+      "type": "object",
+      "required": [
+        "item_count",
+        "by_status",
+        "by_risk_tier",
+        "by_approval_threshold",
+        "by_reversibility"
+      ],
+      "properties": {
+        "item_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "by_status": {
+          "$ref": "#/$defs/string_counts"
+        },
+        "by_risk_tier": {
+          "$ref": "#/$defs/string_counts"
+        },
+        "by_approval_threshold": {
+          "$ref": "#/$defs/string_counts"
+        },
+        "by_reversibility": {
+          "$ref": "#/$defs/string_counts"
+        }
+      },
+      "additionalProperties": false
+    },
+    "evidence_item": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/$defs/common_item"
+        },
+        {
+          "type": "object",
+          "required": [
+            "source",
+            "source_ref",
+            "summary",
+            "confidence",
+            "freshness",
+            "observed_at",
+            "valid_until",
+            "supports_object_ids",
+            "challenges_object_ids",
+            "verifies_object_ids",
+            "related_link_ids"
+          ],
+          "properties": {
+            "source": {
+              "$ref": "#/$defs/evidence_source"
+            },
+            "source_ref": {
+              "type": "string",
+              "minLength": 1
+            },
+            "summary": {
+              "type": "string",
+              "minLength": 1
+            },
+            "confidence": {
+              "$ref": "#/$defs/confidence"
+            },
+            "freshness": {
+              "$ref": "#/$defs/evidence_freshness"
+            },
+            "observed_at": {
+              "$ref": "#/$defs/nullable_date_time"
+            },
+            "valid_until": {
+              "$ref": "#/$defs/nullable_date_time"
+            },
+            "supports_object_ids": {
+              "$ref": "#/$defs/string_array"
+            },
+            "challenges_object_ids": {
+              "$ref": "#/$defs/string_array"
+            },
+            "verifies_object_ids": {
+              "$ref": "#/$defs/string_array"
+            },
+            "related_link_ids": {
+              "$ref": "#/$defs/string_array"
+            }
+          }
+        }
+      ]
+    },
+    "assumption_item": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/$defs/common_item"
+        },
+        {
+          "type": "object",
+          "required": [
+            "statement",
+            "confidence",
+            "validation",
+            "invalidates_if_false",
+            "expires_at",
+            "owner",
+            "constrains_object_ids",
+            "requires_object_ids",
+            "derived_from_object_ids",
+            "invalidates_object_ids",
+            "required_by_object_ids",
+            "derived_into_object_ids",
+            "related_link_ids"
+          ],
+          "properties": {
+            "statement": {
+              "type": "string",
+              "minLength": 1
+            },
+            "confidence": {
+              "$ref": "#/$defs/confidence"
+            },
+            "validation": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 1
+            },
+            "invalidates_if_false": {
+              "$ref": "#/$defs/string_array"
+            },
+            "expires_at": {
+              "$ref": "#/$defs/nullable_date_time"
+            },
+            "owner": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 1
+            },
+            "constrains_object_ids": {
+              "$ref": "#/$defs/string_array"
+            },
+            "requires_object_ids": {
+              "$ref": "#/$defs/string_array"
+            },
+            "derived_from_object_ids": {
+              "$ref": "#/$defs/string_array"
+            },
+            "invalidates_object_ids": {
+              "$ref": "#/$defs/string_array"
+            },
+            "required_by_object_ids": {
+              "$ref": "#/$defs/string_array"
+            },
+            "derived_into_object_ids": {
+              "$ref": "#/$defs/string_array"
+            },
+            "related_link_ids": {
+              "$ref": "#/$defs/string_array"
+            }
+          }
+        }
+      ]
+    },
+    "risk_item": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/$defs/common_item"
+        },
+        {
+          "type": "object",
+          "required": [
+            "statement",
+            "severity",
+            "likelihood",
+            "risk_tier",
+            "reversibility",
+            "mitigation_object_ids",
+            "approval_threshold",
+            "mitigated_by_object_ids",
+            "mitigation_link_ids",
+            "related_link_ids"
+          ],
+          "properties": {
+            "statement": {
+              "type": "string",
+              "minLength": 1
+            },
+            "severity": {
+              "$ref": "#/$defs/risk_severity"
+            },
+            "likelihood": {
+              "$ref": "#/$defs/risk_likelihood"
+            },
+            "risk_tier": {
+              "$ref": "#/$defs/risk_tier"
+            },
+            "reversibility": {
+              "$ref": "#/$defs/risk_reversibility"
+            },
+            "mitigation_object_ids": {
+              "$ref": "#/$defs/string_array"
+            },
+            "approval_threshold": {
+              "$ref": "#/$defs/approval_threshold"
+            },
+            "mitigated_by_object_ids": {
+              "$ref": "#/$defs/string_array"
+            },
+            "mitigation_link_ids": {
+              "$ref": "#/$defs/string_array"
+            },
+            "related_link_ids": {
+              "$ref": "#/$defs/string_array"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

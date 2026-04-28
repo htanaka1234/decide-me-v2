@@ -106,7 +106,11 @@ class ImpactCliReadOnlyTests(unittest.TestCase):
         by_target = {candidate["target_object_id"]: candidate for candidate in payload["candidates"]}
         self.assertEqual("revalidate", by_target["DEC-001"]["candidate_kind"])
         self.assertTrue(by_target["DEC-001"]["requires_human_approval"])
+        self.assertEqual("explicit_acceptance", by_target["DEC-001"]["approval_threshold"])
+        self.assertEqual("manual", by_target["DEC-001"]["materialization_status"])
         self.assertEqual("revise", by_target["ACT-001"]["candidate_kind"])
+        self.assertEqual("none", by_target["ACT-001"]["approval_threshold"])
+        self.assertEqual("manual", by_target["ACT-001"]["materialization_status"])
         self.assertEqual("review", by_target["DEC-002"]["candidate_kind"])
         self.assertEqual("revalidate", by_target["RISK-001"]["candidate_kind"])
         self.assertEqual("revalidate", by_target["VER-001"]["candidate_kind"])
