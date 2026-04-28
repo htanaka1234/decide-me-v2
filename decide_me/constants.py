@@ -54,6 +54,7 @@ INFLUENCE_REVERSED_RELATIONS = {
     "addresses",
     "accepts",
     "derived_from",
+    "verifies",
 }
 INFLUENCE_FORWARD_RELATIONS = {
     "constrains",
@@ -62,7 +63,6 @@ INFLUENCE_FORWARD_RELATIONS = {
     "mitigates",
     "supports",
     "challenges",
-    "verifies",
     "revisits",
     "supersedes",
     "recommends",

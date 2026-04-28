@@ -103,6 +103,7 @@ In `influence` mode, these relations are traversed in reverse of the stored link
 - `addresses`
 - `accepts`
 - `derived_from`
+- `verifies`
 
 In `influence` mode, these relations are traversed in the stored link direction:
 
@@ -112,7 +113,6 @@ In `influence` mode, these relations are traversed in the stored link direction:
 - `mitigates`
 - `supports`
 - `challenges`
-- `verifies`
 - `revisits`
 - `supersedes`
 - `recommends`
