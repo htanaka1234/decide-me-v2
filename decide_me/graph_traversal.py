@@ -86,10 +86,10 @@ def direct_downstream(
     index: GraphIndex,
     object_id: str,
     *,
-    direction: str = "raw",
+    direction: str = "influence",
     relations: str | Iterable[str] | None = None,
     layers: str | Iterable[str] | None = None,
-) -> list[str]:
+) -> list[dict[str, Any]]:
     return _direct(index, object_id, "downstream", direction=direction, relations=relations, layers=layers)
 
 
@@ -97,10 +97,10 @@ def direct_upstream(
     index: GraphIndex,
     object_id: str,
     *,
-    direction: str = "raw",
+    direction: str = "influence",
     relations: str | Iterable[str] | None = None,
     layers: str | Iterable[str] | None = None,
-) -> list[str]:
+) -> list[dict[str, Any]]:
     return _direct(index, object_id, "upstream", direction=direction, relations=relations, layers=layers)
 
 
@@ -108,12 +108,12 @@ def descendants(
     index: GraphIndex,
     object_id: str,
     *,
-    direction: str = "raw",
+    direction: str = "influence",
     relations: str | Iterable[str] | None = None,
     layers: str | Iterable[str] | None = None,
     max_depth: int | None = None,
-) -> list[str]:
-    object_ids, _edge_ids = _walk(
+) -> list[dict[str, Any]]:
+    items, _edge_ids = _walk(
         index,
         object_id,
         "downstream",
@@ -122,19 +122,19 @@ def descendants(
         layers=layers,
         max_depth=max_depth,
     )
-    return object_ids
+    return items
 
 
 def ancestors(
     index: GraphIndex,
     object_id: str,
     *,
-    direction: str = "raw",
+    direction: str = "influence",
     relations: str | Iterable[str] | None = None,
     layers: str | Iterable[str] | None = None,
     max_depth: int | None = None,
-) -> list[str]:
-    object_ids, _edge_ids = _walk(
+) -> list[dict[str, Any]]:
+    items, _edge_ids = _walk(
         index,
         object_id,
         "upstream",
@@ -143,54 +143,140 @@ def ancestors(
         layers=layers,
         max_depth=max_depth,
     )
-    return object_ids
+    return items
+
+
+def direct_downstream_ids(
+    index: GraphIndex,
+    object_id: str,
+    *,
+    direction: str = "influence",
+    relations: str | Iterable[str] | None = None,
+    layers: str | Iterable[str] | None = None,
+) -> list[str]:
+    return _stable_object_ids(
+        item["object_id"]
+        for item in direct_downstream(index, object_id, direction=direction, relations=relations, layers=layers)
+    )
+
+
+def direct_upstream_ids(
+    index: GraphIndex,
+    object_id: str,
+    *,
+    direction: str = "influence",
+    relations: str | Iterable[str] | None = None,
+    layers: str | Iterable[str] | None = None,
+) -> list[str]:
+    return _stable_object_ids(
+        item["object_id"]
+        for item in direct_upstream(index, object_id, direction=direction, relations=relations, layers=layers)
+    )
+
+
+def descendant_ids(
+    index: GraphIndex,
+    object_id: str,
+    *,
+    direction: str = "influence",
+    relations: str | Iterable[str] | None = None,
+    layers: str | Iterable[str] | None = None,
+    max_depth: int | None = None,
+) -> list[str]:
+    return _stable_object_ids(
+        item["object_id"]
+        for item in descendants(
+            index,
+            object_id,
+            direction=direction,
+            relations=relations,
+            layers=layers,
+            max_depth=max_depth,
+        )
+    )
+
+
+def ancestor_ids(
+    index: GraphIndex,
+    object_id: str,
+    *,
+    direction: str = "influence",
+    relations: str | Iterable[str] | None = None,
+    layers: str | Iterable[str] | None = None,
+    max_depth: int | None = None,
+) -> list[str]:
+    return _stable_object_ids(
+        item["object_id"]
+        for item in ancestors(
+            index,
+            object_id,
+            direction=direction,
+            relations=relations,
+            layers=layers,
+            max_depth=max_depth,
+        )
+    )
 
 
 def objects_by_layer(
-    index: GraphIndex,
+    project_state: dict[str, Any],
+    layer: str,
     *,
-    layers: str | Iterable[str] | None = None,
-) -> dict[str, list[str]]:
-    _require_index(index)
-    layer_filter = _normalize_filter(layers, DECISION_STACK_LAYERS, "layer")
-    return {
-        layer: list(index["layers"].get(layer, []))
-        for layer in DECISION_STACK_LAYER_ORDER
-        if layer_filter is None or layer in layer_filter
-    }
+    include_invalidated: bool = False,
+) -> list[dict[str, Any]]:
+    if layer not in DECISION_STACK_LAYERS:
+        raise ValueError(f"unknown layer: {layer}")
+    graph = _require_graph(project_state)
+    nodes = []
+    for node in graph["nodes"]:
+        node_payload = _require_dict(node, "project_state.graph.nodes[]")
+        if node_payload.get("layer") != layer:
+            continue
+        if not include_invalidated and node_payload.get("is_invalidated") is True:
+            continue
+        nodes.append(deepcopy(node_payload))
+    return sorted(nodes, key=lambda item: item["object_id"])
 
 
 def bounded_subgraph(
     index: GraphIndex,
     object_id: str,
     *,
-    direction: str = "raw",
+    upstream_depth: int = 1,
+    downstream_depth: int = 2,
+    direction: str = "influence",
     relations: str | Iterable[str] | None = None,
     layers: str | Iterable[str] | None = None,
-    max_depth: int | None = 1,
-) -> dict[str, list[dict[str, Any]]]:
+) -> dict[str, Any]:
     _validate_object_id(index, object_id)
-    downstream_ids, downstream_edge_ids = _walk(
+    downstream_items, downstream_edge_ids = _walk(
         index,
         object_id,
         "downstream",
         direction=direction,
         relations=relations,
         layers=layers,
-        max_depth=max_depth,
+        max_depth=downstream_depth,
     )
-    upstream_ids, upstream_edge_ids = _walk(
+    upstream_items, upstream_edge_ids = _walk(
         index,
         object_id,
         "upstream",
         direction=direction,
         relations=relations,
         layers=layers,
-        max_depth=max_depth,
+        max_depth=upstream_depth,
     )
-    node_ids = {object_id, *downstream_ids, *upstream_ids}
-    edge_ids = set(downstream_edge_ids) | set(upstream_edge_ids)
+    node_ids = {object_id}
+    node_ids.update(item["object_id"] for item in downstream_items)
+    node_ids.update(item["object_id"] for item in upstream_items)
+    edge_ids = {
+        edge_id
+        for edge_id in set(downstream_edge_ids) | set(upstream_edge_ids)
+        if _edge_endpoints_are_included(index["edges_by_id"][edge_id], node_ids)
+    }
     return {
+        "root_object_id": object_id,
         "nodes": [deepcopy(index["nodes_by_id"][node_id]) for node_id in sorted(node_ids)],
         "edges": [deepcopy(index["edges_by_id"][edge_id]) for edge_id in sorted(edge_ids)],
     }
@@ -204,15 +290,16 @@ def _direct(
     direction: str,
     relations: str | Iterable[str] | None,
     layers: str | Iterable[str] | None,
-) -> list[str]:
+) -> list[dict[str, Any]]:
     _validate_object_id(index, object_id)
     direction = _validate_direction(direction)
     relation_filter = _normalize_filter(relations, LINK_RELATIONS, "relation")
     layer_filter = _normalize_filter(layers, DECISION_STACK_LAYERS, "layer")
-    return _stable_object_ids(
-        item["object_id"]
-        for item in _filtered_adjacency_items(index, object_id, side, direction, relation_filter, layer_filter)
-    )
+    return [
+        _context_item(index, item, distance=1)
+        for item in _filtered_adjacency_items(index, object_id, side, direction, relation_filter)
+        if _matches_layer(index, item["object_id"], layer_filter)
+    ]
 
 
 def _walk(
@@ -224,7 +311,7 @@ def _walk(
     relations: str | Iterable[str] | None,
     layers: str | Iterable[str] | None,
     max_depth: int | None,
-) -> tuple[list[str], list[str]]:
+) -> tuple[list[dict[str, Any]], list[str]]:
     _validate_object_id(index, object_id)
     direction = _validate_direction(direction)
     relation_filter = _normalize_filter(relations, LINK_RELATIONS, "relation")
@@ -234,7 +321,7 @@ def _walk(
 
     queue: deque[tuple[str, int]] = deque([(object_id, 0)])
     visited = {object_id}
-    ordered_object_ids: list[str] = []
+    returned_items: list[dict[str, Any]] = []
     ordered_edge_ids: list[str] = []
     seen_edge_ids: set[str] = set()
 
@@ -242,19 +329,21 @@ def _walk(
         current_id, depth = queue.popleft()
         if max_depth is not None and depth >= max_depth:
             continue
-        for item in _filtered_adjacency_items(index, current_id, side, direction, relation_filter, layer_filter):
+        for item in _filtered_adjacency_items(index, current_id, side, direction, relation_filter):
             edge_id = item["edge"]["link_id"]
             if edge_id not in seen_edge_ids:
                 seen_edge_ids.add(edge_id)
                 ordered_edge_ids.append(edge_id)
             next_id = item["object_id"]
+            distance = depth + 1
+            if next_id != object_id and _matches_layer(index, next_id, layer_filter):
+                returned_items.append(_context_item(index, item, distance=distance))
             if next_id in visited:
                 continue
             visited.add(next_id)
-            ordered_object_ids.append(next_id)
-            queue.append((next_id, depth + 1))
+            queue.append((next_id, distance))
 
-    return ordered_object_ids, ordered_edge_ids
+    return returned_items, ordered_edge_ids
 
 
 def _filtered_adjacency_items(
@@ -263,7 +352,6 @@ def _filtered_adjacency_items(
     side: str,
     direction: str,
     relation_filter: set[str] | None,
-    layer_filter: set[str] | None,
 ) -> list[AdjacencyItem]:
     items = index["adjacency"][direction][side].get(object_id, [])
     selected: list[AdjacencyItem] = []
@@ -271,11 +359,31 @@ def _filtered_adjacency_items(
         edge = item["edge"]
         if relation_filter is not None and edge["relation"] not in relation_filter:
             continue
-        neighbor = index["nodes_by_id"][item["object_id"]]
-        if layer_filter is not None and neighbor["layer"] not in layer_filter:
-            continue
         selected.append(item)
     return selected
+
+
+def _context_item(index: GraphIndex, item: AdjacencyItem, *, distance: int) -> dict[str, Any]:
+    object_id = item["object_id"]
+    node = index["nodes_by_id"][object_id]
+    edge = item["edge"]
+    return {
+        "object_id": object_id,
+        "layer": node["layer"],
+        "via_link_id": edge["link_id"],
+        "relation": edge["relation"],
+        "distance": distance,
+    }
+
+
+def _matches_layer(index: GraphIndex, object_id: str, layer_filter: set[str] | None) -> bool:
+    if layer_filter is None:
+        return True
+    return index["nodes_by_id"][object_id]["layer"] in layer_filter
+
+
+def _edge_endpoints_are_included(edge: dict[str, Any], node_ids: set[str]) -> bool:
+    return edge["source_object_id"] in node_ids and edge["target_object_id"] in node_ids
 
 
 def _append_oriented_edge(

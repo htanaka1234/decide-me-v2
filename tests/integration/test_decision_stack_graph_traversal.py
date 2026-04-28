@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from decide_me.graph_traversal import ancestors, build_graph_index, descendants
+from decide_me.graph_traversal import ancestor_ids, build_graph_index, descendant_ids, descendants
 from decide_me.lifecycle import create_session
 from decide_me.store import bootstrap_runtime, rebuild_and_persist, transact, validate_runtime
 
@@ -38,28 +38,44 @@ class DecisionStackGraphTraversalIntegrationTests(unittest.TestCase):
 
             self.assertEqual(
                 ["D-auth", "A-implement-auth", "V-auth-flow"],
-                descendants(index, "O-project-objective", direction="influence"),
+                descendant_ids(index, "O-project-objective"),
             )
             self.assertEqual(
                 ["D-auth", "O-privacy", "O-project-objective"],
-                ancestors(index, "A-implement-auth", direction="influence"),
+                ancestor_ids(index, "A-implement-auth"),
             )
             self.assertEqual(
                 ["D-auth"],
-                descendants(
+                descendant_ids(
                     index,
                     "O-project-objective",
-                    direction="influence",
                     layers={"strategy"},
                 ),
             )
             self.assertEqual(
-                ["D-auth"],
-                descendants(
+                ["A-implement-auth"],
+                descendant_ids(
                     index,
                     "O-project-objective",
-                    direction="influence",
+                    layers={"execution"},
+                ),
+            )
+            self.assertEqual(
+                ["D-auth"],
+                descendant_ids(
+                    index,
+                    "O-project-objective",
                     relations={"depends_on"},
+                ),
+            )
+            items = descendants(index, "O-project-objective")
+            self.assertEqual(
+                ("D-auth", "L-decision-depends-objective", "depends_on", 1),
+                (
+                    items[0]["object_id"],
+                    items[0]["via_link_id"],
+                    items[0]["relation"],
+                    items[0]["distance"],
                 ),
             )
 

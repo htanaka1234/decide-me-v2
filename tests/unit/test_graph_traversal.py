@@ -3,18 +3,20 @@ from __future__ import annotations
 import unittest
 
 from decide_me.constants import (
-    DECISION_STACK_LAYER_ORDER,
     INFLUENCE_FORWARD_RELATIONS,
     INFLUENCE_REVERSED_RELATIONS,
     LINK_RELATIONS,
 )
 from decide_me.graph_traversal import (
-    ancestors,
+    ancestor_ids,
     bounded_subgraph,
     build_graph_index,
     descendants,
+    descendant_ids,
     direct_downstream,
+    direct_downstream_ids,
     direct_upstream,
+    direct_upstream_ids,
     objects_by_layer,
 )
 
@@ -24,7 +26,13 @@ class GraphTraversalTests(unittest.TestCase):
         self.assertEqual(LINK_RELATIONS, INFLUENCE_FORWARD_RELATIONS | INFLUENCE_REVERSED_RELATIONS)
         self.assertEqual(set(), INFLUENCE_FORWARD_RELATIONS & INFLUENCE_REVERSED_RELATIONS)
 
-    def test_raw_direction_follows_link_source_to_target(self) -> None:
+    def test_default_direction_is_influence(self) -> None:
+        index = build_graph_index(_chain_project_state())
+
+        self.assertEqual(["D-decision", "A-action", "V-verification"], descendant_ids(index, "O-root"))
+        self.assertEqual(["D-decision", "O-root"], ancestor_ids(index, "A-action"))
+
+    def test_raw_direction_follows_link_source_to_target_when_explicit(self) -> None:
         index = build_graph_index(
             _project_state(
                 nodes=[_node("O-source", "purpose"), _node("O-target", "strategy")],
@@ -32,9 +40,10 @@ class GraphTraversalTests(unittest.TestCase):
             )
         )
 
-        self.assertEqual(["O-target"], direct_downstream(index, "O-source"))
-        self.assertEqual(["O-source"], direct_upstream(index, "O-target"))
-        self.assertEqual([], direct_downstream(index, "O-target"))
+        self.assertEqual(["O-target"], direct_downstream_ids(index, "O-source", direction="raw"))
+        self.assertEqual(["O-source"], direct_upstream_ids(index, "O-target", direction="raw"))
+        self.assertEqual(["O-source"], direct_downstream_ids(index, "O-target"))
+        self.assertEqual([], direct_downstream_ids(index, "O-source"))
 
     def test_influence_direction_reverses_dependency_like_relations(self) -> None:
         for relation in sorted(INFLUENCE_REVERSED_RELATIONS):
@@ -46,9 +55,9 @@ class GraphTraversalTests(unittest.TestCase):
                     )
                 )
 
-                self.assertEqual(["O-source"], direct_downstream(index, "O-target", direction="influence"))
-                self.assertEqual(["O-target"], direct_upstream(index, "O-source", direction="influence"))
-                self.assertEqual([], direct_downstream(index, "O-source", direction="influence"))
+                self.assertEqual(["O-source"], direct_downstream_ids(index, "O-target"))
+                self.assertEqual(["O-target"], direct_upstream_ids(index, "O-source"))
+                self.assertEqual([], direct_downstream_ids(index, "O-source"))
 
     def test_influence_direction_keeps_forward_relations_forward(self) -> None:
         for relation in sorted(INFLUENCE_FORWARD_RELATIONS):
@@ -60,42 +69,90 @@ class GraphTraversalTests(unittest.TestCase):
                     )
                 )
 
-                self.assertEqual(["O-target"], direct_downstream(index, "O-source", direction="influence"))
-                self.assertEqual(["O-source"], direct_upstream(index, "O-target", direction="influence"))
-                self.assertEqual([], direct_downstream(index, "O-target", direction="influence"))
+                self.assertEqual(["O-target"], direct_downstream_ids(index, "O-source"))
+                self.assertEqual(["O-source"], direct_upstream_ids(index, "O-target"))
+                self.assertEqual([], direct_downstream_ids(index, "O-target"))
+
+    def test_direct_downstream_returns_edge_context(self) -> None:
+        index = build_graph_index(_chain_project_state())
+
+        item = direct_downstream(index, "D-decision")[0]
+
+        self.assertEqual(
+            {
+                "object_id": "A-action",
+                "layer": "execution",
+                "via_link_id": "L-2-action-addresses-decision",
+                "relation": "addresses",
+                "distance": 1,
+            },
+            item,
+        )
+
+    def test_direct_traversal_preserves_multiple_edge_contexts_to_same_object(self) -> None:
+        index = build_graph_index(
+            _project_state(
+                nodes=[_node("D-decision", "strategy"), _node("A-action", "execution")],
+                edges=[
+                    _edge("L-1-action-addresses-decision", "A-action", "addresses", "D-decision"),
+                    _edge("L-2-action-requires-decision", "A-action", "requires", "D-decision"),
+                ],
+            )
+        )
+
+        items = direct_downstream(index, "D-decision")
+
+        self.assertEqual(["A-action", "A-action"], [item["object_id"] for item in items])
+        self.assertEqual(
+            ["L-1-action-addresses-decision", "L-2-action-requires-decision"],
+            [item["via_link_id"] for item in items],
+        )
 
     def test_breadth_first_ancestors_descendants_and_max_depth(self) -> None:
         index = build_graph_index(_chain_project_state())
 
         self.assertEqual(
             ["D-decision", "A-action", "V-verification"],
-            descendants(index, "O-root", direction="influence"),
+            descendant_ids(index, "O-root"),
         )
         self.assertEqual(
             ["A-action", "V-verification"],
-            descendants(index, "D-decision", direction="influence"),
+            descendant_ids(index, "D-decision"),
         )
         self.assertEqual(
             ["D-decision", "O-root"],
-            ancestors(index, "A-action", direction="influence"),
+            ancestor_ids(index, "A-action"),
         )
-        self.assertEqual(["D-decision"], descendants(index, "O-root", direction="influence", max_depth=1))
-        self.assertEqual([], descendants(index, "O-root", direction="influence", max_depth=0))
+        self.assertEqual(["D-decision"], descendant_ids(index, "O-root", max_depth=1))
+        self.assertEqual([], descendant_ids(index, "O-root", max_depth=0))
 
-    def test_relation_and_layer_filters_are_traversal_boundaries(self) -> None:
+        self.assertEqual(
+            [
+                ("D-decision", "L-1-decision-depends-root", 1),
+                ("A-action", "L-2-action-addresses-decision", 2),
+                ("V-verification", "L-3-verification-requires-action", 3),
+            ],
+            [(item["object_id"], item["via_link_id"], item["distance"]) for item in descendants(index, "O-root")],
+        )
+
+    def test_relation_filter_is_boundary_and_layer_filter_is_return_only(self) -> None:
         index = build_graph_index(_chain_project_state())
 
         self.assertEqual(
             ["D-decision"],
-            descendants(index, "O-root", direction="influence", relations={"depends_on"}),
+            descendant_ids(index, "O-root", relations={"depends_on"}),
         )
         self.assertEqual(
             ["D-decision"],
-            descendants(index, "O-root", direction="influence", layers={"strategy"}),
+            descendant_ids(index, "O-root", layers={"strategy"}),
         )
         self.assertEqual(
-            [],
-            descendants(index, "O-root", direction="influence", layers={"execution"}),
+            ["A-action"],
+            descendant_ids(index, "O-root", layers={"execution"}),
+        )
+        self.assertEqual(
+            ["V-verification"],
+            descendant_ids(index, "O-root", layers={"verification"}),
         )
 
     def test_cycle_does_not_loop_or_return_seed_from_transitive_walk(self) -> None:
@@ -114,7 +171,7 @@ class GraphTraversalTests(unittest.TestCase):
             )
         )
 
-        self.assertEqual(["D-decision", "A-action"], descendants(index, "O-root", direction="influence"))
+        self.assertEqual(["D-decision", "A-action"], descendant_ids(index, "O-root"))
 
     def test_unknown_inputs_fail_clearly(self) -> None:
         index = build_graph_index(_chain_project_state())
@@ -129,6 +186,8 @@ class GraphTraversalTests(unittest.TestCase):
             descendants(index, "O-root", layers={"unknown"})
         with self.assertRaisesRegex(ValueError, "max_depth"):
             descendants(index, "O-root", max_depth=-1)
+        with self.assertRaisesRegex(ValueError, "unknown layer"):
+            objects_by_layer(_chain_project_state(), "unknown")
 
     def test_build_index_rejects_malformed_graph(self) -> None:
         with self.assertRaisesRegex(ValueError, "duplicate graph node"):
@@ -158,35 +217,50 @@ class GraphTraversalTests(unittest.TestCase):
                 )
             )
 
-    def test_objects_by_layer_returns_stable_layer_buckets(self) -> None:
-        index = build_graph_index(_chain_project_state())
+    def test_objects_by_layer_returns_node_payloads_and_excludes_invalidated_by_default(self) -> None:
+        project_state = _project_state(
+            nodes=[
+                _node("A-active", "execution"),
+                _node("A-invalidated", "execution", is_invalidated=True),
+                _node("D-decision", "strategy"),
+            ],
+            edges=[],
+        )
 
-        grouped = objects_by_layer(index)
-
-        self.assertEqual(list(DECISION_STACK_LAYER_ORDER), list(grouped))
-        self.assertEqual(["O-root"], grouped["purpose"])
-        self.assertEqual(["D-decision"], grouped["strategy"])
-        self.assertEqual(["A-action"], grouped["execution"])
-        self.assertEqual(["V-verification"], grouped["verification"])
-        self.assertEqual({"strategy": ["D-decision"]}, objects_by_layer(index, layers={"strategy"}))
+        self.assertEqual(["A-active"], [node["object_id"] for node in objects_by_layer(project_state, "execution")])
+        self.assertEqual(
+            ["A-active", "A-invalidated"],
+            [
+                node["object_id"]
+                for node in objects_by_layer(project_state, "execution", include_invalidated=True)
+            ],
+        )
 
     def test_bounded_subgraph_returns_seed_with_bounded_upstream_and_downstream_context(self) -> None:
         index = build_graph_index(_chain_project_state())
 
-        subgraph = bounded_subgraph(index, "A-action", direction="influence", max_depth=1)
+        subgraph = bounded_subgraph(index, "D-decision", upstream_depth=1, downstream_depth=2)
 
+        self.assertEqual("D-decision", subgraph["root_object_id"])
         self.assertEqual(
-            ["A-action", "D-decision", "V-verification"],
+            ["A-action", "D-decision", "O-root", "V-verification"],
             [node["object_id"] for node in subgraph["nodes"]],
         )
         self.assertEqual(
-            ["L-2-action-addresses-decision", "L-3-verification-requires-action"],
+            [
+                "L-1-decision-depends-root",
+                "L-2-action-addresses-decision",
+                "L-3-verification-requires-action",
+            ],
             [edge["link_id"] for edge in subgraph["edges"]],
         )
 
-        filtered = bounded_subgraph(index, "O-root", direction="influence", layers={"execution"}, max_depth=2)
-        self.assertEqual(["O-root"], [node["object_id"] for node in filtered["nodes"]])
-        self.assertEqual([], filtered["edges"])
+        shallow = bounded_subgraph(index, "D-decision", upstream_depth=0, downstream_depth=1)
+        self.assertEqual(["A-action", "D-decision"], [node["object_id"] for node in shallow["nodes"]])
+        self.assertEqual(["L-2-action-addresses-decision"], [edge["link_id"] for edge in shallow["edges"]])
+
+        with self.assertRaisesRegex(ValueError, "max_depth"):
+            bounded_subgraph(index, "D-decision", upstream_depth=-1)
 
 
 def _chain_project_state() -> dict:
@@ -209,15 +283,15 @@ def _project_state(*, nodes: list[dict], edges: list[dict]) -> dict:
     return {"graph": {"nodes": nodes, "edges": edges}}
 
 
-def _node(object_id: str, layer: str) -> dict:
+def _node(object_id: str, layer: str, *, is_invalidated: bool = False) -> dict:
     return {
         "object_id": object_id,
         "object_type": "decision",
         "layer": layer,
-        "status": "active",
+        "status": "invalidated" if is_invalidated else "active",
         "title": object_id,
         "is_frontier": False,
-        "is_invalidated": False,
+        "is_invalidated": is_invalidated,
     }
 
 
