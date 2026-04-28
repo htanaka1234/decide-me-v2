@@ -125,6 +125,27 @@ def descendants(
     return items
 
 
+def descendants_with_paths(
+    index: GraphIndex,
+    object_id: str,
+    *,
+    direction: str = "influence",
+    relations: str | Iterable[str] | None = None,
+    layers: str | Iterable[str] | None = None,
+    max_depth: int | None = None,
+) -> list[dict[str, Any]]:
+    records, _edge_ids = _walk_records(
+        index,
+        object_id,
+        "downstream",
+        direction=direction,
+        relations=relations,
+        layers=layers,
+        max_depth=max_depth,
+    )
+    return [_context_item_with_path(record) for record in records]
+
+
 def ancestors(
     index: GraphIndex,
     object_id: str,
@@ -429,6 +450,15 @@ def _context_item(index: GraphIndex, item: AdjacencyItem, *, distance: int) -> d
         "relation": edge["relation"],
         "distance": distance,
     }
+
+
+def _context_item_with_path(record: dict[str, Any]) -> dict[str, Any]:
+    item = dict(record["item"])
+    item["path"] = {
+        "node_ids": list(record["path_node_ids"]),
+        "link_ids": list(record["path_edge_ids"]),
+    }
+    return item
 
 
 def _matches_layer(index: GraphIndex, object_id: str, layer_filter: set[str] | None) -> bool:

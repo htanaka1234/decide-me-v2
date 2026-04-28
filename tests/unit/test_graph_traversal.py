@@ -12,6 +12,7 @@ from decide_me.graph_traversal import (
     bounded_subgraph,
     build_graph_index,
     descendants,
+    descendants_with_paths,
     descendant_ids,
     direct_downstream,
     direct_downstream_ids,
@@ -135,6 +136,83 @@ class GraphTraversalTests(unittest.TestCase):
             [(item["object_id"], item["via_link_id"], item["distance"]) for item in descendants(index, "O-root")],
         )
 
+    def test_descendants_with_paths_returns_path_evidence_without_changing_descendants_shape(self) -> None:
+        index = build_graph_index(_chain_project_state())
+
+        items = descendants_with_paths(index, "O-root")
+
+        self.assertEqual(
+            {
+                "object_id": "A-action",
+                "layer": "execution",
+                "via_link_id": "L-2-action-addresses-decision",
+                "relation": "addresses",
+                "distance": 2,
+                "path": {
+                    "node_ids": ["O-root", "D-decision", "A-action"],
+                    "link_ids": ["L-1-decision-depends-root", "L-2-action-addresses-decision"],
+                },
+            },
+            items[1],
+        )
+        self.assertNotIn("path", descendants(index, "O-root")[0])
+
+    def test_descendants_with_paths_respects_max_depth_and_preserves_duplicate_target_paths(self) -> None:
+        index = build_graph_index(
+            _project_state(
+                nodes=[_node("D-decision", "strategy"), _node("A-action", "execution")],
+                edges=[
+                    _edge("L-1-action-addresses-decision", "A-action", "addresses", "D-decision"),
+                    _edge("L-2-action-requires-decision", "A-action", "requires", "D-decision"),
+                ],
+            )
+        )
+
+        self.assertEqual([], descendants_with_paths(index, "D-decision", max_depth=0))
+        items = descendants_with_paths(index, "D-decision", max_depth=1)
+
+        self.assertEqual(["A-action", "A-action"], [item["object_id"] for item in items])
+        self.assertEqual(
+            [
+                ["L-1-action-addresses-decision"],
+                ["L-2-action-requires-decision"],
+            ],
+            [item["path"]["link_ids"] for item in items],
+        )
+
+    def test_descendants_with_paths_returns_representative_paths_after_convergence(self) -> None:
+        index = build_graph_index(
+            _project_state(
+                nodes=[
+                    _node("O-root", "purpose"),
+                    _node("A-left", "strategy"),
+                    _node("B-right", "strategy"),
+                    _node("C-shared", "design"),
+                    _node("D-downstream", "execution"),
+                ],
+                edges=[
+                    _edge("L-1-left-depends-root", "A-left", "depends_on", "O-root"),
+                    _edge("L-2-right-depends-root", "B-right", "depends_on", "O-root"),
+                    _edge("L-3-shared-depends-left", "C-shared", "depends_on", "A-left"),
+                    _edge("L-4-shared-depends-right", "C-shared", "depends_on", "B-right"),
+                    _edge("L-5-downstream-depends-shared", "D-downstream", "depends_on", "C-shared"),
+                ],
+            )
+        )
+
+        items = descendants_with_paths(index, "O-root")
+        shared_paths = [item["path"]["node_ids"] for item in items if item["object_id"] == "C-shared"]
+        downstream_paths = [item["path"]["node_ids"] for item in items if item["object_id"] == "D-downstream"]
+
+        self.assertEqual(
+            [
+                ["O-root", "A-left", "C-shared"],
+                ["O-root", "B-right", "C-shared"],
+            ],
+            shared_paths,
+        )
+        self.assertEqual([["O-root", "A-left", "C-shared", "D-downstream"]], downstream_paths)
+
     def test_relation_filter_is_boundary_and_layer_filter_is_return_only(self) -> None:
         index = build_graph_index(_chain_project_state())
 
@@ -172,6 +250,10 @@ class GraphTraversalTests(unittest.TestCase):
         )
 
         self.assertEqual(["D-decision", "A-action"], descendant_ids(index, "O-root"))
+        self.assertEqual(
+            ["D-decision", "A-action"],
+            [item["object_id"] for item in descendants_with_paths(index, "O-root")],
+        )
 
     def test_unknown_inputs_fail_clearly(self) -> None:
         index = build_graph_index(_chain_project_state())

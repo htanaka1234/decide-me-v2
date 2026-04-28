@@ -1,0 +1,250 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/decide-me/impact-analysis.schema.json",
+  "title": "Decide Me Impact Analysis",
+  "type": "object",
+  "required": [
+    "root_object_id",
+    "change_kind",
+    "generated_at",
+    "summary",
+    "affected_objects",
+    "affected_links",
+    "paths"
+  ],
+  "properties": {
+    "root_object_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "change_kind": {
+      "$ref": "#/$defs/change_kind"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "affected_count",
+        "highest_severity",
+        "affected_layers"
+      ],
+      "properties": {
+        "affected_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "highest_severity": {
+          "enum": [
+            "none",
+            "low",
+            "medium",
+            "high"
+          ]
+        },
+        "affected_layers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/decision_stack_layer"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "affected_objects": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/affected_object"
+      }
+    },
+    "affected_links": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "paths": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/impact_path"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "change_kind": {
+      "enum": [
+        "changed",
+        "invalidated",
+        "superseded",
+        "challenged",
+        "assumption_failed",
+        "evidence_retracted"
+      ]
+    },
+    "object_type": {
+      "enum": [
+        "objective",
+        "constraint",
+        "criterion",
+        "option",
+        "proposal",
+        "decision",
+        "assumption",
+        "evidence",
+        "risk",
+        "action",
+        "verification",
+        "revisit_trigger",
+        "artifact"
+      ]
+    },
+    "link_relation": {
+      "enum": [
+        "depends_on",
+        "supports",
+        "challenges",
+        "recommends",
+        "accepts",
+        "addresses",
+        "verifies",
+        "revisits",
+        "supersedes",
+        "blocked_by",
+        "constrains",
+        "enables",
+        "requires",
+        "invalidates",
+        "mitigates",
+        "derived_from"
+      ]
+    },
+    "decision_stack_layer": {
+      "enum": [
+        "purpose",
+        "principle",
+        "constraint",
+        "strategy",
+        "design",
+        "execution",
+        "verification",
+        "review"
+      ]
+    },
+    "severity": {
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "impact_kind": {
+      "enum": [
+        "decision_review_required",
+        "action_rework_candidate",
+        "verification_review_required",
+        "evidence_review_required",
+        "risk_review_required",
+        "revisit_condition_review",
+        "object_review_required"
+      ]
+    },
+    "affected_object": {
+      "type": "object",
+      "required": [
+        "object_id",
+        "object_type",
+        "title",
+        "status",
+        "layer",
+        "distance",
+        "via_link_id",
+        "via_relation",
+        "impact_kind",
+        "severity",
+        "recommended_action"
+      ],
+      "properties": {
+        "object_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "object_type": {
+          "$ref": "#/$defs/object_type"
+        },
+        "title": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "layer": {
+          "$ref": "#/$defs/decision_stack_layer"
+        },
+        "distance": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "via_link_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "via_relation": {
+          "$ref": "#/$defs/link_relation"
+        },
+        "impact_kind": {
+          "$ref": "#/$defs/impact_kind"
+        },
+        "severity": {
+          "$ref": "#/$defs/severity"
+        },
+        "recommended_action": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "impact_path": {
+      "type": "object",
+      "required": [
+        "target_object_id",
+        "node_ids",
+        "link_ids"
+      ],
+      "properties": {
+        "target_object_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "node_ids": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "link_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
