@@ -82,6 +82,54 @@ The Decision Stack Graph uses the object/link relation enum:
 - `mitigates`: source reduces the likelihood or impact of the target risk or concern.
 - `derived_from`: source was produced from, refined from, or copied from the target.
 
+## Traversal Direction Semantics
+
+Phase 6-2 adds read-only traversal helpers over `project_state.graph.nodes[]` and
+`project_state.graph.edges[]`. The helpers do not read `project_state.objects`,
+`project_state.links`, or event logs, and they do not edit graph projection state.
+
+Traversal supports two direction modes:
+
+- `raw`: always follows the stored link direction, `source_object_id -> target_object_id`.
+- `influence`: follows the direction in which one object influences another for later impact
+  analysis foundations.
+
+In `influence` mode, these relations are traversed in reverse of the stored link direction:
+
+- `depends_on`
+- `blocked_by`
+- `requires`
+- `addresses`
+- `accepts`
+- `derived_from`
+
+In `influence` mode, these relations are traversed in the stored link direction:
+
+- `constrains`
+- `enables`
+- `invalidates`
+- `mitigates`
+- `supports`
+- `challenges`
+- `verifies`
+- `revisits`
+- `supersedes`
+- `recommends`
+
+`direct_upstream()` and `direct_downstream()` return immediate neighboring object IDs.
+`ancestors()` and `descendants()` perform breadth-first traversal, exclude the seed object from
+returned IDs, and track visited object IDs so cycles cannot loop forever. `max_depth=None` means
+unbounded traversal, `max_depth=0` returns no transitive IDs, and negative depths are invalid.
+
+`relations` filters by raw relation name. `layers` filters by neighboring node layer. Both filters
+are traversal boundaries, not just output filters: if a candidate edge or neighboring node does not
+match, traversal does not continue through it. `bounded_subgraph()` returns the seed node plus
+bounded upstream and downstream context, with original graph edge records rather than synthetic
+oriented edges; the seed node is included even when a layer filter is present.
+
+These helpers are only a foundation for later impact analysis. Phase 6-2 does not implement
+impact analysis, cascading invalidation, CLI commands, or export output.
+
 ## Phase 6-1 Boundary
 
 Phase 6-1 fixes only the layer set, relation enum, graph node and edge shape, projection rebuild,

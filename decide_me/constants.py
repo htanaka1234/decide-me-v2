@@ -36,7 +36,7 @@ LINK_RELATIONS = {
     "mitigates",
     "derived_from",
 }
-DECISION_STACK_LAYERS = {
+DECISION_STACK_LAYER_ORDER = (
     "purpose",
     "principle",
     "constraint",
@@ -45,7 +45,29 @@ DECISION_STACK_LAYERS = {
     "execution",
     "verification",
     "review",
+)
+DECISION_STACK_LAYERS = set(DECISION_STACK_LAYER_ORDER)
+INFLUENCE_REVERSED_RELATIONS = {
+    "depends_on",
+    "blocked_by",
+    "requires",
+    "addresses",
+    "accepts",
+    "derived_from",
 }
+INFLUENCE_FORWARD_RELATIONS = {
+    "constrains",
+    "enables",
+    "invalidates",
+    "mitigates",
+    "supports",
+    "challenges",
+    "verifies",
+    "revisits",
+    "supersedes",
+    "recommends",
+}
+GRAPH_TRAVERSAL_DIRECTIONS = {"raw", "influence"}
 DEFAULT_LAYER_BY_OBJECT_TYPE = {
     "objective": "purpose",
     "assumption": "constraint",
