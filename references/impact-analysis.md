@@ -5,9 +5,9 @@ object changes, is challenged, is invalidated, is superseded, has an assumption 
 evidence retracted, which downstream objects should a human reconsider?
 
 Impact analysis is diagnostic only. It does not mutate runtime state, does not write events, does
-not create `invalidates` links, and does not call `object_status_changed`. Automatic invalidation,
-invalidation candidates, approval workflow, CLI commands, and exports are deferred to later
-phases.
+not create `invalidates` links, and does not call `object_status_changed`. Phase 6-4 adds
+read-only invalidation candidates on top of this report. Automatic invalidation, approval
+workflow, CLI commands, and exports are deferred to later phases.
 
 ## API
 
@@ -26,9 +26,10 @@ Allowed `change_kind` values are:
 The function validates that the root object exists in `project_state.graph.nodes[]`. Unknown root
 objects and unknown change kinds raise `ValueError`.
 
-In Phase 6-3, `change_kind` is metadata only. It is validated and echoed in the output so humans
-can understand the triggering condition, but it does not change traversal, severity, impact kind,
-or recommended action rules yet.
+In impact analysis itself, `change_kind` is metadata only. It is validated and echoed in the
+output so humans can understand the triggering condition, but it does not change traversal,
+severity, impact kind, or recommended action rules. Phase 6-4 invalidation candidates may use the
+same `change_kind` to choose candidate actions.
 
 ## Traversal
 

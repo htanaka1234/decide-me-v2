@@ -44,6 +44,7 @@ Read only the reference file needed for the turn:
 - [references/object-model.md](references/object-model.md)
 - [references/link-relations.md](references/link-relations.md)
 - [references/decision-stack-graph.md](references/decision-stack-graph.md)
+- [references/invalidation-candidates.md](references/invalidation-candidates.md)
 - [references/event-and-projection-model.md](references/event-and-projection-model.md)
 - [references/plan-generation.md](references/plan-generation.md)
 - [references/output-contract.md](references/output-contract.md)
