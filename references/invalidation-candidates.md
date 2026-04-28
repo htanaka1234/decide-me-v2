@@ -4,10 +4,11 @@ Phase 6-4 adds read-only invalidation candidate generation on top of impact anal
 given an upstream change and the affected objects found by Phase 6-3, which objects should a
 human review, revalidate, revise, invalidate, supersede, verify, or update next?
 
-Invalidation candidates are recommendations only. This phase does not mutate runtime state, does
-not write events, does not change object status, and does not create `invalidates` or `supersedes`
-links. Phase 6-5 exposes candidates through CLI and impact report exports, but approval,
-candidate acceptance, and conversion into events remain out of scope.
+Invalidation candidates are recommendations only. This diagnostic does not mutate runtime state,
+does not write events, does not change object status, and does not create `invalidates` or
+`supersedes` links. Step 5 materializes deterministic event drafts for candidates that can be
+represented mechanically, but approval, candidate acceptance, and event application remain out of
+scope.
 
 ## API
 
@@ -49,8 +50,9 @@ python3 scripts/decide_me.py show-invalidation-candidates \
 Optional `--include-low-severity` includes low-severity candidate rows. Optional
 `--include-invalidated` includes already invalidated targets in the underlying impact analysis.
 The command prints `generate_invalidation_candidates()` output as JSON and remains read-only:
-`proposed_events` is empty, no candidates are accepted, and no `object_status_changed` or
-`object_linked` events are emitted.
+`proposed_events` may contain draft event payloads, but no candidates are accepted and no
+`object_status_changed`, `object_updated`, `object_recorded`, or `object_linked` events are
+emitted.
 
 ## Output
 
@@ -76,12 +78,20 @@ Each candidate contains:
 - `severity`
 - `candidate_kind`
 - `reason`
-- `proposed_events`
 - `requires_human_approval`
+- `approval_threshold`
+- `materialization_status`
+- `materialization_reason`
+- `proposed_events`
 - `source_impact`
 
-`proposed_events` is always an empty array in Phase 6-4. It is reserved for a later approval phase
-that may convert approved candidates into `object_status_changed` or `object_linked` events.
+`proposed_events` contains event drafts shaped as `{event_type, payload}`. Drafts are not persisted
+event envelopes: `event_id`, `session_id`, transaction fields, source event ids, and apply-time
+timestamps are intentionally omitted for the later apply workflow to fill.
+
+`approval_threshold` is `explicit_acceptance` when `requires_human_approval` is true, otherwise
+`none`. `materialization_status` is `materialized` when deterministic drafts are present and
+`manual` when a human-authored change is required before the candidate can become events.
 
 `candidate_id` is deterministic. It is derived from the root object ID, change kind, target object
 ID, candidate kind, and source link ID so repeated runs can compare candidate sets without treating
@@ -106,3 +116,16 @@ an `invalidate` candidate when `change_kind="evidence_retracted"`.
 Risks reached through `mitigates` become `revalidate` candidates because their mitigation changed.
 Other affected risks become `review` candidates. Revisit triggers become
 `update_revisit_trigger` candidates. Other affected object types become `review` candidates.
+
+## Materialization
+
+Materialized candidates produce these draft events:
+
+- `invalidate`: `object_status_changed`; decision targets also get `object_updated` for
+  `metadata.invalidated_by`.
+- `supersede`: decision invalidation drafts plus an `object_linked` `supersedes` draft when the
+  root object is a decision.
+- `add_verification`: a deterministic verification object draft and a `verifies` link draft.
+
+`review`, `revalidate`, `revise`, and `update_revisit_trigger` are manual candidates. They keep
+`proposed_events: []` because the correct runtime change depends on human-authored content.

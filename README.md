@@ -163,6 +163,7 @@ Inspect Decision Stack Graph diagnostics:
 5. Impact report output paths must resolve under `.ai/decide-me/exports/impact/`.
 6. These commands are read-only diagnostics. They do not emit events, change object status, create
    invalidation or supersession links, accept candidates, or start an approval workflow.
+   Invalidation candidates may include draft `proposed_events`, but those drafts are not applied.
 
 Inspect Phase 7 register inputs:
 

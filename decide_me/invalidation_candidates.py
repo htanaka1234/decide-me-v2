@@ -53,6 +53,7 @@ def generate_invalidation_candidates(
                 _candidate(
                     root_object_id=object_id,
                     change_kind=change_kind,
+                    root_node=root_node,
                     affected=affected,
                     candidate_kind=candidate_kind,
                     requires_human_approval=requires_human_approval,
@@ -133,19 +134,31 @@ def _candidate(
     *,
     root_object_id: str,
     change_kind: str,
+    root_node: dict[str, Any],
     affected: dict[str, Any],
     candidate_kind: str,
     requires_human_approval: bool,
     reason: str,
 ) -> dict[str, Any]:
+    candidate_id = _candidate_id(
+        root_object_id,
+        change_kind,
+        affected["object_id"],
+        candidate_kind,
+        affected["via_link_id"],
+    )
+    proposed_events = _proposed_events(
+        candidate_id=candidate_id,
+        root_object_id=root_object_id,
+        root_node=root_node,
+        change_kind=change_kind,
+        affected=affected,
+        candidate_kind=candidate_kind,
+        reason=reason,
+    )
+    materialization_status = "materialized" if proposed_events else "manual"
     return {
-        "candidate_id": _candidate_id(
-            root_object_id,
-            change_kind,
-            affected["object_id"],
-            candidate_kind,
-            affected["via_link_id"],
-        ),
+        "candidate_id": candidate_id,
         "target_object_id": affected["object_id"],
         "target_object_type": affected["object_type"],
         "target_status": affected["status"],
@@ -153,8 +166,11 @@ def _candidate(
         "severity": affected["severity"],
         "candidate_kind": candidate_kind,
         "reason": reason,
-        "proposed_events": [],
         "requires_human_approval": requires_human_approval,
+        "approval_threshold": "explicit_acceptance" if requires_human_approval else "none",
+        "materialization_status": materialization_status,
+        "materialization_reason": _materialization_reason(materialization_status, candidate_kind),
+        "proposed_events": proposed_events,
         "source_impact": {
             "via_link_id": affected["via_link_id"],
             "via_relation": affected["via_relation"],
@@ -162,6 +178,167 @@ def _candidate(
             "impact_kind": affected["impact_kind"],
         },
     }
+
+
+def _proposed_events(
+    *,
+    candidate_id: str,
+    root_object_id: str,
+    root_node: dict[str, Any],
+    change_kind: str,
+    affected: dict[str, Any],
+    candidate_kind: str,
+    reason: str,
+) -> list[dict[str, Any]]:
+    if candidate_kind == "invalidate":
+        return _invalidation_events(
+            root_object_id=root_object_id,
+            target_object_id=affected["object_id"],
+            target_object_type=affected["object_type"],
+            target_status=affected["status"],
+            reason=reason,
+        )
+    if candidate_kind == "supersede":
+        return _supersession_events(
+            root_object_id=root_object_id,
+            root_node=root_node,
+            target_object_id=affected["object_id"],
+            target_status=affected["status"],
+            reason=reason,
+        )
+    if candidate_kind == "add_verification":
+        return _add_verification_events(
+            candidate_id=candidate_id,
+            root_object_id=root_object_id,
+            change_kind=change_kind,
+            target_object_id=affected["object_id"],
+        )
+    return []
+
+
+def _invalidation_events(
+    *,
+    root_object_id: str,
+    target_object_id: str,
+    target_object_type: str,
+    target_status: str,
+    reason: str,
+) -> list[dict[str, Any]]:
+    events = [_status_change_event(target_object_id, target_status, "invalidated", reason)]
+    if target_object_type == "decision":
+        events.append(_decision_invalidated_by_event(target_object_id, root_object_id, reason))
+    return events
+
+
+def _supersession_events(
+    *,
+    root_object_id: str,
+    root_node: dict[str, Any],
+    target_object_id: str,
+    target_status: str,
+    reason: str,
+) -> list[dict[str, Any]]:
+    events = [
+        _status_change_event(target_object_id, target_status, "invalidated", reason),
+        _decision_invalidated_by_event(target_object_id, root_object_id, reason),
+    ]
+    if root_node["object_type"] == "decision":
+        events.append(
+            {
+                "event_type": "object_linked",
+                "payload": {
+                    "link": {
+                        "id": f"L-{root_object_id}-supersedes-{target_object_id}",
+                        "source_object_id": root_object_id,
+                        "relation": "supersedes",
+                        "target_object_id": target_object_id,
+                        "rationale": reason,
+                    }
+                },
+            }
+        )
+    return events
+
+
+def _add_verification_events(
+    *,
+    candidate_id: str,
+    root_object_id: str,
+    change_kind: str,
+    target_object_id: str,
+) -> list[dict[str, Any]]:
+    verification_id = f"VER-{candidate_id[3:]}"
+    rationale = f"Add verification for {target_object_id} after {change_kind} impact from {root_object_id}."
+    return [
+        {
+            "event_type": "object_recorded",
+            "payload": {
+                "object": {
+                    "id": verification_id,
+                    "type": "verification",
+                    "title": f"Verify {target_object_id}",
+                    "body": rationale,
+                    "status": "planned",
+                    "metadata": {
+                        "method": "review",
+                        "expected_result": (
+                            f"{target_object_id} remains valid after {change_kind} impact "
+                            f"from {root_object_id}."
+                        ),
+                        "verified_at": None,
+                        "result": "pending",
+                    },
+                }
+            },
+        },
+        {
+            "event_type": "object_linked",
+            "payload": {
+                "link": {
+                    "id": f"L-{verification_id}-verifies-{target_object_id}",
+                    "source_object_id": verification_id,
+                    "relation": "verifies",
+                    "target_object_id": target_object_id,
+                    "rationale": rationale,
+                }
+            },
+        },
+    ]
+
+
+def _status_change_event(target_object_id: str, from_status: str, to_status: str, reason: str) -> dict[str, Any]:
+    return {
+        "event_type": "object_status_changed",
+        "payload": {
+            "object_id": target_object_id,
+            "from_status": from_status,
+            "to_status": to_status,
+            "reason": reason,
+        },
+    }
+
+
+def _decision_invalidated_by_event(target_object_id: str, root_object_id: str, reason: str) -> dict[str, Any]:
+    return {
+        "event_type": "object_updated",
+        "payload": {
+            "object_id": target_object_id,
+            "patch": {
+                "metadata": {
+                    "invalidated_by": {
+                        "decision_id": root_object_id,
+                        "reason": reason,
+                    }
+                }
+            },
+        },
+    }
+
+
+def _materialization_reason(materialization_status: str, candidate_kind: str) -> str:
+    if materialization_status == "materialized":
+        return f"{candidate_kind} candidate can be represented as deterministic event drafts."
+    return f"{candidate_kind} candidate requires human-authored runtime changes before materialization."
 
 
 def _candidate_id(
