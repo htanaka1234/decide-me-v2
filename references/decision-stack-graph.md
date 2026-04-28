@@ -140,7 +140,9 @@ example, `objective -> decision -> action` with `layers={"execution"}` still rea
 `bounded_subgraph()` returns `root_object_id`, `nodes`, and `edges`. It uses asymmetric
 `upstream_depth` and `downstream_depth`, defaults to one upstream hop and two downstream hops, and
 returns original graph edge records rather than synthetic oriented edges. The seed node is included
-even when a layer filter is present.
+even when a layer filter is present. When `layers` is set, matching reachable nodes are filtered,
+but bridge nodes and edges required to show the path from the root to each matching node are also
+included so the returned subgraph is not disconnected from its traversal evidence.
 
 `objects_by_layer(project_state, layer)` reads only `project_state.graph.nodes[]`, returns graph
 node payloads for the requested layer, and excludes invalidated nodes unless

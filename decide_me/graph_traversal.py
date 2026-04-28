@@ -249,7 +249,8 @@ def bounded_subgraph(
     layers: str | Iterable[str] | None = None,
 ) -> dict[str, Any]:
     _validate_object_id(index, object_id)
-    downstream_items, downstream_edge_ids = _walk(
+    layer_filter = _normalize_filter(layers, DECISION_STACK_LAYERS, "layer")
+    downstream_records, downstream_edge_ids = _walk_records(
         index,
         object_id,
         "downstream",
@@ -258,7 +259,7 @@ def bounded_subgraph(
         layers=layers,
         max_depth=downstream_depth,
     )
-    upstream_items, upstream_edge_ids = _walk(
+    upstream_records, upstream_edge_ids = _walk_records(
         index,
         object_id,
         "upstream",
@@ -267,14 +268,13 @@ def bounded_subgraph(
         layers=layers,
         max_depth=upstream_depth,
     )
-    node_ids = {object_id}
-    node_ids.update(item["object_id"] for item in downstream_items)
-    node_ids.update(item["object_id"] for item in upstream_items)
-    edge_ids = {
-        edge_id
-        for edge_id in set(downstream_edge_ids) | set(upstream_edge_ids)
-        if _edge_endpoints_are_included(index["edges_by_id"][edge_id], node_ids)
-    }
+    node_ids, edge_ids = _bounded_subgraph_ids(
+        index,
+        object_id,
+        [*downstream_records, *upstream_records],
+        [*downstream_edge_ids, *upstream_edge_ids],
+        layer_filter,
+    )
     return {
         "root_object_id": object_id,
         "nodes": [deepcopy(index["nodes_by_id"][node_id]) for node_id in sorted(node_ids)],
@@ -312,6 +312,28 @@ def _walk(
     layers: str | Iterable[str] | None,
     max_depth: int | None,
 ) -> tuple[list[dict[str, Any]], list[str]]:
+    records, ordered_edge_ids = _walk_records(
+        index,
+        object_id,
+        side,
+        direction=direction,
+        relations=relations,
+        layers=layers,
+        max_depth=max_depth,
+    )
+    return [record["item"] for record in records], ordered_edge_ids
+
+
+def _walk_records(
+    index: GraphIndex,
+    object_id: str,
+    side: str,
+    *,
+    direction: str,
+    relations: str | Iterable[str] | None,
+    layers: str | Iterable[str] | None,
+    max_depth: int | None,
+) -> tuple[list[dict[str, Any]], list[str]]:
     _validate_object_id(index, object_id)
     direction = _validate_direction(direction)
     relation_filter = _normalize_filter(relations, LINK_RELATIONS, "relation")
@@ -319,14 +341,14 @@ def _walk(
     if max_depth is not None and max_depth < 0:
         raise ValueError("max_depth must be greater than or equal to 0")
 
-    queue: deque[tuple[str, int]] = deque([(object_id, 0)])
+    queue: deque[tuple[str, int, list[str], list[str]]] = deque([(object_id, 0, [object_id], [])])
     visited = {object_id}
-    returned_items: list[dict[str, Any]] = []
+    records: list[dict[str, Any]] = []
     ordered_edge_ids: list[str] = []
     seen_edge_ids: set[str] = set()
 
     while queue:
-        current_id, depth = queue.popleft()
+        current_id, depth, path_node_ids, path_edge_ids = queue.popleft()
         if max_depth is not None and depth >= max_depth:
             continue
         for item in _filtered_adjacency_items(index, current_id, side, direction, relation_filter):
@@ -336,14 +358,47 @@ def _walk(
                 ordered_edge_ids.append(edge_id)
             next_id = item["object_id"]
             distance = depth + 1
+            next_path_node_ids = [*path_node_ids, next_id]
+            next_path_edge_ids = [*path_edge_ids, edge_id]
             if next_id != object_id and _matches_layer(index, next_id, layer_filter):
-                returned_items.append(_context_item(index, item, distance=distance))
+                records.append(
+                    {
+                        "item": _context_item(index, item, distance=distance),
+                        "path_node_ids": next_path_node_ids,
+                        "path_edge_ids": next_path_edge_ids,
+                    }
+                )
             if next_id in visited:
                 continue
             visited.add(next_id)
-            queue.append((next_id, distance))
+            queue.append((next_id, distance, next_path_node_ids, next_path_edge_ids))
 
-    return returned_items, ordered_edge_ids
+    return records, ordered_edge_ids
+
+
+def _bounded_subgraph_ids(
+    index: GraphIndex,
+    root_object_id: str,
+    records: list[dict[str, Any]],
+    ordered_edge_ids: list[str],
+    layer_filter: set[str] | None,
+) -> tuple[set[str], set[str]]:
+    node_ids = {root_object_id}
+    edge_ids: set[str] = set()
+    if layer_filter is None:
+        for record in records:
+            node_ids.update(record["path_node_ids"])
+        edge_ids = {
+            edge_id
+            for edge_id in ordered_edge_ids
+            if _edge_endpoints_are_included(index["edges_by_id"][edge_id], node_ids)
+        }
+        return node_ids, edge_ids
+
+    for record in records:
+        node_ids.update(record["path_node_ids"])
+        edge_ids.update(record["path_edge_ids"])
+    return node_ids, edge_ids
 
 
 def _filtered_adjacency_items(

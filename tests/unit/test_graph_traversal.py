@@ -262,6 +262,30 @@ class GraphTraversalTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "max_depth"):
             bounded_subgraph(index, "D-decision", upstream_depth=-1)
 
+    def test_bounded_subgraph_layer_filter_keeps_bridge_path_nodes_and_edges(self) -> None:
+        index = build_graph_index(_chain_project_state())
+
+        subgraph = bounded_subgraph(index, "O-root", layers={"execution"}, downstream_depth=2)
+
+        self.assertEqual("O-root", subgraph["root_object_id"])
+        self.assertEqual(
+            ["A-action", "D-decision", "O-root"],
+            [node["object_id"] for node in subgraph["nodes"]],
+        )
+        self.assertEqual(
+            ["L-1-decision-depends-root", "L-2-action-addresses-decision"],
+            [edge["link_id"] for edge in subgraph["edges"]],
+        )
+        self.assertEqual(["A-action"], descendant_ids(index, "O-root", layers={"execution"}))
+
+    def test_bounded_subgraph_layer_filter_omits_unreached_layer_targets_and_bridges(self) -> None:
+        index = build_graph_index(_chain_project_state())
+
+        subgraph = bounded_subgraph(index, "O-root", layers={"verification"}, downstream_depth=2)
+
+        self.assertEqual(["O-root"], [node["object_id"] for node in subgraph["nodes"]])
+        self.assertEqual([], subgraph["edges"])
+
 
 def _chain_project_state() -> dict:
     return _project_state(
