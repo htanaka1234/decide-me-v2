@@ -4,6 +4,7 @@ import unittest
 from copy import deepcopy
 
 from tests.helpers.schema_validation import load_project_state_schema_bundle, project_state_schema_validator
+from tests.helpers.typed_metadata import evidence_metadata
 
 
 class LegacySchemaRejectedTests(unittest.TestCase):
@@ -113,9 +114,11 @@ def _valid_project_state() -> dict:
                 "created_at": "2026-04-23T12:00:00Z",
                 "updated_at": None,
                 "source_event_ids": ["E-001"],
-                "metadata": {
-                    "source": "tests",
-                },
+                "metadata": evidence_metadata(
+                    source="tests",
+                    source_ref="tests/integration/test_legacy_schema_rejected.py",
+                    summary="The schema tests define the target contract.",
+                ),
             },
         ],
         "links": [

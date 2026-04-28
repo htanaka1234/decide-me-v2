@@ -7,6 +7,7 @@ from tempfile import TemporaryDirectory
 
 from decide_me.lifecycle import create_session
 from decide_me.store import bootstrap_runtime, rebuild_and_persist, transact, validate_runtime
+from tests.helpers.typed_metadata import metadata_for_object_type
 
 
 class GraphProjectionFromObjectLinksTests(unittest.TestCase):
@@ -141,6 +142,9 @@ def _object(
     *,
     metadata: dict | None = None,
 ) -> dict:
+    object_metadata = metadata_for_object_type(object_type)
+    if metadata:
+        object_metadata.update(metadata)
     return {
         "id": object_id,
         "type": object_type,
@@ -150,7 +154,7 @@ def _object(
         "created_at": "2026-04-23T12:00:00Z",
         "updated_at": None,
         "source_event_ids": [event_id],
-        "metadata": metadata or {},
+        "metadata": object_metadata,
     }
 
 

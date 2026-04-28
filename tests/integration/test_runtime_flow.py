@@ -150,7 +150,7 @@ class RuntimeFlowTests(unittest.TestCase):
             evidence_objects = [
                 obj
                 for obj in rebuilt["project_state"]["objects"]
-                if obj["type"] == "evidence" and obj["metadata"].get("ref") == "docs/architecture.md"
+                if obj["type"] == "evidence" and obj["metadata"].get("source_ref") == "docs/architecture.md"
             ]
             self.assertEqual(1, len(evidence_objects))
             support_links = [

@@ -4,6 +4,7 @@ import unittest
 
 from decide_me.events import build_event
 from decide_me.validate import StateValidationError, validate_event_log
+from tests.helpers.typed_metadata import metadata_for_object_type
 
 
 class EventLogValidationTests(unittest.TestCase):
@@ -244,7 +245,7 @@ def _object(object_id: str, event_id: str, *, object_type: str = "decision") -> 
         "created_at": "2026-04-23T12:00:00Z",
         "updated_at": None,
         "source_event_ids": [event_id],
-        "metadata": {},
+        "metadata": metadata_for_object_type(object_type),
     }
 
 

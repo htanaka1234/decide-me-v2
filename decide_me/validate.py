@@ -8,11 +8,21 @@ from typing import Any
 
 from decide_me.constants import (
     ACCEPTED_VIA_VALUES,
+    APPROVAL_THRESHOLD_VALUES,
     DECISION_STACK_LAYERS,
     DOMAIN_VALUES,
+    EVIDENCE_FRESHNESS_VALUES,
     EVIDENCE_SOURCES,
     LINK_RELATIONS,
+    METADATA_CONFIDENCE_VALUES,
     OBJECT_TYPES,
+    REVISIT_TRIGGER_TYPE_VALUES,
+    RISK_LIKELIHOOD_VALUES,
+    RISK_REVERSIBILITY_VALUES,
+    RISK_SEVERITY_VALUES,
+    RISK_TIER_VALUES,
+    VERIFICATION_METHOD_VALUES,
+    VERIFICATION_RESULT_VALUES,
 )
 from decide_me.events import EVENT_TYPES, validate_event
 from decide_me.object_views import active_proposal_view, proposal_decision_id, proposal_option, related_decision_ids
@@ -229,6 +239,16 @@ def validate_project_state(project_state: dict[str, Any]) -> None:
         _validate_object_metadata_layer(obj, metadata)
         if obj["type"] == "decision":
             _validate_decision_object_metadata(obj)
+        elif obj["type"] == "evidence":
+            _validate_evidence_object_metadata(obj)
+        elif obj["type"] == "assumption":
+            _validate_assumption_object_metadata(obj)
+        elif obj["type"] == "risk":
+            _validate_risk_object_metadata(obj)
+        elif obj["type"] == "verification":
+            _validate_verification_object_metadata(obj)
+        elif obj["type"] == "revisit_trigger":
+            _validate_revisit_trigger_object_metadata(obj)
         if obj["id"] in object_ids:
             raise StateValidationError(f"duplicate object id: {obj['id']}")
         object_ids.add(obj["id"])
@@ -431,6 +451,86 @@ def _validate_decision_object_metadata(decision: dict[str, Any]) -> None:
         )
     elif invalidated_by is not None:
         raise StateValidationError(f"non-invalidated decision object {decision['id']} must not carry invalidated_by")
+
+
+def _validate_evidence_object_metadata(obj: dict[str, Any]) -> None:
+    metadata = obj["metadata"]
+    label = f"evidence object {obj['id']}.metadata"
+    _require_keys(
+        metadata,
+        ("source", "source_ref", "summary", "confidence", "freshness", "observed_at", "valid_until"),
+        label,
+    )
+    _require_enum(metadata.get("source"), EVIDENCE_SOURCES, f"{label}.source")
+    _require_non_empty_string(metadata.get("source_ref"), f"{label}.source_ref")
+    _require_non_empty_string(metadata.get("summary"), f"{label}.summary")
+    _require_enum(metadata.get("confidence"), METADATA_CONFIDENCE_VALUES, f"{label}.confidence")
+    _require_enum(metadata.get("freshness"), EVIDENCE_FRESHNESS_VALUES, f"{label}.freshness")
+    _require_optional_timestamp(metadata.get("observed_at"), f"{label}.observed_at")
+    _require_optional_timestamp(metadata.get("valid_until"), f"{label}.valid_until")
+
+
+def _validate_assumption_object_metadata(obj: dict[str, Any]) -> None:
+    metadata = obj["metadata"]
+    label = f"assumption object {obj['id']}.metadata"
+    _require_keys(
+        metadata,
+        ("statement", "confidence", "validation", "invalidates_if_false", "expires_at", "owner"),
+        label,
+    )
+    _require_non_empty_string(metadata.get("statement"), f"{label}.statement")
+    _require_enum(metadata.get("confidence"), METADATA_CONFIDENCE_VALUES, f"{label}.confidence")
+    _require_optional_non_empty_string(metadata.get("validation"), f"{label}.validation")
+    _require_string_list(metadata.get("invalidates_if_false"), f"{label}.invalidates_if_false")
+    _require_optional_timestamp(metadata.get("expires_at"), f"{label}.expires_at")
+    _require_optional_non_empty_string(metadata.get("owner"), f"{label}.owner")
+
+
+def _validate_risk_object_metadata(obj: dict[str, Any]) -> None:
+    metadata = obj["metadata"]
+    label = f"risk object {obj['id']}.metadata"
+    _require_keys(
+        metadata,
+        (
+            "statement",
+            "severity",
+            "likelihood",
+            "risk_tier",
+            "reversibility",
+            "mitigation_object_ids",
+            "approval_threshold",
+        ),
+        label,
+    )
+    _require_non_empty_string(metadata.get("statement"), f"{label}.statement")
+    _require_enum(metadata.get("severity"), RISK_SEVERITY_VALUES, f"{label}.severity")
+    _require_enum(metadata.get("likelihood"), RISK_LIKELIHOOD_VALUES, f"{label}.likelihood")
+    _require_enum(metadata.get("risk_tier"), RISK_TIER_VALUES, f"{label}.risk_tier")
+    _require_enum(metadata.get("reversibility"), RISK_REVERSIBILITY_VALUES, f"{label}.reversibility")
+    _require_string_list(metadata.get("mitigation_object_ids"), f"{label}.mitigation_object_ids")
+    _require_enum(metadata.get("approval_threshold"), APPROVAL_THRESHOLD_VALUES, f"{label}.approval_threshold")
+
+
+def _validate_verification_object_metadata(obj: dict[str, Any]) -> None:
+    metadata = obj["metadata"]
+    label = f"verification object {obj['id']}.metadata"
+    _require_keys(metadata, ("method", "expected_result", "verified_at", "result"), label)
+    _require_enum(metadata.get("method"), VERIFICATION_METHOD_VALUES, f"{label}.method")
+    _require_non_empty_string(metadata.get("expected_result"), f"{label}.expected_result")
+    _require_optional_timestamp(metadata.get("verified_at"), f"{label}.verified_at")
+    _require_enum(metadata.get("result"), VERIFICATION_RESULT_VALUES, f"{label}.result")
+
+
+def _validate_revisit_trigger_object_metadata(obj: dict[str, Any]) -> None:
+    metadata = obj["metadata"]
+    label = f"revisit_trigger object {obj['id']}.metadata"
+    _require_keys(metadata, ("trigger_type", "condition", "due_at", "target_object_ids"), label)
+    _require_enum(metadata.get("trigger_type"), REVISIT_TRIGGER_TYPE_VALUES, f"{label}.trigger_type")
+    _require_non_empty_string(metadata.get("condition"), f"{label}.condition")
+    _require_optional_timestamp(metadata.get("due_at"), f"{label}.due_at")
+    _require_string_list(metadata.get("target_object_ids"), f"{label}.target_object_ids")
+    if not metadata["target_object_ids"]:
+        raise StateValidationError(f"{label}.target_object_ids must not be empty")
 
 
 def _validate_decision_status_payload(decision: dict[str, Any]) -> None:
@@ -1374,6 +1474,16 @@ def _require_dict(value: Any, label: str) -> dict[str, Any]:
 def _require_list(value: Any, label: str) -> None:
     if not isinstance(value, list):
         raise StateValidationError(f"{label} must be a list")
+
+
+def _require_string_list(value: Any, label: str) -> None:
+    _require_list(value, label)
+    seen: set[str] = set()
+    for item in value:
+        _require_non_empty_string(item, f"{label}[]")
+        if item in seen:
+            raise StateValidationError(f"{label} contains duplicate values")
+        seen.add(item)
 
 
 def _require_enum(value: Any, allowed: set[str], label: str) -> None:

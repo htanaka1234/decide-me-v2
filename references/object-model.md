@@ -43,3 +43,18 @@ Object boundary rules:
 `metadata` is reserved for intrinsic structured details such as priority, frontier, confidence,
 source path, exported file path, or tool-specific identifiers. If a value points at another object,
 model it as a link instead of metadata.
+
+Typed metadata contracts:
+
+- `evidence.metadata` requires `source`, `source_ref`, `summary`, `confidence`, `freshness`,
+  `observed_at`, and `valid_until`. Public exports may still present `source_ref` as `ref`.
+- `assumption.metadata` requires `statement`, `confidence`, `validation`,
+  `invalidates_if_false`, `expires_at`, and `owner`.
+- `risk.metadata` requires `statement`, `severity`, `likelihood`, `risk_tier`,
+  `reversibility`, `mitigation_object_ids`, and `approval_threshold`.
+- `verification.metadata` requires `method`, `expected_result`, `verified_at`, and `result`.
+- `revisit_trigger.metadata` requires `trigger_type`, `condition`, `due_at`, and
+  non-empty `target_object_ids`.
+
+These metadata objects remain extensible for future fields, but the required Phase 7 keys and
+enum/timestamp/list shapes are strict runtime and schema contracts.

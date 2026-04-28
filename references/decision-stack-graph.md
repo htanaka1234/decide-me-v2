@@ -20,8 +20,9 @@ The fixed decision stack layers are:
 ## Layer Inference
 
 Objects may carry optional `metadata.layer`. When present, validation requires it to be one of
-the fixed layer names above. `schemas/object.schema.json` keeps metadata open; runtime validation
-enforces the layer contract.
+the fixed layer names above. `schemas/object.schema.json` keeps metadata extensible, but runtime
+and schema validation enforce the typed metadata contracts for evidence, assumptions, risks,
+verifications, and revisit triggers.
 
 When `metadata.layer` is missing, the graph projection uses this default mapping:
 

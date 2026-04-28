@@ -341,7 +341,7 @@ def _evidence_for_object(
             {
                 "id": obj["id"],
                 "source": obj.get("metadata", {}).get("source"),
-                "ref": obj.get("metadata", {}).get("ref") or obj.get("title") or obj["id"],
+                "ref": obj.get("metadata", {}).get("source_ref") or obj.get("title") or obj["id"],
                 "summary": link.get("rationale") or obj.get("body"),
             }
         )
@@ -379,7 +379,7 @@ def _evidence_item(
         "summary": summary or obj.get("body"),
         "status": obj.get("status"),
         "source": metadata.get("source"),
-        "ref": metadata.get("ref") or obj.get("title") or obj["id"],
+        "ref": metadata.get("source_ref") or obj.get("title") or obj["id"],
         "metadata": metadata,
     }
 

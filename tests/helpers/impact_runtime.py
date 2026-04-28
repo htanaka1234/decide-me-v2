@@ -10,6 +10,7 @@ from typing import Any
 
 from decide_me.lifecycle import create_session
 from decide_me.store import bootstrap_runtime, rebuild_and_persist, transact
+from tests.helpers.typed_metadata import metadata_for_object_type
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -192,6 +193,8 @@ def _object(
     status: str,
     metadata: dict[str, Any],
 ) -> dict[str, Any]:
+    typed_metadata = metadata_for_object_type(object_type)
+    typed_metadata.update(metadata)
     return {
         "id": object_id,
         "type": object_type,
@@ -201,7 +204,7 @@ def _object(
         "created_at": "2026-04-28T00:00:00Z",
         "updated_at": None,
         "source_event_ids": [event_id],
-        "metadata": metadata,
+        "metadata": typed_metadata,
     }
 
 

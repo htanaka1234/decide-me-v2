@@ -164,7 +164,7 @@ def evidence_for_decision(project_state: dict[str, Any], decision_id: str) -> li
             {
                 "id": obj["id"],
                 "source": obj.get("metadata", {}).get("source"),
-                "ref": obj.get("metadata", {}).get("ref") or obj.get("title") or obj["id"],
+                "ref": obj.get("metadata", {}).get("source_ref") or obj.get("title") or obj["id"],
                 "summary": link.get("rationale") or obj.get("body"),
             }
         )

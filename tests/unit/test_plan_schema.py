@@ -49,7 +49,7 @@ def _valid_plan() -> dict:
                     "status": "active",
                     "source": "docs",
                     "ref": "docs/auth.md",
-                    "metadata": {"source": "docs", "ref": "docs/auth.md"},
+                    "metadata": {"source": "docs", "source_ref": "docs/auth.md"},
                 }
             ],
             "source_object_ids": ["D-auth", "O-evidence-001"],

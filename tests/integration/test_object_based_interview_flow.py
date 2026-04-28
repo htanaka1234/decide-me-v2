@@ -146,7 +146,7 @@ class ObjectBasedInterviewFlowTests(unittest.TestCase):
             evidence_ids = [
                 obj["id"]
                 for obj in objects.values()
-                if obj["type"] == "evidence" and obj["metadata"].get("ref") == "docs/architecture.md"
+                if obj["type"] == "evidence" and obj["metadata"].get("source_ref") == "docs/architecture.md"
             ]
 
             self.assertEqual("resolved-by-evidence", objects["D-docs"]["status"])

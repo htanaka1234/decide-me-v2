@@ -129,7 +129,13 @@ def enrich_decision(
                             status="active",
                             created_at=now,
                             event_id=trigger_event_id,
-                            metadata={"origin_session_id": session_id},
+                            metadata={
+                                "origin_session_id": session_id,
+                                "trigger_type": "outcome",
+                                "condition": trigger,
+                                "due_at": None,
+                                "target_object_ids": [decision_id],
+                            },
                         )
                     },
                 }
@@ -835,7 +841,15 @@ def resolve_by_evidence(
                                 status="active",
                                 created_at=now,
                                 event_id=evidence_event_id,
-                                metadata={"source": source, "ref": evidence_ref},
+                                metadata={
+                                    "source": source,
+                                    "source_ref": evidence_ref,
+                                    "summary": summary,
+                                    "confidence": "high",
+                                    "freshness": "current",
+                                    "observed_at": now,
+                                    "valid_until": None,
+                                },
                             )
                         },
                     }
@@ -890,6 +904,19 @@ def record_reply_artifacts(
         events: list[dict[str, Any]] = []
         for object_id, object_type, text, object_event_id, link_event_id in object_specs:
             status = "open" if object_type == "risk" else "active"
+            metadata = {"origin_session_id": session_id, "source": "user-reply"}
+            if object_type == "risk":
+                metadata.update(
+                    {
+                        "statement": text,
+                        "severity": "medium",
+                        "likelihood": "medium",
+                        "risk_tier": "medium",
+                        "reversibility": "partially_reversible",
+                        "mitigation_object_ids": [],
+                        "approval_threshold": "explicit_acceptance",
+                    }
+                )
             events.append(
                 {
                     "event_id": object_event_id,
@@ -904,7 +931,7 @@ def record_reply_artifacts(
                             status=status,
                             created_at=now,
                             event_id=object_event_id,
-                            metadata={"origin_session_id": session_id, "source": "user-reply"},
+                            metadata=metadata,
                         )
                     },
                 }

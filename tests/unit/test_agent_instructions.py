@@ -4,6 +4,7 @@ import unittest
 
 from decide_me.exporters.agents import build_agent_instructions_payload
 from decide_me.requirement_ids import require_requirement_id
+from tests.helpers.typed_metadata import evidence_metadata, metadata_for_object_type
 
 
 class AgentInstructionFilterTests(unittest.TestCase):
@@ -269,7 +270,10 @@ def _bundle(decisions: list[dict]) -> dict:
                     "evidence",
                     decision["resolved_by_evidence"]["evidence"][0],
                     body=summary,
-                    metadata={"source": "docs", "ref": decision["resolved_by_evidence"]["evidence"][0]},
+                    metadata=evidence_metadata(
+                        source_ref=decision["resolved_by_evidence"]["evidence"][0],
+                        summary=summary,
+                    ),
                 )
             )
             links.append(_link(f"L-{evidence_id}-supports-{decision['id']}", evidence_id, "supports", decision["id"], summary))
@@ -333,7 +337,7 @@ def _object(
         "created_at": "2026-04-26T00:00:00Z",
         "updated_at": "2026-04-26T00:00:00Z",
         "source_event_ids": [f"E-{object_id}"],
-        "metadata": metadata or {},
+        "metadata": metadata if metadata is not None else metadata_for_object_type(object_type),
     }
 
 
