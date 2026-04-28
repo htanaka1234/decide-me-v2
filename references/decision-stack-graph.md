@@ -158,9 +158,9 @@ included so the returned subgraph is not disconnected from its traversal evidenc
 node payloads for the requested layer, and excludes invalidated nodes unless
 `include_invalidated=True` is passed.
 
-Phase 6-3 adds read-only impact analysis on top of these helpers. Impact analysis lists affected
-downstream objects and graph paths only; it does not cascade invalidation, create links, change
-object status, add CLI commands, or write export output.
+Phase 6-3 adds read-only impact analysis on top of these helpers. Phase 6-4 adds read-only
+invalidation candidates derived from that impact report. These diagnostics do not cascade
+invalidation, create links, change object status, add CLI commands, or write export output.
 
 ## Phase 6-1 Boundary
 
