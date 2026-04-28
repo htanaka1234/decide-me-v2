@@ -47,6 +47,7 @@ def generate_invalidation_candidates(
             root_node,
             affected,
             change_kind,
+            max_depth,
         ):
             candidates.append(
                 _candidate(
@@ -77,6 +78,7 @@ def _candidate_rules(
     root_node: dict[str, Any],
     affected: dict[str, Any],
     change_kind: str,
+    max_depth: int | None,
 ) -> list[tuple[str, bool, str]]:
     object_type = affected["object_type"]
     status = affected["status"]
@@ -97,7 +99,8 @@ def _candidate_rules(
         candidates = [("revise", False, "Action may need revision after an upstream change.")]
         if root_node["object_type"] == "decision" and change_kind == "invalidated":
             candidates.append(("invalidate", True, "Action depends on an invalidated upstream decision."))
-        if not _has_live_downstream_verification(index, affected["object_id"]):
+        remaining_depth = None if max_depth is None else max(0, max_depth - affected["distance"])
+        if not _has_live_downstream_verification(index, affected["object_id"], max_depth=remaining_depth):
             candidates.append(("add_verification", False, "Action has no live downstream verification or evidence."))
         return candidates
 
@@ -110,6 +113,8 @@ def _candidate_rules(
         return [("revalidate", False, "Evidence is affected by an upstream change.")]
 
     if object_type == "risk":
+        if affected["via_relation"] == "mitigates":
+            return [("revalidate", False, "Mitigated risk should be revalidated after its mitigation changes.")]
         return [("review", False, "Risk handling is affected by an upstream change.")]
 
     if object_type == "revisit_trigger":
@@ -172,8 +177,8 @@ def _candidate_id(
     return f"IC-{digest[:12]}"
 
 
-def _has_live_downstream_verification(index: dict[str, Any], object_id: str) -> bool:
-    for item in descendants(index, object_id, direction="influence"):
+def _has_live_downstream_verification(index: dict[str, Any], object_id: str, *, max_depth: int | None) -> bool:
+    for item in descendants(index, object_id, direction="influence", max_depth=max_depth):
         node = index["nodes_by_id"][item["object_id"]]
         if node.get("is_invalidated") is True:
             continue

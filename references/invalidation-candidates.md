@@ -18,6 +18,11 @@ The function calls `analyze_impact()` internally, so `change_kind`, root object 
 traversal, `max_depth`, and `include_invalidated` follow the impact analysis contract.
 `project_state` is treated as read-only.
 
+Candidate rules are scoped to the same impact depth. For `add_verification`, the downstream
+verification/evidence existence check is limited to the remaining depth after reaching the affected
+action. For example, `max_depth=1` can emit `add_verification` for a directly affected action even
+when a verification object exists two hops from the root.
+
 Allowed candidate kinds are:
 
 - `review`
@@ -74,10 +79,11 @@ proposed, and blocked decisions become `review` candidates.
 
 Actions become `revise` candidates. When the changed root is an invalidated decision, affected
 actions also get `invalidate` candidates. Actions with no live downstream verification or evidence
-also get `add_verification` candidates.
+within the remaining impact depth also get `add_verification` candidates.
 
 Verification and evidence objects become `revalidate` candidates, except affected evidence becomes
 an `invalidate` candidate when `change_kind="evidence_retracted"`.
 
-Risks become `review` candidates. Revisit triggers become `update_revisit_trigger` candidates.
-Other affected object types become `review` candidates.
+Risks reached through `mitigates` become `revalidate` candidates because their mitigation changed.
+Other affected risks become `review` candidates. Revisit triggers become
+`update_revisit_trigger` candidates. Other affected object types become `review` candidates.

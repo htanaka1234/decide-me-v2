@@ -75,15 +75,17 @@ class InvalidationCandidatesTests(unittest.TestCase):
         self.assertEqual(["supersede"], [candidate["candidate_kind"] for candidate in report["candidates"]])
         self.assertTrue(report["candidates"][0]["requires_human_approval"])
 
-    def test_unresolved_decision_generates_review_candidate(self) -> None:
-        report = generate_invalidation_candidates(
-            _decision_project_state(status="unresolved"),
-            "CON-privacy",
-            change_kind="changed",
-        )
+    def test_unresolved_proposed_and_blocked_decisions_generate_review_candidates(self) -> None:
+        for status in ("unresolved", "proposed", "blocked"):
+            with self.subTest(status=status):
+                report = generate_invalidation_candidates(
+                    _decision_project_state(status=status),
+                    "CON-privacy",
+                    change_kind="changed",
+                )
 
-        self.assertEqual(["review"], [candidate["candidate_kind"] for candidate in report["candidates"]])
-        self.assertFalse(report["candidates"][0]["requires_human_approval"])
+                self.assertEqual(["review"], [candidate["candidate_kind"] for candidate in report["candidates"]])
+                self.assertFalse(report["candidates"][0]["requires_human_approval"])
 
     def test_action_generates_revise_and_missing_verification_candidate(self) -> None:
         report = generate_invalidation_candidates(
@@ -136,10 +138,35 @@ class InvalidationCandidatesTests(unittest.TestCase):
             ),
             "D-auth",
             change_kind="changed",
+        )
+
+        self.assertEqual(
+            ["revise", "revalidate"],
+            [candidate["candidate_kind"] for candidate in report["candidates"]],
+        )
+
+    def test_max_depth_limits_action_add_verification_scope(self) -> None:
+        report = generate_invalidation_candidates(
+            _project_state(
+                nodes=[
+                    _node("D-auth", "decision", "strategy", status="accepted"),
+                    _node("A-auth", "action", "execution"),
+                    _node("V-auth", "verification", "verification"),
+                ],
+                edges=[
+                    _edge("L-action-addresses-decision", "A-auth", "addresses", "D-auth"),
+                    _edge("L-verification-requires-action", "V-auth", "requires", "A-auth"),
+                ],
+            ),
+            "D-auth",
+            change_kind="changed",
             max_depth=1,
         )
 
-        self.assertEqual(["revise"], [candidate["candidate_kind"] for candidate in report["candidates"]])
+        self.assertEqual(
+            ["revise", "add_verification"],
+            [candidate["candidate_kind"] for candidate in report["candidates"]],
+        )
 
     def test_verification_and_evidence_generate_revalidate_candidates(self) -> None:
         report = generate_invalidation_candidates(
@@ -179,7 +206,7 @@ class InvalidationCandidatesTests(unittest.TestCase):
         self.assertEqual(["invalidate"], [candidate["candidate_kind"] for candidate in report["candidates"]])
         self.assertTrue(report["candidates"][0]["requires_human_approval"])
 
-    def test_risk_generates_review_candidate(self) -> None:
+    def test_mitigated_risk_generates_revalidate_candidate(self) -> None:
         report = generate_invalidation_candidates(
             _project_state(
                 nodes=[
@@ -189,6 +216,21 @@ class InvalidationCandidatesTests(unittest.TestCase):
                 edges=[_edge("L-decision-mitigates-risk", "D-auth", "mitigates", "R-auth")],
             ),
             "D-auth",
+            change_kind="changed",
+        )
+
+        self.assertEqual(["revalidate"], [candidate["candidate_kind"] for candidate in report["candidates"]])
+
+    def test_non_mitigation_risk_generates_review_candidate(self) -> None:
+        report = generate_invalidation_candidates(
+            _project_state(
+                nodes=[
+                    _node("CON-auth", "constraint", "constraint"),
+                    _node("R-auth", "risk", "constraint"),
+                ],
+                edges=[_edge("L-constraint-constrains-risk", "CON-auth", "constrains", "R-auth")],
+            ),
+            "CON-auth",
             change_kind="changed",
         )
 
@@ -224,6 +266,29 @@ class InvalidationCandidatesTests(unittest.TestCase):
         self.assertEqual(
             [candidate["candidate_id"] for candidate in first["candidates"]],
             [candidate["candidate_id"] for candidate in second["candidates"]],
+        )
+
+    def test_include_invalidated_controls_invalidated_targets(self) -> None:
+        project_state = _project_state(
+            nodes=[
+                _node("D-auth", "decision", "strategy", status="accepted"),
+                _node("A-auth", "action", "execution", status="invalidated", is_invalidated=True),
+            ],
+            edges=[_edge("L-action-addresses-decision", "A-auth", "addresses", "D-auth")],
+        )
+
+        filtered = generate_invalidation_candidates(project_state, "D-auth", change_kind="changed")
+        included = generate_invalidation_candidates(
+            project_state,
+            "D-auth",
+            change_kind="changed",
+            include_invalidated=True,
+        )
+
+        self.assertEqual([], filtered["candidates"])
+        self.assertEqual(
+            ["revise", "add_verification"],
+            [candidate["candidate_kind"] for candidate in included["candidates"]],
         )
 
     def test_invalid_change_kind_is_rejected_by_impact_analysis_contract(self) -> None:
