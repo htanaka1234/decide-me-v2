@@ -14,6 +14,35 @@ from tests.helpers.impact_runtime import (
 
 
 class Phase6GraphImpactGateTests(unittest.TestCase):
+    def test_objective_impact_reaches_downstream_decision_stack_objects(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = build_impact_runtime(Path(tmp))
+
+            impact = run_json_cli(
+                "show-impact",
+                "--ai-dir",
+                str(ai_dir),
+                "--object-id",
+                "OBJ-001",
+                "--change-kind",
+                "changed",
+                "--max-depth",
+                "4",
+            )
+
+            self.assertEqual(
+                ["DEC-001", "ACT-001", "DEC-002", "RISK-001", "VER-001"],
+                object_ids(impact, "affected_objects"),
+            )
+            self.assertEqual(
+                ["OBJ-001", "DEC-001", "ACT-001", "VER-001"],
+                next(path["node_ids"] for path in impact["paths"] if path["target_object_id"] == "VER-001"),
+            )
+            self.assertEqual(
+                ["OBJ-001", "DEC-001", "ACT-001", "RISK-001"],
+                next(path["node_ids"] for path in impact["paths"] if path["target_object_id"] == "RISK-001"),
+            )
+
     def test_constraint_impact_reaches_downstream_decision_stack_objects(self) -> None:
         with TemporaryDirectory() as tmp:
             ai_dir = build_impact_runtime(Path(tmp))
@@ -78,6 +107,7 @@ class Phase6GraphImpactGateTests(unittest.TestCase):
             self.assertEqual("DEC-001", stack["root_object_id"])
             self.assertTrue(
                 {
+                    "OBJ-001",
                     "CON-001",
                     "ACT-001",
                     "VER-001",
@@ -87,6 +117,7 @@ class Phase6GraphImpactGateTests(unittest.TestCase):
             )
             self.assertTrue(
                 {
+                    "L-OBJ-001-constrains-DEC-001",
                     "L-CON-001-constrains-DEC-001",
                     "L-ACT-001-addresses-DEC-001",
                     "L-VER-001-verifies-ACT-001",

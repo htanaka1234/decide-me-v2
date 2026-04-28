@@ -58,6 +58,7 @@ def runtime_state_snapshot(ai_dir: Path) -> dict[str, str]:
         ai_dir / "project-state.json",
         ai_dir / "taxonomy-state.json",
         ai_dir / "runtime-index.json",
+        ai_dir / "session-graph-cache.json",
     ):
         if path.exists():
             paths.append(path)
@@ -141,6 +142,7 @@ def load_schema(relative_path: str) -> dict[str, Any]:
 
 def _events(session_id: str) -> list[dict[str, Any]]:
     object_specs = [
+        ("E-objective", "OBJ-001", "objective", "active", {}),
         ("E-constraint", "CON-001", "constraint", "active", {}),
         ("E-decision", "DEC-001", "decision", "accepted", {"priority": "P0", "frontier": "now"}),
         ("E-action", "ACT-001", "action", "active", {}),
@@ -151,6 +153,7 @@ def _events(session_id: str) -> list[dict[str, Any]]:
         ("E-option", "OPT-001", "option", "invalidated", {}),
     ]
     link_specs = [
+        ("E-link-objective-decision", "L-OBJ-001-constrains-DEC-001", "OBJ-001", "constrains", "DEC-001"),
         ("E-link-constraint-decision", "L-CON-001-constrains-DEC-001", "CON-001", "constrains", "DEC-001"),
         ("E-link-action-decision", "L-ACT-001-addresses-DEC-001", "ACT-001", "addresses", "DEC-001"),
         ("E-link-verification-action", "L-VER-001-verifies-ACT-001", "VER-001", "verifies", "ACT-001"),
