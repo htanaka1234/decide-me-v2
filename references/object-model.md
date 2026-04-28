@@ -58,3 +58,8 @@ Typed metadata contracts:
 
 These metadata objects remain extensible for future fields, but the required Phase 7 keys and
 enum/timestamp/list shapes are strict runtime and schema contracts.
+
+Phase 7 preparation also exposes derived register projections for evidence, assumptions, and
+risks. These registers copy the typed metadata into schema-shaped JSON diagnostics and aggregate
+related object/link ids, but they are not persisted in `project-state.json`. Use
+`show-evidence-register`, `show-assumption-register`, and `show-risk-register` to inspect them.

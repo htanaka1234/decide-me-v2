@@ -31,6 +31,7 @@ from decide_me.invalidation_candidates import generate_invalidation_candidates
 from decide_me.lifecycle import close_session, create_session, list_sessions, resume_session, show_session
 from decide_me.planner import generate_plan
 from decide_me.protocol import resolve_decision_supersession
+from decide_me.registers import build_assumption_register, build_evidence_register, build_risk_register
 from decide_me.session_graph import (
     detect_session_conflicts,
     show_session_graph,
@@ -178,6 +179,24 @@ def main(argv: list[str] | None = None) -> int:
     show_decision_stack.add_argument("--object-id", required=True)
     show_decision_stack.add_argument("--upstream-depth", type=int, default=1)
     show_decision_stack.add_argument("--downstream-depth", type=int, default=2)
+
+    show_evidence_register = subparsers.add_parser(
+        "show-evidence-register",
+        help="show a read-only evidence register projection",
+    )
+    show_evidence_register.add_argument("--ai-dir", required=True)
+
+    show_assumption_register = subparsers.add_parser(
+        "show-assumption-register",
+        help="show a read-only assumption register projection",
+    )
+    show_assumption_register.add_argument("--ai-dir", required=True)
+
+    show_risk_register = subparsers.add_parser(
+        "show-risk-register",
+        help="show a read-only risk register projection",
+    )
+    show_risk_register.add_argument("--ai-dir", required=True)
 
     adr = subparsers.add_parser("export-adr", help="export an ADR markdown file")
     adr.add_argument("--ai-dir", required=True)
@@ -389,6 +408,15 @@ def main(argv: list[str] | None = None) -> int:
                     downstream_depth=args.downstream_depth,
                 )
             )
+        elif args.command == "show-evidence-register":
+            bundle = load_runtime(runtime_paths(args.ai_dir))
+            _print_json(build_evidence_register(bundle["project_state"]))
+        elif args.command == "show-assumption-register":
+            bundle = load_runtime(runtime_paths(args.ai_dir))
+            _print_json(build_assumption_register(bundle["project_state"]))
+        elif args.command == "show-risk-register":
+            bundle = load_runtime(runtime_paths(args.ai_dir))
+            _print_json(build_risk_register(bundle["project_state"]))
         elif args.command == "export-adr":
             path = export_adr(args.ai_dir, args.decision_id)
             _print_json({"path": str(path)})

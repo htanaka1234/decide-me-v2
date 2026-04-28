@@ -178,6 +178,11 @@ invalidation candidates derived from that impact report. Phase 6-5 exposes these
 through CLI commands and derived Markdown impact reports. These diagnostics do not cascade
 invalidation, create links, change object status, accept candidates, or run approval workflows.
 
+Phase 7 preparation adds read-only register projections for evidence, assumptions, and risks.
+The register commands aggregate typed metadata and relation ids from `project_state.objects` and
+`project_state.links`; they do not add fields to `project_state.graph` and do not evaluate safety
+gates. See `references/registers.md` for the register output contract.
+
 ## Phase 6-1 Boundary
 
 Phase 6-1 fixes only the layer set, relation enum, graph node and edge shape, projection rebuild,

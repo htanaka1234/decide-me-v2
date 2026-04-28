@@ -164,6 +164,15 @@ Inspect Decision Stack Graph diagnostics:
 6. These commands are read-only diagnostics. They do not emit events, change object status, create
    invalidation or supersession links, accept candidates, or start an approval workflow.
 
+Inspect Phase 7 register inputs:
+
+1. Run `python3 scripts/decide_me.py show-evidence-register --ai-dir .ai/decide-me`.
+2. Run `python3 scripts/decide_me.py show-assumption-register --ai-dir .ai/decide-me`.
+3. Run `python3 scripts/decide_me.py show-risk-register --ai-dir .ai/decide-me`.
+4. These commands return schema-shaped JSON from `project-state.json` only. They do not persist
+   register state, evaluate safety gates, mark stale assumptions or evidence, or start approval
+   workflows.
+
 Record object relationships:
 
 1. Domain state changes are represented by `object_recorded`, `object_updated`,
@@ -251,6 +260,8 @@ reference. Common maintainer operations include:
 - `benchmark-runtime` with `DECIDE_ME_PERF=1`
 - `show-impact`, `show-invalidation-candidates`, and `show-decision-stack` for read-only Decision
   Stack Graph diagnostics
+- `show-evidence-register`, `show-assumption-register`, and `show-risk-register` for read-only
+  Phase 7 register inputs
 - `export-impact-report` to write a derived Markdown impact report without changing runtime state
 - `export-github-templates` to write local issue forms under `.github/ISSUE_TEMPLATE`
 - `export-architecture-doc --format arc42` for a derived architecture skeleton
