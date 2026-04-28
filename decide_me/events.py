@@ -5,35 +5,9 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
+from decide_me.constants import LINK_RELATIONS, OBJECT_TYPES
 
 PLAN_STATUSES = {"action-plan", "conflicts"}
-OBJECT_TYPES = {
-    "objective",
-    "constraint",
-    "criterion",
-    "option",
-    "proposal",
-    "decision",
-    "assumption",
-    "evidence",
-    "risk",
-    "action",
-    "verification",
-    "revisit_trigger",
-    "artifact",
-}
-LINK_RELATIONS = {
-    "depends_on",
-    "supports",
-    "challenges",
-    "recommends",
-    "accepts",
-    "addresses",
-    "verifies",
-    "revisits",
-    "supersedes",
-    "blocked_by",
-}
 OBJECT_KEYS = {
     "id",
     "type",

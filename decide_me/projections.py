@@ -6,43 +6,20 @@ from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from decide_me.constants import (
+    DEFAULT_LAYER_BY_OBJECT_TYPE,
+    LINK_RELATIONS,
+    OBJECT_TYPES,
+)
 from decide_me.taxonomy import default_taxonomy_state, stable_unique
 
 
 OPEN_DECISION_STATUSES = {"unresolved", "proposed", "blocked"}
 IDLE_AFTER = timedelta(hours=12)
 STALE_AFTER = timedelta(days=7)
-PROJECT_STATE_SCHEMA_VERSION = 11
+PROJECT_STATE_SCHEMA_VERSION = 12
 SESSION_STATE_SCHEMA_VERSION = 11
 PROJECTION_SCHEMA_VERSION = PROJECT_STATE_SCHEMA_VERSION
-
-OBJECT_TYPES = {
-    "objective",
-    "constraint",
-    "criterion",
-    "option",
-    "proposal",
-    "decision",
-    "assumption",
-    "evidence",
-    "risk",
-    "action",
-    "verification",
-    "revisit_trigger",
-    "artifact",
-}
-LINK_RELATIONS = {
-    "depends_on",
-    "supports",
-    "challenges",
-    "recommends",
-    "accepts",
-    "addresses",
-    "verifies",
-    "revisits",
-    "supersedes",
-    "blocked_by",
-}
 
 
 def default_project_state() -> dict[str, Any]:
@@ -576,9 +553,54 @@ def _finalize_project_state(bundle: dict[str, Any]) -> None:
     sessions = bundle["sessions"]
     _recompute_counts(project_state)
     project_state["sessions_index"] = _sessions_index(sessions)
-    from decide_me.session_graph import build_session_graph
+    project_state["graph"] = build_decision_stack_graph(project_state)
 
-    project_state["graph"] = build_session_graph(bundle)
+
+def build_decision_stack_graph(project_state: dict[str, Any]) -> dict[str, Any]:
+    existing_graph = project_state.get("graph", {})
+    objects_by_id = {obj["id"]: obj for obj in project_state.get("objects", [])}
+    nodes = [_graph_node(obj) for obj in sorted(objects_by_id.values(), key=lambda item: item["id"])]
+    edges = [
+        _graph_edge(link, objects_by_id)
+        for link in sorted(project_state.get("links", []), key=lambda item: item["id"])
+        if link["source_object_id"] in objects_by_id and link["target_object_id"] in objects_by_id
+    ]
+    return {
+        "nodes": nodes,
+        "edges": edges,
+        "resolved_conflicts": deepcopy(existing_graph.get("resolved_conflicts", [])),
+        "inferred_candidates": [],
+    }
+
+
+def decision_stack_layer_for_object(obj: dict[str, Any]) -> str:
+    metadata = obj.get("metadata") or {}
+    return metadata.get("layer") or DEFAULT_LAYER_BY_OBJECT_TYPE[obj["type"]]
+
+
+def _graph_node(obj: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "object_id": obj["id"],
+        "object_type": obj["type"],
+        "layer": decision_stack_layer_for_object(obj),
+        "status": obj["status"],
+        "title": obj.get("title"),
+        "is_frontier": obj.get("metadata", {}).get("frontier") == "now",
+        "is_invalidated": obj.get("status") == "invalidated",
+    }
+
+
+def _graph_edge(link: dict[str, Any], objects_by_id: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    source = objects_by_id[link["source_object_id"]]
+    target = objects_by_id[link["target_object_id"]]
+    return {
+        "link_id": link["id"],
+        "source_object_id": link["source_object_id"],
+        "relation": link["relation"],
+        "target_object_id": link["target_object_id"],
+        "source_layer": decision_stack_layer_for_object(source),
+        "target_layer": decision_stack_layer_for_object(target),
+    }
 
 
 def _sessions_index(sessions: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:

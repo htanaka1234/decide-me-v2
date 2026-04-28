@@ -43,6 +43,7 @@ Read only the reference file needed for the turn:
 - [references/domain-neutral-core.md](references/domain-neutral-core.md)
 - [references/object-model.md](references/object-model.md)
 - [references/link-relations.md](references/link-relations.md)
+- [references/decision-stack-graph.md](references/decision-stack-graph.md)
 - [references/event-and-projection-model.md](references/event-and-projection-model.md)
 - [references/plan-generation.md](references/plan-generation.md)
 - [references/output-contract.md](references/output-contract.md)
@@ -83,7 +84,7 @@ Runtime invariants:
 - `.ai/decide-me/events/**/*.jsonl` transaction files are the source of truth.
 - `project-state.json` is the derived object/link projection. It contains project metadata,
   projection metadata, protocol settings, session index data, counts, `objects`, `links`, and the
-  persisted session graph.
+  derived Decision Stack Graph.
 - Close summaries store reference sets in `close_summary.object_ids` and
   `close_summary.link_ids`. Human-readable close text is display output only.
 - Plan output uses `action_plan.actions` and `action_plan.implementation_ready_actions`.

@@ -24,8 +24,8 @@ class ProjectStateSchemaTests(unittest.TestCase):
         )
         self.validator = Draft202012Validator(self.schema, resolver=resolver)
 
-    def test_project_state_uses_v11_object_link_shape(self) -> None:
-        self.assertEqual(11, self.schema["properties"]["schema_version"]["const"])
+    def test_project_state_uses_v12_object_link_shape(self) -> None:
+        self.assertEqual(12, self.schema["properties"]["schema_version"]["const"])
         self.assertEqual(
             [
                 "schema_version",
@@ -46,6 +46,14 @@ class ProjectStateSchemaTests(unittest.TestCase):
             self.assertNotIn(legacy_key, self.schema["properties"])
         self.assertEqual({"$ref": "object.schema.json"}, self.schema["properties"]["objects"]["items"])
         self.assertEqual({"$ref": "link.schema.json"}, self.schema["properties"]["links"]["items"])
+        self.assertEqual(
+            {"$ref": "#/$defs/decision_stack_graph_node"},
+            self.schema["properties"]["graph"]["properties"]["nodes"]["items"],
+        )
+        self.assertEqual(
+            {"$ref": "#/$defs/decision_stack_graph_edge"},
+            self.schema["properties"]["graph"]["properties"]["edges"]["items"],
+        )
 
     def test_accepts_valid_object_link_state(self) -> None:
         self.validator.validate(_valid_project_state())
@@ -73,6 +81,8 @@ class ProjectStateSchemaTests(unittest.TestCase):
         }
         payload["objects"] = []
         payload["links"] = []
+        payload["graph"]["nodes"] = []
+        payload["graph"]["edges"] = []
 
         self.validator.validate(payload)
 
@@ -106,7 +116,7 @@ class ProjectStateSchemaTests(unittest.TestCase):
 def _valid_project_state() -> dict:
     return deepcopy(
         {
-            "schema_version": 11,
+            "schema_version": 12,
             "project": {
                 "name": "Demo",
                 "objective": "Plan the milestone.",
@@ -147,7 +157,17 @@ def _valid_project_state() -> dict:
             ],
             "links": [],
             "graph": {
-                "nodes": [],
+                "nodes": [
+                    {
+                        "object_id": "O-objective",
+                        "object_type": "objective",
+                        "layer": "purpose",
+                        "status": "active",
+                        "title": "Phase 5",
+                        "is_frontier": False,
+                        "is_invalidated": False,
+                    }
+                ],
                 "edges": [],
                 "resolved_conflicts": [],
                 "inferred_candidates": [],

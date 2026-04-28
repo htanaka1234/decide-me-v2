@@ -19,6 +19,12 @@ LINK_RELATIONS = [
     "revisits",
     "supersedes",
     "blocked_by",
+    "constrains",
+    "enables",
+    "requires",
+    "invalidates",
+    "mitigates",
+    "derived_from",
 ]
 
 
@@ -56,6 +62,12 @@ class LinkSchemaTests(unittest.TestCase):
 
     def test_project_state_references_standalone_link_schema(self) -> None:
         self.assertEqual({"$ref": "link.schema.json"}, self.project_schema["properties"]["links"]["items"])
+
+    def test_project_state_relation_enum_matches_link_schema(self) -> None:
+        self.assertEqual(
+            set(self.schema["properties"]["relation"]["enum"]),
+            set(self.project_schema["$defs"]["link_relation"]["enum"]),
+        )
 
     def test_link_envelope_uses_explicit_object_endpoint_names(self) -> None:
         self.assertEqual(

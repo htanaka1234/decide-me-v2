@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/decide-me/project-state.schema.json",
   "title": "Decide Me Project State",
-  "$comment": "Phase 5 runtime projection schema. Runtime project-state is the v11 protocol/session-index/object/link/graph state.",
+  "$comment": "Phase 6-1 runtime projection schema. Runtime project-state is the v12 protocol/session-index/object/link/decision-stack-graph state.",
   "type": "object",
   "required": [
     "schema_version",
@@ -18,7 +18,7 @@
   "properties": {
     "schema_version": {
       "type": "integer",
-      "const": 11
+      "const": 12
     },
     "project": {
       "type": "object",
@@ -184,10 +184,16 @@
       ],
       "properties": {
         "nodes": {
-          "type": "array"
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/decision_stack_graph_node"
+          }
         },
         "edges": {
-          "type": "array"
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/decision_stack_graph_edge"
+          }
         },
         "resolved_conflicts": {
           "type": "array"
@@ -293,8 +299,104 @@
         "verifies",
         "revisits",
         "supersedes",
-        "blocked_by"
+        "blocked_by",
+        "constrains",
+        "enables",
+        "requires",
+        "invalidates",
+        "mitigates",
+        "derived_from"
       ]
+    },
+    "decision_stack_layer": {
+      "type": "string",
+      "enum": [
+        "purpose",
+        "principle",
+        "constraint",
+        "strategy",
+        "design",
+        "execution",
+        "verification",
+        "review"
+      ]
+    },
+    "decision_stack_graph_node": {
+      "type": "object",
+      "required": [
+        "object_id",
+        "object_type",
+        "layer",
+        "status",
+        "title",
+        "is_frontier",
+        "is_invalidated"
+      ],
+      "properties": {
+        "object_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "object_type": {
+          "$ref": "#/$defs/object_type"
+        },
+        "layer": {
+          "$ref": "#/$defs/decision_stack_layer"
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "is_frontier": {
+          "type": "boolean"
+        },
+        "is_invalidated": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "decision_stack_graph_edge": {
+      "type": "object",
+      "required": [
+        "link_id",
+        "source_object_id",
+        "relation",
+        "target_object_id",
+        "source_layer",
+        "target_layer"
+      ],
+      "properties": {
+        "link_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_object_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "relation": {
+          "$ref": "#/$defs/link_relation"
+        },
+        "target_object_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_layer": {
+          "$ref": "#/$defs/decision_stack_layer"
+        },
+        "target_layer": {
+          "$ref": "#/$defs/decision_stack_layer"
+        }
+      },
+      "additionalProperties": false
     },
     "session_index_entry": {
       "type": "object",

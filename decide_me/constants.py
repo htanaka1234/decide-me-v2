@@ -3,6 +3,64 @@ from __future__ import annotations
 
 ACCEPTED_VIA_VALUES = {"ok", "explicit", "evidence"}
 DOMAIN_VALUES = {"product", "technical", "data", "ux", "ops", "legal", "other"}
+OBJECT_TYPES = {
+    "objective",
+    "constraint",
+    "criterion",
+    "option",
+    "proposal",
+    "decision",
+    "assumption",
+    "evidence",
+    "risk",
+    "action",
+    "verification",
+    "revisit_trigger",
+    "artifact",
+}
+LINK_RELATIONS = {
+    "depends_on",
+    "supports",
+    "challenges",
+    "recommends",
+    "accepts",
+    "addresses",
+    "verifies",
+    "revisits",
+    "supersedes",
+    "blocked_by",
+    "constrains",
+    "enables",
+    "requires",
+    "invalidates",
+    "mitigates",
+    "derived_from",
+}
+DECISION_STACK_LAYERS = {
+    "purpose",
+    "principle",
+    "constraint",
+    "strategy",
+    "design",
+    "execution",
+    "verification",
+    "review",
+}
+DEFAULT_LAYER_BY_OBJECT_TYPE = {
+    "objective": "purpose",
+    "assumption": "principle",
+    "constraint": "constraint",
+    "risk": "constraint",
+    "proposal": "strategy",
+    "decision": "design",
+    "option": "design",
+    "action": "execution",
+    "artifact": "execution",
+    "criterion": "verification",
+    "evidence": "verification",
+    "verification": "verification",
+    "revisit_trigger": "review",
+}
 EVIDENCE_SOURCES = {
     "codebase",
     "docs",
