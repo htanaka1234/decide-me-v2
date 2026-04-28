@@ -1,0 +1,481 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/decide-me/stale-diagnostics.schema.json",
+  "title": "Decide Me Stale Diagnostics",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "diagnostic_type",
+    "project_head",
+    "generated_at",
+    "as_of",
+    "summary",
+    "items"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "diagnostic_type": {
+      "enum": [
+        "stale_assumptions",
+        "stale_evidence",
+        "verification_gaps",
+        "revisit_due"
+      ]
+    },
+    "project_head": {
+      "$ref": "#/$defs/nullable_string"
+    },
+    "generated_at": {
+      "$ref": "#/$defs/nullable_date_time"
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "summary": {
+      "type": "object"
+    },
+    "items": {
+      "type": "array"
+    }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "diagnostic_type": {
+            "const": "stale_assumptions"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "summary": {
+            "$ref": "#/$defs/default_summary"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/stale_assumption_item"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "diagnostic_type": {
+            "const": "stale_evidence"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "summary": {
+            "$ref": "#/$defs/stale_evidence_summary"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/stale_evidence_item"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "diagnostic_type": {
+            "const": "verification_gaps"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "summary": {
+            "$ref": "#/$defs/verification_gap_summary"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/verification_gap_item"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "diagnostic_type": {
+            "const": "revisit_due"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "summary": {
+            "$ref": "#/$defs/default_summary"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/revisit_due_item"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "nullable_string": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "nullable_date_time": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "string_counts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "string_array": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "common_item": {
+      "type": "object",
+      "required": [
+        "object_id",
+        "title",
+        "status",
+        "created_at",
+        "updated_at",
+        "source_event_ids"
+      ],
+      "properties": {
+        "object_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "$ref": "#/$defs/nullable_string"
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "$ref": "#/$defs/nullable_date_time"
+        },
+        "source_event_ids": {
+          "$ref": "#/$defs/string_array"
+        }
+      }
+    },
+    "default_summary": {
+      "type": "object",
+      "required": [
+        "item_count",
+        "by_status"
+      ],
+      "properties": {
+        "item_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "by_status": {
+          "$ref": "#/$defs/string_counts"
+        }
+      },
+      "additionalProperties": false
+    },
+    "stale_evidence_summary": {
+      "type": "object",
+      "required": [
+        "item_count",
+        "by_status",
+        "affected_decision_count"
+      ],
+      "properties": {
+        "item_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "by_status": {
+          "$ref": "#/$defs/string_counts"
+        },
+        "affected_decision_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "verification_gap_summary": {
+      "type": "object",
+      "required": [
+        "item_count",
+        "by_status",
+        "by_gap_severity"
+      ],
+      "properties": {
+        "item_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "by_status": {
+          "$ref": "#/$defs/string_counts"
+        },
+        "by_gap_severity": {
+          "$ref": "#/$defs/string_counts"
+        }
+      },
+      "additionalProperties": false
+    },
+    "stale_assumption_item": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/$defs/common_item"
+        },
+        {
+          "type": "object",
+          "required": [
+            "statement",
+            "confidence",
+            "expires_at",
+            "owner",
+            "invalidates_if_false",
+            "related_object_ids",
+            "related_link_ids",
+            "stale_reason"
+          ],
+          "properties": {
+            "statement": {
+              "type": "string",
+              "minLength": 1
+            },
+            "confidence": {
+              "enum": [
+                "low",
+                "medium",
+                "high"
+              ]
+            },
+            "expires_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "owner": {
+              "$ref": "#/$defs/nullable_string"
+            },
+            "invalidates_if_false": {
+              "$ref": "#/$defs/string_array"
+            },
+            "related_object_ids": {
+              "$ref": "#/$defs/string_array"
+            },
+            "related_link_ids": {
+              "$ref": "#/$defs/string_array"
+            },
+            "stale_reason": {
+              "const": "expires_at_elapsed"
+            }
+          }
+        }
+      ]
+    },
+    "stale_evidence_item": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/$defs/common_item"
+        },
+        {
+          "type": "object",
+          "required": [
+            "source",
+            "source_ref",
+            "summary",
+            "confidence",
+            "freshness",
+            "observed_at",
+            "valid_until",
+            "stale_reasons",
+            "affected_object_ids",
+            "affected_decision_ids",
+            "related_link_ids"
+          ],
+          "properties": {
+            "source": {
+              "enum": [
+                "codebase",
+                "docs",
+                "tests",
+                "external",
+                "existing-decisions",
+                "close-summaries"
+              ]
+            },
+            "source_ref": {
+              "type": "string",
+              "minLength": 1
+            },
+            "summary": {
+              "type": "string",
+              "minLength": 1
+            },
+            "confidence": {
+              "enum": [
+                "low",
+                "medium",
+                "high"
+              ]
+            },
+            "freshness": {
+              "enum": [
+                "current",
+                "stale",
+                "unknown"
+              ]
+            },
+            "observed_at": {
+              "$ref": "#/$defs/nullable_date_time"
+            },
+            "valid_until": {
+              "$ref": "#/$defs/nullable_date_time"
+            },
+            "stale_reasons": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "valid_until_elapsed",
+                  "freshness_stale"
+                ]
+              },
+              "uniqueItems": true
+            },
+            "affected_object_ids": {
+              "$ref": "#/$defs/string_array"
+            },
+            "affected_decision_ids": {
+              "$ref": "#/$defs/string_array"
+            },
+            "related_link_ids": {
+              "$ref": "#/$defs/string_array"
+            }
+          }
+        }
+      ]
+    },
+    "verification_gap_item": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/$defs/common_item"
+        },
+        {
+          "type": "object",
+          "required": [
+            "gap_severity",
+            "gap_reason",
+            "verification_object_ids",
+            "evidence_object_ids",
+            "related_link_ids"
+          ],
+          "properties": {
+            "gap_severity": {
+              "enum": [
+                "medium",
+                "high"
+              ]
+            },
+            "gap_reason": {
+              "const": "missing_verification"
+            },
+            "verification_object_ids": {
+              "$ref": "#/$defs/string_array"
+            },
+            "evidence_object_ids": {
+              "$ref": "#/$defs/string_array"
+            },
+            "related_link_ids": {
+              "$ref": "#/$defs/string_array"
+            }
+          }
+        }
+      ]
+    },
+    "revisit_due_item": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/$defs/common_item"
+        },
+        {
+          "type": "object",
+          "required": [
+            "trigger_type",
+            "condition",
+            "due_at",
+            "target_object_ids",
+            "related_link_ids",
+            "due_reason"
+          ],
+          "properties": {
+            "trigger_type": {
+              "enum": [
+                "time",
+                "evidence",
+                "outcome",
+                "dependency"
+              ]
+            },
+            "condition": {
+              "type": "string",
+              "minLength": 1
+            },
+            "due_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "target_object_ids": {
+              "$ref": "#/$defs/string_array"
+            },
+            "related_link_ids": {
+              "$ref": "#/$defs/string_array"
+            },
+            "due_reason": {
+              "const": "due_at_elapsed"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

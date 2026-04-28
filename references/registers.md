@@ -83,3 +83,8 @@ gaps, and due revisit diagnostics.
 Step 3 safety gate evaluation is exposed through `show-safety-gate` and `show-safety-gates`.
 Those commands consume the same object/link facts but remain read-only diagnostics. They do not
 persist register or gate state.
+
+Step 4 stale detection is exposed through `show-stale-assumptions`, `show-stale-evidence`,
+`show-verification-gaps`, and `show-revisit-due`. Those commands also consume typed object
+metadata and links directly from `project-state.json`. `show-verification-gaps` returns structured
+JSON, while `export-verification-gaps` remains the derived Markdown export.

@@ -37,6 +37,12 @@ from decide_me.session_graph import (
     detect_session_conflicts,
     show_session_graph,
 )
+from decide_me.stale_detection import (
+    detect_revisit_due,
+    detect_stale_assumptions,
+    detect_stale_evidence,
+    detect_verification_gaps,
+)
 from decide_me.store import (
     benchmark_runtime,
     bootstrap_runtime,
@@ -211,6 +217,34 @@ def main(argv: list[str] | None = None) -> int:
         help="show read-only safety gate results for live decisions and actions",
     )
     show_safety_gates.add_argument("--ai-dir", required=True)
+
+    show_stale_assumptions = subparsers.add_parser(
+        "show-stale-assumptions",
+        help="show read-only stale assumption diagnostics",
+    )
+    show_stale_assumptions.add_argument("--ai-dir", required=True)
+    show_stale_assumptions.add_argument("--now")
+
+    show_stale_evidence = subparsers.add_parser(
+        "show-stale-evidence",
+        help="show read-only stale evidence diagnostics",
+    )
+    show_stale_evidence.add_argument("--ai-dir", required=True)
+    show_stale_evidence.add_argument("--now")
+
+    show_verification_gaps = subparsers.add_parser(
+        "show-verification-gaps",
+        help="show read-only structured verification gap diagnostics",
+    )
+    show_verification_gaps.add_argument("--ai-dir", required=True)
+    show_verification_gaps.add_argument("--now")
+
+    show_revisit_due = subparsers.add_parser(
+        "show-revisit-due",
+        help="show read-only due revisit trigger diagnostics",
+    )
+    show_revisit_due.add_argument("--ai-dir", required=True)
+    show_revisit_due.add_argument("--now")
 
     adr = subparsers.add_parser("export-adr", help="export an ADR markdown file")
     adr.add_argument("--ai-dir", required=True)
@@ -437,6 +471,18 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "show-safety-gates":
             bundle = load_runtime(runtime_paths(args.ai_dir))
             _print_json(build_safety_gate_report(bundle["project_state"]))
+        elif args.command == "show-stale-assumptions":
+            bundle = load_runtime(runtime_paths(args.ai_dir))
+            _print_json(detect_stale_assumptions(bundle["project_state"], now=args.now))
+        elif args.command == "show-stale-evidence":
+            bundle = load_runtime(runtime_paths(args.ai_dir))
+            _print_json(detect_stale_evidence(bundle["project_state"], now=args.now))
+        elif args.command == "show-verification-gaps":
+            bundle = load_runtime(runtime_paths(args.ai_dir))
+            _print_json(detect_verification_gaps(bundle["project_state"], now=args.now))
+        elif args.command == "show-revisit-due":
+            bundle = load_runtime(runtime_paths(args.ai_dir))
+            _print_json(detect_revisit_due(bundle["project_state"], now=args.now))
         elif args.command == "export-adr":
             path = export_adr(args.ai_dir, args.decision_id)
             _print_json({"path": str(path)})

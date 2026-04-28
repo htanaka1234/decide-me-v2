@@ -51,7 +51,9 @@ Risks:
   values across related risks.
 
 Step 3 intentionally does not compare timestamps. `valid_until`, `expires_at`, verification gaps,
-and due revisit checks belong to the stale-detection diagnostics in Step 4.
+and due revisit checks belong to the Step 4 stale-detection diagnostics exposed through
+`show-stale-assumptions`, `show-stale-evidence`, `show-verification-gaps`, and
+`show-revisit-due`.
 
 ## Output
 
@@ -97,3 +99,6 @@ Warning reasons:
 
 `gate_status` is `blocked` when any blocking reason exists, otherwise `needs_approval` when any
 approval reason exists, otherwise `passed`.
+
+Stale diagnostics are separate read-only inputs for later gate phases. They do not change these
+status rules in Step 4.
