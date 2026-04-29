@@ -71,6 +71,10 @@ def build_interview_policy_from_metadata(
     *,
     label: str,
 ) -> InterviewPolicy:
+    present = [key for key in PACK_METADATA_KEYS if key in metadata]
+    if present and len(present) != len(PACK_METADATA_KEYS):
+        missing = sorted(set(PACK_METADATA_KEYS) - set(present))
+        raise ValueError(f"{label} has incomplete domain pack metadata; missing: {', '.join(missing)}")
     pack_id = metadata.get("domain_pack_id")
     try:
         policy = build_interview_policy(registry, domain_pack_id=pack_id)
@@ -79,10 +83,6 @@ def build_interview_policy_from_metadata(
     if pack_id is None:
         return policy
 
-    present = [key for key in PACK_METADATA_KEYS if key in metadata]
-    if len(present) != len(PACK_METADATA_KEYS):
-        missing = sorted(set(PACK_METADATA_KEYS) - set(present))
-        raise ValueError(f"{label} has incomplete domain pack metadata; missing: {', '.join(missing)}")
     _validate_policy_metadata(policy, metadata, label=label)
     return policy
 

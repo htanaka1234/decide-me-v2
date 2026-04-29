@@ -453,9 +453,15 @@ def _domain_pack_metadata_issues(
 ) -> list[str]:
     from decide_me.domains import domain_pack_digest
 
-    pack_id = metadata.get("domain_pack_id")
-    if pack_id is None:
+    pack_metadata_keys = ("domain_pack_id", "domain_pack_version", "domain_pack_digest")
+    present = [key for key in pack_metadata_keys if key in metadata]
+    if present and len(present) != len(pack_metadata_keys):
+        missing = sorted(set(pack_metadata_keys) - set(present))
+        return [f"{label} has incomplete domain pack metadata; missing: {', '.join(missing)}"]
+    if not present:
         return []
+
+    pack_id = metadata.get("domain_pack_id")
     try:
         pack = registry.get(pack_id)
     except KeyError as exc:

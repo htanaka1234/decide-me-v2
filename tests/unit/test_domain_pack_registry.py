@@ -25,6 +25,7 @@ from decide_me.domains import (
     load_user_packs,
     validate_domain_pack_payload,
 )
+from decide_me.store import _domain_pack_metadata_issues
 
 
 EXPECTED_BUILTINS = {"generic", "software", "research", "procurement"}
@@ -207,6 +208,37 @@ class DomainPackRegistryTests(unittest.TestCase):
                 {"domain_pack_id": "research"},
                 label="decision D-001",
             )
+        with self.assertRaisesRegex(ValueError, "incomplete domain pack metadata"):
+            build_interview_policy_from_metadata(
+                registry,
+                {"domain_pack_version": research.version},
+                label="session S-001.classification",
+            )
+        with self.assertRaisesRegex(ValueError, "incomplete domain pack metadata"):
+            build_interview_policy_from_metadata(
+                registry,
+                {"domain_pack_digest": domain_pack_digest(research)},
+                label="session S-001.classification",
+            )
+
+    def test_runtime_domain_pack_metadata_issues_reject_partial_metadata(self) -> None:
+        registry = load_domain_registry()
+
+        version_only = _domain_pack_metadata_issues(
+            registry,
+            {"domain_pack_version": registry.get("research").version},
+            "session S-001.classification",
+        )
+        digest_only = _domain_pack_metadata_issues(
+            registry,
+            {"domain_pack_digest": domain_pack_digest(registry.get("research"))},
+            "session S-001.classification",
+        )
+
+        self.assertEqual(1, len(version_only))
+        self.assertIn("incomplete domain pack metadata", version_only[0])
+        self.assertEqual(1, len(digest_only))
+        self.assertIn("incomplete domain pack metadata", digest_only[0])
 
     def test_apply_decision_pack_metadata_omits_type_when_inference_fails(self) -> None:
         registry = load_domain_registry()
