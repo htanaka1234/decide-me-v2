@@ -272,7 +272,7 @@ def _decision_summary(context: DocumentContext, decision: dict[str, Any]) -> str
     if decision.get("status") not in FINAL_DECISION_STATUSES:
         return decision.get("body")
     by_id = objects_by_id(context)
-    for link in context.project_state.get("links", []):
+    for link in context.scoped_project_state.get("links", []):
         if link.get("source_object_id") == decision["id"] and link.get("relation") == "accepts":
             proposal = by_id.get(link.get("target_object_id"))
             if proposal:

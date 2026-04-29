@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from decide_me.exporters.common import project_head, snapshot_generated_at
+from decide_me.projections import build_decision_stack_graph
 from decide_me.registers import build_assumption_register, build_evidence_register, build_risk_register
 from decide_me.safety_gate import build_safety_gate_report
 from decide_me.stale_detection import (
@@ -27,6 +28,7 @@ class DocumentContext:
     bundle: dict[str, Any]
     events: list[dict[str, Any]]
     project_state: dict[str, Any]
+    scoped_project_state: dict[str, Any]
     sessions: list[dict[str, Any]]
     source_session_ids: list[str]
     generated_at: str | None
@@ -41,6 +43,8 @@ class DocumentContext:
     revisit_due: dict[str, Any]
     action_plan: dict[str, Any] | None
     object_ids: list[str]
+    scope_object_ids: list[str]
+    scope_link_ids: list[str]
     include_invalidated: bool
 
 
@@ -66,28 +70,38 @@ def build_document_context(
         sessions,
         project_state.get("graph", {}).get("resolved_conflicts", []),
     )
+    requested_object_ids = sorted(stable_unique(object_ids or []))
+    scoped_project_state, scope_object_ids, scope_link_ids = _scoped_project_state(
+        project_state,
+        normalized_sessions,
+        object_ids=requested_object_ids,
+        include_invalidated=include_invalidated,
+    )
     action_plan = None
     if document_type in ACTION_PLAN_DOCUMENT_TYPES:
-        action_plan = _build_action_plan(document_type, sessions, project_state)
+        action_plan = _build_action_plan(document_type, sessions, project_state, scoped_project_state)
 
     return DocumentContext(
         bundle=bundle,
         events=events,
         project_state=project_state,
+        scoped_project_state=scoped_project_state,
         sessions=normalized_sessions,
         source_session_ids=source_session_ids,
         generated_at=now or snapshot_generated_at(bundle, events),
         project_head=project_head(bundle),
-        evidence_register=build_evidence_register(project_state),
-        assumption_register=build_assumption_register(project_state),
-        risk_register=build_risk_register(project_state),
-        safety_gates=build_safety_gate_report(project_state, now=now),
-        stale_assumptions=detect_stale_assumptions(project_state, now=now),
-        stale_evidence=detect_stale_evidence(project_state, now=now),
-        verification_gaps=detect_verification_gaps(project_state, now=now),
-        revisit_due=detect_revisit_due(project_state, now=now),
+        evidence_register=build_evidence_register(scoped_project_state),
+        assumption_register=build_assumption_register(scoped_project_state),
+        risk_register=build_risk_register(scoped_project_state),
+        safety_gates=build_safety_gate_report(scoped_project_state, now=now),
+        stale_assumptions=detect_stale_assumptions(scoped_project_state, now=now),
+        stale_evidence=detect_stale_evidence(scoped_project_state, now=now),
+        verification_gaps=detect_verification_gaps(scoped_project_state, now=now),
+        revisit_due=detect_revisit_due(scoped_project_state, now=now),
         action_plan=action_plan,
-        object_ids=sorted(stable_unique(object_ids or [])),
+        object_ids=requested_object_ids,
+        scope_object_ids=scope_object_ids,
+        scope_link_ids=scope_link_ids,
         include_invalidated=include_invalidated,
     )
 
@@ -96,6 +110,7 @@ def _build_action_plan(
     document_type: str,
     sessions: list[dict[str, Any]],
     project_state: dict[str, Any],
+    scoped_project_state: dict[str, Any],
 ) -> dict[str, Any]:
     from decide_me.planner import assemble_action_plan, detect_conflicts
 
@@ -110,9 +125,164 @@ def _build_action_plan(
         raise ValueError(f"unresolved session conflicts block {document_type} document export: {conflict_ids}")
     return assemble_action_plan(
         sessions,
-        project_state,
+        scoped_project_state,
         resolved_conflicts=resolved_conflicts,
     )
+
+
+def _scoped_project_state(
+    project_state: dict[str, Any],
+    sessions: list[dict[str, Any]],
+    *,
+    object_ids: list[str],
+    include_invalidated: bool,
+) -> tuple[dict[str, Any], list[str], list[str]]:
+    objects_by_id = {obj["id"]: obj for obj in project_state.get("objects", [])}
+    links_by_id = {link["id"]: link for link in project_state.get("links", [])}
+    for object_id in object_ids:
+        if object_id not in objects_by_id:
+            raise ValueError(f"unknown object_id: {object_id}")
+
+    session_object_ids, session_link_ids = _session_scope_ids(sessions, links_by_id)
+    if object_ids:
+        scoped_object_ids, scoped_link_ids = _object_narrowed_scope(
+            object_ids,
+            session_object_ids,
+            session_link_ids,
+            links_by_id,
+        )
+    else:
+        scoped_object_ids = set(session_object_ids)
+        scoped_link_ids = set(session_link_ids)
+
+    if not include_invalidated:
+        scoped_object_ids = {
+            object_id
+            for object_id in scoped_object_ids
+            if objects_by_id.get(object_id, {}).get("status") != "invalidated"
+        }
+    scoped_link_ids = {
+        link_id
+        for link_id in scoped_link_ids
+        if (link := links_by_id.get(link_id))
+        and link.get("source_object_id") in scoped_object_ids
+        and link.get("target_object_id") in scoped_object_ids
+    }
+    scoped_object_ids.update(
+        endpoint
+        for link_id in scoped_link_ids
+        if (link := links_by_id.get(link_id))
+        for endpoint in (link.get("source_object_id"), link.get("target_object_id"))
+        if endpoint in objects_by_id
+    )
+    if not include_invalidated:
+        scoped_object_ids = {
+            object_id
+            for object_id in scoped_object_ids
+            if objects_by_id.get(object_id, {}).get("status") != "invalidated"
+        }
+        scoped_link_ids = {
+            link_id
+            for link_id in scoped_link_ids
+            if (link := links_by_id.get(link_id))
+            and link.get("source_object_id") in scoped_object_ids
+            and link.get("target_object_id") in scoped_object_ids
+        }
+
+    scoped = deepcopy(project_state)
+    scoped["objects"] = [
+        deepcopy(objects_by_id[object_id])
+        for object_id in sorted(scoped_object_ids)
+        if object_id in objects_by_id
+    ]
+    scoped["links"] = [
+        deepcopy(links_by_id[link_id])
+        for link_id in sorted(scoped_link_ids)
+        if link_id in links_by_id
+    ]
+    scoped["counts"] = _counts_for_scoped_state(scoped["objects"], scoped["links"])
+    scoped["graph"] = build_decision_stack_graph(scoped)
+    return scoped, [obj["id"] for obj in scoped["objects"]], [link["id"] for link in scoped["links"]]
+
+
+def _session_scope_ids(
+    sessions: list[dict[str, Any]],
+    links_by_id: dict[str, dict[str, Any]],
+) -> tuple[set[str], set[str]]:
+    object_ids: set[str] = set()
+    link_ids: set[str] = set()
+    for session in sessions:
+        object_ids.update(session.get("session", {}).get("related_object_ids", []))
+        close_summary = session.get("close_summary", {})
+        for values in close_summary.get("object_ids", {}).values():
+            object_ids.update(values)
+        objective_id = close_summary.get("work_item", {}).get("objective_object_id")
+        if objective_id:
+            object_ids.add(objective_id)
+        link_ids.update(close_summary.get("link_ids", []))
+    object_ids.update(
+        endpoint
+        for link_id in link_ids
+        if (link := links_by_id.get(link_id))
+        for endpoint in (link.get("source_object_id"), link.get("target_object_id"))
+        if endpoint
+    )
+    link_ids.update(
+        link["id"]
+        for link in links_by_id.values()
+        if link.get("source_object_id") in object_ids and link.get("target_object_id") in object_ids
+    )
+    return object_ids, link_ids
+
+
+def _object_narrowed_scope(
+    requested_object_ids: list[str],
+    session_object_ids: set[str],
+    session_link_ids: set[str],
+    links_by_id: dict[str, dict[str, Any]],
+) -> tuple[set[str], set[str]]:
+    allowed_requested_ids = set(requested_object_ids) & session_object_ids
+    scoped_object_ids = set(allowed_requested_ids)
+    scoped_link_ids: set[str] = set()
+    changed = True
+    while changed:
+        changed = False
+        for link_id in session_link_ids:
+            link = links_by_id.get(link_id)
+            if not link:
+                continue
+            source_id = link.get("source_object_id")
+            target_id = link.get("target_object_id")
+            if source_id not in session_object_ids or target_id not in session_object_ids:
+                continue
+            if source_id not in scoped_object_ids and target_id not in scoped_object_ids:
+                continue
+            if link_id not in scoped_link_ids:
+                scoped_link_ids.add(link_id)
+                changed = True
+            for object_id in (source_id, target_id):
+                if object_id and object_id not in scoped_object_ids:
+                    scoped_object_ids.add(object_id)
+                    changed = True
+    return scoped_object_ids, scoped_link_ids
+
+
+def _counts_for_scoped_state(objects: list[dict[str, Any]], links: list[dict[str, Any]]) -> dict[str, Any]:
+    by_type: dict[str, int] = {}
+    by_status: dict[str, int] = {}
+    by_relation: dict[str, int] = {}
+    for obj in objects:
+        by_type[obj["type"]] = by_type.get(obj["type"], 0) + 1
+        by_status[obj["status"]] = by_status.get(obj["status"], 0) + 1
+    for link in links:
+        by_relation[link["relation"]] = by_relation.get(link["relation"], 0) + 1
+    return {
+        "object_total": len(objects),
+        "link_total": len(links),
+        "by_type": {key: by_type[key] for key in sorted(by_type)},
+        "by_status": {key: by_status[key] for key in sorted(by_status)},
+        "by_relation": {key: by_relation[key] for key in sorted(by_relation)},
+    }
 
 
 def _selected_closed_sessions(

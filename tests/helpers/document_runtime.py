@@ -34,8 +34,52 @@ def build_document_runtime(tmp: Path) -> tuple[Path, str]:
     return ai_dir, session_id
 
 
+def build_two_session_document_runtime(tmp: Path) -> tuple[Path, str, str]:
+    ai_dir, first_session_id = build_document_runtime(tmp)
+    session = create_session(str(ai_dir), context="Second Phase 8 document compiler session")
+    second_session_id = session["session"]["id"]
+    transact(ai_dir, lambda _bundle: _second_session_events(second_session_id))
+    rebuild_and_persist(ai_dir)
+    close_session(str(ai_dir), second_session_id)
+    return ai_dir, first_session_id, second_session_id
+
+
 def document_events(session_id: str) -> list[dict[str, Any]]:
     return _events(session_id)
+
+
+def _second_session_events(session_id: str) -> list[dict[str, Any]]:
+    object_specs = [
+        ("E2-objective", "OBJ-002", "objective", "active", "Second session objective.", {}),
+        ("E2-decision", "DEC-002", "decision", "accepted", "Use a second document model.", {"priority": "P1", "frontier": "later"}),
+        ("E2-proposal", "PRO-002", "proposal", "accepted", "Second proposal.", {}),
+        ("E2-option", "OPT-002", "option", "active", "Second option.", {}),
+    ]
+    link_specs = [
+        ("E2-link-proposal-decision", "L-PRO-002-addresses-DEC-002", "PRO-002", "addresses", "DEC-002"),
+        ("E2-link-proposal-option", "L-PRO-002-recommends-OPT-002", "PRO-002", "recommends", "OPT-002"),
+        ("E2-link-decision-proposal", "L-DEC-002-accepts-PRO-002", "DEC-002", "accepts", "PRO-002"),
+        ("E2-link-objective-decision", "L-OBJ-002-constrains-DEC-002", "OBJ-002", "constrains", "DEC-002"),
+    ]
+    return [
+        {
+            "event_id": event_id,
+            "session_id": session_id,
+            "event_type": "object_recorded",
+            "payload": {
+                "object": _object(object_id, object_type, status, body, event_id, metadata),
+            },
+        }
+        for event_id, object_id, object_type, status, body, metadata in object_specs
+    ] + [
+        {
+            "event_id": event_id,
+            "session_id": session_id,
+            "event_type": "object_linked",
+            "payload": {"link": _link(link_id, source, relation, target, event_id)},
+        }
+        for event_id, link_id, source, relation, target in link_specs
+    ]
 
 
 def _events(session_id: str) -> list[dict[str, Any]]:
@@ -91,6 +135,18 @@ def _events(session_id: str) -> list[dict[str, Any]]:
                 risk_tier="medium",
                 approval_threshold="explicit_acceptance",
                 mitigation_object_ids=["ACT-001"],
+            ),
+        ),
+        (
+            "E-risk-invalidated",
+            "RSK-002",
+            "risk",
+            "invalidated",
+            "Superseded document risk.",
+            risk_metadata(
+                statement="Superseded document risk.",
+                risk_tier="low",
+                approval_threshold="none",
             ),
         ),
         (
@@ -151,6 +207,7 @@ def _events(session_id: str) -> list[dict[str, Any]]:
         ("E-link-stale-decision", "L-EVI-002-supports-DEC-001", "EVI-002", "supports", "DEC-001"),
         ("E-link-assumption-decision", "L-ASM-001-constrains-DEC-001", "ASM-001", "constrains", "DEC-001"),
         ("E-link-risk-decision", "L-RSK-001-challenges-DEC-001", "RSK-001", "challenges", "DEC-001"),
+        ("E-link-invalidated-risk-decision", "L-RSK-002-challenges-DEC-001", "RSK-002", "challenges", "DEC-001"),
         ("E-link-action-risk", "L-ACT-001-mitigates-RSK-001", "ACT-001", "mitigates", "RSK-001"),
         ("E-link-action-decision", "L-ACT-001-addresses-DEC-001", "ACT-001", "addresses", "DEC-001"),
         ("E-link-verification-action", "L-VER-001-verifies-ACT-001", "VER-001", "verifies", "ACT-001"),

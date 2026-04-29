@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from typing import Any
 
 from decide_me.documents.context import DocumentContext
@@ -11,17 +12,17 @@ LIVE_STATUSES_EXCLUDED_BY_DEFAULT = {"invalidated"}
 
 
 def objects_by_id(context: DocumentContext) -> dict[str, dict[str, Any]]:
-    return {obj["id"]: obj for obj in context.project_state.get("objects", [])}
+    return {obj["id"]: obj for obj in context.scoped_project_state.get("objects", [])}
 
 
 def links_by_id(context: DocumentContext) -> dict[str, dict[str, Any]]:
-    return {link["id"]: link for link in context.project_state.get("links", [])}
+    return {link["id"]: link for link in context.scoped_project_state.get("links", [])}
 
 
 def objects_of_type(context: DocumentContext, object_type: str) -> list[dict[str, Any]]:
     return [
         obj
-        for obj in sorted(context.project_state.get("objects", []), key=lambda item: item["id"])
+        for obj in sorted(context.scoped_project_state.get("objects", []), key=lambda item: item["id"])
         if obj.get("type") == object_type and selected_object(context, obj)
     ]
 
@@ -29,14 +30,12 @@ def objects_of_type(context: DocumentContext, object_type: str) -> list[dict[str
 def objects_of_types(context: DocumentContext, object_types: set[str]) -> list[dict[str, Any]]:
     return [
         obj
-        for obj in sorted(context.project_state.get("objects", []), key=lambda item: (item["type"], item["id"]))
+        for obj in sorted(context.scoped_project_state.get("objects", []), key=lambda item: (item["type"], item["id"]))
         if obj.get("type") in object_types and selected_object(context, obj)
     ]
 
 
 def selected_object(context: DocumentContext, obj: dict[str, Any]) -> bool:
-    if context.object_ids and obj["id"] not in set(context.object_ids):
-        return False
     if not context.include_invalidated and obj.get("status") in LIVE_STATUSES_EXCLUDED_BY_DEFAULT:
         return False
     return True
@@ -47,7 +46,7 @@ def link_ids_touching(context: DocumentContext, object_ids: list[str]) -> list[s
     return sorted(
         stable_unique(
             link["id"]
-            for link in context.project_state.get("links", [])
+            for link in context.scoped_project_state.get("links", [])
             if link.get("source_object_id") in ids or link.get("target_object_id") in ids
         )
     )
@@ -56,7 +55,7 @@ def link_ids_touching(context: DocumentContext, object_ids: list[str]) -> list[s
 def related_object_ids(context: DocumentContext, object_id: str, *, types: set[str] | None = None) -> list[str]:
     by_id = objects_by_id(context)
     related: list[str] = []
-    for link in context.project_state.get("links", []):
+    for link in context.scoped_project_state.get("links", []):
         candidate = None
         if link.get("source_object_id") == object_id:
             candidate = link.get("target_object_id")
@@ -71,6 +70,44 @@ def related_object_ids(context: DocumentContext, object_id: str, *, types: set[s
             continue
         related.append(candidate)
     return sorted(stable_unique(related))
+
+
+def links_for(
+    context: DocumentContext,
+    *,
+    source_object_id: str | None = None,
+    relation: str | None = None,
+    target_object_id: str | None = None,
+) -> list[dict[str, Any]]:
+    return [
+        link
+        for link in sorted(context.scoped_project_state.get("links", []), key=lambda item: item["id"])
+        if (source_object_id is None or link.get("source_object_id") == source_object_id)
+        and (relation is None or link.get("relation") == relation)
+        and (target_object_id is None or link.get("target_object_id") == target_object_id)
+    ]
+
+
+@dataclass
+class Trace:
+    object_ids: list[str] = field(default_factory=list)
+    link_ids: list[str] = field(default_factory=list)
+
+    def add_object(self, *object_ids: str | None) -> None:
+        self.object_ids = stable_unique([*self.object_ids, *(object_id for object_id in object_ids if object_id)])
+
+    def add_objects(self, object_ids: list[str]) -> None:
+        self.add_object(*object_ids)
+
+    def add_link(self, *link_ids: str | None) -> None:
+        self.link_ids = stable_unique([*self.link_ids, *(link_id for link_id in link_ids if link_id)])
+
+    def add_links(self, link_ids: list[str]) -> None:
+        self.add_link(*link_ids)
+
+    def merge(self, other: "Trace") -> None:
+        self.add_objects(other.object_ids)
+        self.add_links(other.link_ids)
 
 
 def diagnostic_object_ids(payload: dict[str, Any], *keys: str) -> list[str]:
@@ -128,15 +165,8 @@ def metadata_value(obj: dict[str, Any], key: str) -> Any:
 def source_traceability_section(context: DocumentContext, order: int) -> dict[str, Any]:
     from decide_me.documents.model import list_block, section
 
-    close_object_ids = []
-    close_link_ids = []
-    for session in context.sessions:
-        close_summary = session.get("close_summary", {})
-        for values in close_summary.get("object_ids", {}).values():
-            close_object_ids.extend(values)
-        close_link_ids.extend(close_summary.get("link_ids", []))
-    source_object_ids = sorted(stable_unique(close_object_ids))
-    source_link_ids = sorted(stable_unique(close_link_ids))
+    source_object_ids = list(context.scope_object_ids)
+    source_link_ids = list(context.scope_link_ids)
     return section(
         "source-traceability",
         "Source Traceability",

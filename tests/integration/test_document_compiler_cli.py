@@ -9,7 +9,7 @@ from jsonschema import Draft202012Validator
 
 from decide_me.lifecycle import close_session, create_session
 from decide_me.store import bootstrap_runtime, rebuild_and_persist, transact
-from tests.helpers.document_runtime import NOW, build_document_runtime
+from tests.helpers.document_runtime import NOW, build_document_runtime, build_two_session_document_runtime
 from tests.helpers.impact_runtime import changed_paths, run_cli, runtime_state_snapshot, tree_hash_snapshot
 from tests.helpers.typed_metadata import metadata_for_object_type
 
@@ -160,6 +160,80 @@ class DocumentCompilerCliTests(unittest.TestCase):
             self.assertEqual(runtime_before, runtime_state_snapshot(ai_dir))
             self.assertEqual(["exports/documents/risk-register.md"], changed)
             self.assertIn("Keep this note.", output.read_text(encoding="utf-8"))
+
+    def test_session_id_export_is_scoped_to_selected_closed_session(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir, first_session_id, _second_session_id = build_two_session_document_runtime(Path(tmp))
+            output = ai_dir / "exports" / "documents" / "decision-brief.json"
+
+            run_cli(
+                "export-document",
+                "--ai-dir",
+                str(ai_dir),
+                "--type",
+                "decision-brief",
+                "--format",
+                "json",
+                "--session-id",
+                first_session_id,
+                "--now",
+                NOW,
+                "--output",
+                str(output),
+            )
+
+            model = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual([first_session_id], model["source"]["session_ids"])
+            self.assertIn("OBJ-001", model["source"]["object_ids"])
+            self.assertNotIn("OBJ-002", model["source"]["object_ids"])
+            self.assertNotIn("DEC-002", model["source"]["object_ids"])
+
+    def test_object_id_export_narrows_scope_and_rejects_unknown_ids(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir, session_id = build_document_runtime(Path(tmp))
+            output = ai_dir / "exports" / "documents" / "comparison-table.json"
+
+            run_cli(
+                "export-document",
+                "--ai-dir",
+                str(ai_dir),
+                "--type",
+                "comparison-table",
+                "--format",
+                "json",
+                "--session-id",
+                session_id,
+                "--object-id",
+                "OPT-001",
+                "--now",
+                NOW,
+                "--output",
+                str(output),
+            )
+            model = json.loads(output.read_text(encoding="utf-8"))
+            self.assertIn("OPT-001", model["source"]["object_ids"])
+            self.assertNotIn("RSK-002", model["source"]["object_ids"])
+
+            bad_output = ai_dir / "exports" / "documents" / "unknown-object.json"
+            result = run_cli(
+                "export-document",
+                "--ai-dir",
+                str(ai_dir),
+                "--type",
+                "comparison-table",
+                "--format",
+                "json",
+                "--session-id",
+                session_id,
+                "--object-id",
+                "MISSING-001",
+                "--output",
+                str(bad_output),
+                check=False,
+            )
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn("unknown object_id: MISSING-001", result.stderr)
+            self.assertFalse(bad_output.exists())
 
     def test_action_plan_export_fails_on_unresolved_conflicts_before_writing(self) -> None:
         with TemporaryDirectory() as tmp:
