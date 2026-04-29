@@ -1,0 +1,438 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/decide-me/domain-pack.schema.json",
+  "title": "Decide Me Domain Pack",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "pack_id",
+    "version",
+    "label",
+    "description",
+    "aliases",
+    "default_core_domain",
+    "decision_types",
+    "criteria",
+    "evidence_requirements",
+    "risk_types",
+    "safety_rules",
+    "documents",
+    "interview"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "pack_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "version": {
+      "$ref": "#/$defs/non_empty_string"
+    },
+    "label": {
+      "$ref": "#/$defs/non_empty_string"
+    },
+    "description": {
+      "$ref": "#/$defs/non_empty_string"
+    },
+    "aliases": {
+      "$ref": "#/$defs/non_empty_string_array"
+    },
+    "default_core_domain": {
+      "$ref": "#/$defs/core_domain"
+    },
+    "decision_types": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/decision_type"
+      },
+      "uniqueItems": true
+    },
+    "criteria": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/criterion"
+      },
+      "uniqueItems": true
+    },
+    "evidence_requirements": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evidence_requirement"
+      },
+      "uniqueItems": true
+    },
+    "risk_types": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/risk_type"
+      },
+      "uniqueItems": true
+    },
+    "safety_rules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/safety_rule"
+      },
+      "uniqueItems": true
+    },
+    "documents": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/document"
+      },
+      "uniqueItems": true
+    },
+    "interview": {
+      "$ref": "#/$defs/interview"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "non_empty_string": {
+      "type": "string",
+      "minLength": 1
+    },
+    "non_empty_string_array": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/non_empty_string"
+      },
+      "uniqueItems": true
+    },
+    "identifier_array": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/identifier"
+      },
+      "uniqueItems": true
+    },
+    "core_domain": {
+      "enum": [
+        "product",
+        "technical",
+        "data",
+        "ux",
+        "ops",
+        "legal",
+        "other"
+      ]
+    },
+    "object_type": {
+      "enum": [
+        "objective",
+        "constraint",
+        "criterion",
+        "option",
+        "proposal",
+        "decision",
+        "assumption",
+        "evidence",
+        "risk",
+        "action",
+        "verification",
+        "revisit_trigger",
+        "artifact"
+      ]
+    },
+    "decision_stack_layer": {
+      "enum": [
+        "purpose",
+        "principle",
+        "constraint",
+        "strategy",
+        "design",
+        "execution",
+        "verification",
+        "review"
+      ]
+    },
+    "decision_kind": {
+      "enum": [
+        "choice",
+        "constraint",
+        "risk",
+        "dependency"
+      ]
+    },
+    "priority": {
+      "enum": [
+        "P0",
+        "P1",
+        "P2"
+      ]
+    },
+    "decision_reversibility": {
+      "enum": [
+        "reversible",
+        "hard-to-reverse",
+        "irreversible",
+        "unknown"
+      ]
+    },
+    "evidence_source": {
+      "enum": [
+        "codebase",
+        "docs",
+        "tests",
+        "external",
+        "existing-decisions",
+        "close-summaries"
+      ]
+    },
+    "confidence": {
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "freshness": {
+      "enum": [
+        "current",
+        "stale",
+        "unknown"
+      ]
+    },
+    "risk_tier": {
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "approval_threshold": {
+      "enum": [
+        "none",
+        "explicit_acceptance",
+        "human_review",
+        "external_review"
+      ]
+    },
+    "document_type": {
+      "enum": [
+        "decision-brief",
+        "action-plan",
+        "risk-register",
+        "review-memo",
+        "research-plan",
+        "comparison-table"
+      ]
+    },
+    "decision_type": {
+      "type": "object",
+      "required": [
+        "id",
+        "label",
+        "object_type",
+        "layer",
+        "kind",
+        "default_priority",
+        "default_reversibility",
+        "criteria",
+        "required_evidence"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "label": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "object_type": {
+          "$ref": "#/$defs/object_type"
+        },
+        "layer": {
+          "$ref": "#/$defs/decision_stack_layer"
+        },
+        "kind": {
+          "$ref": "#/$defs/decision_kind"
+        },
+        "default_priority": {
+          "$ref": "#/$defs/priority"
+        },
+        "default_reversibility": {
+          "$ref": "#/$defs/decision_reversibility"
+        },
+        "criteria": {
+          "$ref": "#/$defs/identifier_array"
+        },
+        "required_evidence": {
+          "$ref": "#/$defs/identifier_array"
+        }
+      },
+      "additionalProperties": false
+    },
+    "criterion": {
+      "type": "object",
+      "required": [
+        "id",
+        "label",
+        "description"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "label": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "description": {
+          "$ref": "#/$defs/non_empty_string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "evidence_requirement": {
+      "type": "object",
+      "required": [
+        "id",
+        "label",
+        "evidence_source",
+        "domain_evidence_type",
+        "min_confidence",
+        "freshness_required"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "label": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "evidence_source": {
+          "$ref": "#/$defs/evidence_source"
+        },
+        "domain_evidence_type": {
+          "$ref": "#/$defs/identifier"
+        },
+        "min_confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "freshness_required": {
+          "$ref": "#/$defs/freshness"
+        }
+      },
+      "additionalProperties": false
+    },
+    "risk_type": {
+      "type": "object",
+      "required": [
+        "id",
+        "label",
+        "default_risk_tier",
+        "default_approval_threshold"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "label": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "default_risk_tier": {
+          "$ref": "#/$defs/risk_tier"
+        },
+        "default_approval_threshold": {
+          "$ref": "#/$defs/approval_threshold"
+        }
+      },
+      "additionalProperties": false
+    },
+    "safety_rule_condition": {
+      "type": "object",
+      "required": [
+        "risk_types"
+      ],
+      "properties": {
+        "risk_types": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/identifier_array"
+            },
+            {
+              "minItems": 1
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "safety_rule": {
+      "type": "object",
+      "required": [
+        "id",
+        "applies_when",
+        "approval_threshold",
+        "reason"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "applies_when": {
+          "$ref": "#/$defs/safety_rule_condition"
+        },
+        "approval_threshold": {
+          "$ref": "#/$defs/approval_threshold"
+        },
+        "reason": {
+          "$ref": "#/$defs/non_empty_string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "document": {
+      "type": "object",
+      "required": [
+        "document_type",
+        "default",
+        "profile_id",
+        "required_sections"
+      ],
+      "properties": {
+        "document_type": {
+          "$ref": "#/$defs/document_type"
+        },
+        "default": {
+          "type": "boolean"
+        },
+        "profile_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "required_sections": {
+          "$ref": "#/$defs/identifier_array"
+        }
+      },
+      "additionalProperties": false
+    },
+    "interview": {
+      "type": "object",
+      "required": [
+        "domain_hints",
+        "question_templates"
+      ],
+      "properties": {
+        "domain_hints": {
+          "$ref": "#/$defs/non_empty_string_array"
+        },
+        "question_templates": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/$defs/identifier"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
