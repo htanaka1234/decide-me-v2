@@ -5,6 +5,7 @@ from decide_me.domains.apply import (
     apply_decision_pack_metadata,
     build_initial_decision_payload,
     build_interview_policy,
+    build_interview_policy_from_metadata,
 )
 from decide_me.domains.infer import infer_decision_type
 from decide_me.domains.model import (
@@ -46,6 +47,7 @@ __all__ = [
     "apply_decision_pack_metadata",
     "build_initial_decision_payload",
     "build_interview_policy",
+    "build_interview_policy_from_metadata",
     "domain_pack_digest",
     "domain_pack_from_dict",
     "infer_decision_type",

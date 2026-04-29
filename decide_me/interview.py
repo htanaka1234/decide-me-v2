@@ -9,7 +9,7 @@ from typing import Any, Iterable
 from decide_me.domains import (
     InterviewPolicy,
     build_initial_decision_payload,
-    build_interview_policy,
+    build_interview_policy_from_metadata,
     load_domain_registry,
 )
 from decide_me.events import new_entity_id
@@ -60,6 +60,7 @@ STOP_WORDS = {
     "where",
     "with",
 }
+DOMAIN_PACK_METADATA_KEYS = ("domain_pack_id", "domain_pack_version", "domain_pack_digest")
 
 TEXT_EXTENSIONS = {
     ".c",
@@ -773,24 +774,39 @@ def _interview_policy_for_decision(
     session: dict[str, Any],
     decision: dict[str, Any],
 ) -> InterviewPolicy:
-    return _interview_policy_for_session(
-        ai_dir,
-        session,
-        domain_pack_id=_decision_field(decision, "domain_pack_id"),
-    )
+    metadata = _decision_domain_pack_metadata(decision)
+    if metadata:
+        return _interview_policy_for_metadata(
+            ai_dir,
+            metadata,
+            label=f"decision {decision.get('id', '?')}.metadata",
+        )
+    return _interview_policy_for_session(ai_dir, session)
 
 
 def _interview_policy_for_session(
     ai_dir: str,
     session: dict[str, Any],
-    *,
-    domain_pack_id: str | None = None,
 ) -> InterviewPolicy:
     classification = session.get("classification", {})
+    return _interview_policy_for_metadata(
+        ai_dir,
+        classification,
+        label=f"session {session.get('session', {}).get('id', '?')}.classification",
+    )
+
+
+def _interview_policy_for_metadata(
+    ai_dir: str,
+    metadata: dict[str, Any],
+    *,
+    label: str,
+) -> InterviewPolicy:
     registry = load_domain_registry(ai_dir)
-    return build_interview_policy(
+    return build_interview_policy_from_metadata(
         registry,
-        domain_pack_id=domain_pack_id or classification.get("domain_pack_id"),
+        metadata,
+        label=label,
     )
 
 
@@ -1205,6 +1221,17 @@ def _decision_field(decision: dict[str, Any], key: str) -> Any:
     if isinstance(metadata, dict):
         return metadata.get(key)
     return None
+
+
+def _decision_domain_pack_metadata(decision: dict[str, Any]) -> dict[str, Any]:
+    metadata: dict[str, Any] = {}
+    object_metadata = decision.get("metadata")
+    for key in DOMAIN_PACK_METADATA_KEYS:
+        if key in decision:
+            metadata[key] = decision[key]
+        elif isinstance(object_metadata, dict) and key in object_metadata:
+            metadata[key] = object_metadata[key]
+    return metadata
 
 
 def _format_labels(labels: Iterable[str]) -> str:

@@ -14,7 +14,9 @@ from decide_me.domains import (
     DomainPack,
     DomainPackLoadError,
     DomainRegistry,
+    apply_decision_pack_metadata,
     build_interview_policy,
+    build_interview_policy_from_metadata,
     domain_pack_digest,
     domain_pack_from_dict,
     infer_decision_type,
@@ -161,7 +163,6 @@ class DomainPackRegistryTests(unittest.TestCase):
 
         generic = build_interview_policy(registry, domain_pack_id=None)
         research = build_interview_policy(registry, domain_pack_id="research")
-        unknown = build_interview_policy(registry, domain_pack_id="missing")
 
         self.assertEqual("generic", generic.pack_id)
         self.assertTrue(generic.is_generic)
@@ -169,7 +170,58 @@ class DomainPackRegistryTests(unittest.TestCase):
         self.assertEqual("research", research.pack_id)
         self.assertFalse(research.is_generic)
         self.assertEqual("research_question", research.initial_decision_type.id)
-        self.assertEqual("generic", unknown.pack_id)
+        with self.assertRaisesRegex(KeyError, "unknown domain pack"):
+            build_interview_policy(registry, domain_pack_id="missing")
+
+    def test_build_interview_policy_from_metadata_rejects_stale_metadata(self) -> None:
+        registry = load_domain_registry()
+        research = registry.get("research")
+        valid_metadata = {
+            "domain_pack_id": "research",
+            "domain_pack_version": research.version,
+            "domain_pack_digest": domain_pack_digest(research),
+        }
+
+        policy = build_interview_policy_from_metadata(
+            registry,
+            valid_metadata,
+            label="session S-001.classification",
+        )
+
+        self.assertEqual("research", policy.pack_id)
+        with self.assertRaisesRegex(ValueError, "domain_pack_version mismatch"):
+            build_interview_policy_from_metadata(
+                registry,
+                {**valid_metadata, "domain_pack_version": "9.9.9"},
+                label="session S-001.classification",
+            )
+        with self.assertRaisesRegex(ValueError, "domain_pack_digest mismatch"):
+            build_interview_policy_from_metadata(
+                registry,
+                {**valid_metadata, "domain_pack_digest": "DP-000000000000"},
+                label="session S-001.classification",
+            )
+        with self.assertRaisesRegex(ValueError, "incomplete domain pack metadata"):
+            build_interview_policy_from_metadata(
+                registry,
+                {"domain_pack_id": "research"},
+                label="decision D-001",
+            )
+
+    def test_apply_decision_pack_metadata_omits_type_when_inference_fails(self) -> None:
+        registry = load_domain_registry()
+        policy = build_interview_policy(registry, domain_pack_id="research")
+
+        decision = apply_decision_pack_metadata(
+            policy,
+            {"title": "Unrelated operational topic", "priority": "P0", "frontier": "now"},
+        )
+
+        self.assertEqual("research", decision["domain_pack_id"])
+        self.assertEqual(registry.get("research").version, decision["domain_pack_version"])
+        self.assertEqual(domain_pack_digest(registry.get("research")), decision["domain_pack_digest"])
+        self.assertNotIn("domain_decision_type", decision)
+        self.assertNotIn("domain_criteria", decision)
 
     def test_infer_decision_type_matches_representative_pack_terms(self) -> None:
         packs = load_builtin_packs()

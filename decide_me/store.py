@@ -325,6 +325,7 @@ def _validate_runtime_light(paths: RuntimePaths) -> list[str]:
         runtime_index = _load_runtime_index(paths)
         _validate_runtime_index(paths, bundle, runtime_index)
         validate_projection_bundle(bundle)
+        issues.extend(_domain_pack_registry_issues(paths, bundle))
     except (StateValidationError, ValueError) as exc:
         issues.append(str(exc))
     return issues
@@ -353,6 +354,7 @@ def _validate_runtime_full(paths: RuntimePaths) -> list[str]:
     except (StateValidationError, ValueError) as exc:
         issues.append(str(exc))
         return issues
+    issues.extend(_domain_pack_registry_issues(paths, rebuilt))
 
     persisted_project = load_json_if_exists(paths.project_state)
     persisted_taxonomy = load_json_if_exists(paths.taxonomy_state)
@@ -392,6 +394,85 @@ def _validate_runtime_full(paths: RuntimePaths) -> list[str]:
     elif _canonical_json(persisted_index) != _canonical_json(expected_index):
         issues.append("runtime-index.json does not match the event log")
 
+    return issues
+
+
+def _domain_pack_registry_issues(paths: RuntimePaths, bundle: dict[str, Any]) -> list[str]:
+    from decide_me.domains import load_domain_registry
+
+    try:
+        registry = load_domain_registry(paths.ai_dir)
+    except ValueError as exc:
+        return [str(exc)]
+
+    issues: list[str] = []
+    for session_id, session in bundle["sessions"].items():
+        issues.extend(
+            _domain_pack_metadata_issues(
+                registry,
+                session.get("classification", {}),
+                f"session {session_id}.classification",
+            )
+        )
+
+    for obj in bundle["project_state"]["objects"]:
+        if obj.get("type") != "decision":
+            continue
+        metadata = obj.get("metadata", {})
+        label = f"decision object {obj.get('id', '?')}.metadata"
+        metadata_issues = _domain_pack_metadata_issues(registry, metadata, label)
+        issues.extend(metadata_issues)
+        if metadata_issues or "domain_pack_id" not in metadata:
+            continue
+
+        decision_type_id = metadata.get("domain_decision_type")
+        if decision_type_id is None:
+            if "domain_criteria" in metadata:
+                issues.append(f"{label}.domain_criteria requires domain_decision_type")
+            continue
+
+        try:
+            spec = registry.decision_type(metadata["domain_pack_id"], decision_type_id)
+        except KeyError as exc:
+            issues.append(f"{label}.domain_decision_type {decision_type_id} is not defined: {exc}")
+            continue
+
+        if "domain_criteria" not in metadata:
+            issues.append(f"{label}.domain_criteria is required for domain_decision_type {decision_type_id}")
+        elif list(metadata["domain_criteria"]) != list(spec.criteria):
+            issues.append(
+                f"{label}.domain_criteria does not match domain decision type {decision_type_id}"
+            )
+    return issues
+
+
+def _domain_pack_metadata_issues(
+    registry: Any,
+    metadata: dict[str, Any],
+    label: str,
+) -> list[str]:
+    from decide_me.domains import domain_pack_digest
+
+    pack_id = metadata.get("domain_pack_id")
+    if pack_id is None:
+        return []
+    try:
+        pack = registry.get(pack_id)
+    except KeyError as exc:
+        return [f"{label}.domain_pack_id is not defined: {exc}"]
+
+    issues: list[str] = []
+    if metadata.get("domain_pack_version") != pack.version:
+        issues.append(
+            f"{label}.domain_pack_version mismatch for domain pack {pack_id}; "
+            f"expected {pack.version}, got {metadata.get('domain_pack_version')}"
+        )
+    expected_digest = domain_pack_digest(pack)
+    if metadata.get("domain_pack_digest") != expected_digest:
+        issues.append(
+            f"{label}.domain_pack_digest mismatch for domain pack {pack_id}; "
+            f"expected {expected_digest}, got {metadata.get('domain_pack_digest')}"
+        )
     return issues
 
 

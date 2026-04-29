@@ -10,6 +10,9 @@ from decide_me.domains.model import DecisionTypeSpec, DomainPack
 from decide_me.domains.registry import DomainRegistry, GENERIC_PACK_ID
 
 
+PACK_METADATA_KEYS = ("domain_pack_id", "domain_pack_version", "domain_pack_digest")
+
+
 @dataclass(frozen=True)
 class InterviewPolicy:
     pack: DomainPack
@@ -57,12 +60,51 @@ def build_interview_policy(
     *,
     domain_pack_id: str | None,
 ) -> InterviewPolicy:
-    pack_id = domain_pack_id or GENERIC_PACK_ID
-    try:
-        pack = registry.get(pack_id)
-    except KeyError:
-        pack = registry.get(GENERIC_PACK_ID)
+    pack_id = GENERIC_PACK_ID if domain_pack_id is None else domain_pack_id
+    pack = registry.get(pack_id)
     return InterviewPolicy(pack=pack, digest=domain_pack_digest(pack))
+
+
+def build_interview_policy_from_metadata(
+    registry: DomainRegistry,
+    metadata: dict[str, Any],
+    *,
+    label: str,
+) -> InterviewPolicy:
+    pack_id = metadata.get("domain_pack_id")
+    try:
+        policy = build_interview_policy(registry, domain_pack_id=pack_id)
+    except KeyError as exc:
+        raise ValueError(f"{label}.domain_pack_id is not defined: {exc}") from exc
+    if pack_id is None:
+        return policy
+
+    present = [key for key in PACK_METADATA_KEYS if key in metadata]
+    if len(present) != len(PACK_METADATA_KEYS):
+        missing = sorted(set(PACK_METADATA_KEYS) - set(present))
+        raise ValueError(f"{label} has incomplete domain pack metadata; missing: {', '.join(missing)}")
+    _validate_policy_metadata(policy, metadata, label=label)
+    return policy
+
+
+def _validate_policy_metadata(
+    policy: InterviewPolicy,
+    metadata: dict[str, Any],
+    *,
+    label: str,
+) -> None:
+    version = metadata.get("domain_pack_version")
+    digest = metadata.get("domain_pack_digest")
+    if version != policy.pack.version:
+        raise ValueError(
+            f"{label}.domain_pack_version mismatch for domain pack {policy.pack_id}; "
+            f"expected {policy.pack.version}, got {version}"
+        )
+    if digest != policy.digest:
+        raise ValueError(
+            f"{label}.domain_pack_digest mismatch for domain pack {policy.pack_id}; "
+            f"expected {policy.digest}, got {digest}"
+        )
 
 
 def apply_decision_pack_metadata(

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from decide_me.domains import domain_pack_digest, load_builtin_packs
 from decide_me.interview import advance_session, handle_reply
 from decide_me.lifecycle import create_session
 from decide_me.protocol import discover_decision, resolve_by_evidence
@@ -12,6 +14,7 @@ from decide_me.store import (
     load_runtime,
     rebuild_and_persist,
     runtime_paths,
+    transact,
     validate_runtime,
 )
 
@@ -127,6 +130,99 @@ class ObjectBasedInterviewFlowTests(unittest.TestCase):
                     for decision in decisions
                 )
             )
+
+    def test_advance_session_rejects_stale_or_unknown_session_pack_metadata(self) -> None:
+        cases = (
+            ("domain_pack_digest", "DP-000000000000", "domain_pack_digest mismatch"),
+            ("domain_pack_id", "missing", "domain_pack_id is not defined"),
+        )
+        for key, value, message in cases:
+            with self.subTest(key=key), TemporaryDirectory() as tmp:
+                ai_dir = Path(tmp) / ".ai" / "decide-me"
+                _bootstrap_runtime(ai_dir)
+                session = create_session(str(ai_dir), context="Plan a cohort study.", domain_pack_id="research")
+                session_id = session["session"]["id"]
+                _mutate_session_created_event(
+                    ai_dir,
+                    session_id,
+                    lambda event: event["payload"]["session"]["classification"].__setitem__(key, value),
+                )
+                rebuild_and_persist(ai_dir)
+
+                with self.assertRaisesRegex(ValueError, message):
+                    advance_session(str(ai_dir), session_id, repo_root=tmp)
+
+    def test_validate_runtime_rejects_invalid_decision_pack_metadata(self) -> None:
+        research_pack = load_builtin_packs()["research"]
+        research_digest = domain_pack_digest(research_pack)
+        cases = (
+            (
+                {
+                    "domain_pack_id": "missing",
+                    "domain_pack_version": "0.1.0",
+                    "domain_pack_digest": "DP-123456789abc",
+                },
+                "domain_pack_id is not defined",
+            ),
+            (
+                {
+                    "domain_pack_id": "research",
+                    "domain_pack_version": research_pack.version,
+                    "domain_pack_digest": "DP-000000000000",
+                },
+                "domain_pack_digest mismatch",
+            ),
+            (
+                {
+                    "domain_pack_id": "research",
+                    "domain_pack_version": research_pack.version,
+                    "domain_pack_digest": research_digest,
+                    "domain_decision_type": "bogus_type",
+                    "domain_criteria": [],
+                },
+                "domain_decision_type bogus_type is not defined",
+            ),
+            (
+                {
+                    "domain_pack_id": "research",
+                    "domain_pack_version": research_pack.version,
+                    "domain_pack_digest": research_digest,
+                    "domain_decision_type": "primary_endpoint",
+                    "domain_criteria": ["feasibility"],
+                },
+                "domain_criteria does not match",
+            ),
+        )
+        for metadata, message in cases:
+            with self.subTest(message=message), TemporaryDirectory() as tmp:
+                ai_dir = Path(tmp) / ".ai" / "decide-me"
+                _bootstrap_runtime(ai_dir)
+                session_id = create_session(str(ai_dir), context="Broken pack metadata")["session"]["id"]
+                transact(
+                    ai_dir,
+                    lambda _bundle, metadata=metadata: [
+                        {
+                            "event_id": "E-bad-decision",
+                            "session_id": session_id,
+                            "event_type": "object_recorded",
+                            "payload": {
+                                "object": _object(
+                                    "D-bad",
+                                    "decision",
+                                    "unresolved",
+                                    {
+                                        "priority": "P0",
+                                        "frontier": "now",
+                                        **metadata,
+                                    },
+                                )
+                            },
+                        }
+                    ],
+                )
+                rebuild_and_persist(ai_dir)
+
+                self.assertTrue(any(message in issue for issue in validate_runtime(ai_dir)))
 
     def test_free_form_answer_creates_user_proposal_constraint_and_follow_up_decision(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -284,6 +380,41 @@ def _bootstrap_runtime(ai_dir: Path) -> None:
         objective="Exercise Phase 5-4 object interview flow.",
         current_milestone="Phase 5-4",
     )
+
+
+def _mutate_session_created_event(ai_dir: Path, session_id: str, mutator) -> None:
+    for path in sorted((ai_dir / "events").rglob("*.jsonl")):
+        events = [
+            json.loads(line)
+            for line in path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        changed = False
+        for event in events:
+            if event.get("event_type") == "session_created" and event.get("session_id") == session_id:
+                mutator(event)
+                changed = True
+        if changed:
+            path.write_text(
+                "".join(json.dumps(event, sort_keys=True, separators=(",", ":")) + "\n" for event in events),
+                encoding="utf-8",
+            )
+            return
+    raise AssertionError(f"session_created event not found for {session_id}")
+
+
+def _object(object_id: str, object_type: str, status: str, metadata: dict) -> dict:
+    return {
+        "id": object_id,
+        "type": object_type,
+        "title": object_id,
+        "body": "Domain pack metadata fixture.",
+        "status": status,
+        "created_at": "2026-04-28T00:00:00Z",
+        "updated_at": None,
+        "source_event_ids": ["E-fixture"],
+        "metadata": metadata,
+    }
 
 
 if __name__ == "__main__":

@@ -12,7 +12,7 @@ from decide_me.constants import (
     EVIDENCE_SOURCES,
     FORBIDDEN_DISCOVERED_DECISION_FIELDS,
 )
-from decide_me.domains import apply_decision_pack_metadata, build_interview_policy, load_domain_registry
+from decide_me.domains import apply_decision_pack_metadata, build_interview_policy_from_metadata, load_domain_registry
 from decide_me.events import new_entity_id, new_event_id, utc_now
 from decide_me.object_views import (
     active_proposal_view,
@@ -34,6 +34,7 @@ from decide_me.taxonomy import stable_unique
 OPEN_MUTATION_STATUSES = {"unresolved", "proposed", "blocked"}
 PROPOSABLE_STATUSES = {"unresolved", "blocked"}
 PROPOSAL_RESPONSE_STATUSES = {"proposed"}
+DOMAIN_PACK_METADATA_KEYS = ("domain_pack_id", "domain_pack_version", "domain_pack_digest")
 _UNSET = object()
 
 
@@ -1385,11 +1386,24 @@ def _apply_session_domain_pack(
 ) -> dict[str, Any]:
     classification = session.get("classification", {})
     registry = load_domain_registry(ai_dir)
-    policy = build_interview_policy(
-        registry,
-        domain_pack_id=decision.get("domain_pack_id") or classification.get("domain_pack_id"),
-    )
+    decision_metadata = _decision_domain_pack_metadata(decision)
+    if decision_metadata:
+        policy = build_interview_policy_from_metadata(
+            registry,
+            decision_metadata,
+            label=f"decision {decision.get('id', '?')}",
+        )
+    else:
+        policy = build_interview_policy_from_metadata(
+            registry,
+            classification,
+            label=f"session {session.get('session', {}).get('id', '?')}.classification",
+        )
     return apply_decision_pack_metadata(policy, decision)
+
+
+def _decision_domain_pack_metadata(decision: dict[str, Any]) -> dict[str, Any]:
+    return {key: decision[key] for key in DOMAIN_PACK_METADATA_KEYS if key in decision}
 
 
 def _validate_agent_relevant(value: Any, label: str) -> None:
