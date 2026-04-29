@@ -207,6 +207,7 @@ def _events(session_id: str) -> list[dict[str, Any]]:
         ("E-link-stale-decision", "L-EVI-002-supports-DEC-001", "EVI-002", "supports", "DEC-001"),
         ("E-link-assumption-decision", "L-ASM-001-constrains-DEC-001", "ASM-001", "constrains", "DEC-001"),
         ("E-link-risk-decision", "L-RSK-001-challenges-DEC-001", "RSK-001", "challenges", "DEC-001"),
+        ("E-link-evidence-risk", "L-EVI-001-supports-RSK-001", "EVI-001", "supports", "RSK-001"),
         ("E-link-invalidated-risk-decision", "L-RSK-002-challenges-DEC-001", "RSK-002", "challenges", "DEC-001"),
         ("E-link-action-risk", "L-ACT-001-mitigates-RSK-001", "ACT-001", "mitigates", "RSK-001"),
         ("E-link-action-decision", "L-ACT-001-addresses-DEC-001", "ACT-001", "addresses", "DEC-001"),

@@ -235,6 +235,65 @@ class DocumentCompilerCliTests(unittest.TestCase):
             self.assertIn("unknown object_id: MISSING-001", result.stderr)
             self.assertFalse(bad_output.exists())
 
+    def test_object_id_outside_selected_session_scope_fails_before_writing(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir, first_session_id, _second_session_id = build_two_session_document_runtime(Path(tmp))
+            output = ai_dir / "exports" / "documents" / "outside-scope.json"
+
+            result = run_cli(
+                "export-document",
+                "--ai-dir",
+                str(ai_dir),
+                "--type",
+                "decision-brief",
+                "--format",
+                "json",
+                "--session-id",
+                first_session_id,
+                "--object-id",
+                "OBJ-002",
+                "--output",
+                str(output),
+                check=False,
+            )
+
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn("object_id is outside selected session scope: OBJ-002", result.stderr)
+            self.assertFalse(output.exists())
+
+    def test_action_plan_object_id_export_is_scoped_and_read_only(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir, session_id = build_document_runtime(Path(tmp))
+            output = ai_dir / "exports" / "documents" / "action-plan-scoped.json"
+            runtime_before = runtime_state_snapshot(ai_dir)
+            tree_before = tree_hash_snapshot(ai_dir)
+
+            run_cli(
+                "export-document",
+                "--ai-dir",
+                str(ai_dir),
+                "--type",
+                "action-plan",
+                "--format",
+                "json",
+                "--session-id",
+                session_id,
+                "--object-id",
+                "ACT-001",
+                "--now",
+                NOW,
+                "--output",
+                str(output),
+            )
+
+            model = json.loads(output.read_text(encoding="utf-8"))
+            changed = changed_paths(tree_before, tree_hash_snapshot(ai_dir))
+            self.assertEqual(runtime_before, runtime_state_snapshot(ai_dir))
+            self.assertEqual(["exports/documents/action-plan-scoped.json"], changed)
+            self.assertIn("ACT-001", model["source"]["object_ids"])
+            self.assertIn("DEC-001", model["source"]["object_ids"])
+            self.assertNotIn("RSK-002", model["source"]["object_ids"])
+
     def test_action_plan_export_fails_on_unresolved_conflicts_before_writing(self) -> None:
         with TemporaryDirectory() as tmp:
             ai_dir, session_ids = _build_conflict_runtime(Path(tmp))

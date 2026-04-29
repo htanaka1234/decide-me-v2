@@ -165,6 +165,86 @@ class DocumentBuilderTests(unittest.TestCase):
                 )
             )
 
+    def test_action_plan_object_scope_excludes_invalidated_sources_by_default(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir, session_id = build_document_runtime(Path(tmp))
+
+            default_model = compile_document(
+                ai_dir,
+                document_type="action-plan",
+                session_ids=[session_id],
+                object_ids=["ACT-001"],
+                now=NOW,
+            )
+            inclusive_model = compile_document(
+                ai_dir,
+                document_type="action-plan",
+                session_ids=[session_id],
+                object_ids=["ACT-001"],
+                include_invalidated=True,
+                now=NOW,
+            )
+
+            self.assertIn("ACT-001", default_model["source"]["object_ids"])
+            self.assertIn("DEC-001", default_model["source"]["object_ids"])
+            self.assertNotIn("RSK-002", default_model["source"]["object_ids"])
+            for section in default_model["sections"]:
+                self.assertNotIn("RSK-002", section["source_object_ids"])
+            self.assertIn("RSK-002", inclusive_model["source"]["object_ids"])
+
+    def test_action_plan_action_section_sources_include_displayed_decisions_and_gate_trace(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir, session_id = build_document_runtime(Path(tmp))
+
+            model = compile_document(
+                ai_dir,
+                document_type="action-plan",
+                session_ids=[session_id],
+                object_ids=["ACT-001"],
+                now=NOW,
+            )
+
+            actions = _section(model, "actions")
+            action_rows = [row for row in actions["blocks"][0]["rows"] if row[0] == "ACT-001"]
+            self.assertEqual("DEC-001", action_rows[0][2])
+            self.assertTrue({"ACT-001", "DEC-001"}.issubset(set(actions["source_object_ids"])))
+            self.assertIn("L-ACT-001-addresses-DEC-001", actions["source_link_ids"])
+            self.assertIn("EVI-001", actions["source_object_ids"])
+            self.assertIn("L-EVI-001-supports-ACT-001", actions["source_link_ids"])
+
+    def test_action_plan_risk_section_sources_include_displayed_evidence(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir, session_id = build_document_runtime(Path(tmp))
+
+            model = compile_document(
+                ai_dir,
+                document_type="action-plan",
+                session_ids=[session_id],
+                now=NOW,
+            )
+
+            risks = _section(model, "risks")
+            risk_rows = [row for row in risks["blocks"][0]["rows"] if row[0] == "RSK-001"]
+            self.assertIn("EVI-001", risk_rows[0][4])
+            self.assertTrue({"RSK-001", "EVI-001"}.issubset(set(risks["source_object_ids"])))
+            self.assertIn("L-EVI-001-supports-RSK-001", risks["source_link_ids"])
+
+    def test_document_context_rejects_requested_invalidated_object_without_flag(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir, session_id = build_document_runtime(Path(tmp))
+
+            with self.assertRaisesRegex(
+                ValueError,
+                "object_id is invalidated; pass --include-invalidated: RSK-002",
+            ):
+                compile_document(
+                    ai_dir,
+                    document_type="action-plan",
+                    session_ids=[session_id],
+                    object_ids=["RSK-002"],
+                    now=NOW,
+                )
+
 
 def _section(model: dict, section_id: str) -> dict:
     return next(section for section in model["sections"] if section["id"] == section_id)

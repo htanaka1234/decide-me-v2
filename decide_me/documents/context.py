@@ -79,7 +79,14 @@ def build_document_context(
     )
     action_plan = None
     if document_type in ACTION_PLAN_DOCUMENT_TYPES:
-        action_plan = _build_action_plan(document_type, sessions, project_state, scoped_project_state)
+        action_plan = _build_action_plan(
+            document_type,
+            sessions,
+            project_state,
+            scoped_project_state,
+            scope_object_ids,
+            scope_link_ids,
+        )
 
     return DocumentContext(
         bundle=bundle,
@@ -111,6 +118,8 @@ def _build_action_plan(
     sessions: list[dict[str, Any]],
     project_state: dict[str, Any],
     scoped_project_state: dict[str, Any],
+    scope_object_ids: list[str],
+    scope_link_ids: list[str],
 ) -> dict[str, Any]:
     from decide_me.planner import assemble_action_plan, detect_conflicts
 
@@ -123,11 +132,13 @@ def _build_action_plan(
     if conflicts:
         conflict_ids = ", ".join(conflict["conflict_id"] for conflict in conflicts)
         raise ValueError(f"unresolved session conflicts block {document_type} document export: {conflict_ids}")
-    return assemble_action_plan(
-        sessions,
+    scoped_sessions = _scoped_sessions(sessions, scope_object_ids, scope_link_ids)
+    action_plan = assemble_action_plan(
+        scoped_sessions,
         scoped_project_state,
         resolved_conflicts=resolved_conflicts,
     )
+    return _filter_action_plan_sources(action_plan, scope_object_ids, scope_link_ids)
 
 
 def _scoped_project_state(
@@ -139,11 +150,15 @@ def _scoped_project_state(
 ) -> tuple[dict[str, Any], list[str], list[str]]:
     objects_by_id = {obj["id"]: obj for obj in project_state.get("objects", [])}
     links_by_id = {link["id"]: link for link in project_state.get("links", [])}
+    session_object_ids, session_link_ids = _session_scope_ids(sessions, links_by_id)
     for object_id in object_ids:
         if object_id not in objects_by_id:
             raise ValueError(f"unknown object_id: {object_id}")
+        if object_id not in session_object_ids:
+            raise ValueError(f"object_id is outside selected session scope: {object_id}")
+        if not include_invalidated and objects_by_id[object_id].get("status") == "invalidated":
+            raise ValueError(f"object_id is invalidated; pass --include-invalidated: {object_id}")
 
-    session_object_ids, session_link_ids = _session_scope_ids(sessions, links_by_id)
     if object_ids:
         scoped_object_ids, scoped_link_ids = _object_narrowed_scope(
             object_ids,
@@ -203,6 +218,59 @@ def _scoped_project_state(
     scoped["counts"] = _counts_for_scoped_state(scoped["objects"], scoped["links"])
     scoped["graph"] = build_decision_stack_graph(scoped)
     return scoped, [obj["id"] for obj in scoped["objects"]], [link["id"] for link in scoped["links"]]
+
+
+def _scoped_sessions(
+    sessions: list[dict[str, Any]],
+    scope_object_ids: list[str],
+    scope_link_ids: list[str],
+) -> list[dict[str, Any]]:
+    object_scope = set(scope_object_ids)
+    link_scope = set(scope_link_ids)
+    scoped_sessions = []
+    for session in sessions:
+        scoped_session = deepcopy(session)
+        session_payload = scoped_session.get("session", {})
+        session_payload["related_object_ids"] = [
+            object_id
+            for object_id in session_payload.get("related_object_ids", [])
+            if object_id in object_scope
+        ]
+        close_summary = scoped_session.get("close_summary", {})
+        close_object_ids = close_summary.get("object_ids", {})
+        for key, values in list(close_object_ids.items()):
+            close_object_ids[key] = [object_id for object_id in values if object_id in object_scope]
+        close_summary["link_ids"] = [
+            link_id
+            for link_id in close_summary.get("link_ids", [])
+            if link_id in link_scope
+        ]
+        work_item = close_summary.get("work_item", {})
+        if work_item.get("objective_object_id") not in object_scope:
+            work_item.pop("objective_object_id", None)
+        scoped_sessions.append(scoped_session)
+    return scoped_sessions
+
+
+def _filter_action_plan_sources(
+    action_plan: dict[str, Any],
+    scope_object_ids: list[str],
+    scope_link_ids: list[str],
+) -> dict[str, Any]:
+    object_scope = set(scope_object_ids)
+    link_scope = set(scope_link_ids)
+    filtered = deepcopy(action_plan)
+    filtered["source_object_ids"] = [
+        object_id
+        for object_id in filtered.get("source_object_ids", [])
+        if object_id in object_scope
+    ]
+    filtered["source_link_ids"] = [
+        link_id
+        for link_id in filtered.get("source_link_ids", [])
+        if link_id in link_scope
+    ]
+    return filtered
 
 
 def _session_scope_ids(
