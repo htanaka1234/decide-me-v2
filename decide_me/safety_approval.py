@@ -4,8 +4,14 @@ import re
 from datetime import datetime
 from typing import Any
 
+from decide_me.domains import DomainRegistry, load_domain_registry
 from decide_me.events import new_event_id, utc_now
-from decide_me.safety_gate import SAFETY_APPROVAL_ARTIFACT_TYPE, evaluate_safety_gate
+from decide_me.safety_gate import (
+    APPROVAL_LEVEL_RANK,
+    SAFETY_APPROVAL_ARTIFACT_TYPE,
+    approval_level_satisfies_threshold,
+    evaluate_safety_gate,
+)
 from decide_me.store import load_runtime, runtime_paths, transact
 
 
@@ -27,11 +33,17 @@ def approve_safety_gate(
         _parse_timestamp(expires_at, "expires_at")
 
     outcome: dict[str, Any] = {}
+    domain_registry = load_domain_registry(ai_dir)
 
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
         _require_mutable_session(bundle, session_id)
         now = utc_now()
-        result = evaluate_safety_gate(bundle["project_state"], object_id, now=now)
+        result = evaluate_safety_gate(
+            bundle["project_state"],
+            object_id,
+            now=now,
+            domain_registry=domain_registry,
+        )
         outcome["gate_before"] = result
         if result["gate_status"] == "blocked":
             raise ValueError(_blocked_message(result))
@@ -51,11 +63,12 @@ def approve_safety_gate(
             reason=reason,
             approved_at=now,
             expires_at=expires_at,
+            domain_registry=domain_registry,
         )
         return specs
 
     events, bundle = transact(ai_dir, builder)
-    gate_after = evaluate_safety_gate(bundle["project_state"], object_id)
+    gate_after = evaluate_safety_gate(bundle["project_state"], object_id, domain_registry=domain_registry)
     return {
         "object_id": object_id,
         "status": "already_approved" if not events else "approved",
@@ -73,15 +86,27 @@ def build_safety_approval_event_specs(
     *,
     gate_result: dict[str, Any] | None = None,
     approved_by: str,
+    approval_level: str | None = None,
     reason: str,
     approved_at: str,
     expires_at: str | None = None,
+    domain_registry: DomainRegistry | None = None,
 ) -> list[dict[str, Any]]:
-    result = gate_result or evaluate_safety_gate(project_state, object_id, now=approved_at)
+    result = gate_result or evaluate_safety_gate(
+        project_state,
+        object_id,
+        now=approved_at,
+        domain_registry=domain_registry,
+    )
     if result["gate_status"] == "blocked":
         raise ValueError(_blocked_message(result))
     if result["approval_satisfied"] or not result["approval_required"]:
         return []
+    approval_level = _approval_level_for_threshold(
+        result["approval_threshold"],
+        "approval_level" if approval_level is not None else "approval_threshold",
+        approval_level,
+    )
     _require_future_expiry(expires_at, approved_at)
 
     artifact_id = approval_artifact_id(object_id, result["gate_digest"])
@@ -99,6 +124,7 @@ def build_safety_approval_event_specs(
         object_id,
         result,
         approved_by=approved_by,
+        approval_level=approval_level,
         reason=reason,
         approved_at=approved_at,
         expires_at=expires_at,
@@ -180,7 +206,12 @@ def show_safety_approvals(
     now: str | None = None,
 ) -> dict[str, Any]:
     bundle = load_runtime(runtime_paths(ai_dir))
-    return build_safety_approval_report(bundle["project_state"], object_id=object_id, now=now)
+    return build_safety_approval_report(
+        bundle["project_state"],
+        object_id=object_id,
+        now=now,
+        domain_registry=load_domain_registry(ai_dir),
+    )
 
 
 def build_safety_approval_report(
@@ -188,13 +219,19 @@ def build_safety_approval_report(
     *,
     object_id: str | None = None,
     now: str | None = None,
+    domain_registry: DomainRegistry | None = None,
 ) -> dict[str, Any]:
     as_of = now or project_state.get("state", {}).get("updated_at") or utc_now()
     reference = _parse_timestamp(as_of, "as_of")
     active_gate_digest = None
     active_approval_artifact_ids: list[str] = []
     if object_id is not None:
-        gate = evaluate_safety_gate(project_state, object_id, now=as_of)
+        gate = evaluate_safety_gate(
+            project_state,
+            object_id,
+            now=as_of,
+            domain_registry=domain_registry,
+        )
         active_gate_digest = gate["gate_digest"]
         active_approval_artifact_ids = gate["approval_artifact_ids"]
 
@@ -217,6 +254,7 @@ def build_safety_approval_report(
                 "target_object_id": metadata.get("target_object_id"),
                 "gate_digest": metadata.get("gate_digest"),
                 "approval_threshold": metadata.get("approval_threshold"),
+                "approval_level": metadata.get("approval_level"),
                 "approved_by": metadata.get("approved_by"),
                 "approved_at": metadata.get("approved_at"),
                 "reason": metadata.get("reason"),
@@ -285,6 +323,7 @@ def _approval_metadata(
     result: dict[str, Any],
     *,
     approved_by: str,
+    approval_level: str,
     reason: str,
     approved_at: str,
     expires_at: str | None,
@@ -294,11 +333,25 @@ def _approval_metadata(
         "target_object_id": object_id,
         "gate_digest": result["gate_digest"],
         "approval_threshold": result["approval_threshold"],
+        "approval_level": approval_level,
         "approved_by": approved_by,
         "approved_at": approved_at,
         "reason": reason,
         "expires_at": expires_at,
     }
+
+
+def _approval_level_for_threshold(approval_threshold: str, label: str, approval_level: str | None) -> str:
+    if approval_level is None:
+        level = "explicit_acceptance" if approval_threshold == "none" else approval_threshold
+    else:
+        level = _require_text(approval_level, label)
+    if level not in APPROVAL_LEVEL_RANK:
+        allowed = ", ".join(sorted(APPROVAL_LEVEL_RANK))
+        raise ValueError(f"{label} must be one of: {allowed}")
+    if not approval_level_satisfies_threshold(level, approval_threshold):
+        raise ValueError(f"approval level {level} does not satisfy {approval_threshold}")
+    return level
 
 
 def _approval_artifact(

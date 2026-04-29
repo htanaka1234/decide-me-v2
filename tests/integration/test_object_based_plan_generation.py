@@ -20,7 +20,7 @@ class ObjectBasedPlanGenerationIntegrationTests(unittest.TestCase):
                 objective="Generate an object-native plan.",
                 current_milestone="Phase 5-5",
             )
-            session_id = create_session(str(ai_dir), context="Auth")["session"]["id"]
+            session_id = create_session(str(ai_dir), context="Auth", domain_pack_id="generic")["session"]["id"]
             discover_decision(
                 str(ai_dir),
                 session_id,

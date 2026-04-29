@@ -452,6 +452,7 @@
         "target_object_id",
         "gate_digest",
         "approval_threshold",
+        "approval_level",
         "approved_by",
         "approved_at",
         "reason",
@@ -473,6 +474,14 @@
           "type": "string",
           "enum": [
             "none",
+            "explicit_acceptance",
+            "human_review",
+            "external_review"
+          ]
+        },
+        "approval_level": {
+          "type": "string",
+          "enum": [
             "explicit_acceptance",
             "human_review",
             "external_review"

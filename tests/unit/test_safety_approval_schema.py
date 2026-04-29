@@ -25,6 +25,19 @@ class SafetyApprovalSchemaTests(unittest.TestCase):
 
         self.assertTrue(errors)
 
+    def test_rejects_missing_or_invalid_approval_level(self) -> None:
+        for value in (None, "automatic"):
+            with self.subTest(value=value):
+                payload = _valid_report()
+                if value is None:
+                    payload["approvals"][0].pop("approval_level")
+                else:
+                    payload["approvals"][0]["approval_level"] = value
+
+                errors = list(self.validator.iter_errors(payload))
+
+                self.assertTrue(errors)
+
 
 def _valid_report() -> dict:
     return {
@@ -41,6 +54,7 @@ def _valid_report() -> dict:
                 "target_object_id": "D-001",
                 "gate_digest": "SG-123456789abc",
                 "approval_threshold": "human_review",
+                "approval_level": "human_review",
                 "approved_by": "user",
                 "approved_at": "2026-04-28T00:00:00Z",
                 "reason": "Reviewed.",

@@ -87,6 +87,7 @@
         "target_object_id",
         "gate_digest",
         "approval_threshold",
+        "approval_level",
         "approved_by",
         "approved_at",
         "reason",
@@ -114,6 +115,14 @@
         },
         "approval_threshold": {
           "$ref": "#/$defs/approval_threshold"
+        },
+        "approval_level": {
+          "type": "string",
+          "enum": [
+            "explicit_acceptance",
+            "human_review",
+            "external_review"
+          ]
         },
         "approved_by": {
           "type": "string",

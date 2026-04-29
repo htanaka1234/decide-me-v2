@@ -9,6 +9,7 @@ from typing import Any
 
 from decide_me.constants import (
     ACCEPTED_VIA_VALUES,
+    APPROVAL_LEVEL_VALUES,
     APPROVAL_THRESHOLD_VALUES,
     DECISION_STACK_LAYERS,
     DOMAIN_VALUES,
@@ -65,6 +66,8 @@ SYSTEM_EVENT_TYPES = {
 DOMAIN_PACK_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 DOMAIN_PACK_DIGEST_PATTERN = re.compile(r"^DP-[0-9a-f]{12}$")
 PACK_METADATA_KEYS = ("domain_pack_id", "domain_pack_version", "domain_pack_digest")
+_APPROVAL_LEVEL_RANK = {"explicit_acceptance": 1, "human_review": 2, "external_review": 3}
+_APPROVAL_THRESHOLD_RANK = {"none": 0, **_APPROVAL_LEVEL_RANK}
 SESSION_SCOPED_EVENT_TYPES = {
     "session_created",
     "session_resumed",
@@ -463,13 +466,34 @@ def _validate_decision_object_metadata(decision: dict[str, Any]) -> None:
 def _validate_decision_domain_pack_metadata(decision: dict[str, Any]) -> None:
     metadata = decision["metadata"]
     label = f"decision object {decision['id']}.metadata"
+    _validate_object_domain_pack_identity(
+        metadata,
+        label,
+        detail_keys=("domain_decision_type", "domain_criteria"),
+        detail_label="domain decision metadata",
+    )
+    if "domain_decision_type" in metadata:
+        _require_non_empty_string(metadata["domain_decision_type"], f"{label}.domain_decision_type")
+        if not DOMAIN_PACK_ID_PATTERN.fullmatch(metadata["domain_decision_type"]):
+            raise StateValidationError(f"{label}.domain_decision_type must match ^[a-z][a-z0-9_]*$")
+    if "domain_criteria" in metadata:
+        _require_string_list(metadata["domain_criteria"], f"{label}.domain_criteria")
+
+
+def _validate_object_domain_pack_identity(
+    metadata: dict[str, Any],
+    label: str,
+    *,
+    detail_keys: tuple[str, ...],
+    detail_label: str,
+) -> None:
     present = [key for key in PACK_METADATA_KEYS if key in metadata]
-    has_domain_details = "domain_decision_type" in metadata or "domain_criteria" in metadata
+    has_domain_details = any(key in metadata for key in detail_keys)
     if present and len(present) != len(PACK_METADATA_KEYS):
         missing = sorted(set(PACK_METADATA_KEYS) - set(present))
         raise StateValidationError(f"{label} has incomplete domain pack metadata; missing: {', '.join(missing)}")
     if has_domain_details and not present:
-        raise StateValidationError(f"{label} domain decision metadata requires domain pack metadata")
+        raise StateValidationError(f"{label} {detail_label} requires domain pack metadata")
     if "domain_pack_id" in metadata:
         _require_non_empty_string(metadata["domain_pack_id"], f"{label}.domain_pack_id")
         if not DOMAIN_PACK_ID_PATTERN.fullmatch(metadata["domain_pack_id"]):
@@ -480,12 +504,6 @@ def _validate_decision_domain_pack_metadata(decision: dict[str, Any]) -> None:
         _require_non_empty_string(metadata["domain_pack_digest"], f"{label}.domain_pack_digest")
         if not DOMAIN_PACK_DIGEST_PATTERN.fullmatch(metadata["domain_pack_digest"]):
             raise StateValidationError(f"{label}.domain_pack_digest must match ^DP-[0-9a-f]{{12}}$")
-    if "domain_decision_type" in metadata:
-        _require_non_empty_string(metadata["domain_decision_type"], f"{label}.domain_decision_type")
-        if not DOMAIN_PACK_ID_PATTERN.fullmatch(metadata["domain_decision_type"]):
-            raise StateValidationError(f"{label}.domain_decision_type must match ^[a-z][a-z0-9_]*$")
-    if "domain_criteria" in metadata:
-        _require_string_list(metadata["domain_criteria"], f"{label}.domain_criteria")
 
 
 def _validate_evidence_object_metadata(obj: dict[str, Any]) -> None:
@@ -503,6 +521,17 @@ def _validate_evidence_object_metadata(obj: dict[str, Any]) -> None:
     _require_enum(metadata.get("freshness"), EVIDENCE_FRESHNESS_VALUES, f"{label}.freshness")
     _require_optional_timestamp(metadata.get("observed_at"), f"{label}.observed_at")
     _require_optional_timestamp(metadata.get("valid_until"), f"{label}.valid_until")
+    _validate_object_domain_pack_identity(
+        metadata,
+        label,
+        detail_keys=("domain_evidence_type", "evidence_requirement_id"),
+        detail_label="domain evidence metadata",
+    )
+    for key in ("domain_evidence_type", "evidence_requirement_id"):
+        if key in metadata:
+            _require_non_empty_string(metadata[key], f"{label}.{key}")
+            if not DOMAIN_PACK_ID_PATTERN.fullmatch(metadata[key]):
+                raise StateValidationError(f"{label}.{key} must match ^[a-z][a-z0-9_]*$")
 
 
 def _validate_assumption_object_metadata(obj: dict[str, Any]) -> None:
@@ -544,6 +573,16 @@ def _validate_risk_object_metadata(obj: dict[str, Any]) -> None:
     _require_enum(metadata.get("reversibility"), RISK_REVERSIBILITY_VALUES, f"{label}.reversibility")
     _require_string_list(metadata.get("mitigation_object_ids"), f"{label}.mitigation_object_ids")
     _require_enum(metadata.get("approval_threshold"), APPROVAL_THRESHOLD_VALUES, f"{label}.approval_threshold")
+    _validate_object_domain_pack_identity(
+        metadata,
+        label,
+        detail_keys=("domain_risk_type",),
+        detail_label="domain risk metadata",
+    )
+    if "domain_risk_type" in metadata:
+        _require_non_empty_string(metadata["domain_risk_type"], f"{label}.domain_risk_type")
+        if not DOMAIN_PACK_ID_PATTERN.fullmatch(metadata["domain_risk_type"]):
+            raise StateValidationError(f"{label}.domain_risk_type must match ^[a-z][a-z0-9_]*$")
 
 
 def _validate_verification_object_metadata(obj: dict[str, Any]) -> None:
@@ -580,6 +619,7 @@ def _validate_artifact_object_metadata(obj: dict[str, Any]) -> None:
             "target_object_id",
             "gate_digest",
             "approval_threshold",
+            "approval_level",
             "approved_by",
             "approved_at",
             "reason",
@@ -592,6 +632,7 @@ def _validate_artifact_object_metadata(obj: dict[str, Any]) -> None:
         "target_object_id",
         "gate_digest",
         "approval_threshold",
+        "approval_level",
         "approved_by",
         "approved_at",
         "reason",
@@ -606,7 +647,12 @@ def _validate_artifact_object_metadata(obj: dict[str, Any]) -> None:
     _require_non_empty_string(gate_digest, f"{label}.gate_digest")
     if not str(gate_digest).startswith("SG-"):
         raise StateValidationError(f"{label}.gate_digest must start with SG-")
-    _require_enum(metadata.get("approval_threshold"), APPROVAL_THRESHOLD_VALUES, f"{label}.approval_threshold")
+    approval_threshold = metadata.get("approval_threshold")
+    approval_level = metadata.get("approval_level")
+    _require_enum(approval_threshold, APPROVAL_THRESHOLD_VALUES, f"{label}.approval_threshold")
+    _require_enum(approval_level, APPROVAL_LEVEL_VALUES, f"{label}.approval_level")
+    if _APPROVAL_LEVEL_RANK[approval_level] < _APPROVAL_THRESHOLD_RANK[approval_threshold]:
+        raise StateValidationError(f"{label}.approval_level does not satisfy approval_threshold")
     _require_non_empty_string(metadata.get("approved_by"), f"{label}.approved_by")
     _require_timestamp(metadata.get("approved_at"), f"{label}.approved_at")
     _require_non_empty_string(metadata.get("reason"), f"{label}.reason")

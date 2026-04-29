@@ -306,6 +306,7 @@ def accept_proposal(
     acceptance_mode: str | None = None,
 ) -> dict[str, Any]:
     now = utc_now()
+    domain_registry = load_domain_registry(ai_dir)
     target_id: dict[str, str] = {}
     accept_link_event_id = new_event_id()
 
@@ -334,6 +335,7 @@ def accept_proposal(
             target["target_id"],
             mode=mode,
             now=now,
+            domain_registry=domain_registry,
         )
         answer = {
             "summary": target["recommendation"],
@@ -478,6 +480,7 @@ def answer_proposal(
     acceptance_mode: str = "explicit",
 ) -> dict[str, Any]:
     now = utc_now()
+    domain_registry = load_domain_registry(ai_dir)
     normalized_reason = reason.strip() if reason and reason.strip() else None
     target_id: dict[str, str] = {}
     option_id = new_entity_id("O-option")
@@ -507,6 +510,7 @@ def answer_proposal(
             target["target_id"],
             mode=acceptance_mode,
             now=now,
+            domain_registry=domain_registry,
         )
 
         matches_recommendation = _normalize(answer) == _normalize(recommendation)
@@ -818,6 +822,7 @@ def resolve_by_evidence(
         evidence = [summary]
     now = utc_now()
     outcome: dict[str, Any] = {}
+    domain_registry = load_domain_registry(ai_dir)
 
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
         session = _require_mutable_session(bundle, session_id)
@@ -837,7 +842,7 @@ def resolve_by_evidence(
             now=now,
         )
         projected_state = _project_state_after_specs(bundle["project_state"], evidence_specs)
-        gate = evaluate_safety_gate(projected_state, decision_id, now=now)
+        gate = evaluate_safety_gate(projected_state, decision_id, now=now, domain_registry=domain_registry)
         outcome["safety_gate"] = gate
         if gate["gate_status"] == "blocked":
             raise ValueError(_safety_gate_error("blocked", gate))
@@ -1451,8 +1456,14 @@ def _safety_gate_acceptance_specs(
     *,
     mode: str,
     now: str,
+    domain_registry: Any | None = None,
 ) -> list[dict[str, Any]]:
-    result = evaluate_safety_gate(bundle["project_state"], object_id, now=now)
+    result = evaluate_safety_gate(
+        bundle["project_state"],
+        object_id,
+        now=now,
+        domain_registry=domain_registry,
+    )
     if result["gate_status"] == "passed":
         return []
     if result["gate_status"] == "blocked":
@@ -1466,8 +1477,10 @@ def _safety_gate_acceptance_specs(
             object_id,
             gate_result=result,
             approved_by="explicit_acceptance",
+            approval_level="explicit_acceptance",
             reason="Explicit proposal acceptance satisfies the safety gate.",
             approved_at=now,
+            domain_registry=domain_registry,
         )
     raise ValueError(_safety_gate_error("requires approve-safety-gate", result))
 

@@ -536,10 +536,23 @@ def main(argv: list[str] | None = None) -> int:
             _print_json(build_risk_register(bundle["project_state"]))
         elif args.command == "show-safety-gate":
             bundle = load_runtime(runtime_paths(args.ai_dir))
-            _print_json(evaluate_safety_gate(bundle["project_state"], args.object_id, now=args.now))
+            _print_json(
+                evaluate_safety_gate(
+                    bundle["project_state"],
+                    args.object_id,
+                    now=args.now,
+                    domain_registry=load_domain_registry(args.ai_dir),
+                )
+            )
         elif args.command == "show-safety-gates":
             bundle = load_runtime(runtime_paths(args.ai_dir))
-            _print_json(build_safety_gate_report(bundle["project_state"], now=args.now))
+            _print_json(
+                build_safety_gate_report(
+                    bundle["project_state"],
+                    now=args.now,
+                    domain_registry=load_domain_registry(args.ai_dir),
+                )
+            )
         elif args.command == "approve-safety-gate":
             _print_json(
                 approve_safety_gate(

@@ -175,7 +175,7 @@ def _accepted_decision_runtime(ai_dir: Path) -> str:
         objective="Plan object-native close summaries.",
         current_milestone="Phase 5-5",
     )
-    session_id = create_session(str(ai_dir), context="Auth")["session"]["id"]
+    session_id = create_session(str(ai_dir), context="Auth", domain_pack_id="generic")["session"]["id"]
     discover_decision(
         str(ai_dir),
         session_id,
@@ -203,7 +203,7 @@ def _accepted_decision_runtime(ai_dir: Path) -> str:
 
 
 def _accepted_decision_session(ai_dir: Path, *, context: str, decision_id: str, title: str) -> str:
-    session_id = create_session(str(ai_dir), context=context)["session"]["id"]
+    session_id = create_session(str(ai_dir), context=context, domain_pack_id="generic")["session"]["id"]
     discover_decision(
         str(ai_dir),
         session_id,
@@ -264,7 +264,7 @@ def _runtime_with_connected_objects(ai_dir: Path) -> str:
         objective="Plan object-native close summaries.",
         current_milestone="Phase 5-5",
     )
-    session_id = create_session(str(ai_dir), context="Auth")["session"]["id"]
+    session_id = create_session(str(ai_dir), context="Auth", domain_pack_id="generic")["session"]["id"]
     discover_decision(
         str(ai_dir),
         session_id,

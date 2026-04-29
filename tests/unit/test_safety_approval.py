@@ -99,8 +99,34 @@ class SafetyApprovalTests(unittest.TestCase):
         link = specs[1]["payload"]["link"]
         self.assertTrue(artifact["id"].startswith("ART-approval-D-001-"))
         self.assertEqual("safety_gate_approval", artifact["metadata"]["artifact_type"])
+        self.assertEqual("explicit_acceptance", artifact["metadata"]["approval_level"])
         self.assertEqual(artifact["id"], link["source_object_id"])
         self.assertEqual("D-001", link["target_object_id"])
+
+    def test_low_approval_level_cannot_satisfy_higher_threshold(self) -> None:
+        project_state = _approval_required_state()
+
+        with self.assertRaisesRegex(ValueError, "approval level explicit_acceptance does not satisfy human_review"):
+            build_safety_approval_event_specs(
+                project_state,
+                "S-001",
+                "D-001",
+                approved_by="explicit_acceptance",
+                approval_level="explicit_acceptance",
+                reason="Explicit acceptance is not enough.",
+                approved_at="2026-04-28T00:00:00Z",
+            )
+
+    def test_low_approval_level_artifact_does_not_satisfy_gate(self) -> None:
+        project_state = _approval_required_state()
+        before = evaluate_safety_gate(project_state, "D-001")
+        project_state = _with_approval(project_state, before["gate_digest"], approval_level="explicit_acceptance")
+
+        after = evaluate_safety_gate(project_state, "D-001")
+
+        self.assertEqual("needs_approval", after["gate_status"])
+        self.assertFalse(after["approval_satisfied"])
+        self.assertEqual([], after["approval_artifact_ids"])
 
     def test_expired_approval_artifact_is_refreshed_for_same_digest(self) -> None:
         project_state = _approval_required_state()
@@ -193,7 +219,7 @@ def _approval_required_state() -> dict:
     )
 
 
-def _with_approval(project_state: dict, gate_digest: str) -> dict:
+def _with_approval(project_state: dict, gate_digest: str, *, approval_level: str = "human_review") -> dict:
     copied = deepcopy(project_state)
     copied["objects"].append(
         _object(
@@ -204,6 +230,7 @@ def _with_approval(project_state: dict, gate_digest: str) -> dict:
                 "target_object_id": "D-001",
                 "gate_digest": gate_digest,
                 "approval_threshold": "human_review",
+                "approval_level": approval_level,
                 "approved_by": "user",
                 "approved_at": "2026-04-28T00:00:00Z",
                 "reason": "Reviewed risk.",
@@ -221,6 +248,7 @@ def _approval_metadata(gate_digest: str, *, expires_at: str | None = None) -> di
         "target_object_id": "D-001",
         "gate_digest": gate_digest,
         "approval_threshold": "human_review",
+        "approval_level": "human_review",
         "approved_by": "user",
         "approved_at": "2026-04-28T00:00:00Z",
         "reason": "Reviewed risk.",

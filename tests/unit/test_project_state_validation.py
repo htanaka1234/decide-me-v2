@@ -125,6 +125,38 @@ class ProjectStateValidationTests(unittest.TestCase):
                 with self.assertRaisesRegex(StateValidationError, pattern):
                     validate_project_state(payload)
 
+    def test_accepts_evidence_and_risk_domain_pack_metadata_shape(self) -> None:
+        payload = _valid_project_state()
+        _append_object(payload, _valid_evidence_object())
+        _append_object(payload, _valid_risk_object())
+        objects = {obj["id"]: obj for obj in payload["objects"]}
+        for object_id in ("EV-001", "RISK-001"):
+            objects[object_id]["metadata"].update(_pack_identity())
+        objects["EV-001"]["metadata"]["evidence_requirement_id"] = "protocol_or_project_brief"
+        objects["EV-001"]["metadata"]["domain_evidence_type"] = "protocol"
+        objects["RISK-001"]["metadata"]["domain_risk_type"] = "patient_data"
+
+        validate_project_state(payload)
+
+    def test_rejects_invalid_evidence_and_risk_domain_pack_metadata_shape(self) -> None:
+        cases = (
+            ("evidence", {"evidence_requirement_id": "protocol_or_project_brief"}, "requires domain pack metadata"),
+            ("evidence", {**_pack_identity(), "domain_evidence_type": "Protocol"}, "domain_evidence_type"),
+            ("risk", {"domain_risk_type": "patient_data"}, "requires domain pack metadata"),
+            ("risk", {**_pack_identity(), "domain_risk_type": "patient-data"}, "domain_risk_type"),
+        )
+        for object_type, metadata, pattern in cases:
+            with self.subTest(object_type=object_type, metadata=metadata):
+                payload = _valid_project_state()
+                _append_object(
+                    payload,
+                    _valid_evidence_object() if object_type == "evidence" else _valid_risk_object(),
+                )
+                payload["objects"][-1]["metadata"].update(metadata)
+
+                with self.assertRaisesRegex(StateValidationError, pattern):
+                    validate_project_state(payload)
+
     def test_rejects_invalidated_by_on_non_invalidated_decision(self) -> None:
         payload = _valid_project_state()
         payload["objects"][0]["metadata"]["invalidated_by"] = {
@@ -176,6 +208,7 @@ class ProjectStateValidationTests(unittest.TestCase):
             ("risk", risk_metadata(), "approval_threshold"),
             ("verification", verification_metadata(), "expected_result"),
             ("revisit_trigger", revisit_trigger_metadata(target_object_ids=["D-001"]), "target_object_ids"),
+            ("artifact", _safety_approval_metadata(), "approval_level"),
         ):
             with self.subTest(object_type=object_type, missing_key=missing_key):
                 payload = _valid_project_state()
@@ -198,6 +231,7 @@ class ProjectStateValidationTests(unittest.TestCase):
             ("revisit_trigger", revisit_trigger_metadata(trigger_type="manual"), "metadata.trigger_type"),
             ("revisit_trigger", revisit_trigger_metadata(target_object_ids=[]), "target_object_ids"),
             ("artifact", _safety_approval_metadata(gate_digest="bad"), "metadata.gate_digest"),
+            ("artifact", _safety_approval_metadata(approval_level="explicit_acceptance"), "metadata.approval_level"),
         )
         for object_type, metadata, pattern in cases:
             with self.subTest(object_type=object_type, pattern=pattern):
@@ -430,6 +464,7 @@ def _safety_approval_metadata(**overrides: str | None) -> dict:
         "target_object_id": "D-001",
         "gate_digest": "SG-123456789abc",
         "approval_threshold": "human_review",
+        "approval_level": "human_review",
         "approved_by": "user",
         "approved_at": "2026-04-28T00:00:00Z",
         "reason": "Reviewed.",
@@ -450,6 +485,22 @@ def _typed_object(object_id: str, object_type: str, metadata: dict) -> dict:
         "updated_at": None,
         "source_event_ids": ["E-typed"],
         "metadata": metadata,
+    }
+
+
+def _valid_evidence_object() -> dict:
+    return _typed_object("EV-001", "evidence", evidence_metadata())
+
+
+def _valid_risk_object() -> dict:
+    return _typed_object("RISK-001", "risk", risk_metadata())
+
+
+def _pack_identity() -> dict:
+    return {
+        "domain_pack_id": "research",
+        "domain_pack_version": "0.1.0",
+        "domain_pack_digest": "DP-123456789abc",
     }
 
 
