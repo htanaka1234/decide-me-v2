@@ -72,6 +72,31 @@ class DomainPackSchemaTests(unittest.TestCase):
 
                 self.assertTrue(list(self.validator.iter_errors(payload)))
 
+    def test_semantic_validator_rejects_non_scalar_enum_values(self) -> None:
+        cases = (
+            (["default_core_domain"], ["data"]),
+            (["default_core_domain"], {"value": "data"}),
+            (["decision_types", 0, "object_type"], ["decision"]),
+            (["decision_types", 0, "layer"], {"value": "purpose"}),
+            (["decision_types", 0, "kind"], ["choice"]),
+            (["decision_types", 0, "default_priority"], {"value": "P0"}),
+            (["decision_types", 0, "default_reversibility"], ["hard-to-reverse"]),
+            (["evidence_requirements", 0, "evidence_source"], {"value": "docs"}),
+            (["evidence_requirements", 0, "min_confidence"], ["medium"]),
+            (["evidence_requirements", 0, "freshness_required"], {"value": "current"}),
+            (["risk_types", 0, "default_risk_tier"], ["high"]),
+            (["risk_types", 0, "default_approval_threshold"], {"value": "external_review"}),
+            (["safety_rules", 0, "approval_threshold"], ["external_review"]),
+            (["documents", 0, "document_type"], {"value": "research-plan"}),
+        )
+        for path, value in cases:
+            with self.subTest(path=path, value=value):
+                payload = _valid_pack()
+                _set_path(payload, path, value)
+
+                with self.assertRaises(DomainPackValidationError):
+                    validate_domain_pack_payload(payload)
+
     def test_semantic_validator_rejects_duplicate_ids(self) -> None:
         cases = (
             ("decision_types", "label", "Research question duplicate"),
