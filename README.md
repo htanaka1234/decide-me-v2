@@ -8,7 +8,7 @@ plan.
 
 The repository contains the v2 runtime behind that Skill: an event-sourced
 object/link graph, rebuildable projections, taxonomy-aware session search,
-object-native close summaries, and local derived exports for plans, ADRs,
+object-native close summaries, and local derived exports for generic documents, plans, ADRs,
 software-oriented decision registers, GitHub issue drafts, agent instruction
 fragments, arc42 architecture docs, impact reports, traceability matrices, and verification gap
 reports.
@@ -295,6 +295,8 @@ reference. Common maintainer operations include:
 - `show-stale-assumptions`, `show-stale-evidence`, `show-verification-gaps`, and
   `show-revisit-due` for read-only Phase 7 stale diagnostics
 - `export-impact-report` to write a derived Markdown impact report without changing runtime state
+- `export-document --type decision-brief|action-plan|risk-register|review-memo|research-plan|comparison-table`
+  to write generic Markdown, JSON, or supported CSV documents under `.ai/decide-me/exports/documents/`
 - `export-github-templates` to write local issue forms under `.github/ISSUE_TEMPLATE`
 - `export-architecture-doc --format arc42` for a derived architecture skeleton
 - `export-traceability --format csv|markdown` for decision/action/verification traceability
