@@ -514,7 +514,7 @@ def advance_session(
 
         evidence = find_evidence(bundle, session_id, decision, repo_root)
         if evidence is not None:
-            resolve_by_evidence(
+            resolution = resolve_by_evidence(
                 ai_dir,
                 session_id,
                 decision_id=decision["id"],
@@ -522,6 +522,15 @@ def advance_session(
                 summary=evidence["summary"],
                 evidence=evidence["evidence"],
             )
+            if resolution["status"] == "pending_approval":
+                return {
+                    "status": "pending_approval",
+                    "session_id": session_id,
+                    "decision_id": decision["id"],
+                    "auto_resolved": auto_resolved,
+                    "safety_gate": resolution["safety_gate"],
+                    "message": _render_evidence_pending_approval(decision["id"], resolution["safety_gate"]),
+                }
             auto_resolved.append(
                 {
                     "decision_id": decision["id"],
@@ -1044,7 +1053,7 @@ def _resolve_discovered_decisions_by_evidence(
         evidence = find_evidence(bundle, session_id, current, repo_root)
         if evidence is None:
             continue
-        resolve_by_evidence(
+        resolution = resolve_by_evidence(
             ai_dir,
             session_id,
             decision_id=current["id"],
@@ -1052,6 +1061,8 @@ def _resolve_discovered_decisions_by_evidence(
             summary=evidence["summary"],
             evidence=evidence["evidence"],
         )
+        if resolution["status"] == "pending_approval":
+            continue
         auto_resolved.append(
             {
                 "decision_id": current["id"],
@@ -1152,6 +1163,18 @@ def _render_auto_resolved(auto_resolved: list[dict[str, Any]]) -> str:
         refs = ", ".join(item["evidence"]) if item["evidence"] else "no refs recorded"
         lines.append(f"Resolved by evidence: {item['decision_id']} ({item['source']}: {refs})")
     return "\n".join(lines)
+
+
+def _render_evidence_pending_approval(decision_id: str, safety_gate: dict[str, Any]) -> str:
+    return "\n".join(
+        [
+            f"Evidence recorded for {decision_id}, but safety approval is required before resolving it.",
+            f"Gate status: {safety_gate['gate_status']}",
+            f"Approval reasons: {', '.join(safety_gate['approval_reasons']) or 'none'}",
+            f"Gate digest: {safety_gate['gate_digest']}",
+            "Run approve-safety-gate for this object, then retry evidence resolution.",
+        ]
+    )
 
 
 def _render_evidence_candidates(evidence_candidates: list[dict[str, Any]]) -> str:

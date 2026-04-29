@@ -48,7 +48,8 @@ class FullObjectRuntimeFlowSmokeTests(unittest.TestCase):
                 format_findings(json_payload_legacy_term_findings(result["plan"], "generated plan")),
             )
             self.assertTrue(result["plan"]["action_plan"]["actions"])
-            self.assertTrue(result["plan"]["action_plan"]["implementation_ready_actions"])
+            self.assertEqual([], result["plan"]["action_plan"]["implementation_ready_actions"])
+            self.assertEqual("needs_approval", result["plan"]["action_plan"]["actions"][0]["safety_gate"]["gate_status"])
             self.assertNotIn("action" + "_slices", result["plan"]["action_plan"])
 
 

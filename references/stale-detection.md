@@ -1,6 +1,6 @@
 # Stale Detection Diagnostics
 
-Step 4 adds structured read-only diagnostics for stale Phase 7 inputs. These diagnostics read
+Phase 7 includes structured read-only diagnostics for stale inputs. These diagnostics read
 `project-state.json` and return JSON; they do not persist diagnostic state, change object status,
 write events, apply invalidation candidates, or create approval objects. `project-state.json` and
 its `schema_version` are unchanged.
@@ -87,9 +87,16 @@ Due revisit triggers:
 - `due_at: null` is not due.
 - Items include `target_object_ids` and outgoing `revisits` link ids.
 
-## Boundary
+## Gate Connection
 
 `show-verification-gaps` returns structured JSON from the runtime projection. The existing
 `export-verification-gaps` command remains a derived Markdown export and writes under the requested
-export path. Stale diagnostics do not alter Step 3 safety gate status computation; later phases may
-consume these JSON diagnostics as gate inputs.
+export path.
+
+Safety gate evaluation now consumes the same stale rules directly:
+
+- stale or expired supporting evidence is not sufficient evidence
+- stale supporting evidence adds a warning
+- expired assumptions add a warning, and require approval for high or critical risk targets
+- missing verification on an active action requires approval
+- missing verification on a completed action blocks the gate

@@ -23,6 +23,8 @@ from decide_me.object_views import (
     proposals_for_decision,
 )
 from decide_me.requirement_ids import next_requirement_id
+from decide_me.safety_approval import build_safety_approval_event_specs
+from decide_me.safety_gate import evaluate_safety_gate
 from decide_me.selector import proposal_is_stale
 from decide_me.store import load_runtime, runtime_paths, transact
 from decide_me.taxonomy import stable_unique
@@ -324,6 +326,13 @@ def accept_proposal(
         else:
             mode = acceptance_mode or "explicit"
         _require_acceptance_mode(mode)
+        safety_approval_events = _safety_gate_acceptance_specs(
+            bundle,
+            session_id,
+            target["target_id"],
+            mode=mode,
+            now=now,
+        )
         answer = {
             "summary": target["recommendation"],
             "answered_at": now,
@@ -339,6 +348,7 @@ def accept_proposal(
             event_id=accept_link_event_id,
         )
         return [
+            *safety_approval_events,
             {
                 "session_id": session_id,
                 "event_type": "session_answer_recorded",
@@ -489,9 +499,17 @@ def answer_proposal(
         if not answer:
             raise ValueError("answer_summary must not be empty")
         _require_acceptance_mode(acceptance_mode)
+        safety_approval_events = _safety_gate_acceptance_specs(
+            bundle,
+            session_id,
+            target["target_id"],
+            mode=acceptance_mode,
+            now=now,
+        )
 
         matches_recommendation = _normalize(answer) == _normalize(recommendation)
         events: list[dict[str, Any]] = [
+            *safety_approval_events,
             {
                 "session_id": session_id,
                 "event_type": "session_answer_recorded",
@@ -797,6 +815,7 @@ def resolve_by_evidence(
     if not evidence:
         evidence = [summary]
     now = utc_now()
+    outcome: dict[str, Any] = {}
 
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
         session = _require_mutable_session(bundle, session_id)
@@ -806,7 +825,26 @@ def resolve_by_evidence(
         _require_decision_status(
             decision_id, decision, OPEN_MUTATION_STATUSES, "resolve by evidence"
         )
-        events: list[dict[str, Any]] = [
+        evidence_specs = _evidence_resolution_event_specs(
+            bundle,
+            session_id,
+            decision_id=decision_id,
+            source=source,
+            summary=summary,
+            evidence=evidence,
+            now=now,
+        )
+        projected_state = _project_state_after_specs(bundle["project_state"], evidence_specs)
+        gate = evaluate_safety_gate(projected_state, decision_id, now=now)
+        outcome["safety_gate"] = gate
+        if gate["gate_status"] == "blocked":
+            raise ValueError(_safety_gate_error("blocked", gate))
+        if gate["gate_status"] == "needs_approval":
+            outcome["status"] = "pending_approval"
+            return evidence_specs
+        outcome["status"] = "resolved"
+        return [
+            *evidence_specs,
             {
                 "session_id": session_id,
                 "event_type": "object_status_changed",
@@ -819,63 +857,14 @@ def resolve_by_evidence(
                 ),
             },
         ]
-        for evidence_ref in evidence:
-            evidence_event_id = new_event_id()
-            link_event_id = new_event_id()
-            evidence_id = f"O-evidence-{_stable_id(evidence_ref)}"
-            existing_evidence = _find_object(bundle, evidence_id)
-            if existing_evidence is not None and existing_evidence.get("type") != "evidence":
-                raise ValueError(f"evidence object id collision: {evidence_id}")
-            if existing_evidence is None:
-                events.append(
-                    {
-                        "event_id": evidence_event_id,
-                        "session_id": session_id,
-                        "event_type": "object_recorded",
-                        "payload": {
-                            "object": _object_payload(
-                                object_id=evidence_id,
-                                object_type="evidence",
-                                title=evidence_ref,
-                                body=summary,
-                                status="active",
-                                created_at=now,
-                                event_id=evidence_event_id,
-                                metadata={
-                                    "source": source,
-                                    "source_ref": evidence_ref,
-                                    "summary": summary,
-                                    "confidence": "high",
-                                    "freshness": "current",
-                                    "observed_at": now,
-                                    "valid_until": None,
-                                },
-                            )
-                        },
-                    }
-                )
-            events.append(
-                {
-                    "event_id": link_event_id,
-                    "session_id": session_id,
-                    "event_type": "object_linked",
-                    "payload": {
-                        "link": _link_payload(
-                            link_id=f"L-{evidence_id}-supports-{decision_id}",
-                            source_object_id=evidence_id,
-                            relation="supports",
-                            target_object_id=decision_id,
-                            rationale=summary,
-                            created_at=now,
-                            event_id=link_event_id,
-                        )
-                    },
-                }
-            )
-        return events
 
-    _, bundle = transact(ai_dir, builder)
-    return _lookup_decision(bundle, decision_id)
+    events, bundle = transact(ai_dir, builder)
+    return {
+        "status": outcome["status"],
+        "decision": _lookup_decision(bundle, decision_id),
+        "safety_gate": outcome["safety_gate"],
+        "event_ids": [event["event_id"] for event in events],
+    }
 
 
 def record_reply_artifacts(
@@ -1145,6 +1134,102 @@ def _find_object(bundle: dict[str, Any], object_id: str) -> dict[str, Any] | Non
     return None
 
 
+def _find_link(bundle: dict[str, Any], link_id: str) -> dict[str, Any] | None:
+    for link in bundle["project_state"].get("links", []):
+        if link.get("id") == link_id:
+            return link
+    return None
+
+
+def _evidence_resolution_event_specs(
+    bundle: dict[str, Any],
+    session_id: str,
+    *,
+    decision_id: str,
+    source: str,
+    summary: str,
+    evidence: list[str],
+    now: str,
+) -> list[dict[str, Any]]:
+    events: list[dict[str, Any]] = []
+    for evidence_ref in evidence:
+        evidence_event_id = new_event_id()
+        link_event_id = new_event_id()
+        evidence_id = f"O-evidence-{_stable_id(evidence_ref)}"
+        link_id = f"L-{evidence_id}-supports-{decision_id}"
+        existing_evidence = _find_object(bundle, evidence_id)
+        if existing_evidence is not None and existing_evidence.get("type") != "evidence":
+            raise ValueError(f"evidence object id collision: {evidence_id}")
+        if existing_evidence is None:
+            events.append(
+                {
+                    "event_id": evidence_event_id,
+                    "session_id": session_id,
+                    "event_type": "object_recorded",
+                    "payload": {
+                        "object": _object_payload(
+                            object_id=evidence_id,
+                            object_type="evidence",
+                            title=evidence_ref,
+                            body=summary,
+                            status="active",
+                            created_at=now,
+                            event_id=evidence_event_id,
+                            metadata={
+                                "source": source,
+                                "source_ref": evidence_ref,
+                                "summary": summary,
+                                "confidence": "high",
+                                "freshness": "current",
+                                "observed_at": now,
+                                "valid_until": None,
+                            },
+                        )
+                    },
+                }
+            )
+        existing_link = _find_link(bundle, link_id)
+        if existing_link is not None:
+            if (
+                existing_link.get("source_object_id") != evidence_id
+                or existing_link.get("relation") != "supports"
+                or existing_link.get("target_object_id") != decision_id
+            ):
+                raise ValueError(f"evidence support link id collision: {link_id}")
+            continue
+        events.append(
+            {
+                "event_id": link_event_id,
+                "session_id": session_id,
+                "event_type": "object_linked",
+                "payload": {
+                    "link": _link_payload(
+                        link_id=link_id,
+                        source_object_id=evidence_id,
+                        relation="supports",
+                        target_object_id=decision_id,
+                        rationale=summary,
+                        created_at=now,
+                        event_id=link_event_id,
+                    )
+                },
+            }
+        )
+    return events
+
+
+def _project_state_after_specs(project_state: dict[str, Any], specs: list[dict[str, Any]]) -> dict[str, Any]:
+    projected = deepcopy(project_state)
+    for spec in specs:
+        event_type = spec["event_type"]
+        payload = spec["payload"]
+        if event_type == "object_recorded":
+            projected["objects"].append(deepcopy(payload["object"]))
+        elif event_type == "object_linked":
+            projected["links"].append(deepcopy(payload["link"]))
+    return projected
+
+
 def _status_change_payload(
     bundle: dict[str, Any],
     object_id: str,
@@ -1323,6 +1408,50 @@ def _resolve_proposal_target(
     if target["target_id"] not in session["session"].get("related_object_ids", []):
         raise ValueError(f"proposal {target['proposal_id']} target is not related to session {session_id}")
     return deepcopy(target)
+
+
+def _safety_gate_acceptance_specs(
+    bundle: dict[str, Any],
+    session_id: str,
+    object_id: str,
+    *,
+    mode: str,
+    now: str,
+) -> list[dict[str, Any]]:
+    result = evaluate_safety_gate(bundle["project_state"], object_id, now=now)
+    if result["gate_status"] == "passed":
+        return []
+    if result["gate_status"] == "blocked":
+        raise ValueError(_safety_gate_error("blocked", result))
+    if mode == "ok":
+        raise ValueError(_safety_gate_error("needs explicit approval", result))
+    if _explicit_acceptance_can_inline_approval(result):
+        return build_safety_approval_event_specs(
+            bundle["project_state"],
+            session_id,
+            object_id,
+            gate_result=result,
+            approved_by="explicit_acceptance",
+            reason="Explicit proposal acceptance satisfies the safety gate.",
+            approved_at=now,
+        )
+    raise ValueError(_safety_gate_error("requires approve-safety-gate", result))
+
+
+def _explicit_acceptance_can_inline_approval(result: dict[str, Any]) -> bool:
+    return result["gate_status"] == "needs_approval" and set(result["approval_reasons"]) == {
+        "explicit_acceptance_required"
+    }
+
+
+def _safety_gate_error(prefix: str, result: dict[str, Any]) -> str:
+    return (
+        f"safety gate {prefix} for {result['object_id']}: "
+        f"gate_status={result['gate_status']}; "
+        f"blocking_reasons={result['blocking_reasons']}; "
+        f"approval_reasons={result['approval_reasons']}; "
+        f"gate_digest={result['gate_digest']}"
+    )
 
 
 def _normalize(value: str) -> str:

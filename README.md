@@ -180,8 +180,14 @@ Inspect Phase 7 safety gates:
 
 1. Run `python3 scripts/decide_me.py show-safety-gate --ai-dir .ai/decide-me --object-id O-...`.
 2. Run `python3 scripts/decide_me.py show-safety-gates --ai-dir .ai/decide-me`.
-3. These commands return read-only safety diagnostics. They do not persist gate state, mark stale
-   objects, create approval objects, apply invalidation candidates, or write events.
+3. These commands return read-only safety diagnostics. They do not persist gate state, apply
+   invalidation candidates, or write events.
+4. Record approval for a gate with `python3 scripts/decide_me.py approve-safety-gate --ai-dir .ai/decide-me --session-id S-... --object-id O-... --approved-by user --reason "..."`.
+5. Inspect approval artifacts with `python3 scripts/decide_me.py show-safety-approvals --ai-dir .ai/decide-me --object-id O-...`.
+6. Approval is stored as a normal `artifact` object plus `addresses` link. A matching approval is
+   valid only for the current `gate_digest`; approval writes require an existing mutable session.
+7. Evidence-based resolution records evidence but leaves the decision open when the projected gate
+   needs approval. Approve the current digest, then retry the evidence resolution.
 
 Inspect Phase 7 stale diagnostics:
 
@@ -189,8 +195,9 @@ Inspect Phase 7 stale diagnostics:
 2. Run `python3 scripts/decide_me.py show-stale-evidence --ai-dir .ai/decide-me --now 2026-04-28T12:00:00Z`.
 3. Run `python3 scripts/decide_me.py show-verification-gaps --ai-dir .ai/decide-me --now 2026-04-28T12:00:00Z`.
 4. Run `python3 scripts/decide_me.py show-revisit-due --ai-dir .ai/decide-me --now 2026-04-28T12:00:00Z`.
-5. These commands return structured read-only diagnostics. They do not change safety gate status,
-   write events, update projections, apply invalidation candidates, or create approval objects.
+5. These commands return structured read-only diagnostics. Safety gate evaluation consumes stale
+   evidence, expired assumptions, and verification gaps directly; the stale commands themselves do
+   not write events, update projections, apply invalidation candidates, or create approval objects.
    `export-verification-gaps` remains the Markdown export command.
    Stale evidence output includes indirect affected decisions and representative paths when stale
    evidence reaches decisions through verification, assumption, or proposal links.

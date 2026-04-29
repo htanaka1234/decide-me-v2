@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/decide-me/safety-approval.schema.json",
+  "title": "Decide Me Safety Approval Report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "project_head",
+    "generated_at",
+    "as_of",
+    "object_id",
+    "active_gate_digest",
+    "approvals"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "project_head": {
+      "$ref": "#/$defs/nullable_string"
+    },
+    "generated_at": {
+      "$ref": "#/$defs/nullable_date_time"
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "object_id": {
+      "$ref": "#/$defs/nullable_string"
+    },
+    "active_gate_digest": {
+      "$ref": "#/$defs/nullable_gate_digest"
+    },
+    "approvals": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/approval"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "nullable_string": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "nullable_date_time": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "nullable_gate_digest": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^SG-[0-9a-f]{12}$"
+    },
+    "string_array": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "approval_threshold": {
+      "enum": [
+        "none",
+        "explicit_acceptance",
+        "human_review",
+        "external_review"
+      ]
+    },
+    "approval": {
+      "type": "object",
+      "required": [
+        "artifact_id",
+        "status",
+        "target_object_id",
+        "gate_digest",
+        "approval_threshold",
+        "approved_by",
+        "approved_at",
+        "reason",
+        "expires_at",
+        "is_expired",
+        "is_current",
+        "addresses_link_ids"
+      ],
+      "properties": {
+        "artifact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_object_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "gate_digest": {
+          "type": "string",
+          "pattern": "^SG-[0-9a-f]{12}$"
+        },
+        "approval_threshold": {
+          "$ref": "#/$defs/approval_threshold"
+        },
+        "approved_by": {
+          "type": "string",
+          "minLength": 1
+        },
+        "approved_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expires_at": {
+          "$ref": "#/$defs/nullable_date_time"
+        },
+        "is_expired": {
+          "type": "boolean"
+        },
+        "is_current": {
+          "type": "boolean"
+        },
+        "addresses_link_ids": {
+          "$ref": "#/$defs/string_array"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

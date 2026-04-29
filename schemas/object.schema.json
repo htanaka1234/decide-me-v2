@@ -160,6 +160,32 @@
           }
         }
       }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "artifact"
+          },
+          "metadata": {
+            "properties": {
+              "artifact_type": {
+                "const": "safety_gate_approval"
+              }
+            },
+            "required": [
+              "artifact_type"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "metadata": {
+            "$ref": "#/$defs/safety_approval_metadata"
+          }
+        }
+      }
     }
   ],
   "$defs": {
@@ -418,6 +444,60 @@
         }
       },
       "additionalProperties": true
+    },
+    "safety_approval_metadata": {
+      "type": "object",
+      "required": [
+        "artifact_type",
+        "target_object_id",
+        "gate_digest",
+        "approval_threshold",
+        "approved_by",
+        "approved_at",
+        "reason",
+        "expires_at"
+      ],
+      "properties": {
+        "artifact_type": {
+          "const": "safety_gate_approval"
+        },
+        "target_object_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "gate_digest": {
+          "type": "string",
+          "pattern": "^SG-[0-9a-f]{12}$"
+        },
+        "approval_threshold": {
+          "type": "string",
+          "enum": [
+            "none",
+            "explicit_acceptance",
+            "human_review",
+            "external_review"
+          ]
+        },
+        "approved_by": {
+          "type": "string",
+          "minLength": 1
+        },
+        "approved_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expires_at": {
+          "$ref": "#/$defs/nullable_date_time"
+        },
+        "layer": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
     }
   }
 }

@@ -26,15 +26,30 @@ class SafetyGateTests(unittest.TestCase):
         self.assertEqual([], result["blocking_reasons"])
         self.assertEqual(["L-E-001-supports-D-001"], result["source_link_ids"])
 
-    def test_missing_evidence_blocks_gate(self) -> None:
+    def test_missing_evidence_without_risk_is_warning(self) -> None:
         result = evaluate_safety_gate(
             _project_state(objects=[_object("D-001", "decision")], links=[]),
             "D-001",
         )
 
-        self.assertEqual("blocked", result["gate_status"])
+        self.assertEqual("passed", result["gate_status"])
         self.assertEqual("insufficient", result["evidence_coverage"])
-        self.assertIn("insufficient_evidence", result["blocking_reasons"])
+        self.assertIn("insufficient_evidence", result["warning_reasons"])
+        self.assertEqual([], result["blocking_reasons"])
+
+    def test_missing_evidence_on_medium_risk_needs_approval(self) -> None:
+        project_state = _project_state(
+            objects=[
+                _object("D-001", "decision"),
+                _object("R-001", "risk", metadata=risk_metadata(risk_tier="medium", approval_threshold="none")),
+            ],
+            links=[_link("L-R-001-constrains-D-001", "R-001", "constrains", "D-001")],
+        )
+
+        result = evaluate_safety_gate(project_state, "D-001")
+
+        self.assertEqual("needs_approval", result["gate_status"])
+        self.assertIn("insufficient_evidence_requires_approval", result["approval_reasons"])
 
     def test_challenge_evidence_blocks_gate(self) -> None:
         project_state = _project_state(
@@ -149,6 +164,20 @@ class SafetyGateTests(unittest.TestCase):
         self.assertIn("partially_reversible_change", partial["warning_reasons"])
         self.assertEqual("passed", partial["gate_status"])
 
+        irreversible_action_state = _project_state(
+            objects=[
+                _object("A-002", "action", metadata={"reversibility": "irreversible"}),
+                _object("E-002", "evidence", metadata=evidence_metadata()),
+            ],
+            links=[_link("L-E-002-supports-A-002", "E-002", "supports", "A-002")],
+        )
+
+        irreversible_action = evaluate_safety_gate(irreversible_action_state, "A-002")
+
+        self.assertEqual("irreversible", irreversible_action["reversibility"])
+        self.assertIn("irreversible_change", irreversible_action["approval_reasons"])
+        self.assertEqual("needs_approval", irreversible_action["gate_status"])
+
     def test_low_confidence_assumption_adds_warning(self) -> None:
         project_state = _project_state(
             objects=[
@@ -183,7 +212,49 @@ class SafetyGateTests(unittest.TestCase):
 
         self.assertEqual(2, report["summary"]["evaluated_count"])
         self.assertEqual(["A-001", "D-001"], [result["object_id"] for result in report["results"]])
-        self.assertEqual({"blocked": 2}, report["summary"]["by_gate_status"])
+        self.assertEqual({"needs_approval": 1, "passed": 1}, report["summary"]["by_gate_status"])
+
+    def test_gate_digest_is_stable_for_same_inputs(self) -> None:
+        project_state = _project_state(
+            objects=[
+                _object("D-001", "decision"),
+                _object("E-001", "evidence", metadata=evidence_metadata()),
+            ],
+            links=[_link("L-E-001-supports-D-001", "E-001", "supports", "D-001")],
+        )
+
+        first = evaluate_safety_gate(project_state, "D-001")
+        second = evaluate_safety_gate(project_state, "D-001")
+
+        self.assertEqual(first["gate_digest"], second["gate_digest"])
+        self.assertRegex(first["gate_digest"], r"^SG-[0-9a-f]{12}$")
+
+    def test_stale_only_supporting_evidence_is_insufficient(self) -> None:
+        project_state = _project_state(
+            objects=[
+                _object("D-001", "decision"),
+                _object(
+                    "E-001",
+                    "evidence",
+                    metadata=evidence_metadata(valid_until="2026-04-27T00:00:00Z"),
+                ),
+            ],
+            links=[_link("L-E-001-supports-D-001", "E-001", "supports", "D-001")],
+        )
+
+        result = evaluate_safety_gate(project_state, "D-001", now="2026-04-28T00:00:00Z")
+
+        self.assertEqual("insufficient", result["evidence_coverage"])
+        self.assertIn("stale_supporting_evidence", result["warning_reasons"])
+
+    def test_completed_action_verification_gap_blocks(self) -> None:
+        result = evaluate_safety_gate(
+            _project_state(objects=[_object("A-001", "action", status="completed")], links=[]),
+            "A-001",
+        )
+
+        self.assertEqual("blocked", result["gate_status"])
+        self.assertIn("completed_action_verification_gap", result["blocking_reasons"])
 
     def test_unknown_object_id_raises_value_error(self) -> None:
         with self.assertRaisesRegex(ValueError, "unknown object_id: D-missing"):
