@@ -84,6 +84,8 @@ def validate_domain_pack_payload(raw: dict[str, Any]) -> None:
     payload = _require_dict(raw, "domain_pack")
     _require_keys(payload, TOP_LEVEL_KEYS, "domain_pack")
     _reject_unknown_keys(payload, TOP_LEVEL_KEYS, "domain_pack")
+    if type(payload.get("schema_version")) is not int:
+        raise DomainPackValidationError("domain_pack.schema_version must be an integer")
     if payload["schema_version"] != DOMAIN_PACK_SCHEMA_VERSION:
         raise DomainPackValidationError(
             f"domain_pack.schema_version must be {DOMAIN_PACK_SCHEMA_VERSION}"

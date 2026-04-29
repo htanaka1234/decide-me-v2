@@ -145,6 +145,13 @@ class DomainPackSchemaTests(unittest.TestCase):
                 with self.assertRaisesRegex(DomainPackValidationError, "unsupported fields"):
                     domain_pack_from_dict(payload)
 
+    def test_model_conversion_rejects_boolean_schema_version(self) -> None:
+        payload = _valid_pack()
+        payload["schema_version"] = True
+
+        with self.assertRaisesRegex(DomainPackValidationError, "schema_version must be an integer"):
+            domain_pack_from_dict(payload)
+
     def test_model_round_trips_pack_payload(self) -> None:
         payload = _valid_pack()
         pack = domain_pack_from_dict(payload)
