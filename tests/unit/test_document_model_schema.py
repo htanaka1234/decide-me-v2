@@ -27,6 +27,23 @@ class DocumentModelSchemaTests(unittest.TestCase):
 
         self.assertTrue(list(self.validator.iter_errors(payload)))
 
+    def test_accepts_domain_pack_document_metadata(self) -> None:
+        payload = _valid_model()
+        payload["metadata"] = {
+            "domain_pack_id": "research",
+            "domain_pack_version": "0.1.0",
+            "domain_pack_digest": "DP-123456789abc",
+            "document_profile_id": "research_protocol",
+        }
+
+        self.assertEqual([], list(self.validator.iter_errors(payload)))
+
+    def test_rejects_partial_domain_pack_document_metadata(self) -> None:
+        payload = _valid_model()
+        payload["metadata"] = {"domain_pack_id": "research"}
+
+        self.assertTrue(list(self.validator.iter_errors(payload)))
+
 
 def _valid_model() -> dict:
     return {

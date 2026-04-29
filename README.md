@@ -302,8 +302,9 @@ reference. Common maintainer operations include:
 - `export-impact-report` to write a derived Markdown impact report without changing runtime state
 - `export-document --type decision-brief|action-plan|risk-register|review-memo|research-plan|comparison-table`
   to write generic Markdown, JSON, or supported CSV documents under `.ai/decide-me/exports/documents/`
-  and `export-document --domain-pack <id>` to validate the selected pack before export. Pack-specific
-  document rendering is reserved for the later document compiler integration.
+  and `export-document --domain-pack <id>` to apply a pack document profile when the pack defines
+  one. When omitted, export uses the single pack represented by the selected closed sessions, falls
+  back to the generic profile for mixed scopes, and fails for ambiguous pack-specific documents.
 - `export-github-templates` to write local issue forms under `.github/ISSUE_TEMPLATE`
 - `export-architecture-doc --format arc42` for a derived architecture skeleton
 - `export-traceability --format csv|markdown` for decision/action/verification traceability

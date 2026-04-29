@@ -651,6 +651,7 @@ def main(argv: list[str] | None = None) -> int:
                 output=args.output,
                 session_ids=args.session_id,
                 object_ids=args.object_id,
+                domain_pack_id=domain_pack_id,
                 include_invalidated=args.include_invalidated,
                 now=args.now,
                 force=args.force,
@@ -661,8 +662,7 @@ def main(argv: list[str] | None = None) -> int:
                 result.update(
                     {
                         "domain_pack_id": domain_pack_id,
-                        "domain_pack_applied": False,
-                        "note": "domain pack was validated but is not applied to document rendering yet",
+                        "domain_pack_applied": True,
                     }
                 )
             _print_json(result)

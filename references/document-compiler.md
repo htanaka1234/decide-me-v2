@@ -44,6 +44,11 @@ Supported formats:
 `--format json` writes the `DocumentModel` directly. `--now` fixes the generated timestamp and
 diagnostic as-of time for deterministic tests and snapshots.
 
+`--domain-pack <id>` applies the selected pack's document profile when that pack declares the
+requested document type. If omitted, the compiler uses the single domain pack represented by the
+selected closed sessions. Mixed-pack scopes use the generic profile when available; pack-specific
+documents without a generic profile fail and require `--domain-pack`.
+
 ## Contract
 
 All document models use `schemas/document-model.schema.json`.
@@ -61,6 +66,11 @@ Required top-level fields:
 - `sections`
 - `warnings`
 - `metadata`
+
+When a domain pack profile is applied, `metadata` includes `domain_pack_id`,
+`domain_pack_version`, `domain_pack_digest`, and `document_profile_id`. The compiler uses the
+profile's `required_sections` to prioritize section order and fails clearly if a required section
+is not produced by the selected document builder.
 
 `source` records `session_ids`, `object_ids`, `link_ids`, and `diagnostic_types` so every document
 can be traced back to the object/link runtime. Sections also carry `source_object_ids` and

@@ -70,13 +70,15 @@ def _decision_targets_section(
         20,
         [
             table_block(
-                ["Decision ID", "Title", "Status", "Priority", "Question"],
+                ["Decision ID", "Title", "Status", "Priority", "Domain Type", "Criteria", "Question"],
                 [
                     [
                         obj["id"],
                         object_label(obj),
                         obj.get("status"),
                         metadata_value(obj, "priority"),
+                        metadata_value(obj, "domain_decision_type"),
+                        ", ".join(obj.get("metadata", {}).get("domain_criteria", [])),
                         metadata_value(obj, "question") or obj.get("body"),
                     ]
                     for obj in decisions
@@ -184,5 +186,5 @@ def _verification_section(context: DocumentContext) -> dict[str, Any]:
 
 
 def _research_first(decisions: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    research = [obj for obj in decisions if obj.get("metadata", {}).get("domain") == "research"]
+    research = [obj for obj in decisions if obj.get("metadata", {}).get("domain_pack_id") == "research"]
     return research or decisions

@@ -149,7 +149,7 @@ class DomainPackCliTests(unittest.TestCase):
                         "unknown domain pack: missing|domain pack must be a non-empty string",
                     )
 
-    def test_export_document_domain_pack_reports_validation_only(self) -> None:
+    def test_export_document_domain_pack_reports_applied_profile(self) -> None:
         with TemporaryDirectory() as tmp:
             ai_dir = _bootstrap(tmp)
             output = ai_dir / "exports" / "documents" / "risk-register.md"
@@ -170,8 +170,7 @@ class DomainPackCliTests(unittest.TestCase):
 
         self.assertEqual(str(output), exported["path"])
         self.assertEqual("research", exported["domain_pack_id"])
-        self.assertFalse(exported["domain_pack_applied"])
-        self.assertIn("not applied to document rendering yet", exported["note"])
+        self.assertTrue(exported["domain_pack_applied"])
 
 
 def _bootstrap(tmp: str) -> Path:

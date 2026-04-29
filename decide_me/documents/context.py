@@ -3,7 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from decide_me.exporters.common import project_head, snapshot_generated_at
 from decide_me.projections import build_decision_stack_graph
@@ -19,8 +19,13 @@ from decide_me.store import load_runtime, read_event_log, runtime_paths
 from decide_me.suppression import apply_semantic_suppression_to_session
 from decide_me.taxonomy import stable_unique
 
+if TYPE_CHECKING:
+    from decide_me.domains.model import DocumentSpec, DomainPack
+    from decide_me.domains.registry import DomainRegistry
+
 
 ACTION_PLAN_DOCUMENT_TYPES = {"action-plan"}
+GENERIC_PACK_ID = "generic"
 
 
 @dataclass(frozen=True)
@@ -46,6 +51,9 @@ class DocumentContext:
     scope_object_ids: list[str]
     scope_link_ids: list[str]
     include_invalidated: bool
+    domain_pack: DomainPack | None
+    domain_pack_digest: str | None
+    document_profile: DocumentSpec | None
 
 
 def build_document_context(
@@ -54,13 +62,17 @@ def build_document_context(
     document_type: str,
     session_ids: list[str] | None = None,
     object_ids: list[str] | None = None,
+    domain_pack_id: str | None = None,
     include_invalidated: bool = False,
     now: str | None = None,
 ) -> DocumentContext:
+    from decide_me.domains.loader import load_domain_registry
+
     paths = runtime_paths(ai_dir)
     bundle = load_runtime(paths)
     events = read_event_log(paths)
     project_state = bundle["project_state"]
+    domain_registry = load_domain_registry(ai_dir)
     source_session_ids, sessions = _selected_closed_sessions(
         bundle,
         session_ids,
@@ -76,6 +88,12 @@ def build_document_context(
         normalized_sessions,
         object_ids=requested_object_ids,
         include_invalidated=include_invalidated,
+    )
+    selected_pack, selected_digest, document_profile = _resolve_document_profile(
+        domain_registry,
+        document_type,
+        normalized_sessions,
+        explicit_pack_id=domain_pack_id,
     )
     action_plan = None
     if document_type in ACTION_PLAN_DOCUMENT_TYPES:
@@ -100,7 +118,7 @@ def build_document_context(
         evidence_register=build_evidence_register(scoped_project_state),
         assumption_register=build_assumption_register(scoped_project_state),
         risk_register=build_risk_register(scoped_project_state),
-        safety_gates=build_safety_gate_report(scoped_project_state, now=now),
+        safety_gates=build_safety_gate_report(scoped_project_state, now=now, domain_registry=domain_registry),
         stale_assumptions=detect_stale_assumptions(scoped_project_state, now=now),
         stale_evidence=detect_stale_evidence(scoped_project_state, now=now),
         verification_gaps=detect_verification_gaps(scoped_project_state, now=now),
@@ -110,7 +128,84 @@ def build_document_context(
         scope_object_ids=scope_object_ids,
         scope_link_ids=scope_link_ids,
         include_invalidated=include_invalidated,
+        domain_pack=selected_pack,
+        domain_pack_digest=selected_digest,
+        document_profile=document_profile,
     )
+
+
+def _resolve_document_profile(
+    registry: DomainRegistry,
+    document_type: str,
+    sessions: list[dict[str, Any]],
+    *,
+    explicit_pack_id: str | None,
+) -> tuple[DomainPack | None, str | None, DocumentSpec | None]:
+    from decide_me.domains.loader import domain_pack_digest
+
+    if explicit_pack_id is not None:
+        pack_id = explicit_pack_id.strip()
+        if not pack_id:
+            raise ValueError("domain pack must be a non-empty string")
+        pack = registry.get(pack_id)
+        spec = _document_spec(pack, document_type)
+        if spec is None:
+            raise ValueError(f"domain pack {pack.pack_id} does not define document type {document_type}")
+        return pack, domain_pack_digest(pack), spec
+
+    session_pack_ids = _session_domain_pack_ids(sessions)
+    if len(session_pack_ids) == 1:
+        pack = registry.get(session_pack_ids[0])
+        spec = _document_spec(pack, document_type)
+        if spec is None:
+            return None, None, None
+        return pack, domain_pack_digest(pack), spec
+
+    generic = registry.get(GENERIC_PACK_ID)
+    generic_spec = _document_spec(generic, document_type)
+    if generic_spec is not None:
+        return generic, domain_pack_digest(generic), generic_spec
+
+    if _packs_defining_document(registry, document_type):
+        packs = ", ".join(session_pack_ids)
+        raise ValueError(
+            f"domain pack is ambiguous for {document_type} document export; "
+            f"selected sessions use: {packs}; pass --domain-pack"
+        )
+    return None, None, None
+
+
+def _document_spec(pack: DomainPack, document_type: str) -> DocumentSpec | None:
+    for spec in pack.documents:
+        if spec.document_type == document_type:
+            return spec
+    return None
+
+
+def _session_domain_pack_ids(sessions: list[dict[str, Any]]) -> list[str]:
+    return sorted(
+        stable_unique(
+            _session_domain_pack_id(session)
+            for session in sessions
+        )
+    )
+
+
+def _session_domain_pack_id(session: dict[str, Any]) -> str:
+    classification = session.get("classification")
+    if not isinstance(classification, dict):
+        classification = session.get("session", {}).get("classification", {})
+    if not isinstance(classification, dict):
+        return GENERIC_PACK_ID
+    return classification.get("domain_pack_id") or GENERIC_PACK_ID
+
+
+def _packs_defining_document(registry: DomainRegistry, document_type: str) -> list[str]:
+    return [
+        pack.pack_id
+        for pack in registry.list()
+        if pack.pack_id != GENERIC_PACK_ID and _document_spec(pack, document_type) is not None
+    ]
 
 
 def _build_action_plan(

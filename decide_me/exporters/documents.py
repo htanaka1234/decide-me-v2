@@ -23,6 +23,7 @@ def export_document(
     output: str | Path,
     session_ids: list[str] | None = None,
     object_ids: list[str] | None = None,
+    domain_pack_id: str | None = None,
     include_invalidated: bool = False,
     now: str | None = None,
     force: bool = False,
@@ -46,6 +47,7 @@ def export_document(
         document_type=normalized_type,
         session_ids=session_ids,
         object_ids=object_ids,
+        domain_pack_id=domain_pack_id,
         include_invalidated=include_invalidated,
         now=now,
     )

@@ -37,7 +37,13 @@ def build_document(
     metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     document_type = normalize_document_type(document_type)
-    sorted_sections = sorted(sections, key=lambda section: (section["order"], section["id"]))
+    sorted_sections = _profiled_sections(context, sections)
+    missing_sections = _missing_profile_sections(context, sorted_sections)
+    if missing_sections:
+        profile_id = getattr(getattr(context, "document_profile", None), "profile_id", None)
+        raise ValueError(
+            f"document profile {profile_id} requires missing sections: {', '.join(missing_sections)}"
+        )
     source_object_ids = stable_unique(
         object_id
         for section in sorted_sections
@@ -64,7 +70,7 @@ def build_document(
         "title": title,
         "sections": sorted_sections,
         "warnings": list(warnings or []),
-        "metadata": metadata or {},
+        "metadata": _document_metadata(context, metadata),
     }
 
 
@@ -75,6 +81,50 @@ def document_id(document_type: str, generated_at: str | None) -> str:
         if digits:
             date_part = digits
     return f"DOC-{date_part}-{normalize_document_type(document_type)}"
+
+
+def _profiled_sections(context: Any, sections: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    base = sorted(sections, key=lambda section: (section["order"], section["id"]))
+    profile = getattr(context, "document_profile", None)
+    required_sections = tuple(getattr(profile, "required_sections", ()) or ())
+    if not required_sections:
+        return base
+    priority = {section_id: index for index, section_id in enumerate(required_sections)}
+    return sorted(
+        base,
+        key=lambda item: (
+            0 if item["id"] in priority else 1,
+            priority.get(item["id"], item["order"]),
+            item["order"],
+            item["id"],
+        ),
+    )
+
+
+def _missing_profile_sections(context: Any, sections: list[dict[str, Any]]) -> list[str]:
+    profile = getattr(context, "document_profile", None)
+    required_sections = tuple(getattr(profile, "required_sections", ()) or ())
+    if not required_sections:
+        return []
+    present = {section["id"] for section in sections}
+    return [section_id for section_id in required_sections if section_id not in present]
+
+
+def _document_metadata(context: Any, metadata: dict[str, Any] | None) -> dict[str, Any]:
+    merged = dict(metadata or {})
+    profile = getattr(context, "document_profile", None)
+    pack = getattr(context, "domain_pack", None)
+    digest = getattr(context, "domain_pack_digest", None)
+    if profile is not None and pack is not None and digest is not None:
+        merged.update(
+            {
+                "domain_pack_id": pack.pack_id,
+                "domain_pack_version": pack.version,
+                "domain_pack_digest": digest,
+                "document_profile_id": profile.profile_id,
+            }
+        )
+    return merged
 
 
 def section(
