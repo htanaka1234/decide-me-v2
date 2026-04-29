@@ -10,8 +10,17 @@ from decide_me.domains.model import DecisionTypeSpec, DomainPack
 
 GENERIC_PACK_ID = "generic"
 ALIAS_WEIGHT = 3
-HINT_WEIGHT = 1
-MIN_SPECIALIZED_SCORE = 2
+AMBIGUOUS_HINTS = frozenset(
+    {
+        "session",
+        "service",
+        "report",
+        "copy",
+        "flow",
+        "support",
+        "endpoint",
+    }
+)
 SEPARATOR_PATTERN = re.compile(r"[_\-/]+")
 WHITESPACE_PATTERN = re.compile(r"\s+")
 
@@ -56,22 +65,24 @@ class DomainRegistry:
         if not normalized:
             return GENERIC_PACK_ID
 
-        scores = [
-            (_score_pack(pack, normalized), pack.pack_id)
-            for pack in self.list()
-            if pack.pack_id != GENERIC_PACK_ID
-        ]
-        positive_scores = [(score, pack_id) for score, pack_id in scores if score > 0]
-        if not positive_scores:
+        packs = [pack for pack in self.list() if pack.pack_id != GENERIC_PACK_ID]
+        alias_scores = [(_score_aliases(pack, normalized), pack.pack_id) for pack in packs]
+        positive_alias_scores = [(score, pack_id) for score, pack_id in alias_scores if score > 0]
+        if positive_alias_scores:
+            best_score = max(score for score, _pack_id in positive_alias_scores)
+            best = sorted(pack_id for score, pack_id in positive_alias_scores if score == best_score)
+            if len(best) == 1:
+                return best[0]
             return GENERIC_PACK_ID
 
-        best_score = max(score for score, _pack_id in positive_scores)
-        if best_score < MIN_SPECIALIZED_SCORE:
-            return GENERIC_PACK_ID
-        best = sorted(pack_id for score, pack_id in positive_scores if score == best_score)
-        if len(best) != 1:
-            return GENERIC_PACK_ID
-        return best[0]
+        hint_hits = [
+            pack.pack_id
+            for pack in packs
+            if _pack_has_non_ambiguous_hint(pack, normalized)
+        ]
+        if len(hint_hits) == 1:
+            return hint_hits[0]
+        return GENERIC_PACK_ID
 
     def decision_type(self, pack_id: str, type_id: str) -> DecisionTypeSpec:
         pack = self.get(pack_id)
@@ -81,15 +92,21 @@ class DomainRegistry:
         raise KeyError(f"unknown decision type for domain pack {pack_id}: {type_id}")
 
 
-def _score_pack(pack: DomainPack, normalized_text: str) -> int:
+def _score_aliases(pack: DomainPack, normalized_text: str) -> int:
     score = 0
     for alias in pack.aliases:
         if _contains_phrase(normalized_text, alias):
             score += ALIAS_WEIGHT
-    for hint in pack.interview.domain_hints:
-        if _contains_phrase(normalized_text, hint):
-            score += HINT_WEIGHT
     return score
+
+
+def _pack_has_non_ambiguous_hint(pack: DomainPack, normalized_text: str) -> bool:
+    for hint in pack.interview.domain_hints:
+        if _normalize_text(hint) in AMBIGUOUS_HINTS:
+            continue
+        if _contains_phrase(normalized_text, hint):
+            return True
+    return False
 
 
 def _contains_phrase(normalized_text: str, phrase: str) -> bool:

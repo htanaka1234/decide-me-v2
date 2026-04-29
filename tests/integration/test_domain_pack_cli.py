@@ -106,6 +106,8 @@ class DomainPackCliTests(unittest.TestCase):
 
             cases = (
                 ("show-domain-pack", "--ai-dir", str(ai_dir), "--pack-id", "missing"),
+                ("list-sessions", "--ai-dir", str(ai_dir), "--domain-pack", "missing"),
+                ("list-sessions", "--ai-dir", str(ai_dir), "--domain-pack", ""),
                 (
                     "create-session",
                     "--ai-dir",

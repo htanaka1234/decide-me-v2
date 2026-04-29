@@ -704,24 +704,28 @@ def validate_session_state(session_state: dict[str, Any]) -> None:
         session_state["classification"],
         "session_state.classification",
     )
-    _require_optional_non_empty_string(
-        session_state["classification"].get("domain_pack_id"),
-        "session_state.classification.domain_pack_id",
-    )
-    domain_pack_id = session_state["classification"].get("domain_pack_id")
-    if domain_pack_id is not None and not DOMAIN_PACK_ID_PATTERN.fullmatch(str(domain_pack_id)):
-        raise StateValidationError("session_state.classification.domain_pack_id must match ^[a-z][a-z0-9_]*$")
-    _require_optional_non_empty_string(
-        session_state["classification"].get("domain_pack_version"),
-        "session_state.classification.domain_pack_version",
-    )
-    domain_pack_digest = session_state["classification"].get("domain_pack_digest")
-    _require_optional_non_empty_string(
-        domain_pack_digest,
-        "session_state.classification.domain_pack_digest",
-    )
-    if domain_pack_digest is not None and not DOMAIN_PACK_DIGEST_PATTERN.fullmatch(str(domain_pack_digest)):
-        raise StateValidationError("session_state.classification.domain_pack_digest must match ^DP-[0-9a-f]{12}$")
+    classification = session_state["classification"]
+    if "domain_pack_id" in classification:
+        domain_pack_id = classification["domain_pack_id"]
+        _require_non_empty_string(
+            domain_pack_id,
+            "session_state.classification.domain_pack_id",
+        )
+        if not DOMAIN_PACK_ID_PATTERN.fullmatch(domain_pack_id):
+            raise StateValidationError("session_state.classification.domain_pack_id must match ^[a-z][a-z0-9_]*$")
+    if "domain_pack_version" in classification:
+        _require_non_empty_string(
+            classification["domain_pack_version"],
+            "session_state.classification.domain_pack_version",
+        )
+    if "domain_pack_digest" in classification:
+        domain_pack_digest = classification["domain_pack_digest"]
+        _require_non_empty_string(
+            domain_pack_digest,
+            "session_state.classification.domain_pack_digest",
+        )
+        if not DOMAIN_PACK_DIGEST_PATTERN.fullmatch(domain_pack_digest):
+            raise StateValidationError("session_state.classification.domain_pack_digest must match ^DP-[0-9a-f]{12}$")
     _require_optional_timestamp(
         session_state["classification"].get("updated_at"),
         "session_state.classification.updated_at",

@@ -142,6 +142,10 @@ class DomainPackBuiltinPacksTests(unittest.TestCase):
         for hint in ("session", "service", "report", "copy", "flow"):
             with self.subTest(ambiguous_hint=hint):
                 self.assertNotIn(hint, hints)
+        for hint in ("vendor", "contract"):
+            with self.subTest(cross_domain_hint=hint):
+                self.assertNotIn(hint, hints)
+        self.assertTrue({"vendor dependency", "third party provider", "api provider"}.issubset(hints))
         self.assertEqual("technical", pack["default_core_domain"])
 
     def test_procurement_pack_avoids_ambiguous_support_hint(self) -> None:

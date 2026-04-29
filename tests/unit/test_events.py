@@ -176,6 +176,26 @@ class EventTests(unittest.TestCase):
                         },
                     )
 
+    def test_session_created_rejects_invalid_domain_type_values(self) -> None:
+        for value in ([], {}, 123):
+            with self.subTest(value=value):
+                classification = _classification_payload()
+                classification["domain"] = value
+
+                with self.assertRaisesRegex(EventValidationError, "classification.domain"):
+                    _event(
+                        event_type="session_created",
+                        payload={
+                            "session": {
+                                "id": "S-001",
+                                "started_at": "2026-04-23T12:00:00Z",
+                                "last_seen_at": "2026-04-23T12:00:00Z",
+                                "bound_context_hint": "Research context",
+                                "classification": classification,
+                            }
+                        },
+                    )
+
     def test_session_created_rejects_partial_domain_pack_classification(self) -> None:
         cases = (
             {"domain_pack_id": "research"},

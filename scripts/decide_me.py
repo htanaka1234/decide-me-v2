@@ -416,13 +416,14 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "create-session":
             _print_json(create_session(args.ai_dir, context=args.context, domain_pack_id=args.domain_pack))
         elif args.command == "list-sessions":
+            domain_packs = _require_domain_pack_filters(args.ai_dir, args.domain_pack)
             _print_json(
                 list_sessions(
                     args.ai_dir,
                     query=args.query,
                     statuses=args.status,
                     domains=args.domain,
-                    domain_packs=args.domain_pack,
+                    domain_packs=domain_packs,
                     abstraction_levels=args.abstraction_level,
                     tag_terms=args.tag,
                 )
@@ -715,6 +716,22 @@ def _require_domain_pack(ai_dir: str, pack_id: str) -> DomainPack:
         return load_domain_registry(ai_dir).get(pack_id)
     except KeyError as exc:
         raise ValueError(f"unknown domain pack: {pack_id}") from exc
+
+
+def _require_domain_pack_filters(ai_dir: str, pack_ids: list[str]) -> list[str]:
+    if not pack_ids:
+        return []
+    registry = load_domain_registry(ai_dir)
+    normalized: list[str] = []
+    for pack_id in pack_ids:
+        pack_id = pack_id.strip()
+        if not pack_id:
+            raise ValueError("domain pack must be a non-empty string")
+        try:
+            normalized.append(registry.get(pack_id).pack_id)
+        except KeyError as exc:
+            raise ValueError(f"unknown domain pack: {pack_id}") from exc
+    return normalized
 
 
 if __name__ == "__main__":
