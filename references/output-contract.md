@@ -100,11 +100,20 @@ outputs only. They must not record runtime events or call external services. The
 software-oriented exports may use software labels such as ADRs, issues, requirements, and
 verification, but they remain derived views over the object/link runtime.
 
+Generic document exports are local derived outputs only. They must compile a schema-shaped
+`DocumentModel` from runtime projections, closed sessions, registers, safety gates, stale
+diagnostics, and object/link traceability before rendering Markdown, JSON, or supported CSV.
+Document exports must not call `generate_plan()`, record `plan_generated`, create artifact
+objects, or update runtime projections. Markdown document exports use
+`<!-- decide-me:generated:start ... -->` and `<!-- decide-me:generated:end -->` markers by default
+so re-export replaces only generated content and preserves human notes outside the marker block.
+
 Derived export commands:
 
 - `export-architecture-doc --format arc42`
 - `export-traceability --format csv|markdown`
 - `export-verification-gaps`
+- `export-document --type decision-brief|action-plan|risk-register|review-memo|research-plan|comparison-table --format markdown|json|csv`
 
 When `--session-id` is omitted, derived exports use all closed sessions sorted by session ID.
 Repeated `--session-id` narrows the closed-session set. Unknown or non-closed sessions must fail.

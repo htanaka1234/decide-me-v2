@@ -17,6 +17,7 @@ from decide_me.exports import (
     export_agent_instructions,
     export_architecture_doc,
     export_decision_register,
+    export_document,
     export_github_issues,
     export_github_templates,
     export_impact_report,
@@ -337,6 +338,34 @@ def main(argv: list[str] | None = None) -> int:
     verification_gaps.add_argument("--output", required=True)
     verification_gaps.add_argument("--session-id", action="append")
 
+    document = subparsers.add_parser(
+        "export-document",
+        help="export a derived generic document from the object/link runtime",
+    )
+    document.add_argument("--ai-dir", required=True)
+    document.add_argument(
+        "--type",
+        required=True,
+        choices=(
+            "decision-brief",
+            "action-plan",
+            "risk-register",
+            "review-memo",
+            "research-plan",
+            "comparison-table",
+        ),
+    )
+    document.add_argument("--format", required=True, choices=("markdown", "json", "csv"))
+    document.add_argument("--output", required=True)
+    document.add_argument("--session-id", action="append")
+    document.add_argument("--object-id", action="append")
+    document.add_argument("--include-invalidated", action="store_true")
+    document.add_argument("--now")
+    document.add_argument("--force", action="store_true")
+    document_region = document.add_mutually_exclusive_group()
+    document_region.add_argument("--managed-region", dest="managed_region", action="store_true", default=True)
+    document_region.add_argument("--no-managed-region", dest="managed_region", action="store_false")
+
     impact_report = subparsers.add_parser(
         "export-impact-report",
         help="export a read-only impact analysis Markdown report",
@@ -579,6 +608,20 @@ def main(argv: list[str] | None = None) -> int:
                 session_ids=args.session_id,
             )
             _print_json({"path": str(path)})
+        elif args.command == "export-document":
+            path = export_document(
+                args.ai_dir,
+                document_type=args.type,
+                format=args.format,
+                output=args.output,
+                session_ids=args.session_id,
+                object_ids=args.object_id,
+                include_invalidated=args.include_invalidated,
+                now=args.now,
+                force=args.force,
+                managed_region=args.managed_region,
+            )
+            _print_json({"path": str(path), "type": args.type, "format": args.format})
         elif args.command == "export-impact-report":
             path = export_impact_report(
                 args.ai_dir,

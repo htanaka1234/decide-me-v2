@@ -49,6 +49,7 @@ Read only the reference file needed for the turn:
 - [references/event-and-projection-model.md](references/event-and-projection-model.md)
 - [references/plan-generation.md](references/plan-generation.md)
 - [references/output-contract.md](references/output-contract.md)
+- [references/document-compiler.md](references/document-compiler.md)
 - [references/examples.md](references/examples.md)
 
 Bundled assets:
@@ -84,6 +85,7 @@ User-facing commands:
 - `Export architecture doc as arc42`
 - `Export traceability matrix as CSV or Markdown`
 - `Export verification gaps`
+- `Export document as Markdown, JSON, or CSV`
 
 Runtime invariants:
 
@@ -118,8 +120,8 @@ Runtime invariants:
   impact report exports are read-only diagnostics. They must not emit events, change object
   status, create invalidation or supersession links, accept candidates, or run an approval
   workflow.
-- Human-readable plan, impact report, ADR, structured ADR, decision register, GitHub issue draft, agent
-  instruction, arc42 architecture, traceability matrix, and verification gap files are derived
+- Human-readable plan, generic document, impact report, ADR, structured ADR, decision register,
+  GitHub issue draft, agent instruction, arc42 architecture, traceability matrix, and verification gap files are derived
   exports, not runtime state. Software-oriented exports are allowed, but they must be derived from
   the domain-neutral object/link core.
 - Free-form answers apply only to the current active proposal in the current session.
