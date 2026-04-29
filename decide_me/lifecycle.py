@@ -5,6 +5,7 @@ import json
 from copy import deepcopy
 from typing import Any
 
+from decide_me.domains import DomainPack, domain_pack_digest, load_domain_registry
 from decide_me.object_views import active_proposal_view, links_for, objects_by_id
 from decide_me.events import new_entity_id, new_event_id, utc_now
 from decide_me.projections import OPEN_DECISION_STATUSES, decision_is_invalidated, effective_session_status
@@ -25,9 +26,16 @@ CLOSE_SUMMARY_TRAVERSAL_RELATIONS = {
 }
 
 
-def create_session(ai_dir: str, context: str | None = None) -> dict[str, Any]:
+def create_session(
+    ai_dir: str,
+    context: str | None = None,
+    *,
+    domain_pack_id: str | None = None,
+) -> dict[str, Any]:
     session_id = new_entity_id("S")
     now = utc_now()
+    domain_pack = _select_domain_pack(ai_dir, context=context, domain_pack_id=domain_pack_id)
+    classification = _domain_pack_classification(domain_pack, now)
 
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
         if bundle["project_state"]["state"]["event_count"] == 0:
@@ -42,6 +50,7 @@ def create_session(ai_dir: str, context: str | None = None) -> dict[str, Any]:
                         "started_at": now,
                         "last_seen_at": now,
                         "bound_context_hint": context,
+                        "classification": classification,
                     }
                 },
             }
@@ -57,6 +66,7 @@ def list_sessions(
     query: str | None = None,
     statuses: list[str] | None = None,
     domains: list[str] | None = None,
+    domain_packs: list[str] | None = None,
     abstraction_levels: list[str] | None = None,
     tag_terms: list[str] | None = None,
 ) -> dict[str, Any]:
@@ -68,6 +78,7 @@ def list_sessions(
         query=query,
         statuses=statuses,
         domains=domains,
+        domain_packs=domain_packs,
         abstraction_levels=abstraction_levels,
         tag_terms=tag_terms,
     )
@@ -77,6 +88,7 @@ def list_sessions(
             "query": query,
             "status": statuses or [],
             "domain": domains or [],
+            "domain_pack": domain_packs or [],
             "abstraction_level": abstraction_levels or [],
             "tags": tag_terms or [],
         },
@@ -256,6 +268,39 @@ def build_close_summary(
 
 def load_runtime_from_ai_dir(ai_dir: str) -> dict[str, Any]:
     return load_runtime(runtime_paths(ai_dir))
+
+
+def _select_domain_pack(
+    ai_dir: str,
+    *,
+    context: str | None,
+    domain_pack_id: str | None,
+) -> DomainPack:
+    registry = load_domain_registry(ai_dir)
+    if domain_pack_id is None:
+        selected_pack_id = registry.infer_from_context(context or "")
+    else:
+        selected_pack_id = domain_pack_id.strip()
+        if not selected_pack_id:
+            raise ValueError("domain pack must be a non-empty string")
+    try:
+        return registry.get(selected_pack_id)
+    except KeyError as exc:
+        raise ValueError(f"unknown domain pack: {selected_pack_id}") from exc
+
+
+def _domain_pack_classification(pack: DomainPack, updated_at: str) -> dict[str, Any]:
+    return {
+        "domain": pack.default_core_domain,
+        "abstraction_level": None,
+        "domain_pack_id": pack.pack_id,
+        "domain_pack_version": pack.version,
+        "domain_pack_digest": domain_pack_digest(pack),
+        "assigned_tags": [],
+        "search_terms": [],
+        "source_refs": [],
+        "updated_at": updated_at,
+    }
 
 
 def _require_session(bundle: dict[str, Any], session_id: str) -> dict[str, Any]:

@@ -319,7 +319,9 @@ interview:
     - implementation
     - security review
     - legal review
-    - support
+    - vendor support
+    - support quality
+    - support contract
     - switching cost
     - lock-in
     - sole vendor

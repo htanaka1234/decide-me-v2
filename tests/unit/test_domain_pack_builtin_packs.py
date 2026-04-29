@@ -139,7 +139,17 @@ class DomainPackBuiltinPacksTests(unittest.TestCase):
         for hint in ("api", "auth", "endpoint", "database"):
             with self.subTest(hint=hint):
                 self.assertIn(hint, hints)
+        for hint in ("session", "service", "report", "copy", "flow"):
+            with self.subTest(ambiguous_hint=hint):
+                self.assertNotIn(hint, hints)
         self.assertEqual("technical", pack["default_core_domain"])
+
+    def test_procurement_pack_avoids_ambiguous_support_hint(self) -> None:
+        pack = _load_packs()["procurement"]
+        hints = set(pack["interview"]["domain_hints"])
+
+        self.assertNotIn("support", hints)
+        self.assertTrue({"vendor support", "support quality", "support contract"}.issubset(hints))
 
     def test_generic_pack_is_useful_fallback(self) -> None:
         pack = _load_packs()["generic"]

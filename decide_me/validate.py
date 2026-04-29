@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -61,6 +62,9 @@ SYSTEM_EVENT_TYPES = {
     "project_initialized",
     "plan_generated",
 }
+DOMAIN_PACK_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
+DOMAIN_PACK_DIGEST_PATTERN = re.compile(r"^DP-[0-9a-f]{12}$")
+PACK_METADATA_KEYS = ("domain_pack_id", "domain_pack_version", "domain_pack_digest")
 SESSION_SCOPED_EVENT_TYPES = {
     "session_created",
     "session_resumed",
@@ -626,10 +630,18 @@ def validate_session_state(session_state: dict[str, Any]) -> None:
         ),
         "session_state.classification",
     )
-    unsupported_classification_keys = sorted(
-        set(session_state["classification"])
-        - {"domain", "abstraction_level", "assigned_tags", "search_terms", "source_refs", "updated_at"}
-    )
+    classification_keys = {
+        "domain",
+        "abstraction_level",
+        "domain_pack_id",
+        "domain_pack_version",
+        "domain_pack_digest",
+        "assigned_tags",
+        "search_terms",
+        "source_refs",
+        "updated_at",
+    }
+    unsupported_classification_keys = sorted(set(session_state["classification"]) - classification_keys)
     if unsupported_classification_keys:
         raise StateValidationError(
             "session_state.classification contains unsupported fields: "
@@ -688,6 +700,28 @@ def validate_session_state(session_state: dict[str, Any]) -> None:
     )
     for key in ("assigned_tags", "search_terms", "source_refs"):
         _require_list(session_state["classification"][key], f"session_state.classification.{key}")
+    _validate_domain_pack_metadata_completeness(
+        session_state["classification"],
+        "session_state.classification",
+    )
+    _require_optional_non_empty_string(
+        session_state["classification"].get("domain_pack_id"),
+        "session_state.classification.domain_pack_id",
+    )
+    domain_pack_id = session_state["classification"].get("domain_pack_id")
+    if domain_pack_id is not None and not DOMAIN_PACK_ID_PATTERN.fullmatch(str(domain_pack_id)):
+        raise StateValidationError("session_state.classification.domain_pack_id must match ^[a-z][a-z0-9_]*$")
+    _require_optional_non_empty_string(
+        session_state["classification"].get("domain_pack_version"),
+        "session_state.classification.domain_pack_version",
+    )
+    domain_pack_digest = session_state["classification"].get("domain_pack_digest")
+    _require_optional_non_empty_string(
+        domain_pack_digest,
+        "session_state.classification.domain_pack_digest",
+    )
+    if domain_pack_digest is not None and not DOMAIN_PACK_DIGEST_PATTERN.fullmatch(str(domain_pack_digest)):
+        raise StateValidationError("session_state.classification.domain_pack_digest must match ^DP-[0-9a-f]{12}$")
     _require_optional_timestamp(
         session_state["classification"].get("updated_at"),
         "session_state.classification.updated_at",
@@ -696,6 +730,15 @@ def validate_session_state(session_state: dict[str, Any]) -> None:
         close_summary.get("generated_at"),
         "session_state.close_summary.generated_at",
     )
+
+
+def _validate_domain_pack_metadata_completeness(classification: dict[str, Any], label: str) -> None:
+    present = [key for key in PACK_METADATA_KEYS if key in classification]
+    if present and len(present) != len(PACK_METADATA_KEYS):
+        missing = sorted(set(PACK_METADATA_KEYS) - set(present))
+        raise StateValidationError(
+            f"{label} has incomplete domain pack metadata; missing: {', '.join(missing)}"
+        )
 
 
 def validate_taxonomy_state(taxonomy_state: dict[str, Any]) -> None:

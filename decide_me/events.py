@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import re
 from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
-from decide_me.constants import LINK_RELATIONS, OBJECT_TYPES
+from decide_me.constants import DOMAIN_VALUES, LINK_RELATIONS, OBJECT_TYPES
 
 PLAN_STATUSES = {"action-plan", "conflicts"}
 OBJECT_KEYS = {
@@ -29,6 +30,28 @@ LINK_KEYS = {
     "source_event_ids",
 }
 OBJECT_PATCH_KEYS = {"title", "body", "metadata"}
+DOMAIN_PACK_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
+DOMAIN_PACK_DIGEST_PATTERN = re.compile(r"^DP-[0-9a-f]{12}$")
+PACK_METADATA_KEYS = ("domain_pack_id", "domain_pack_version", "domain_pack_digest")
+SESSION_CLASSIFICATION_KEYS = {
+    "domain",
+    "abstraction_level",
+    "domain_pack_id",
+    "domain_pack_version",
+    "domain_pack_digest",
+    "assigned_tags",
+    "search_terms",
+    "source_refs",
+    "updated_at",
+}
+SESSION_CLASSIFICATION_REQUIRED_KEYS = {
+    "domain",
+    "abstraction_level",
+    "assigned_tags",
+    "search_terms",
+    "source_refs",
+    "updated_at",
+}
 
 EVENT_TYPES = {
     "project_initialized",
@@ -199,6 +222,45 @@ def _validate_object_payload(obj: dict[str, Any], label: str) -> None:
     _require_dict(obj.get("metadata"), f"{label}.metadata")
 
 
+def _validate_session_classification(classification: dict[str, Any], label: str) -> None:
+    _require_keys(classification, tuple(sorted(SESSION_CLASSIFICATION_REQUIRED_KEYS)), label)
+    unsupported = sorted(set(classification) - SESSION_CLASSIFICATION_KEYS)
+    if unsupported:
+        raise EventValidationError(f"{label} contains unsupported fields: {', '.join(unsupported)}")
+    _validate_domain_pack_metadata_completeness(classification, label)
+    domain = classification.get("domain")
+    if domain is not None and domain not in DOMAIN_VALUES:
+        allowed = ", ".join(sorted(DOMAIN_VALUES))
+        raise EventValidationError(f"{label}.domain must be one of: {allowed}")
+    _require_string_or_null(classification.get("abstraction_level"), f"{label}.abstraction_level")
+    _require_id_list(classification.get("assigned_tags"), f"{label}.assigned_tags")
+    _require_id_list(classification.get("search_terms"), f"{label}.search_terms")
+    _require_id_list(classification.get("source_refs"), f"{label}.source_refs")
+    if classification.get("updated_at") is not None:
+        _require_timestamp(classification.get("updated_at"), f"{label}.updated_at")
+    if "domain_pack_id" in classification:
+        domain_pack_id = classification.get("domain_pack_id")
+        _require_non_empty_string(domain_pack_id, f"{label}.domain_pack_id")
+        if not DOMAIN_PACK_ID_PATTERN.fullmatch(str(domain_pack_id)):
+            raise EventValidationError(f"{label}.domain_pack_id must match ^[a-z][a-z0-9_]*$")
+    if "domain_pack_version" in classification:
+        _require_non_empty_string(classification.get("domain_pack_version"), f"{label}.domain_pack_version")
+    if "domain_pack_digest" in classification:
+        digest = classification.get("domain_pack_digest")
+        _require_non_empty_string(digest, f"{label}.domain_pack_digest")
+        if not DOMAIN_PACK_DIGEST_PATTERN.fullmatch(str(digest)):
+            raise EventValidationError(f"{label}.domain_pack_digest must match ^DP-[0-9a-f]{12}$")
+
+
+def _validate_domain_pack_metadata_completeness(classification: dict[str, Any], label: str) -> None:
+    present = [key for key in PACK_METADATA_KEYS if key in classification]
+    if present and len(present) != len(PACK_METADATA_KEYS):
+        missing = sorted(set(PACK_METADATA_KEYS) - set(present))
+        raise EventValidationError(
+            f"{label} has incomplete domain pack metadata; missing: {', '.join(missing)}"
+        )
+
+
 def _validate_object_patch(patch: dict[str, Any]) -> None:
     if "title" in patch:
         _require_string_or_null(patch["title"], "object_updated.payload.patch.title", non_empty=True)
@@ -258,6 +320,14 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
         _require_non_empty_string(session.get("id"), "session_created.payload.session.id")
         _require_timestamp(session.get("started_at"), "session_created.payload.session.started_at")
         _require_timestamp(session.get("last_seen_at"), "session_created.payload.session.last_seen_at")
+        if "classification" in session:
+            _validate_session_classification(
+                _require_dict(
+                    session["classification"],
+                    "session_created.payload.session.classification",
+                ),
+                "session_created.payload.session.classification",
+            )
     elif event_type == "session_resumed":
         _require_timestamp(payload.get("resumed_at"), "session_resumed.payload.resumed_at")
     elif event_type == "object_recorded":

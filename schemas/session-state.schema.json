@@ -80,6 +80,18 @@
             "null"
           ]
         },
+        "domain_pack_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "domain_pack_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "domain_pack_digest": {
+          "type": "string",
+          "pattern": "^DP-[0-9a-f]{12}$"
+        },
         "assigned_tags": {
           "type": "array",
           "items": {
@@ -104,6 +116,20 @@
             "null"
           ]
         }
+      },
+      "dependentRequired": {
+        "domain_pack_id": [
+          "domain_pack_version",
+          "domain_pack_digest"
+        ],
+        "domain_pack_version": [
+          "domain_pack_id",
+          "domain_pack_digest"
+        ],
+        "domain_pack_digest": [
+          "domain_pack_id",
+          "domain_pack_version"
+        ]
       },
       "additionalProperties": false
     },

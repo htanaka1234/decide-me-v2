@@ -63,6 +63,7 @@ def session_list_entry(
         "session_id": session["session"]["id"],
         "status": status,
         "domain": classification.get("domain"),
+        "domain_pack_id": classification.get("domain_pack_id") or "generic",
         "abstraction_level": classification.get("abstraction_level"),
         "last_seen_at": session["session"].get("last_seen_at"),
         "headline": headline,
@@ -79,12 +80,14 @@ def search_sessions(
     query: str | None = None,
     statuses: list[str] | None = None,
     domains: list[str] | None = None,
+    domain_packs: list[str] | None = None,
     abstraction_levels: list[str] | None = None,
     tag_terms: list[str] | None = None,
     now: datetime | None = None,
 ) -> list[dict[str, Any]]:
     statuses = statuses or []
     domains = domains or []
+    domain_packs = domain_packs or []
     abstraction_levels = abstraction_levels or []
     tag_terms = tag_terms or []
 
@@ -94,6 +97,8 @@ def search_sessions(
         if statuses and entry["status"] not in statuses:
             continue
         if domains and entry["domain"] not in domains:
+            continue
+        if domain_packs and entry["domain_pack_id"] not in domain_packs:
             continue
         if abstraction_levels and entry["abstraction_level"] not in abstraction_levels:
             continue
