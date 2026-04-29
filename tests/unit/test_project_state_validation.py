@@ -208,6 +208,7 @@ class ProjectStateValidationTests(unittest.TestCase):
             ("risk", risk_metadata(), "approval_threshold"),
             ("verification", verification_metadata(), "expected_result"),
             ("revisit_trigger", revisit_trigger_metadata(target_object_ids=["D-001"]), "target_object_ids"),
+            ("artifact", _safety_approval_metadata(), "approval_level"),
         ):
             with self.subTest(object_type=object_type, missing_key=missing_key):
                 payload = _valid_project_state()
@@ -230,6 +231,7 @@ class ProjectStateValidationTests(unittest.TestCase):
             ("revisit_trigger", revisit_trigger_metadata(trigger_type="manual"), "metadata.trigger_type"),
             ("revisit_trigger", revisit_trigger_metadata(target_object_ids=[]), "target_object_ids"),
             ("artifact", _safety_approval_metadata(gate_digest="bad"), "metadata.gate_digest"),
+            ("artifact", _safety_approval_metadata(approval_level="explicit_acceptance"), "metadata.approval_level"),
         )
         for object_type, metadata, pattern in cases:
             with self.subTest(object_type=object_type, pattern=pattern):
@@ -462,6 +464,7 @@ def _safety_approval_metadata(**overrides: str | None) -> dict:
         "target_object_id": "D-001",
         "gate_digest": "SG-123456789abc",
         "approval_threshold": "human_review",
+        "approval_level": "human_review",
         "approved_by": "user",
         "approved_at": "2026-04-28T00:00:00Z",
         "reason": "Reviewed.",

@@ -23,6 +23,11 @@ _APPROVAL_THRESHOLD_RANK = {
     "human_review": 2,
     "external_review": 3,
 }
+APPROVAL_LEVEL_RANK = {
+    "explicit_acceptance": 1,
+    "human_review": 2,
+    "external_review": 3,
+}
 _BLOCKING_RISK_TIERS_FOR_INSUFFICIENT_EVIDENCE = {"critical"}
 _APPROVAL_RISK_TIERS_FOR_INSUFFICIENT_EVIDENCE = {"medium", "high"}
 _REVERSIBILITY_RANK = {
@@ -112,7 +117,7 @@ def evaluate_safety_gate(
     )
     gate_digest = _gate_digest(digest_inputs)
     approval_artifact_ids = (
-        _matching_approval_artifact_ids(project_state, target["id"], gate_digest, reference)
+        _matching_approval_artifact_ids(project_state, target["id"], gate_digest, approval_threshold, reference)
         if include_approvals
         else []
     )
@@ -564,6 +569,7 @@ def _matching_approval_artifact_ids(
     project_state: dict[str, Any],
     object_id: str,
     gate_digest: str,
+    approval_threshold: str,
     reference: datetime,
 ) -> list[str]:
     addressed_by = _approval_address_links(project_state, object_id)
@@ -576,6 +582,8 @@ def _matching_approval_artifact_ids(
             continue
         if metadata.get("target_object_id") != object_id or metadata.get("gate_digest") != gate_digest:
             continue
+        if not approval_level_satisfies_threshold(metadata.get("approval_level"), approval_threshold):
+            continue
         expires_at = metadata.get("expires_at")
         if expires_at and _parse_timestamp(expires_at, f"approval {obj['id']}.metadata.expires_at") < reference:
             continue
@@ -583,6 +591,10 @@ def _matching_approval_artifact_ids(
             continue
         ids.append(obj["id"])
     return sorted(ids)
+
+
+def approval_level_satisfies_threshold(approval_level: Any, approval_threshold: str) -> bool:
+    return APPROVAL_LEVEL_RANK.get(approval_level, -1) >= _APPROVAL_THRESHOLD_RANK.get(approval_threshold, 999)
 
 
 def _approval_address_links(project_state: dict[str, Any], object_id: str) -> dict[str, list[str]]:

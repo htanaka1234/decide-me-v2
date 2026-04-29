@@ -77,6 +77,7 @@ class GateEnforcedOkAcceptanceTests(unittest.TestCase):
                 and obj.get("metadata", {}).get("artifact_type") == "safety_gate_approval"
             ]
             self.assertEqual(1, len(approvals))
+            self.assertEqual("explicit_acceptance", approvals[0]["metadata"]["approval_level"])
             self.assertEqual([], validate_runtime(ai_dir))
 
 

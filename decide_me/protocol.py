@@ -1477,6 +1477,7 @@ def _safety_gate_acceptance_specs(
             object_id,
             gate_result=result,
             approved_by="explicit_acceptance",
+            approval_level="explicit_acceptance",
             reason="Explicit proposal acceptance satisfies the safety gate.",
             approved_at=now,
             domain_registry=domain_registry,

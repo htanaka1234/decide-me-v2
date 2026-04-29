@@ -9,6 +9,7 @@ from typing import Any
 
 from decide_me.constants import (
     ACCEPTED_VIA_VALUES,
+    APPROVAL_LEVEL_VALUES,
     APPROVAL_THRESHOLD_VALUES,
     DECISION_STACK_LAYERS,
     DOMAIN_VALUES,
@@ -65,6 +66,8 @@ SYSTEM_EVENT_TYPES = {
 DOMAIN_PACK_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 DOMAIN_PACK_DIGEST_PATTERN = re.compile(r"^DP-[0-9a-f]{12}$")
 PACK_METADATA_KEYS = ("domain_pack_id", "domain_pack_version", "domain_pack_digest")
+_APPROVAL_LEVEL_RANK = {"explicit_acceptance": 1, "human_review": 2, "external_review": 3}
+_APPROVAL_THRESHOLD_RANK = {"none": 0, **_APPROVAL_LEVEL_RANK}
 SESSION_SCOPED_EVENT_TYPES = {
     "session_created",
     "session_resumed",
@@ -616,6 +619,7 @@ def _validate_artifact_object_metadata(obj: dict[str, Any]) -> None:
             "target_object_id",
             "gate_digest",
             "approval_threshold",
+            "approval_level",
             "approved_by",
             "approved_at",
             "reason",
@@ -628,6 +632,7 @@ def _validate_artifact_object_metadata(obj: dict[str, Any]) -> None:
         "target_object_id",
         "gate_digest",
         "approval_threshold",
+        "approval_level",
         "approved_by",
         "approved_at",
         "reason",
@@ -642,7 +647,12 @@ def _validate_artifact_object_metadata(obj: dict[str, Any]) -> None:
     _require_non_empty_string(gate_digest, f"{label}.gate_digest")
     if not str(gate_digest).startswith("SG-"):
         raise StateValidationError(f"{label}.gate_digest must start with SG-")
-    _require_enum(metadata.get("approval_threshold"), APPROVAL_THRESHOLD_VALUES, f"{label}.approval_threshold")
+    approval_threshold = metadata.get("approval_threshold")
+    approval_level = metadata.get("approval_level")
+    _require_enum(approval_threshold, APPROVAL_THRESHOLD_VALUES, f"{label}.approval_threshold")
+    _require_enum(approval_level, APPROVAL_LEVEL_VALUES, f"{label}.approval_level")
+    if _APPROVAL_LEVEL_RANK[approval_level] < _APPROVAL_THRESHOLD_RANK[approval_threshold]:
+        raise StateValidationError(f"{label}.approval_level does not satisfy approval_threshold")
     _require_non_empty_string(metadata.get("approved_by"), f"{label}.approved_by")
     _require_timestamp(metadata.get("approved_at"), f"{label}.approved_at")
     _require_non_empty_string(metadata.get("reason"), f"{label}.reason")

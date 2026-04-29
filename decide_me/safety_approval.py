@@ -6,7 +6,12 @@ from typing import Any
 
 from decide_me.domains import DomainRegistry, load_domain_registry
 from decide_me.events import new_event_id, utc_now
-from decide_me.safety_gate import SAFETY_APPROVAL_ARTIFACT_TYPE, evaluate_safety_gate
+from decide_me.safety_gate import (
+    APPROVAL_LEVEL_RANK,
+    SAFETY_APPROVAL_ARTIFACT_TYPE,
+    approval_level_satisfies_threshold,
+    evaluate_safety_gate,
+)
 from decide_me.store import load_runtime, runtime_paths, transact
 
 
@@ -81,6 +86,7 @@ def build_safety_approval_event_specs(
     *,
     gate_result: dict[str, Any] | None = None,
     approved_by: str,
+    approval_level: str | None = None,
     reason: str,
     approved_at: str,
     expires_at: str | None = None,
@@ -96,6 +102,11 @@ def build_safety_approval_event_specs(
         raise ValueError(_blocked_message(result))
     if result["approval_satisfied"] or not result["approval_required"]:
         return []
+    approval_level = _approval_level_for_threshold(
+        result["approval_threshold"],
+        "approval_level" if approval_level is not None else "approval_threshold",
+        approval_level,
+    )
     _require_future_expiry(expires_at, approved_at)
 
     artifact_id = approval_artifact_id(object_id, result["gate_digest"])
@@ -113,6 +124,7 @@ def build_safety_approval_event_specs(
         object_id,
         result,
         approved_by=approved_by,
+        approval_level=approval_level,
         reason=reason,
         approved_at=approved_at,
         expires_at=expires_at,
@@ -242,6 +254,7 @@ def build_safety_approval_report(
                 "target_object_id": metadata.get("target_object_id"),
                 "gate_digest": metadata.get("gate_digest"),
                 "approval_threshold": metadata.get("approval_threshold"),
+                "approval_level": metadata.get("approval_level"),
                 "approved_by": metadata.get("approved_by"),
                 "approved_at": metadata.get("approved_at"),
                 "reason": metadata.get("reason"),
@@ -310,6 +323,7 @@ def _approval_metadata(
     result: dict[str, Any],
     *,
     approved_by: str,
+    approval_level: str,
     reason: str,
     approved_at: str,
     expires_at: str | None,
@@ -319,11 +333,25 @@ def _approval_metadata(
         "target_object_id": object_id,
         "gate_digest": result["gate_digest"],
         "approval_threshold": result["approval_threshold"],
+        "approval_level": approval_level,
         "approved_by": approved_by,
         "approved_at": approved_at,
         "reason": reason,
         "expires_at": expires_at,
     }
+
+
+def _approval_level_for_threshold(approval_threshold: str, label: str, approval_level: str | None) -> str:
+    if approval_level is None:
+        level = "explicit_acceptance" if approval_threshold == "none" else approval_threshold
+    else:
+        level = _require_text(approval_level, label)
+    if level not in APPROVAL_LEVEL_RANK:
+        allowed = ", ".join(sorted(APPROVAL_LEVEL_RANK))
+        raise ValueError(f"{label} must be one of: {allowed}")
+    if not approval_level_satisfies_threshold(level, approval_threshold):
+        raise ValueError(f"approval level {level} does not satisfy {approval_threshold}")
+    return level
 
 
 def _approval_artifact(

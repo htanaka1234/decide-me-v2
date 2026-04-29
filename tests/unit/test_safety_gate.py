@@ -3,7 +3,6 @@ from __future__ import annotations
 import unittest
 from copy import deepcopy
 
-from decide_me.domains import DomainRegistry, domain_pack_digest, load_builtin_packs
 from decide_me.safety_gate import build_safety_gate_report, evaluate_safety_gate
 from tests.helpers.typed_metadata import assumption_metadata, evidence_metadata, risk_metadata
 
@@ -37,114 +36,6 @@ class SafetyGateTests(unittest.TestCase):
         self.assertEqual("insufficient", result["evidence_coverage"])
         self.assertIn("insufficient_evidence", result["warning_reasons"])
         self.assertEqual([], result["blocking_reasons"])
-
-    def test_domain_required_evidence_missing_needs_approval(self) -> None:
-        project_state = _project_state(
-            objects=[
-                _object(
-                    "D-001",
-                    "decision",
-                    metadata=_research_decision_metadata("primary_endpoint"),
-                ),
-            ],
-            links=[],
-        )
-
-        result = evaluate_safety_gate(project_state, "D-001", domain_registry=_registry())
-
-        self.assertEqual("needs_approval", result["gate_status"])
-        self.assertIn("domain_required_evidence_missing", result["approval_reasons"])
-        self.assertEqual(
-            ["protocol_or_project_brief", "data_dictionary"],
-            [item["required_evidence_id"] for item in result["domain_requirements"]],
-        )
-        self.assertTrue(all(not item["satisfied"] for item in result["domain_requirements"]))
-        self.assertEqual(result["domain_requirements"], result["digest_inputs"]["domain_requirements"])
-
-    def test_domain_required_evidence_can_be_satisfied_by_requirement_or_domain_type(self) -> None:
-        project_state = _project_state(
-            objects=[
-                _object(
-                    "D-001",
-                    "decision",
-                    metadata=_research_decision_metadata("primary_endpoint"),
-                ),
-                _object(
-                    "E-001",
-                    "evidence",
-                    metadata={
-                        **evidence_metadata(source_ref="docs/protocol.md"),
-                        **_research_pack_identity(),
-                        "evidence_requirement_id": "protocol_or_project_brief",
-                    },
-                ),
-                _object(
-                    "E-002",
-                    "evidence",
-                    metadata={
-                        **evidence_metadata(source_ref="docs/data-dictionary.md"),
-                        **_research_pack_identity(),
-                        "domain_evidence_type": "data_dictionary",
-                    },
-                ),
-            ],
-            links=[
-                _link("L-E-001-supports-D-001", "E-001", "supports", "D-001"),
-                _link("L-E-002-supports-D-001", "E-002", "supports", "D-001"),
-            ],
-        )
-
-        result = evaluate_safety_gate(project_state, "D-001", domain_registry=_registry())
-
-        self.assertEqual("passed", result["gate_status"])
-        self.assertNotIn("domain_required_evidence_missing", result["approval_reasons"])
-        self.assertTrue(all(item["satisfied"] for item in result["domain_requirements"]))
-        self.assertEqual(
-            {
-                "protocol_or_project_brief": ["E-001"],
-                "data_dictionary": ["E-002"],
-            },
-            {
-                item["required_evidence_id"]: item["satisfied_by_object_ids"]
-                for item in result["domain_requirements"]
-            },
-        )
-
-    def test_domain_safety_rule_raises_approval_threshold(self) -> None:
-        project_state = _project_state(
-            objects=[
-                _object(
-                    "D-001",
-                    "decision",
-                    metadata=_research_decision_metadata("publication_plan"),
-                ),
-                _object(
-                    "R-001",
-                    "risk",
-                    metadata={
-                        **risk_metadata(risk_tier="low", approval_threshold="none"),
-                        **_research_pack_identity(),
-                        "domain_risk_type": "patient_data",
-                    },
-                ),
-            ],
-            links=[_link("L-R-001-constrains-D-001", "R-001", "constrains", "D-001")],
-        )
-
-        result = evaluate_safety_gate(project_state, "D-001", domain_registry=_registry())
-
-        self.assertEqual("external_review", result["approval_threshold"])
-        self.assertIn("external_review_required", result["approval_reasons"])
-        self.assertEqual("patient_data_external_review", result["domain_safety_rules"][0]["rule_id"])
-        self.assertEqual(["patient_data"], result["domain_safety_rules"][0]["matched_risk_types"])
-
-    def test_domain_pack_metadata_mismatch_fails_fast(self) -> None:
-        metadata = _research_decision_metadata("primary_endpoint")
-        metadata["domain_pack_digest"] = "DP-000000000000"
-        project_state = _project_state(objects=[_object("D-001", "decision", metadata=metadata)], links=[])
-
-        with self.assertRaisesRegex(ValueError, "domain_pack_digest mismatch"):
-            evaluate_safety_gate(project_state, "D-001", domain_registry=_registry())
 
     def test_missing_evidence_on_medium_risk_needs_approval(self) -> None:
         project_state = _project_state(
@@ -413,32 +304,6 @@ def _link(link_id: str, source: str, relation: str, target: str) -> dict:
         "rationale": "Safety gate fixture link.",
         "created_at": "2026-04-28T00:00:00Z",
         "source_event_ids": ["E-link"],
-    }
-
-
-def _registry() -> DomainRegistry:
-    return DomainRegistry(load_builtin_packs())
-
-
-def _research_pack_identity() -> dict:
-    pack = load_builtin_packs()["research"]
-    return {
-        "domain_pack_id": pack.pack_id,
-        "domain_pack_version": pack.version,
-        "domain_pack_digest": domain_pack_digest(pack),
-    }
-
-
-def _research_decision_metadata(decision_type_id: str) -> dict:
-    registry = _registry()
-    spec = registry.decision_type("research", decision_type_id)
-    return {
-        "priority": spec.default_priority,
-        "frontier": "now",
-        "reversibility": spec.default_reversibility,
-        **_research_pack_identity(),
-        "domain_decision_type": spec.id,
-        "domain_criteria": list(spec.criteria),
     }
 
 

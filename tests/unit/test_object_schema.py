@@ -96,9 +96,12 @@ class ObjectSchemaTests(unittest.TestCase):
             ("risk", "risk_tier"),
             ("verification", "method"),
             ("revisit_trigger", "target_object_ids"),
+            ("artifact", "approval_level"),
         ):
             with self.subTest(object_type=object_type, field=field):
                 payload = _valid_object(object_type)
+                if object_type == "artifact":
+                    payload["metadata"] = _safety_approval_metadata()
                 payload["metadata"].pop(field)
 
                 errors = list(self.validator.iter_errors(payload))
@@ -114,6 +117,7 @@ class ObjectSchemaTests(unittest.TestCase):
             ("verification", "verified_at", 123),
             ("revisit_trigger", "trigger_type", "manual"),
             ("artifact", "gate_digest", "bad"),
+            ("artifact", "approval_level", "automatic"),
         )
         for object_type, field, value in cases:
             with self.subTest(object_type=object_type, field=field):
@@ -152,6 +156,7 @@ def _safety_approval_metadata() -> dict:
         "target_object_id": "D-001",
         "gate_digest": "SG-123456789abc",
         "approval_threshold": "human_review",
+        "approval_level": "human_review",
         "approved_by": "user",
         "approved_at": "2026-04-28T00:00:00Z",
         "reason": "Reviewed.",
