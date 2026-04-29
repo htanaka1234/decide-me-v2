@@ -1,5 +1,13 @@
 """Domain pack contracts for decide-me."""
 
+from decide_me.domains.apply import (
+    InterviewPolicy,
+    apply_decision_pack_metadata,
+    build_initial_decision_payload,
+    build_interview_policy,
+    build_interview_policy_from_metadata,
+)
+from decide_me.domains.infer import infer_decision_type
 from decide_me.domains.model import (
     CriteriaSpec,
     DecisionTypeSpec,
@@ -32,11 +40,17 @@ __all__ = [
     "DomainPackValidationError",
     "EvidenceRequirementSpec",
     "InterviewSpec",
+    "InterviewPolicy",
     "RiskTypeSpec",
     "SafetyRuleCondition",
     "SafetyRuleSpec",
+    "apply_decision_pack_metadata",
+    "build_initial_decision_payload",
+    "build_interview_policy",
+    "build_interview_policy_from_metadata",
     "domain_pack_digest",
     "domain_pack_from_dict",
+    "infer_decision_type",
     "load_builtin_packs",
     "load_domain_registry",
     "load_user_packs",

@@ -14,13 +14,18 @@ from decide_me.domains import (
     DomainPack,
     DomainPackLoadError,
     DomainRegistry,
+    apply_decision_pack_metadata,
+    build_interview_policy,
+    build_interview_policy_from_metadata,
     domain_pack_digest,
     domain_pack_from_dict,
+    infer_decision_type,
     load_builtin_packs,
     load_domain_registry,
     load_user_packs,
     validate_domain_pack_payload,
 )
+from decide_me.store import _domain_pack_metadata_issues
 
 
 EXPECTED_BUILTINS = {"generic", "software", "research", "procurement"}
@@ -153,6 +158,123 @@ class DomainPackRegistryTests(unittest.TestCase):
 
         with self.assertRaises(TypeError):
             registry.packs["extra"] = registry.get("generic")
+
+    def test_build_interview_policy_handles_generic_known_and_unknown_packs(self) -> None:
+        registry = load_domain_registry()
+
+        generic = build_interview_policy(registry, domain_pack_id=None)
+        research = build_interview_policy(registry, domain_pack_id="research")
+
+        self.assertEqual("generic", generic.pack_id)
+        self.assertTrue(generic.is_generic)
+        self.assertIsNone(generic.initial_decision_type)
+        self.assertEqual("research", research.pack_id)
+        self.assertFalse(research.is_generic)
+        self.assertEqual("research_question", research.initial_decision_type.id)
+        with self.assertRaisesRegex(KeyError, "unknown domain pack"):
+            build_interview_policy(registry, domain_pack_id="missing")
+
+    def test_build_interview_policy_from_metadata_rejects_stale_metadata(self) -> None:
+        registry = load_domain_registry()
+        research = registry.get("research")
+        valid_metadata = {
+            "domain_pack_id": "research",
+            "domain_pack_version": research.version,
+            "domain_pack_digest": domain_pack_digest(research),
+        }
+
+        policy = build_interview_policy_from_metadata(
+            registry,
+            valid_metadata,
+            label="session S-001.classification",
+        )
+
+        self.assertEqual("research", policy.pack_id)
+        with self.assertRaisesRegex(ValueError, "domain_pack_version mismatch"):
+            build_interview_policy_from_metadata(
+                registry,
+                {**valid_metadata, "domain_pack_version": "9.9.9"},
+                label="session S-001.classification",
+            )
+        with self.assertRaisesRegex(ValueError, "domain_pack_digest mismatch"):
+            build_interview_policy_from_metadata(
+                registry,
+                {**valid_metadata, "domain_pack_digest": "DP-000000000000"},
+                label="session S-001.classification",
+            )
+        with self.assertRaisesRegex(ValueError, "incomplete domain pack metadata"):
+            build_interview_policy_from_metadata(
+                registry,
+                {"domain_pack_id": "research"},
+                label="decision D-001",
+            )
+        with self.assertRaisesRegex(ValueError, "incomplete domain pack metadata"):
+            build_interview_policy_from_metadata(
+                registry,
+                {"domain_pack_version": research.version},
+                label="session S-001.classification",
+            )
+        with self.assertRaisesRegex(ValueError, "incomplete domain pack metadata"):
+            build_interview_policy_from_metadata(
+                registry,
+                {"domain_pack_digest": domain_pack_digest(research)},
+                label="session S-001.classification",
+            )
+
+    def test_runtime_domain_pack_metadata_issues_reject_partial_metadata(self) -> None:
+        registry = load_domain_registry()
+
+        version_only = _domain_pack_metadata_issues(
+            registry,
+            {"domain_pack_version": registry.get("research").version},
+            "session S-001.classification",
+        )
+        digest_only = _domain_pack_metadata_issues(
+            registry,
+            {"domain_pack_digest": domain_pack_digest(registry.get("research"))},
+            "session S-001.classification",
+        )
+
+        self.assertEqual(1, len(version_only))
+        self.assertIn("incomplete domain pack metadata", version_only[0])
+        self.assertEqual(1, len(digest_only))
+        self.assertIn("incomplete domain pack metadata", digest_only[0])
+
+    def test_apply_decision_pack_metadata_omits_type_when_inference_fails(self) -> None:
+        registry = load_domain_registry()
+        policy = build_interview_policy(registry, domain_pack_id="research")
+
+        decision = apply_decision_pack_metadata(
+            policy,
+            {"title": "Unrelated operational topic", "priority": "P0", "frontier": "now"},
+        )
+
+        self.assertEqual("research", decision["domain_pack_id"])
+        self.assertEqual(registry.get("research").version, decision["domain_pack_version"])
+        self.assertEqual(domain_pack_digest(registry.get("research")), decision["domain_pack_digest"])
+        self.assertNotIn("domain_decision_type", decision)
+        self.assertNotIn("domain_criteria", decision)
+
+    def test_infer_decision_type_matches_representative_pack_terms(self) -> None:
+        packs = load_builtin_packs()
+        cases = (
+            ("research", "primary endpoint", "primary_endpoint"),
+            ("research", "missing data handling", "missing_data_strategy"),
+            ("research", "cohort", "cohort_definition"),
+            ("procurement", "contract", "contract_review"),
+            ("procurement", "security review", "security_review"),
+            ("procurement", "budget", "budget_limit"),
+            ("software", "auth", "auth_strategy"),
+            ("software", "api", "api_contract"),
+            ("software", "data model", "data_model"),
+        )
+        for pack_id, text, expected in cases:
+            with self.subTest(pack_id=pack_id, text=text):
+                self.assertEqual(expected, infer_decision_type(packs[pack_id], text))
+
+        self.assertIsNone(infer_decision_type(packs["research"], "endpoint"))
+        self.assertIsNone(infer_decision_type(packs["procurement"], "selection"))
+        self.assertIsNone(infer_decision_type(packs["software"], "unrelated topic"))
 
     def test_infer_from_context_is_deterministic_and_uses_generic_only_as_fallback(self) -> None:
         registry = load_domain_registry()

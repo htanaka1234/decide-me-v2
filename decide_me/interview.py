@@ -6,6 +6,12 @@ import subprocess
 from pathlib import Path
 from typing import Any, Iterable
 
+from decide_me.domains import (
+    InterviewPolicy,
+    build_initial_decision_payload,
+    build_interview_policy_from_metadata,
+    load_domain_registry,
+)
 from decide_me.events import new_entity_id
 from decide_me.exporters.common import decision_views
 from decide_me.lifecycle import build_close_summary
@@ -54,6 +60,7 @@ STOP_WORDS = {
     "where",
     "with",
 }
+DOMAIN_PACK_METADATA_KEYS = ("domain_pack_id", "domain_pack_version", "domain_pack_digest")
 
 TEXT_EXTENSIONS = {
     ".c",
@@ -496,6 +503,9 @@ def advance_session(
             scope="session",
         )
         if decision is None and not related_object_ids:
+            seeded = _seed_initial_pack_decision(ai_dir, session_id, session)
+            if seeded is not None:
+                continue
             return {
                 "status": "unbound",
                 "session_id": session_id,
@@ -548,14 +558,15 @@ def advance_session(
                 }
             continue
 
+        policy = _interview_policy_for_decision(ai_dir, session, decision)
         proposal = issue_proposal(
             ai_dir,
             session_id,
             decision_id=decision["id"],
-            question=_proposal_question(decision),
-            recommendation=_proposal_recommendation(decision),
-            why=_proposal_why(decision),
-            if_not=_proposal_if_not(decision),
+            question=_proposal_question(decision, policy),
+            recommendation=_proposal_recommendation(decision, policy),
+            why=_proposal_why(decision, policy),
+            if_not=_proposal_if_not(decision, policy),
         )
         if stale_proposal_id:
             proposal = dict(proposal)
@@ -743,6 +754,59 @@ def handle_reply(
 
     raise ValueError(
         "Unsupported reply format. Use OK, Accept P-..., Reject P-...: reason, or Defer D-...: reason."
+    )
+
+
+def _seed_initial_pack_decision(ai_dir: str, session_id: str, session: dict[str, Any]) -> dict[str, Any] | None:
+    policy = _interview_policy_for_session(ai_dir, session)
+    payload = build_initial_decision_payload(
+        policy,
+        context=session["session"].get("bound_context_hint"),
+    )
+    if payload is None:
+        return None
+    payload["id"] = new_entity_id("D")
+    return discover_decision(ai_dir, session_id, payload)
+
+
+def _interview_policy_for_decision(
+    ai_dir: str,
+    session: dict[str, Any],
+    decision: dict[str, Any],
+) -> InterviewPolicy:
+    metadata = _decision_domain_pack_metadata(decision)
+    if metadata:
+        return _interview_policy_for_metadata(
+            ai_dir,
+            metadata,
+            label=f"decision {decision.get('id', '?')}.metadata",
+        )
+    return _interview_policy_for_session(ai_dir, session)
+
+
+def _interview_policy_for_session(
+    ai_dir: str,
+    session: dict[str, Any],
+) -> InterviewPolicy:
+    classification = session.get("classification", {})
+    return _interview_policy_for_metadata(
+        ai_dir,
+        classification,
+        label=f"session {session.get('session', {}).get('id', '?')}.classification",
+    )
+
+
+def _interview_policy_for_metadata(
+    ai_dir: str,
+    metadata: dict[str, Any],
+    *,
+    label: str,
+) -> InterviewPolicy:
+    registry = load_domain_registry(ai_dir)
+    return build_interview_policy_from_metadata(
+        registry,
+        metadata,
+        label=label,
     )
 
 
@@ -1082,14 +1146,30 @@ def _keywords(text: str) -> list[str]:
     return [token for token in tokens if token.casefold() not in STOP_WORDS]
 
 
-def _proposal_question(decision: dict[str, Any]) -> str:
-    return decision.get("question") or f"What should we decide about {decision['title']}?"
+def _proposal_question(decision: dict[str, Any], policy: InterviewPolicy | None = None) -> str:
+    spec = _policy_decision_type(policy, decision)
+    if policy is not None and spec is not None:
+        template = policy.question_template(spec.id)
+        if template:
+            return template
+    return _decision_field(decision, "question") or f"What should we decide about {decision['title']}?"
 
 
-def _proposal_recommendation(decision: dict[str, Any]) -> str:
+def _proposal_recommendation(decision: dict[str, Any], policy: InterviewPolicy | None = None) -> str:
     recommendation = decision.get("recommendation", {})
     if recommendation.get("summary"):
         return recommendation["summary"]
+    spec = _policy_decision_type(policy, decision)
+    if policy is not None and spec is not None:
+        criteria = _format_labels(policy.criteria_labels(spec))
+        evidence = _format_labels(policy.evidence_labels(spec))
+        if criteria and evidence:
+            return f"Define the {spec.label.lower()} using {criteria}, backed by {evidence}."
+        if criteria:
+            return f"Define the {spec.label.lower()} using {criteria}."
+        if evidence:
+            return f"Define the {spec.label.lower()} after checking {evidence}."
+        return f"Define the {spec.label.lower()} before downstream decisions depend on it."
     return f"Choose the lowest-risk option for {decision['title']}."
 
 
@@ -1100,17 +1180,69 @@ def _evidence_resolution_summary(decision: dict[str, Any]) -> str | None:
     return None
 
 
-def _proposal_why(decision: dict[str, Any]) -> str:
+def _proposal_why(decision: dict[str, Any], policy: InterviewPolicy | None = None) -> str:
     recommendation = decision.get("recommendation", {})
+    spec = _policy_decision_type(policy, decision)
+    if policy is not None and spec is not None:
+        criteria = _format_labels(policy.criteria_labels(spec))
+        if criteria:
+            return f"{spec.label} affects {criteria}; ambiguity here makes later decisions unstable."
+        return f"{spec.label} sets the context for downstream decisions in this {policy.pack.label} session."
     return (
         recommendation.get("rationale_short")
-        or decision.get("context")
+        or _decision_field(decision, "context")
         or "This is the best-supported option for the current milestone."
     )
 
 
-def _proposal_if_not(decision: dict[str, Any]) -> str:
-    return decision.get("context") or "Rejecting this recommendation changes scope or milestone risk."
+def _proposal_if_not(decision: dict[str, Any], policy: InterviewPolicy | None = None) -> str:
+    spec = _policy_decision_type(policy, decision)
+    if policy is not None and spec is not None:
+        evidence = _format_labels(policy.evidence_labels(spec))
+        if evidence:
+            return f"The {spec.label.lower()} may need rework when {evidence} changes or is missing."
+        return f"The {spec.label.lower()} may need rework when later constraints appear."
+    return _decision_field(decision, "context") or "Rejecting this recommendation changes scope or milestone risk."
+
+
+def _policy_decision_type(
+    policy: InterviewPolicy | None,
+    decision: dict[str, Any],
+):
+    if policy is None or policy.is_generic:
+        return None
+    return policy.decision_type(_decision_field(decision, "domain_decision_type"))
+
+
+def _decision_field(decision: dict[str, Any], key: str) -> Any:
+    if key in decision:
+        return decision[key]
+    metadata = decision.get("metadata")
+    if isinstance(metadata, dict):
+        return metadata.get(key)
+    return None
+
+
+def _decision_domain_pack_metadata(decision: dict[str, Any]) -> dict[str, Any]:
+    metadata: dict[str, Any] = {}
+    object_metadata = decision.get("metadata")
+    for key in DOMAIN_PACK_METADATA_KEYS:
+        if key in decision:
+            metadata[key] = decision[key]
+        elif isinstance(object_metadata, dict) and key in object_metadata:
+            metadata[key] = object_metadata[key]
+    return metadata
+
+
+def _format_labels(labels: Iterable[str]) -> str:
+    items = [label for label in labels if label]
+    if not items:
+        return ""
+    if len(items) == 1:
+        return items[0]
+    if len(items) == 2:
+        return f"{items[0]} and {items[1]}"
+    return ", ".join(items[:-1]) + f", and {items[-1]}"
 
 
 def _question_result(
@@ -1372,12 +1504,15 @@ def _capture_reply_artifacts(
         updated_decision = _lookup_decision(current_bundle(ai_dir), decision["id"])
 
     discovered_decisions: list[dict[str, Any]] = []
+    bundle = current_bundle(ai_dir)
+    session = _require_session(bundle, session_id)
+    policy = _interview_policy_for_decision(ai_dir, session, updated_decision)
     for clause in discovered_clauses:
         discovered_decisions.append(
             discover_decision(
                 ai_dir,
                 session_id,
-                _build_discovered_decision(updated_decision, clause),
+                _build_discovered_decision(updated_decision, clause, policy=policy),
             )
         )
     return updated_decision, captured_constraints, discovered_decisions
@@ -1446,12 +1581,17 @@ def _strip_answer_prefixes(text: str) -> str:
     return stripped
 
 
-def _build_discovered_decision(current_decision: dict[str, Any], clause: str) -> dict[str, Any]:
+def _build_discovered_decision(
+    current_decision: dict[str, Any],
+    clause: str,
+    *,
+    policy: InterviewPolicy | None = None,
+) -> dict[str, Any]:
     normalized = _normalize(clause)
     title = _title_from_clause(clause)
     priority, frontier = _priority_and_frontier_from_clause(current_decision, normalized)
     kind = _kind_from_clause(current_decision, normalized)
-    domain = _domain_from_clause(current_decision, title, clause)
+    domain = _domain_from_clause(current_decision, title, clause, policy=policy)
     resolvable_by = _resolvable_by_from_clause(current_decision, normalized, domain, kind)
     reversibility = _reversibility_from_clause(
         current_decision,
@@ -1532,12 +1672,28 @@ def _kind_from_clause(current_decision: dict[str, Any], normalized_clause: str) 
     return "choice"
 
 
-def _domain_from_clause(current_decision: dict[str, Any], title: str, clause: str) -> str:
+def _domain_from_clause(
+    current_decision: dict[str, Any],
+    title: str,
+    clause: str,
+    *,
+    policy: InterviewPolicy | None = None,
+) -> str:
     primary = _normalize(" ".join([title, clause]))
     scores = _score_domains(primary)
+    if policy is not None and not policy.is_generic:
+        pack_score = _score_pack_domain_hints(primary, policy)
+        if pack_score:
+            scores[policy.pack.default_core_domain] = scores.get(policy.pack.default_core_domain, 0) + pack_score
     current_domain = current_decision.get("domain") or "other"
     if not scores:
         context_scores = _score_domains(_normalize(current_decision.get("context")))
+        if policy is not None and not policy.is_generic:
+            pack_score = _score_pack_domain_hints(_normalize(current_decision.get("context")), policy)
+            if pack_score:
+                context_scores[policy.pack.default_core_domain] = (
+                    context_scores.get(policy.pack.default_core_domain, 0) + pack_score
+                )
         if not context_scores:
             return current_domain
         scores = context_scores
@@ -1563,6 +1719,14 @@ def _score_domains(normalized: str) -> dict[str, int]:
         if score:
             scores[domain] = score
     return scores
+
+
+def _score_pack_domain_hints(normalized: str, policy: InterviewPolicy) -> int:
+    score = 0
+    for hint in policy.pack.interview.domain_hints:
+        if _contains_hint(normalized, hint):
+            score += 2 if " " in hint else 1
+    return score
 
 
 def _contains_hint(normalized: str, hint: str) -> bool:
