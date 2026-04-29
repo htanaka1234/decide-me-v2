@@ -136,6 +136,46 @@ class EventTests(unittest.TestCase):
 
         validate_event(event)
 
+    def test_session_created_accepts_domain_pack_classification(self) -> None:
+        event = _event(
+            event_type="session_created",
+            payload={
+                "session": {
+                    "id": "S-001",
+                    "started_at": "2026-04-23T12:00:00Z",
+                    "last_seen_at": "2026-04-23T12:00:00Z",
+                    "bound_context_hint": "Research context",
+                    "classification": _classification_payload(),
+                }
+            },
+        )
+
+        validate_event(event)
+
+    def test_session_created_rejects_invalid_domain_pack_classification(self) -> None:
+        cases = (
+            ("domain_pack_id", "Research"),
+            ("domain_pack_digest", "DP-nothex"),
+        )
+        for key, value in cases:
+            with self.subTest(key=key):
+                classification = _classification_payload()
+                classification[key] = value
+
+                with self.assertRaisesRegex(EventValidationError, key):
+                    _event(
+                        event_type="session_created",
+                        payload={
+                            "session": {
+                                "id": "S-001",
+                                "started_at": "2026-04-23T12:00:00Z",
+                                "last_seen_at": "2026-04-23T12:00:00Z",
+                                "bound_context_hint": "Research context",
+                                "classification": classification,
+                            }
+                        },
+                    )
+
 
 def _event(*, event_type: str, payload: dict, session_id: str = "S-001") -> dict:
     return build_event(
@@ -183,6 +223,20 @@ def _project_payload() -> dict:
         "objective": "Plan the milestone.",
         "current_milestone": "Phase 5",
         "stop_rule": "Resolve blockers.",
+    }
+
+
+def _classification_payload() -> dict:
+    return {
+        "domain": "data",
+        "abstraction_level": None,
+        "domain_pack_id": "research",
+        "domain_pack_version": "0.1.0",
+        "domain_pack_digest": "DP-123456789abc",
+        "assigned_tags": [],
+        "search_terms": [],
+        "source_refs": [],
+        "updated_at": "2026-04-23T12:00:00Z",
     }
 
 

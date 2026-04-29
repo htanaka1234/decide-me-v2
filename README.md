@@ -281,6 +281,11 @@ debugging. Use `python3 scripts/decide_me.py --help` for the full subcommand
 reference. Common maintainer operations include:
 
 - `list-sessions`, `show-session`, and `resume-session`
+- `list-domain-packs` and `show-domain-pack` to inspect available declarative domain packs
+- `create-session --domain-pack research|procurement|software|generic` to explicitly select a pack;
+  omitted packs are inferred from context and unresolved contexts fall back to `generic`
+- `list-sessions --domain-pack <id>` to filter sessions by stored pack metadata; sessions created
+  before pack metadata are displayed as `generic`
 - `advance-session` and `handle-reply`
 - `close-session` and `generate-plan`
 - `validate-state` / `validate-state --full` for full event-log validation,
@@ -297,6 +302,8 @@ reference. Common maintainer operations include:
 - `export-impact-report` to write a derived Markdown impact report without changing runtime state
 - `export-document --type decision-brief|action-plan|risk-register|review-memo|research-plan|comparison-table`
   to write generic Markdown, JSON, or supported CSV documents under `.ai/decide-me/exports/documents/`
+  and `export-document --domain-pack <id>` to validate the selected pack before export. Pack-specific
+  document rendering is reserved for the later document compiler integration.
 - `export-github-templates` to write local issue forms under `.github/ISSUE_TEMPLATE`
 - `export-architecture-doc --format arc42` for a derived architecture skeleton
 - `export-traceability --format csv|markdown` for decision/action/verification traceability

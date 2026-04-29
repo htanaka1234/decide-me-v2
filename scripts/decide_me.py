@@ -12,6 +12,7 @@ sys.path = [entry for entry in sys.path if entry != REPO_ROOT_STR]
 sys.path.insert(0, REPO_ROOT_STR)
 
 from decide_me.conflicts import detect_merge_conflicts, resolve_merge_conflict
+from decide_me.domains import DomainPack, domain_pack_digest, load_domain_registry
 from decide_me.exports import (
     export_adr,
     export_agent_instructions,
@@ -72,14 +73,23 @@ def main(argv: list[str] | None = None) -> int:
     create = subparsers.add_parser("create-session", help="create a session")
     create.add_argument("--ai-dir", required=True)
     create.add_argument("--context")
+    create.add_argument("--domain-pack")
 
     list_cmd = subparsers.add_parser("list-sessions", help="list sessions")
     list_cmd.add_argument("--ai-dir", required=True)
     list_cmd.add_argument("--query")
     list_cmd.add_argument("--status", action="append", default=[])
     list_cmd.add_argument("--domain", action="append", default=[])
+    list_cmd.add_argument("--domain-pack", action="append", default=[])
     list_cmd.add_argument("--abstraction-level", action="append", default=[])
     list_cmd.add_argument("--tag", action="append", default=[])
+
+    list_domain_packs = subparsers.add_parser("list-domain-packs", help="list available domain packs")
+    list_domain_packs.add_argument("--ai-dir", required=True)
+
+    show_domain_pack = subparsers.add_parser("show-domain-pack", help="show one domain pack")
+    show_domain_pack.add_argument("--ai-dir", required=True)
+    show_domain_pack.add_argument("--pack-id", required=True)
 
     show = subparsers.add_parser("show-session", help="show one session")
     show.add_argument("--ai-dir", required=True)
@@ -359,6 +369,7 @@ def main(argv: list[str] | None = None) -> int:
     document.add_argument("--output", required=True)
     document.add_argument("--session-id", action="append")
     document.add_argument("--object-id", action="append")
+    document.add_argument("--domain-pack")
     document.add_argument("--include-invalidated", action="store_true")
     document.add_argument("--now")
     document.add_argument("--force", action="store_true")
@@ -403,7 +414,7 @@ def main(argv: list[str] | None = None) -> int:
             )
             _print_json(result)
         elif args.command == "create-session":
-            _print_json(create_session(args.ai_dir, context=args.context))
+            _print_json(create_session(args.ai_dir, context=args.context, domain_pack_id=args.domain_pack))
         elif args.command == "list-sessions":
             _print_json(
                 list_sessions(
@@ -411,10 +422,16 @@ def main(argv: list[str] | None = None) -> int:
                     query=args.query,
                     statuses=args.status,
                     domains=args.domain,
+                    domain_packs=args.domain_pack,
                     abstraction_levels=args.abstraction_level,
                     tag_terms=args.tag,
                 )
             )
+        elif args.command == "list-domain-packs":
+            _print_json(_list_domain_packs(args.ai_dir))
+        elif args.command == "show-domain-pack":
+            pack = _require_domain_pack(args.ai_dir, args.pack_id)
+            _print_json({"status": "ok", "digest": domain_pack_digest(pack), "pack": pack.to_dict()})
         elif args.command == "show-session":
             _print_json(show_session(args.ai_dir, args.session_id))
         elif args.command == "resume-session":
@@ -609,6 +626,8 @@ def main(argv: list[str] | None = None) -> int:
             )
             _print_json({"path": str(path)})
         elif args.command == "export-document":
+            if args.domain_pack:
+                _require_domain_pack(args.ai_dir, args.domain_pack)
             path = export_document(
                 args.ai_dir,
                 document_type=args.type,
@@ -660,6 +679,28 @@ def main(argv: list[str] | None = None) -> int:
 
 def _print_json(payload: object) -> None:
     print(json.dumps(payload, ensure_ascii=False, indent=2))
+
+
+def _list_domain_packs(ai_dir: str) -> dict[str, object]:
+    packs = [
+        {
+            "pack_id": pack.pack_id,
+            "version": pack.version,
+            "label": pack.label,
+            "description": pack.description,
+            "default_core_domain": pack.default_core_domain,
+            "digest": domain_pack_digest(pack),
+        }
+        for pack in load_domain_registry(ai_dir).list()
+    ]
+    return {"status": "ok", "count": len(packs), "packs": packs}
+
+
+def _require_domain_pack(ai_dir: str, pack_id: str) -> DomainPack:
+    try:
+        return load_domain_registry(ai_dir).get(pack_id)
+    except KeyError as exc:
+        raise ValueError(f"unknown domain pack: {pack_id}") from exc
 
 
 if __name__ == "__main__":

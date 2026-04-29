@@ -85,9 +85,12 @@ def default_close_summary() -> dict[str, Any]:
 
 
 def default_session_state(
-    session_id: str, started_at: str, bound_context_hint: str | None = None
+    session_id: str,
+    started_at: str,
+    bound_context_hint: str | None = None,
+    classification: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    return {
+    session_state = {
         "schema_version": SESSION_STATE_SCHEMA_VERSION,
         "session": {
             "id": session_id,
@@ -116,6 +119,9 @@ def default_session_state(
             "last_seen_project_head": None,
         },
     }
+    if classification is not None:
+        session_state["classification"].update(deepcopy(classification))
+    return session_state
 
 
 def effective_session_status(session_state: dict[str, Any], now: datetime | None = None) -> str:
@@ -277,6 +283,7 @@ def apply_event(
             session_payload["id"],
             session_payload["started_at"],
             session_payload.get("bound_context_hint"),
+            session_payload.get("classification"),
         )
         sessions[session_payload["id"]]["session"]["last_seen_at"] = session_payload["last_seen_at"]
     elif event_type == "session_resumed":
