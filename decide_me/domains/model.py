@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from decide_me.domains.validate import validate_domain_pack_payload
+
 
 DOMAIN_PACK_SCHEMA_VERSION = 1
 
@@ -235,6 +237,7 @@ class DomainPack:
 
 
 def domain_pack_from_dict(raw: dict[str, Any]) -> DomainPack:
+    validate_domain_pack_payload(raw)
     return DomainPack(
         schema_version=raw["schema_version"],
         pack_id=raw["pack_id"],

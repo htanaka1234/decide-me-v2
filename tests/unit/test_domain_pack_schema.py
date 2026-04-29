@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 import unittest
+from copy import deepcopy
 from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
+from decide_me.domains import DomainPackValidationError, validate_domain_pack_payload
 from decide_me.domains.model import (
     DecisionTypeSpec,
     DomainPack,
@@ -53,6 +55,7 @@ class DomainPackSchemaTests(unittest.TestCase):
     def test_rejects_invalid_core_enums(self) -> None:
         cases = (
             (["default_core_domain"], "research"),
+            (["decision_types", 0, "object_type"], "evidence"),
             (["decision_types", 0, "object_type"], "domain_decision"),
             (["decision_types", 0, "layer"], "domain"),
             (["evidence_requirements", 0, "evidence_source"], "database"),
@@ -68,6 +71,79 @@ class DomainPackSchemaTests(unittest.TestCase):
                 _set_path(payload, path, value)
 
                 self.assertTrue(list(self.validator.iter_errors(payload)))
+
+    def test_semantic_validator_rejects_duplicate_ids(self) -> None:
+        cases = (
+            ("decision_types", "label", "Research question duplicate"),
+            ("criteria", "label", "Scientific validity duplicate"),
+            ("evidence_requirements", "label", "Protocol duplicate"),
+            ("risk_types", "label", "Human subjects duplicate"),
+            ("safety_rules", "reason", "Duplicate rule."),
+        )
+        for collection, field, value in cases:
+            with self.subTest(collection=collection):
+                payload = _valid_pack()
+                duplicate = deepcopy(payload[collection][0])
+                duplicate[field] = value
+                payload[collection].append(duplicate)
+
+                with self.assertRaisesRegex(DomainPackValidationError, "duplicate ids"):
+                    validate_domain_pack_payload(payload)
+
+    def test_semantic_validator_rejects_duplicate_document_profiles(self) -> None:
+        payload = _valid_pack()
+        duplicate = deepcopy(payload["documents"][0])
+        duplicate["default"] = False
+        duplicate["required_sections"] = ["source-traceability"]
+        payload["documents"].append(duplicate)
+
+        with self.assertRaisesRegex(DomainPackValidationError, "duplicate profiles"):
+            validate_domain_pack_payload(payload)
+
+    def test_semantic_validator_rejects_multiple_default_documents_per_type(self) -> None:
+        payload = _valid_pack()
+        payload["documents"].append(
+            {
+                "document_type": "research-plan",
+                "default": True,
+                "profile_id": "research_summary",
+                "required_sections": ["source-traceability"],
+            }
+        )
+
+        with self.assertRaisesRegex(DomainPackValidationError, "multiple defaults"):
+            validate_domain_pack_payload(payload)
+
+    def test_semantic_validator_rejects_unresolved_internal_references(self) -> None:
+        cases = (
+            (["decision_types", 0, "criteria"], ["missing_criterion"], "criteria"),
+            (["decision_types", 0, "required_evidence"], ["missing_evidence"], "required_evidence"),
+            (["safety_rules", 0, "applies_when", "risk_types"], ["missing_risk"], "risk_types"),
+            (["interview", "question_templates", "missing_decision"], "What is missing?", "question_templates"),
+        )
+        for path, value, message in cases:
+            with self.subTest(path=path):
+                payload = _valid_pack()
+                _set_path(payload, path, value)
+
+                with self.assertRaisesRegex(DomainPackValidationError, message):
+                    validate_domain_pack_payload(payload)
+
+    def test_model_conversion_rejects_unknown_fields(self) -> None:
+        cases = (
+            ([], "python_hook", "decide_me.plugins.research"),
+            (["decision_types", 0], "prompt", "not allowed"),
+            (["documents", 0], "builder", "not allowed"),
+            (["interview"], "classifier", "not allowed"),
+        )
+        for path, field, value in cases:
+            with self.subTest(path=path, field=field):
+                payload = _valid_pack()
+                target = _at_path(payload, path) if path else payload
+                target[field] = value
+
+                with self.assertRaisesRegex(DomainPackValidationError, "unsupported fields"):
+                    domain_pack_from_dict(payload)
 
     def test_model_round_trips_pack_payload(self) -> None:
         payload = _valid_pack()
@@ -146,10 +222,11 @@ def _valid_pack() -> dict:
                 "default": True,
                 "profile_id": "research_protocol",
                 "required_sections": [
-                    "objective",
-                    "research_question",
-                    "risks",
-                    "verification",
+                    "research-question-decision-targets",
+                    "evidence-base",
+                    "analysis-verification-plan",
+                    "risks-and-mitigations",
+                    "source-traceability",
                 ],
             }
         ],

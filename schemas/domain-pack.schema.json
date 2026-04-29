@@ -112,6 +112,17 @@
       },
       "uniqueItems": true
     },
+    "section_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]*$"
+    },
+    "section_id_array": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/section_id"
+      },
+      "uniqueItems": true
+    },
     "core_domain": {
       "enum": [
         "product",
@@ -121,23 +132,6 @@
         "ops",
         "legal",
         "other"
-      ]
-    },
-    "object_type": {
-      "enum": [
-        "objective",
-        "constraint",
-        "criterion",
-        "option",
-        "proposal",
-        "decision",
-        "assumption",
-        "evidence",
-        "risk",
-        "action",
-        "verification",
-        "revisit_trigger",
-        "artifact"
       ]
     },
     "decision_stack_layer": {
@@ -246,7 +240,7 @@
           "$ref": "#/$defs/non_empty_string"
         },
         "object_type": {
-          "$ref": "#/$defs/object_type"
+          "const": "decision"
         },
         "layer": {
           "$ref": "#/$defs/decision_stack_layer"
@@ -407,7 +401,7 @@
           "$ref": "#/$defs/identifier"
         },
         "required_sections": {
-          "$ref": "#/$defs/identifier_array"
+          "$ref": "#/$defs/section_id_array"
         }
       },
       "additionalProperties": false
