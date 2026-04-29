@@ -101,6 +101,13 @@ final decision that satisfies the current `invalidated_by.decision_id` contract.
 ID, candidate kind, and source link ID so repeated runs can compare candidate sets without treating
 them as persisted runtime state.
 
+## Future Apply Guard
+
+Phase 7 does not add `apply-invalidation-candidate`. If that workflow is added later, it must
+evaluate the safety gate for the candidate target before writing events. Blocked gates must stop the
+apply. Gates that need approval must require a matching safety approval artifact before proposed
+events are wrapped into a normal transaction.
+
 ## Classification
 
 Low-severity candidates are filtered out unless `include_low_severity=True`.

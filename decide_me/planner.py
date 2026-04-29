@@ -7,6 +7,7 @@ from typing import Any
 
 from decide_me.events import utc_now
 from decide_me.exports import export_plan
+from decide_me.safety_gate import evaluate_safety_gate
 from decide_me.store import load_runtime, runtime_paths, transact
 from decide_me.suppression import apply_semantic_suppression_to_session
 from decide_me.taxonomy import stable_unique
@@ -205,6 +206,7 @@ def assemble_action_plan(
         workstream_inputs.extend(_workstream_inputs(project_state, close_summary))
 
     merged_actions = _merge_actions(actions)
+    readiness = _readiness_with_action_gates(readiness, merged_actions)
     return {
         "readiness": readiness,
         "goals": stable_unique(goals),
@@ -407,6 +409,9 @@ def _action_item(
         return None
     metadata = action.get("metadata", {})
     decision_id = metadata.get("decision_id") or _addressed_decision_id(project_state, close_summary, action_id)
+    declared_implementation_ready = bool(metadata.get("implementation_ready"))
+    safety_gate = _safety_gate_summary(project_state, action_id)
+    implementation_ready = declared_implementation_ready and safety_gate["gate_status"] == "passed"
     evidence_ids: list[str] = []
     evidence_source = metadata.get("evidence_source")
     if decision_id:
@@ -424,7 +429,9 @@ def _action_item(
         "kind": metadata.get("kind"),
         "resolvable_by": metadata.get("resolvable_by"),
         "reversibility": metadata.get("reversibility"),
-        "implementation_ready": bool(metadata.get("implementation_ready")),
+        "declared_implementation_ready": declared_implementation_ready,
+        "implementation_ready": implementation_ready,
+        "safety_gate": safety_gate,
         "evidence_backed": bool(metadata.get("evidence_backed") or evidence_ids),
         "evidence_source": evidence_source,
         "evidence_ids": evidence_ids,
@@ -519,12 +526,13 @@ def _workstream_inputs(project_state: dict[str, Any], close_summary: dict[str, A
             continue
         metadata = action.get("metadata", {})
         decision_id = metadata.get("decision_id") or _addressed_decision_id(project_state, close_summary, action_id)
+        safety_gate = _safety_gate_summary(project_state, action_id)
         inputs.append(
             {
                 "decision_id": decision_id,
                 "domain": metadata.get("responsibility", "other"),
                 "accepted": True,
-                "implementation_ready": bool(metadata.get("implementation_ready")),
+                "implementation_ready": bool(metadata.get("implementation_ready")) and safety_gate["gate_status"] == "passed",
             }
         )
     return inputs
@@ -577,6 +585,10 @@ def _merge_actions(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
         preferred["implementation_ready"] = bool(
             current.get("implementation_ready") or item.get("implementation_ready")
         )
+        preferred["declared_implementation_ready"] = bool(
+            current.get("declared_implementation_ready") or item.get("declared_implementation_ready")
+        )
+        preferred["safety_gate"] = _preferred_safety_gate(current.get("safety_gate"), item.get("safety_gate"))
         preferred["evidence_backed"] = bool(current.get("evidence_backed") or item.get("evidence_backed"))
         preferred["evidence_source"] = current.get("evidence_source") or item.get("evidence_source")
         preferred["next_step"] = preferred.get("next_step") or current.get("next_step") or item.get("next_step")
@@ -592,6 +604,43 @@ def _action_sort_key(item: dict[str, Any]) -> tuple[int, int, int, str]:
         priority_rank.get(item.get("priority"), 3),
         item.get("name") or "",
     )
+
+
+def _readiness_with_action_gates(readiness: str, actions: list[dict[str, Any]]) -> str:
+    gated = readiness
+    for action in actions:
+        if not action.get("declared_implementation_ready"):
+            continue
+        gate = action.get("safety_gate") or {}
+        if gate.get("gate_status") == "blocked":
+            gated = _merge_readiness(gated, "blocked")
+        elif gate.get("gate_status") == "needs_approval":
+            gated = _merge_readiness(gated, "conditional")
+    return gated
+
+
+def _safety_gate_summary(project_state: dict[str, Any], action_id: str) -> dict[str, Any]:
+    result = evaluate_safety_gate(project_state, action_id)
+    return {
+        "gate_status": result["gate_status"],
+        "risk_tier": result["risk_tier"],
+        "reversibility": result["reversibility"],
+        "approval_required": result["approval_required"],
+        "approval_satisfied": result["approval_satisfied"],
+        "approval_reasons": result["approval_reasons"],
+        "blocking_reasons": result["blocking_reasons"],
+        "warning_reasons": result["warning_reasons"],
+        "gate_digest": result["gate_digest"],
+    }
+
+
+def _preferred_safety_gate(current: dict[str, Any] | None, item: dict[str, Any] | None) -> dict[str, Any] | None:
+    if current is None:
+        return deepcopy(item) if item is not None else None
+    if item is None:
+        return deepcopy(current)
+    rank = {"blocked": 0, "needs_approval": 1, "passed": 2}
+    return deepcopy(current if rank.get(current.get("gate_status"), 3) <= rank.get(item.get("gate_status"), 3) else item)
 
 
 def _workstream_sort_key(item: dict[str, Any]) -> tuple[int, int, str]:

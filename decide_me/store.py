@@ -467,6 +467,7 @@ def transact(ai_dir: str | Path, builder: Builder) -> tuple[list[dict[str, Any]]
             )
 
         built_events = canonicalize_events(built_events)
+        _validate_incremental_session_scope(current_bundle, built_events)
         _validate_incremental_events(runtime_index, built_events)
         new_bundle = apply_events_to_bundle(deepcopy(current_bundle), built_events)
         validate_projection_bundle(new_bundle)
@@ -540,6 +541,31 @@ def _validate_incremental_events(runtime_index: dict[str, Any], events: list[dic
     for event in events:
         if _canonical_event_sort_key(event) <= last_sort_key:
             raise StateValidationError("incremental transaction is not after the current checkpoint")
+
+
+def _validate_incremental_session_scope(bundle: dict[str, Any], events: list[dict[str, Any]]) -> None:
+    sessions = bundle.get("sessions", {})
+    for event in events:
+        event_type = event["event_type"]
+        session_id = event["session_id"]
+        if event_type in {"project_initialized", "plan_generated"}:
+            if session_id != SYSTEM_SESSION_ID:
+                raise StateValidationError(f"{event_type} must use SYSTEM session_id")
+            continue
+        if event_type == "session_created":
+            payload_session_id = event["payload"]["session"]["id"]
+            if session_id != payload_session_id:
+                raise StateValidationError("session_created event.session_id must match payload.session.id")
+            if session_id in sessions:
+                raise StateValidationError(f"duplicate session_created id: {session_id}")
+            continue
+        if session_id == SYSTEM_SESSION_ID:
+            raise StateValidationError(f"{event_type} must not use SYSTEM session_id")
+        session = sessions.get(session_id)
+        if session is None:
+            raise StateValidationError(f"event references unknown session: {session_id}")
+        if session["session"]["lifecycle"]["status"] == "closed":
+            raise StateValidationError(f"{event_type} mutates closed session {session_id}")
 
 
 def _next_transaction_timestamp(runtime_index: dict[str, Any], candidate: str) -> str:

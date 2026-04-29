@@ -63,10 +63,16 @@
               "type": "array"
             },
             "actions": {
-              "type": "array"
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/actionItem"
+              }
             },
             "implementation_ready_actions": {
-              "type": "array"
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/actionItem"
+              }
             },
             "blockers": {
               "type": "array"
@@ -152,6 +158,82 @@
         "type": "string",
         "minLength": 1
       }
+    },
+    "actionItem": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "safety_gate": {
+          "$ref": "#/$defs/actionSafetyGate"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": true
+    },
+    "actionSafetyGate": {
+      "type": "object",
+      "required": [
+        "gate_status",
+        "risk_tier",
+        "reversibility",
+        "approval_required",
+        "approval_satisfied",
+        "approval_reasons",
+        "blocking_reasons",
+        "warning_reasons",
+        "gate_digest"
+      ],
+      "properties": {
+        "gate_status": {
+          "enum": [
+            "passed",
+            "needs_approval",
+            "blocked"
+          ]
+        },
+        "risk_tier": {
+          "enum": [
+            "none",
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
+        },
+        "reversibility": {
+          "enum": [
+            "unknown",
+            "reversible",
+            "partially_reversible",
+            "irreversible"
+          ]
+        },
+        "approval_required": {
+          "type": "boolean"
+        },
+        "approval_satisfied": {
+          "type": "boolean"
+        },
+        "approval_reasons": {
+          "$ref": "#/$defs/idList"
+        },
+        "blocking_reasons": {
+          "$ref": "#/$defs/idList"
+        },
+        "warning_reasons": {
+          "$ref": "#/$defs/idList"
+        },
+        "gate_digest": {
+          "type": "string",
+          "pattern": "^SG-[0-9a-f]{12}$"
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

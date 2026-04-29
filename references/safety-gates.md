@@ -1,9 +1,8 @@
 # Safety Gates
 
-Step 3 adds read-only safety gate evaluation on top of typed metadata contracts and register
-projections. Safety gates are diagnostic JSON views. They are not persisted in `project-state.json`
-and do not write events, create approval objects, apply invalidation candidates, or mark stale
-objects.
+Phase 7 adds safety gate evaluation on top of typed metadata contracts and register projections.
+Safety gate commands remain diagnostic JSON views and are not persisted in `project-state.json`.
+Approval state is represented separately as normal `artifact` objects and `addresses` links.
 
 ## Commands
 
@@ -23,6 +22,9 @@ python3 scripts/decide_me.py show-safety-gates --ai-dir .ai/decide-me
 
 `show-safety-gates` evaluates live `decision` and `action` objects. Use `show-safety-gate` for
 any other object type that needs an explicit diagnostic check.
+
+Both commands accept `--now`. When omitted, they use `project_state.state.updated_at` so a fixed
+projection produces stable diagnostics.
 
 ## Evaluation Inputs
 
@@ -49,22 +51,24 @@ Risks:
 - A live risk is also related when `risk.metadata.mitigation_object_ids` contains the target id.
 - The effective `risk_tier`, `approval_threshold`, and `reversibility` are the highest ranked
   values across related risks.
+- Decision and action `metadata.reversibility` also contributes to effective reversibility. For
+  actions, `irreversible` requires approval before the action can be implementation-ready.
 
-Step 3 intentionally does not compare timestamps. `valid_until`, `expires_at`, verification gaps,
-and due revisit checks belong to the Step 4 stale-detection diagnostics exposed through
-`show-stale-assumptions`, `show-stale-evidence`, `show-verification-gaps`, and
-`show-revisit-due`.
+Safety gates compare `valid_until`, `expires_at`, and action verification coverage at the selected
+`as_of` time. Due revisit checks remain in `show-revisit-due`.
 
 ## Output
 
 Single-object evaluation returns a safety gate result:
 
 - `object_id`, `object_type`, `title`, `status`
+- `as_of`
 - `gate_status`: `passed`, `needs_approval`, or `blocked`
 - `risk_tier`: `none`, `low`, `medium`, `high`, or `critical`
 - `reversibility`: `unknown`, `reversible`, `partially_reversible`, or `irreversible`
 - `evidence_coverage`: `sufficient`, `insufficient`, or `challenged`
-- `approval_required` and `approval_threshold`
+- `approval_required`, `approval_satisfied`, `approval_artifact_ids`, and `approval_threshold`
+- `gate_digest` and `digest_inputs`
 - `blocking_reasons`, `warning_reasons`, and `approval_reasons`
 - `evidence`, `assumptions`, `risks`, and `source_link_ids`
 
@@ -82,11 +86,15 @@ Blocking reasons:
 - `critical_risk_tier`
 - `insufficient_evidence`
 - `challenged_evidence`
+- `completed_action_verification_gap`
 
 Approval reasons:
 
 - `high_risk_tier`
 - `irreversible_change`
+- `insufficient_evidence_requires_approval`
+- `action_verification_gap`
+- `expired_assumption_review_required`
 - `external_review_required`
 - `human_review_required`
 - `explicit_acceptance_required`
@@ -96,9 +104,13 @@ Warning reasons:
 - `medium_risk_tier`
 - `partially_reversible_change`
 - `low_confidence_assumption`
+- `expired_assumption`
+- `stale_supporting_evidence`
+- `insufficient_evidence`
 
-`gate_status` is `blocked` when any blocking reason exists, otherwise `needs_approval` when any
-approval reason exists, otherwise `passed`.
+`gate_status` is `blocked` when any blocking reason exists. Otherwise it is `passed` when no
+approval is required, or when a current approval artifact matches the gate digest. Otherwise it is
+`needs_approval`.
 
-Stale diagnostics are separate read-only inputs for later gate phases. They do not change these
-status rules in Step 4.
+Insufficient evidence is tier-sensitive: `none` and `low` risk produce warnings, `medium` and
+`high` risk require approval, and `critical` risk is blocked. Challenge evidence is always blocked.

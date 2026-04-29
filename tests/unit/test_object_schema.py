@@ -83,6 +83,12 @@ class ObjectSchemaTests(unittest.TestCase):
             with self.subTest(object_type=object_type):
                 self.validator.validate(_valid_object(object_type))
 
+    def test_accepts_safety_approval_artifact_metadata(self) -> None:
+        payload = _valid_object("artifact")
+        payload["metadata"] = _safety_approval_metadata()
+
+        self.validator.validate(payload)
+
     def test_rejects_missing_typed_metadata_fields(self) -> None:
         for object_type, field in (
             ("evidence", "source_ref"),
@@ -107,10 +113,13 @@ class ObjectSchemaTests(unittest.TestCase):
             ("risk", "approval_threshold", "auto"),
             ("verification", "verified_at", 123),
             ("revisit_trigger", "trigger_type", "manual"),
+            ("artifact", "gate_digest", "bad"),
         )
         for object_type, field, value in cases:
             with self.subTest(object_type=object_type, field=field):
                 payload = _valid_object(object_type)
+                if object_type == "artifact":
+                    payload["metadata"] = _safety_approval_metadata()
                 payload["metadata"][field] = value
 
                 errors = list(self.validator.iter_errors(payload))
@@ -135,6 +144,19 @@ def _valid_object(object_type: str) -> dict:
 
 def _valid_metadata(object_type: str) -> dict:
     return metadata_for_object_type(object_type)
+
+
+def _safety_approval_metadata() -> dict:
+    return {
+        "artifact_type": "safety_gate_approval",
+        "target_object_id": "D-001",
+        "gate_digest": "SG-123456789abc",
+        "approval_threshold": "human_review",
+        "approved_by": "user",
+        "approved_at": "2026-04-28T00:00:00Z",
+        "reason": "Reviewed.",
+        "expires_at": None,
+    }
 
 
 if __name__ == "__main__":

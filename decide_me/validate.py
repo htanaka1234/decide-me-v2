@@ -249,6 +249,8 @@ def validate_project_state(project_state: dict[str, Any]) -> None:
             _validate_verification_object_metadata(obj)
         elif obj["type"] == "revisit_trigger":
             _validate_revisit_trigger_object_metadata(obj)
+        elif obj["type"] == "artifact":
+            _validate_artifact_object_metadata(obj)
         if obj["id"] in object_ids:
             raise StateValidationError(f"duplicate object id: {obj['id']}")
         object_ids.add(obj["id"])
@@ -531,6 +533,51 @@ def _validate_revisit_trigger_object_metadata(obj: dict[str, Any]) -> None:
     _require_string_list(metadata.get("target_object_ids"), f"{label}.target_object_ids")
     if not metadata["target_object_ids"]:
         raise StateValidationError(f"{label}.target_object_ids must not be empty")
+
+
+def _validate_artifact_object_metadata(obj: dict[str, Any]) -> None:
+    metadata = obj["metadata"]
+    if metadata.get("artifact_type") != "safety_gate_approval":
+        return
+    label = f"artifact object {obj['id']}.metadata"
+    _require_keys(
+        metadata,
+        (
+            "artifact_type",
+            "target_object_id",
+            "gate_digest",
+            "approval_threshold",
+            "approved_by",
+            "approved_at",
+            "reason",
+            "expires_at",
+        ),
+        label,
+    )
+    allowed = {
+        "artifact_type",
+        "target_object_id",
+        "gate_digest",
+        "approval_threshold",
+        "approved_by",
+        "approved_at",
+        "reason",
+        "expires_at",
+        "layer",
+    }
+    unknown = sorted(set(metadata) - allowed)
+    if unknown:
+        raise StateValidationError(f"{label} contains unsupported keys: {', '.join(unknown)}")
+    _require_non_empty_string(metadata.get("target_object_id"), f"{label}.target_object_id")
+    gate_digest = metadata.get("gate_digest")
+    _require_non_empty_string(gate_digest, f"{label}.gate_digest")
+    if not str(gate_digest).startswith("SG-"):
+        raise StateValidationError(f"{label}.gate_digest must start with SG-")
+    _require_enum(metadata.get("approval_threshold"), APPROVAL_THRESHOLD_VALUES, f"{label}.approval_threshold")
+    _require_non_empty_string(metadata.get("approved_by"), f"{label}.approved_by")
+    _require_timestamp(metadata.get("approved_at"), f"{label}.approved_at")
+    _require_non_empty_string(metadata.get("reason"), f"{label}.reason")
+    _require_optional_timestamp(metadata.get("expires_at"), f"{label}.expires_at")
 
 
 def _validate_decision_status_payload(decision: dict[str, Any]) -> None:

@@ -84,20 +84,27 @@
         "target_invalidated",
         "critical_risk_tier",
         "insufficient_evidence",
-        "challenged_evidence"
+        "challenged_evidence",
+        "completed_action_verification_gap"
       ]
     },
     "warning_reason": {
       "enum": [
         "medium_risk_tier",
         "partially_reversible_change",
-        "low_confidence_assumption"
+        "low_confidence_assumption",
+        "expired_assumption",
+        "stale_supporting_evidence",
+        "insufficient_evidence"
       ]
     },
     "approval_reason": {
       "enum": [
         "high_risk_tier",
         "irreversible_change",
+        "insufficient_evidence_requires_approval",
+        "action_verification_gap",
+        "expired_assumption_review_required",
         "external_review_required",
         "human_review_required",
         "explicit_acceptance_required"
@@ -162,7 +169,8 @@
         "confidence",
         "freshness",
         "observed_at",
-        "valid_until"
+        "valid_until",
+        "is_stale"
       ],
       "properties": {
         "object_id": {
@@ -206,6 +214,9 @@
         },
         "valid_until": {
           "$ref": "#/$defs/nullable_date_time"
+        },
+        "is_stale": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false
@@ -222,7 +233,8 @@
         "validation",
         "invalidates_if_false",
         "expires_at",
-        "owner"
+        "owner",
+        "is_expired"
       ],
       "properties": {
         "object_id": {
@@ -263,6 +275,9 @@
         },
         "owner": {
           "$ref": "#/$defs/nullable_string"
+        },
+        "is_expired": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false
@@ -341,15 +356,20 @@
         "object_type",
         "title",
         "status",
+        "as_of",
         "gate_status",
         "risk_tier",
         "reversibility",
         "evidence_coverage",
         "approval_required",
+        "approval_satisfied",
+        "approval_artifact_ids",
         "approval_threshold",
         "blocking_reasons",
         "warning_reasons",
         "approval_reasons",
+        "gate_digest",
+        "digest_inputs",
         "evidence",
         "assumptions",
         "risks",
@@ -371,6 +391,10 @@
           "type": "string",
           "minLength": 1
         },
+        "as_of": {
+          "type": "string",
+          "format": "date-time"
+        },
         "gate_status": {
           "$ref": "#/$defs/gate_status"
         },
@@ -385,6 +409,12 @@
         },
         "approval_required": {
           "type": "boolean"
+        },
+        "approval_satisfied": {
+          "type": "boolean"
+        },
+        "approval_artifact_ids": {
+          "$ref": "#/$defs/string_array"
         },
         "approval_threshold": {
           "$ref": "#/$defs/approval_threshold"
@@ -409,6 +439,13 @@
             "$ref": "#/$defs/approval_reason"
           },
           "uniqueItems": true
+        },
+        "gate_digest": {
+          "type": "string",
+          "pattern": "^SG-[0-9a-f]{12}$"
+        },
+        "digest_inputs": {
+          "type": "object"
         },
         "evidence": {
           "type": "array",

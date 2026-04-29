@@ -32,6 +32,7 @@ from decide_me.lifecycle import close_session, create_session, list_sessions, re
 from decide_me.planner import generate_plan
 from decide_me.protocol import resolve_decision_supersession
 from decide_me.registers import build_assumption_register, build_evidence_register, build_risk_register
+from decide_me.safety_approval import approve_safety_gate, show_safety_approvals
 from decide_me.safety_gate import build_safety_gate_report, evaluate_safety_gate
 from decide_me.session_graph import (
     detect_session_conflicts,
@@ -211,12 +212,33 @@ def main(argv: list[str] | None = None) -> int:
     )
     show_safety_gate.add_argument("--ai-dir", required=True)
     show_safety_gate.add_argument("--object-id", required=True)
+    show_safety_gate.add_argument("--now")
 
     show_safety_gates = subparsers.add_parser(
         "show-safety-gates",
         help="show read-only safety gate results for live decisions and actions",
     )
     show_safety_gates.add_argument("--ai-dir", required=True)
+    show_safety_gates.add_argument("--now")
+
+    approve_gate = subparsers.add_parser(
+        "approve-safety-gate",
+        help="record an approval artifact for a safety gate that needs approval",
+    )
+    approve_gate.add_argument("--ai-dir", required=True)
+    approve_gate.add_argument("--session-id", required=True)
+    approve_gate.add_argument("--object-id", required=True)
+    approve_gate.add_argument("--approved-by", required=True)
+    approve_gate.add_argument("--reason", required=True)
+    approve_gate.add_argument("--expires-at")
+
+    show_approvals = subparsers.add_parser(
+        "show-safety-approvals",
+        help="show safety approval artifacts",
+    )
+    show_approvals.add_argument("--ai-dir", required=True)
+    show_approvals.add_argument("--object-id")
+    show_approvals.add_argument("--now")
 
     show_stale_assumptions = subparsers.add_parser(
         "show-stale-assumptions",
@@ -467,10 +489,23 @@ def main(argv: list[str] | None = None) -> int:
             _print_json(build_risk_register(bundle["project_state"]))
         elif args.command == "show-safety-gate":
             bundle = load_runtime(runtime_paths(args.ai_dir))
-            _print_json(evaluate_safety_gate(bundle["project_state"], args.object_id))
+            _print_json(evaluate_safety_gate(bundle["project_state"], args.object_id, now=args.now))
         elif args.command == "show-safety-gates":
             bundle = load_runtime(runtime_paths(args.ai_dir))
-            _print_json(build_safety_gate_report(bundle["project_state"]))
+            _print_json(build_safety_gate_report(bundle["project_state"], now=args.now))
+        elif args.command == "approve-safety-gate":
+            _print_json(
+                approve_safety_gate(
+                    args.ai_dir,
+                    args.session_id,
+                    args.object_id,
+                    approved_by=args.approved_by,
+                    reason=args.reason,
+                    expires_at=args.expires_at,
+                )
+            )
+        elif args.command == "show-safety-approvals":
+            _print_json(show_safety_approvals(args.ai_dir, object_id=args.object_id, now=args.now))
         elif args.command == "show-stale-assumptions":
             bundle = load_runtime(runtime_paths(args.ai_dir))
             _print_json(detect_stale_assumptions(bundle["project_state"], now=args.now))

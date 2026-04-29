@@ -126,6 +126,12 @@ class ProjectStateValidationTests(unittest.TestCase):
 
                 validate_project_state(payload)
 
+    def test_accepts_safety_approval_artifact_metadata(self) -> None:
+        payload = _valid_project_state()
+        _append_object(payload, _typed_object("ART-approval-D-001", "artifact", _safety_approval_metadata()))
+
+        validate_project_state(payload)
+
     def test_rejects_missing_typed_metadata_keys(self) -> None:
         for object_type, metadata, missing_key in (
             ("evidence", evidence_metadata(), "source_ref"),
@@ -154,6 +160,7 @@ class ProjectStateValidationTests(unittest.TestCase):
             ("verification", verification_metadata(verified_at="not-a-timestamp"), "metadata.verified_at"),
             ("revisit_trigger", revisit_trigger_metadata(trigger_type="manual"), "metadata.trigger_type"),
             ("revisit_trigger", revisit_trigger_metadata(target_object_ids=[]), "target_object_ids"),
+            ("artifact", _safety_approval_metadata(gate_digest="bad"), "metadata.gate_digest"),
         )
         for object_type, metadata, pattern in cases:
             with self.subTest(object_type=object_type, pattern=pattern):
@@ -378,6 +385,21 @@ def _typed_metadata_cases() -> list[tuple[str, dict]]:
         ("verification", verification_metadata()),
         ("revisit_trigger", revisit_trigger_metadata(target_object_ids=["D-001"])),
     ]
+
+
+def _safety_approval_metadata(**overrides: str | None) -> dict:
+    metadata = {
+        "artifact_type": "safety_gate_approval",
+        "target_object_id": "D-001",
+        "gate_digest": "SG-123456789abc",
+        "approval_threshold": "human_review",
+        "approved_by": "user",
+        "approved_at": "2026-04-28T00:00:00Z",
+        "reason": "Reviewed.",
+        "expires_at": None,
+    }
+    metadata.update(overrides)
+    return metadata
 
 
 def _typed_object(object_id: str, object_type: str, metadata: dict) -> dict:
