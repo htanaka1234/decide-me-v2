@@ -1,0 +1,114 @@
+schema_version: 1
+pack_id: generic
+version: 0.1.0
+label: Generic
+description: Generic decision support for contexts without a specialized domain pack.
+aliases:
+  - generic
+  - general
+default_core_domain: other
+decision_types:
+  - id: clarify_goal
+    label: Clarify goal
+    object_type: decision
+    layer: purpose
+    kind: choice
+    default_priority: P0
+    default_reversibility: reversible
+    criteria:
+      - clarity
+      - relevance
+    required_evidence: []
+  - id: choose_option
+    label: Choose option
+    object_type: decision
+    layer: strategy
+    kind: choice
+    default_priority: P1
+    default_reversibility: reversible
+    criteria:
+      - fitness
+      - tradeoff_visibility
+    required_evidence: []
+  - id: resolve_constraint
+    label: Resolve constraint
+    object_type: decision
+    layer: constraint
+    kind: constraint
+    default_priority: P0
+    default_reversibility: hard-to-reverse
+    criteria:
+      - feasibility
+      - risk_awareness
+    required_evidence: []
+  - id: plan_verification
+    label: Plan verification
+    object_type: decision
+    layer: verification
+    kind: choice
+    default_priority: P1
+    default_reversibility: reversible
+    criteria:
+      - verifiability
+      - feasibility
+    required_evidence: []
+criteria:
+  - id: clarity
+    label: Clarity
+    description: Whether the decision target is understandable and specific enough to act on.
+  - id: relevance
+    label: Relevance
+    description: Whether the decision materially advances the current milestone.
+  - id: fitness
+    label: Fitness
+    description: Whether the selected option fits the stated goal and constraints.
+  - id: tradeoff_visibility
+    label: Tradeoff visibility
+    description: Whether meaningful tradeoffs are explicit before choosing.
+  - id: feasibility
+    label: Feasibility
+    description: Whether the decision can be executed with available resources.
+  - id: risk_awareness
+    label: Risk awareness
+    description: Whether material risks and mitigations are visible.
+  - id: verifiability
+    label: Verifiability
+    description: Whether success can be checked with a concrete signal.
+evidence_requirements: []
+risk_types: []
+safety_rules: []
+documents:
+  - document_type: decision-brief
+    default: true
+    profile_id: generic_decision_brief
+    required_sections:
+      - project
+      - purpose-principles-constraints
+      - current-decisions
+      - evidence-and-assumptions
+      - risks-and-safety
+      - actions-and-verification
+      - revisit-triggers
+      - source-traceability
+  - document_type: action-plan
+    default: true
+    profile_id: generic_action_plan
+    required_sections:
+      - summary
+      - implementation-ready-actions
+      - actions
+      - risks
+      - source-traceability
+  - document_type: risk-register
+    default: true
+    profile_id: generic_risk_register
+    required_sections:
+      - summary
+      - risks
+interview:
+  domain_hints: []
+  question_templates:
+    clarify_goal: What goal should this decision support?
+    choose_option: Which option should be chosen for the current goal?
+    resolve_constraint: Which constraint must be resolved before proceeding?
+    plan_verification: How should this decision be verified?

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import stat
 import subprocess
 import sys
 import unittest
@@ -110,6 +111,15 @@ class DistributionArtifactObjectNativeTests(unittest.TestCase):
         self.assertIn("source_link_ids", action_plan_props)
         self.assertNotIn("action" + "_slices", action_plan_props)
         self.assertNotIn("implementation" + "_ready_slices", action_plan_props)
+
+    def test_distribution_file_modes_are_normalized(self) -> None:
+        with _built_artifact() as archive:
+            modes = {name: archive.getinfo(name).external_attr >> 16 for name in archive.namelist()}
+
+        for name, mode in modes.items():
+            with self.subTest(name=name):
+                expected = stat.S_IFREG | (0o755 if name == "decide-me/scripts/decide_me.py" else 0o644)
+                self.assertEqual(expected, mode)
 
 
 def _read_text(archive: ZipFile, name: str) -> str:

@@ -1,0 +1,337 @@
+schema_version: 1
+pack_id: procurement
+version: 0.1.0
+label: Procurement
+description: Procurement decision support for vendor comparison, budget, contract, and implementation choices.
+aliases:
+  - procurement
+  - purchasing
+  - vendor selection
+  - sourcing
+  - buying
+default_core_domain: ops
+decision_types:
+  - id: requirement_definition
+    label: Requirement definition
+    object_type: decision
+    layer: purpose
+    kind: choice
+    default_priority: P0
+    default_reversibility: hard-to-reverse
+    criteria:
+      - requirement_fit
+      - implementation_feasibility
+    required_evidence:
+      - requirements_brief
+  - id: budget_limit
+    label: Budget limit
+    object_type: decision
+    layer: constraint
+    kind: constraint
+    default_priority: P0
+    default_reversibility: hard-to-reverse
+    criteria:
+      - total_cost
+      - switching_cost_control
+    required_evidence:
+      - budget_context
+  - id: candidate_selection
+    label: Candidate selection
+    object_type: decision
+    layer: strategy
+    kind: choice
+    default_priority: P1
+    default_reversibility: reversible
+    criteria:
+      - requirement_fit
+      - vendor_viability
+      - support_quality
+    required_evidence:
+      - vendor_materials
+      - requirements_brief
+  - id: evaluation_criteria
+    label: Evaluation criteria
+    object_type: decision
+    layer: principle
+    kind: choice
+    default_priority: P0
+    default_reversibility: hard-to-reverse
+    criteria:
+      - requirement_fit
+      - total_cost
+      - security_compliance
+    required_evidence:
+      - requirements_brief
+      - budget_context
+  - id: comparison_method
+    label: Comparison method
+    object_type: decision
+    layer: strategy
+    kind: choice
+    default_priority: P1
+    default_reversibility: reversible
+    criteria:
+      - requirement_fit
+      - total_cost
+      - implementation_feasibility
+    required_evidence:
+      - requirements_brief
+      - budget_context
+  - id: vendor_risk
+    label: Vendor risk
+    object_type: decision
+    layer: constraint
+    kind: risk
+    default_priority: P0
+    default_reversibility: hard-to-reverse
+    criteria:
+      - vendor_viability
+      - switching_cost_control
+      - support_quality
+    required_evidence:
+      - vendor_materials
+      - contract_terms
+  - id: contract_review
+    label: Contract review
+    object_type: decision
+    layer: constraint
+    kind: constraint
+    default_priority: P0
+    default_reversibility: hard-to-reverse
+    criteria:
+      - contract_acceptability
+      - total_cost
+    required_evidence:
+      - contract_terms
+  - id: security_review
+    label: Security review
+    object_type: decision
+    layer: verification
+    kind: constraint
+    default_priority: P0
+    default_reversibility: hard-to-reverse
+    criteria:
+      - security_compliance
+      - implementation_feasibility
+    required_evidence:
+      - security_review_input
+  - id: final_selection
+    label: Final selection
+    object_type: decision
+    layer: strategy
+    kind: choice
+    default_priority: P0
+    default_reversibility: hard-to-reverse
+    criteria:
+      - requirement_fit
+      - total_cost
+      - security_compliance
+      - vendor_viability
+    required_evidence:
+      - comparison_table
+      - budget_context
+      - contract_terms
+  - id: implementation_plan
+    label: Implementation plan
+    object_type: decision
+    layer: execution
+    kind: choice
+    default_priority: P1
+    default_reversibility: reversible
+    criteria:
+      - implementation_feasibility
+      - switching_cost_control
+      - support_quality
+    required_evidence:
+      - requirements_brief
+      - vendor_materials
+  - id: renewal_or_revisit_plan
+    label: Renewal or revisit plan
+    object_type: decision
+    layer: review
+    kind: choice
+    default_priority: P2
+    default_reversibility: reversible
+    criteria:
+      - total_cost
+      - vendor_viability
+      - switching_cost_control
+    required_evidence:
+      - contract_terms
+      - budget_context
+criteria:
+  - id: requirement_fit
+    label: Requirement fit
+    description: Whether the option satisfies the must-have and target requirements.
+  - id: total_cost
+    label: Total cost
+    description: Whether visible price, hidden cost, and lifecycle cost are acceptable.
+  - id: implementation_feasibility
+    label: Implementation feasibility
+    description: Whether rollout, integration, migration, and support effort are manageable.
+  - id: security_compliance
+    label: Security and compliance
+    description: Whether the vendor and solution meet security, privacy, and compliance constraints.
+  - id: vendor_viability
+    label: Vendor viability
+    description: Whether the vendor is stable, credible, and likely to support the needed use case.
+  - id: contract_acceptability
+    label: Contract acceptability
+    description: Whether legal, renewal, termination, and data terms are acceptable.
+  - id: switching_cost_control
+    label: Switching cost control
+    description: Whether the organization can exit or replace the option without excessive cost.
+  - id: support_quality
+    label: Support quality
+    description: Whether support commitments and service expectations fit operational needs.
+evidence_requirements:
+  - id: requirements_brief
+    label: Requirements brief
+    evidence_source: docs
+    domain_evidence_type: requirements
+    min_confidence: medium
+    freshness_required: current
+  - id: budget_context
+    label: Budget context
+    evidence_source: docs
+    domain_evidence_type: budget
+    min_confidence: medium
+    freshness_required: current
+  - id: vendor_materials
+    label: Vendor materials
+    evidence_source: external
+    domain_evidence_type: vendor_materials
+    min_confidence: medium
+    freshness_required: current
+  - id: security_review_input
+    label: Security review input
+    evidence_source: docs
+    domain_evidence_type: security_review
+    min_confidence: medium
+    freshness_required: current
+  - id: contract_terms
+    label: Contract terms
+    evidence_source: external
+    domain_evidence_type: contract_terms
+    min_confidence: medium
+    freshness_required: current
+  - id: comparison_table
+    label: Comparison table
+    evidence_source: docs
+    domain_evidence_type: comparison
+    min_confidence: medium
+    freshness_required: current
+risk_types:
+  - id: vendor_lock_in
+    label: Vendor lock-in
+    default_risk_tier: high
+    default_approval_threshold: human_review
+  - id: hidden_cost
+    label: Hidden cost
+    default_risk_tier: medium
+    default_approval_threshold: explicit_acceptance
+  - id: contract_constraint
+    label: Contract constraint
+    default_risk_tier: high
+    default_approval_threshold: external_review
+  - id: data_processing
+    label: Data processing
+    default_risk_tier: high
+    default_approval_threshold: external_review
+  - id: support_quality
+    label: Support quality
+    default_risk_tier: medium
+    default_approval_threshold: explicit_acceptance
+  - id: switching_cost
+    label: Switching cost
+    default_risk_tier: high
+    default_approval_threshold: human_review
+  - id: sole_vendor
+    label: Sole vendor
+    default_risk_tier: high
+    default_approval_threshold: human_review
+  - id: budget_overrun
+    label: Budget overrun
+    default_risk_tier: high
+    default_approval_threshold: human_review
+safety_rules:
+  - id: contract_external_review
+    applies_when:
+      risk_types:
+        - contract_constraint
+        - data_processing
+    approval_threshold: external_review
+    reason: Contract and data-processing risks require external review before final selection.
+  - id: spend_and_exit_review
+    applies_when:
+      risk_types:
+        - vendor_lock_in
+        - switching_cost
+        - sole_vendor
+        - budget_overrun
+    approval_threshold: human_review
+    reason: High-spend, single-vendor, and exit-risk decisions require human review.
+documents:
+  - document_type: comparison-table
+    default: true
+    profile_id: procurement_comparison
+    required_sections:
+      - comparison
+  - document_type: decision-brief
+    default: true
+    profile_id: procurement_recommendation
+    required_sections:
+      - project
+      - purpose-principles-constraints
+      - current-decisions
+      - evidence-and-assumptions
+      - risks-and-safety
+      - actions-and-verification
+      - revisit-triggers
+      - source-traceability
+  - document_type: risk-register
+    default: true
+    profile_id: procurement_risk_register
+    required_sections:
+      - summary
+      - risks
+  - document_type: action-plan
+    default: true
+    profile_id: procurement_action_plan
+    required_sections:
+      - summary
+      - implementation-ready-actions
+      - actions
+      - risks
+      - source-traceability
+interview:
+  domain_hints:
+    - vendor
+    - procurement
+    - purchasing
+    - contract
+    - budget
+    - comparison
+    - shortlist
+    - rfp
+    - pricing
+    - renewal
+    - implementation
+    - security review
+    - legal review
+    - support
+    - switching cost
+    - lock-in
+    - sole vendor
+  question_templates:
+    requirement_definition: What requirements must this procurement decision satisfy?
+    budget_limit: What budget limit or spending constraint should apply?
+    candidate_selection: Which candidates should be shortlisted for comparison?
+    evaluation_criteria: What criteria should be used to evaluate vendors?
+    comparison_method: How should the candidate options be compared?
+    vendor_risk: What vendor risks need explicit review?
+    contract_review: What contract terms require review before selection?
+    security_review: What security or data-processing review is required?
+    final_selection: Which vendor or option should be selected?
+    implementation_plan: How should the selected option be implemented?
+    renewal_or_revisit_plan: When should this vendor decision be revisited?
