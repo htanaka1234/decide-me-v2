@@ -375,7 +375,7 @@ def _require_section_id_list(value: Any, label: str) -> None:
 
 
 def _require_enum(value: Any, allowed: set[str], label: str) -> None:
-    if value not in allowed:
+    if not isinstance(value, str) or value not in allowed:
         raise DomainPackValidationError(f"{label} must be one of: {', '.join(sorted(allowed))}")
 
 

@@ -76,7 +76,7 @@ def _load_pack_file(path: Path) -> DomainPack:
         raise DomainPackLoadError(f"domain pack file must contain an object: {path}")
     try:
         return domain_pack_from_dict(raw)
-    except ValueError as exc:
+    except (ValueError, TypeError, KeyError) as exc:
         raise DomainPackLoadError(f"invalid domain pack file {path}: {exc}") from exc
 
 

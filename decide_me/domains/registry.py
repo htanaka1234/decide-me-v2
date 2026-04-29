@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from types import MappingProxyType
+from typing import Mapping
 
 from decide_me.domains.model import DecisionTypeSpec, DomainPack
 
@@ -9,11 +11,35 @@ from decide_me.domains.model import DecisionTypeSpec, DomainPack
 GENERIC_PACK_ID = "generic"
 ALIAS_WEIGHT = 3
 HINT_WEIGHT = 1
+SEPARATOR_PATTERN = re.compile(r"[_\-/]+")
+WHITESPACE_PATTERN = re.compile(r"\s+")
 
 
 @dataclass(frozen=True)
 class DomainRegistry:
-    packs: dict[str, DomainPack]
+    packs: Mapping[str, DomainPack]
+
+    def __post_init__(self) -> None:
+        packs = dict(self.packs)
+        invalid_values = sorted(
+            str(pack_id)
+            for pack_id, pack in packs.items()
+            if not isinstance(pack, DomainPack)
+        )
+        if invalid_values:
+            raise ValueError("domain registry values must be DomainPack: " + ", ".join(invalid_values))
+
+        mismatched = sorted(
+            str(pack_id)
+            for pack_id, pack in packs.items()
+            if pack_id != pack.pack_id
+        )
+        if mismatched:
+            raise ValueError("domain registry keys must match pack_id: " + ", ".join(mismatched))
+        if GENERIC_PACK_ID not in packs:
+            raise ValueError("domain registry must include generic domain pack")
+
+        object.__setattr__(self, "packs", MappingProxyType(packs))
 
     def get(self, pack_id: str) -> DomainPack:
         try:
@@ -71,4 +97,7 @@ def _contains_phrase(normalized_text: str, phrase: str) -> bool:
 
 
 def _normalize_text(text: str) -> str:
-    return re.sub(r"\s+", " ", text.casefold()).strip()
+    normalized = text.casefold()
+    normalized = SEPARATOR_PATTERN.sub(" ", normalized)
+    normalized = WHITESPACE_PATTERN.sub(" ", normalized)
+    return normalized.strip()

@@ -89,6 +89,19 @@ class DomainPackRegistryTests(unittest.TestCase):
             with self.assertRaisesRegex(DomainPackLoadError, "duplicate domain pack id duplicate"):
                 load_user_packs(temp_dir)
 
+    def test_load_user_packs_wraps_non_scalar_enum_values(self) -> None:
+        cases = (["other"], {"value": "other"})
+        for value in cases:
+            with self.subTest(value=value), TemporaryDirectory() as temp_dir:
+                pack_dir = Path(temp_dir) / "domain-packs"
+                pack_dir.mkdir()
+                payload = _pack_payload("alpha")
+                payload["default_core_domain"] = value
+                _write_pack(pack_dir / "alpha.yaml", payload)
+
+                with self.assertRaisesRegex(DomainPackLoadError, "invalid domain pack file"):
+                    load_user_packs(temp_dir)
+
     def test_load_domain_registry_rejects_user_pack_duplicate_of_builtin(self) -> None:
         with TemporaryDirectory() as temp_dir:
             pack_dir = Path(temp_dir) / "domain-packs"
@@ -125,13 +138,33 @@ class DomainPackRegistryTests(unittest.TestCase):
         with self.assertRaisesRegex(KeyError, "unknown decision type"):
             registry.decision_type("research", "missing")
 
+    def test_registry_rejects_invalid_pack_mapping(self) -> None:
+        packs = load_builtin_packs()
+
+        with self.assertRaisesRegex(ValueError, "must include generic"):
+            DomainRegistry({"research": packs["research"]})
+        with self.assertRaisesRegex(ValueError, "keys must match pack_id"):
+            DomainRegistry({"generic": packs["generic"], "wrong": packs["research"]})
+        with self.assertRaisesRegex(ValueError, "values must be DomainPack"):
+            DomainRegistry({"generic": object()})
+
+    def test_registry_packs_mapping_is_read_only(self) -> None:
+        registry = load_domain_registry()
+
+        with self.assertRaises(TypeError):
+            registry.packs["extra"] = registry.get("generic")
+
     def test_infer_from_context_is_deterministic_and_uses_generic_only_as_fallback(self) -> None:
         registry = load_domain_registry()
 
         cases = (
             ("primary endpoint and missing data", "research"),
+            ("primary-endpoint and missing-data", "research"),
+            ("statistical-analysis-plan", "research"),
+            ("patient_data endpoint", "research"),
             ("vendor, contract, budget, comparison", "procurement"),
             ("API, auth, endpoint, database", "software"),
+            ("API/auth endpoint database", "software"),
             ("decision option risk evidence verification", "generic"),
             ("", "generic"),
         )
