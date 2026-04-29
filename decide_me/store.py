@@ -416,34 +416,91 @@ def _domain_pack_registry_issues(paths: RuntimePaths, bundle: dict[str, Any]) ->
         )
 
     for obj in bundle["project_state"]["objects"]:
-        if obj.get("type") != "decision":
-            continue
         metadata = obj.get("metadata", {})
-        label = f"decision object {obj.get('id', '?')}.metadata"
+        object_type = obj.get("type")
+        label = f"{object_type} object {obj.get('id', '?')}.metadata"
         metadata_issues = _domain_pack_metadata_issues(registry, metadata, label)
         issues.extend(metadata_issues)
-        if metadata_issues or "domain_pack_id" not in metadata:
+        if metadata_issues:
+            continue
+        if "domain_pack_id" not in metadata:
+            if object_type == "evidence":
+                issues.extend(_domain_evidence_detail_issues(registry, metadata, label))
+            elif object_type == "risk":
+                issues.extend(_domain_risk_detail_issues(registry, metadata, label))
             continue
 
-        decision_type_id = metadata.get("domain_decision_type")
-        if decision_type_id is None:
-            if "domain_criteria" in metadata:
-                issues.append(f"{label}.domain_criteria requires domain_decision_type")
-            continue
+        if object_type == "decision":
+            issues.extend(_domain_decision_detail_issues(registry, metadata, label))
+        elif object_type == "evidence":
+            issues.extend(_domain_evidence_detail_issues(registry, metadata, label))
+        elif object_type == "risk":
+            issues.extend(_domain_risk_detail_issues(registry, metadata, label))
+    return issues
 
-        try:
-            spec = registry.decision_type(metadata["domain_pack_id"], decision_type_id)
-        except KeyError as exc:
-            issues.append(f"{label}.domain_decision_type {decision_type_id} is not defined: {exc}")
-            continue
 
-        if "domain_criteria" not in metadata:
-            issues.append(f"{label}.domain_criteria is required for domain_decision_type {decision_type_id}")
-        elif list(metadata["domain_criteria"]) != list(spec.criteria):
+def _domain_decision_detail_issues(registry: Any, metadata: dict[str, Any], label: str) -> list[str]:
+    issues: list[str] = []
+    decision_type_id = metadata.get("domain_decision_type")
+    if decision_type_id is None:
+        if "domain_criteria" in metadata:
+            issues.append(f"{label}.domain_criteria requires domain_decision_type")
+        return issues
+
+    try:
+        spec = registry.decision_type(metadata["domain_pack_id"], decision_type_id)
+    except KeyError as exc:
+        return [f"{label}.domain_decision_type {decision_type_id} is not defined: {exc}"]
+
+    if "domain_criteria" not in metadata:
+        issues.append(f"{label}.domain_criteria is required for domain_decision_type {decision_type_id}")
+    elif list(metadata["domain_criteria"]) != list(spec.criteria):
+        issues.append(
+            f"{label}.domain_criteria does not match domain decision type {decision_type_id}"
+        )
+    return issues
+
+
+def _domain_evidence_detail_issues(registry: Any, metadata: dict[str, Any], label: str) -> list[str]:
+    detail_keys = ("evidence_requirement_id", "domain_evidence_type")
+    if not any(key in metadata for key in detail_keys):
+        return []
+    if "domain_pack_id" not in metadata:
+        return [f"{label} domain evidence metadata requires domain pack metadata"]
+
+    pack = registry.get(metadata["domain_pack_id"])
+    requirements = {item.id: item for item in pack.evidence_requirements}
+    requirement_id = metadata.get("evidence_requirement_id")
+    domain_evidence_type = metadata.get("domain_evidence_type")
+    issues: list[str] = []
+    requirement = None
+    if requirement_id is not None:
+        requirement = requirements.get(requirement_id)
+        if requirement is None:
+            issues.append(f"{label}.evidence_requirement_id {requirement_id} is not defined")
+    if domain_evidence_type is not None:
+        matching_by_type = [
+            item for item in pack.evidence_requirements if item.domain_evidence_type == domain_evidence_type
+        ]
+        if not matching_by_type:
+            issues.append(f"{label}.domain_evidence_type {domain_evidence_type} is not defined")
+        if requirement is not None and requirement.domain_evidence_type != domain_evidence_type:
             issues.append(
-                f"{label}.domain_criteria does not match domain decision type {decision_type_id}"
+                f"{label}.domain_evidence_type does not match evidence requirement {requirement_id}"
             )
     return issues
+
+
+def _domain_risk_detail_issues(registry: Any, metadata: dict[str, Any], label: str) -> list[str]:
+    risk_type = metadata.get("domain_risk_type")
+    if risk_type is None:
+        return []
+    if "domain_pack_id" not in metadata:
+        return [f"{label} domain risk metadata requires domain pack metadata"]
+    pack = registry.get(metadata["domain_pack_id"])
+    if risk_type not in {item.id for item in pack.risk_types}:
+        return [f"{label}.domain_risk_type {risk_type} is not defined"]
+    return []
 
 
 def _domain_pack_metadata_issues(

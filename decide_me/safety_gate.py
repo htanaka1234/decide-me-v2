@@ -4,9 +4,14 @@ import hashlib
 import json
 from copy import deepcopy
 from datetime import datetime
-from typing import Any, Iterable
+from typing import TYPE_CHECKING, Any, Iterable
 
 from decide_me.events import utc_now
+
+if TYPE_CHECKING:
+    from decide_me.domains.apply import InterviewPolicy
+    from decide_me.domains.model import EvidenceRequirementSpec, SafetyRuleSpec
+    from decide_me.domains.registry import DomainRegistry
 
 
 SAFETY_GATE_SCHEMA_VERSION = 1
@@ -26,6 +31,7 @@ _REVERSIBILITY_RANK = {
     "partially_reversible": 2,
     "irreversible": 3,
 }
+_CONFIDENCE_RANK = {"low": 1, "medium": 2, "high": 3}
 _DECISION_REVERSIBILITY_MAP = {
     "reversible": "reversible",
     "hard-to-reverse": "partially_reversible",
@@ -40,6 +46,7 @@ def evaluate_safety_gate(
     *,
     now: str | None = None,
     include_approvals: bool = True,
+    domain_registry: DomainRegistry | None = None,
 ) -> dict[str, Any]:
     as_of, reference = _reference_time(project_state, now)
     objects_by_id = _objects_by_id(project_state)
@@ -51,6 +58,12 @@ def evaluate_safety_gate(
     evidence = _evidence_items(target, objects_by_id, links, reference=reference)
     assumptions = _assumption_items(target, objects_by_id, links, reference=reference)
     risks = _risk_items(target, objects_by_id, links)
+    domain_requirements, domain_safety_rules = _domain_overlay(
+        target,
+        evidence,
+        risks,
+        domain_registry=domain_registry,
+    )
 
     evidence_coverage = _evidence_coverage(evidence)
     risk_tier = _max_ranked((risk["risk_tier"] for risk in risks), _RISK_TIER_RANK, default="none")
@@ -58,6 +71,11 @@ def evaluate_safety_gate(
         (risk["approval_threshold"] for risk in risks),
         _APPROVAL_THRESHOLD_RANK,
         default="none",
+    )
+    approval_threshold = _max_ranked(
+        (rule["approval_threshold"] for rule in domain_safety_rules),
+        _APPROVAL_THRESHOLD_RANK,
+        default=approval_threshold,
     )
     reversibility = _max_reversibility(target, risks)
     verification_gap = _verification_gap(project_state, target)
@@ -71,6 +89,8 @@ def evaluate_safety_gate(
         verification_gap,
         assumptions,
     )
+    if any(not item["satisfied"] for item in domain_requirements):
+        approval_reasons = _sorted_strings([*approval_reasons, "domain_required_evidence_missing"])
     approval_required = bool(approval_reasons)
     source_link_ids = _source_link_ids(evidence, assumptions, risks)
     digest_inputs = _digest_inputs(
@@ -85,6 +105,8 @@ def evaluate_safety_gate(
         evidence=evidence,
         assumptions=assumptions,
         risks=risks,
+        domain_requirements=domain_requirements,
+        domain_safety_rules=domain_safety_rules,
         verification_gap=verification_gap,
         source_link_ids=source_link_ids,
     )
@@ -119,6 +141,8 @@ def evaluate_safety_gate(
         "evidence": evidence,
         "assumptions": assumptions,
         "risks": risks,
+        "domain_requirements": domain_requirements,
+        "domain_safety_rules": domain_safety_rules,
         "source_link_ids": source_link_ids,
     }
 
@@ -128,9 +152,13 @@ def build_safety_gate_report(
     object_ids: Iterable[str] | None = None,
     *,
     now: str | None = None,
+    domain_registry: DomainRegistry | None = None,
 ) -> dict[str, Any]:
     ids = list(object_ids) if object_ids is not None else _default_gate_object_ids(project_state)
-    results = [evaluate_safety_gate(project_state, object_id, now=now) for object_id in ids]
+    results = [
+        evaluate_safety_gate(project_state, object_id, now=now, domain_registry=domain_registry)
+        for object_id in ids
+    ]
     state = project_state.get("state", {})
     return {
         "schema_version": SAFETY_GATE_SCHEMA_VERSION,
@@ -175,6 +203,8 @@ def _evidence_items(
                 "observed_at": metadata.get("observed_at"),
                 "valid_until": metadata.get("valid_until"),
                 "is_stale": _is_stale_evidence_metadata(metadata, reference),
+                "domain_evidence_type": metadata.get("domain_evidence_type"),
+                "evidence_requirement_id": metadata.get("evidence_requirement_id"),
             }
         )
     return sorted(items, key=lambda item: (item["object_id"], item["relation"], item["link_id"]))
@@ -258,7 +288,135 @@ def _risk_item(obj: dict[str, Any], *, relation: str, link_id: str | None) -> di
         "reversibility": metadata.get("reversibility"),
         "mitigation_object_ids": _sorted_strings(metadata.get("mitigation_object_ids", [])),
         "approval_threshold": metadata.get("approval_threshold"),
+        "domain_risk_type": metadata.get("domain_risk_type"),
     }
+
+
+def _domain_overlay(
+    target: dict[str, Any],
+    evidence: list[dict[str, Any]],
+    risks: list[dict[str, Any]],
+    *,
+    domain_registry: DomainRegistry | None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    if domain_registry is None:
+        return [], []
+    from decide_me.domains.apply import build_interview_policy_from_metadata
+
+    policy = build_interview_policy_from_metadata(
+        domain_registry,
+        target.get("metadata", {}),
+        label=f"object {target['id']}.metadata",
+    )
+    if policy.is_generic:
+        return [], []
+    return (
+        _domain_requirements(policy, target, evidence),
+        _domain_safety_rules(policy, risks),
+    )
+
+
+def _domain_requirements(
+    policy: InterviewPolicy,
+    target: dict[str, Any],
+    evidence: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    if target.get("type") != "decision":
+        return []
+    decision_type_id = target.get("metadata", {}).get("domain_decision_type")
+    if not decision_type_id:
+        return []
+    decision_type = policy.decision_type(decision_type_id)
+    if decision_type is None:
+        raise ValueError(f"object {target['id']}.metadata.domain_decision_type is not defined: {decision_type_id}")
+
+    requirements_by_id = {item.id: item for item in policy.pack.evidence_requirements}
+    items = []
+    for requirement_id in decision_type.required_evidence:
+        requirement = requirements_by_id[requirement_id]
+        matched = _matching_domain_evidence(requirement, evidence)
+        items.append(
+            {
+                "pack_id": policy.pack_id,
+                "decision_type": decision_type.id,
+                "required_evidence_id": requirement.id,
+                "domain_evidence_type": requirement.domain_evidence_type,
+                "label": requirement.label,
+                "evidence_source": requirement.evidence_source,
+                "min_confidence": requirement.min_confidence,
+                "freshness_required": requirement.freshness_required,
+                "satisfied": bool(matched),
+                "satisfied_by_object_ids": sorted(item["object_id"] for item in matched),
+                "reason": (
+                    f"{decision_type.label} requires {requirement.label}."
+                    if not matched
+                    else f"{requirement.label} is linked to {decision_type.label}."
+                ),
+            }
+        )
+    return items
+
+
+def _matching_domain_evidence(
+    requirement: EvidenceRequirementSpec,
+    evidence: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    return [
+        item
+        for item in evidence
+        if item.get("relation") in {"supports", "verifies"}
+        and (
+            item.get("evidence_requirement_id") == requirement.id
+            or item.get("domain_evidence_type") == requirement.domain_evidence_type
+        )
+        and _evidence_meets_requirement_quality(item, requirement)
+    ]
+
+
+def _evidence_meets_requirement_quality(
+    item: dict[str, Any],
+    requirement: EvidenceRequirementSpec,
+) -> bool:
+    confidence = item.get("confidence")
+    if _CONFIDENCE_RANK.get(confidence, 0) < _CONFIDENCE_RANK[requirement.min_confidence]:
+        return False
+    freshness = item.get("freshness")
+    if requirement.freshness_required == "unknown":
+        return True
+    if freshness != requirement.freshness_required:
+        return False
+    if requirement.freshness_required == "current" and item.get("is_stale"):
+        return False
+    return True
+
+
+def _domain_safety_rules(
+    policy: InterviewPolicy,
+    risks: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    applied = []
+    for rule in policy.pack.safety_rules:
+        matched = _risks_matching_rule(rule, risks)
+        if not matched:
+            continue
+        applied.append(
+            {
+                "pack_id": policy.pack_id,
+                "rule_id": rule.id,
+                "approval_threshold": rule.approval_threshold,
+                "reason": rule.reason,
+                "matched_risk_types": _sorted_strings(
+                    risk["domain_risk_type"] for risk in matched if risk.get("domain_risk_type")
+                ),
+                "matched_risk_object_ids": sorted(risk["object_id"] for risk in matched),
+            }
+        )
+    return sorted(applied, key=lambda item: item["rule_id"])
+
+
+def _risks_matching_rule(rule: SafetyRuleSpec, risks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    risk_types = set(rule.applies_when.risk_types)
+    return [risk for risk in risks if risk.get("domain_risk_type") in risk_types]
 
 
 def _evidence_coverage(evidence: list[dict[str, Any]]) -> str:
@@ -368,6 +526,8 @@ def _digest_inputs(
     evidence: list[dict[str, Any]],
     assumptions: list[dict[str, Any]],
     risks: list[dict[str, Any]],
+    domain_requirements: list[dict[str, Any]],
+    domain_safety_rules: list[dict[str, Any]],
     verification_gap: dict[str, Any] | None,
     source_link_ids: list[str],
 ) -> dict[str, Any]:
@@ -384,6 +544,8 @@ def _digest_inputs(
         "evidence": [_digest_item(item) for item in evidence],
         "assumptions": [_digest_item(item) for item in assumptions],
         "risks": [_digest_item(item) for item in risks],
+        "domain_requirements": [_digest_item(item) for item in domain_requirements],
+        "domain_safety_rules": [_digest_item(item) for item in domain_safety_rules],
         "verification_gap": verification_gap,
         "source_link_ids": source_link_ids,
     }

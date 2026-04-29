@@ -39,7 +39,7 @@ class RuntimeFlowTests(unittest.TestCase):
                 objective="Exercise Phase 5-3 runtime flow.",
                 current_milestone="Phase 5-3",
             )
-            session_id = create_session(str(ai_dir), context="Auth thread")["session"]["id"]
+            session_id = create_session(str(ai_dir), context="Auth thread", domain_pack_id="generic")["session"]["id"]
 
             discover_decision(
                 str(ai_dir),

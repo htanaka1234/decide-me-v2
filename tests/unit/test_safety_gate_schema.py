@@ -7,6 +7,7 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
+from decide_me.domains import DomainRegistry, domain_pack_digest, load_builtin_packs
 from decide_me.safety_gate import build_safety_gate_report, evaluate_safety_gate
 from tests.helpers.typed_metadata import evidence_metadata, risk_metadata
 
@@ -25,6 +26,15 @@ class SafetyGateSchemaTests(unittest.TestCase):
         ):
             with self.subTest(keys=sorted(payload)):
                 self.assertEqual([], list(self.validator.iter_errors(payload)))
+
+    def test_accepts_domain_overlay_result(self) -> None:
+        project_state = _domain_project_state()
+        registry = DomainRegistry(load_builtin_packs())
+
+        payload = evaluate_safety_gate(project_state, "D-domain", domain_registry=registry)
+
+        self.assertEqual([], list(self.validator.iter_errors(payload)))
+        self.assertTrue(payload["domain_requirements"])
 
     def test_rejects_invalid_enum_values(self) -> None:
         cases = (
@@ -95,6 +105,40 @@ def _valid_project_state() -> dict:
         "links": [
             _link("L-E-001-supports-D-001", "E-001", "supports", "D-001"),
         ],
+    }
+
+
+def _domain_project_state() -> dict:
+    pack = load_builtin_packs()["research"]
+    return {
+        "schema_version": 12,
+        "state": {
+            "project_head": "H-safety",
+            "event_count": 1,
+            "updated_at": "2026-04-28T00:00:00Z",
+            "last_event_id": "E-safety",
+        },
+        "objects": [
+            _object(
+                "D-domain",
+                "decision",
+                {
+                    "priority": "P0",
+                    "frontier": "now",
+                    "reversibility": "hard-to-reverse",
+                    "domain_pack_id": pack.pack_id,
+                    "domain_pack_version": pack.version,
+                    "domain_pack_digest": domain_pack_digest(pack),
+                    "domain_decision_type": "primary_endpoint",
+                    "domain_criteria": [
+                        "scientific_validity",
+                        "clinical_or_business_relevance",
+                        "data_availability",
+                    ],
+                },
+            )
+        ],
+        "links": [],
     }
 
 

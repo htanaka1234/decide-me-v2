@@ -4,6 +4,7 @@ import re
 from datetime import datetime
 from typing import Any
 
+from decide_me.domains import DomainRegistry, load_domain_registry
 from decide_me.events import new_event_id, utc_now
 from decide_me.safety_gate import SAFETY_APPROVAL_ARTIFACT_TYPE, evaluate_safety_gate
 from decide_me.store import load_runtime, runtime_paths, transact
@@ -27,11 +28,17 @@ def approve_safety_gate(
         _parse_timestamp(expires_at, "expires_at")
 
     outcome: dict[str, Any] = {}
+    domain_registry = load_domain_registry(ai_dir)
 
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
         _require_mutable_session(bundle, session_id)
         now = utc_now()
-        result = evaluate_safety_gate(bundle["project_state"], object_id, now=now)
+        result = evaluate_safety_gate(
+            bundle["project_state"],
+            object_id,
+            now=now,
+            domain_registry=domain_registry,
+        )
         outcome["gate_before"] = result
         if result["gate_status"] == "blocked":
             raise ValueError(_blocked_message(result))
@@ -51,11 +58,12 @@ def approve_safety_gate(
             reason=reason,
             approved_at=now,
             expires_at=expires_at,
+            domain_registry=domain_registry,
         )
         return specs
 
     events, bundle = transact(ai_dir, builder)
-    gate_after = evaluate_safety_gate(bundle["project_state"], object_id)
+    gate_after = evaluate_safety_gate(bundle["project_state"], object_id, domain_registry=domain_registry)
     return {
         "object_id": object_id,
         "status": "already_approved" if not events else "approved",
@@ -76,8 +84,14 @@ def build_safety_approval_event_specs(
     reason: str,
     approved_at: str,
     expires_at: str | None = None,
+    domain_registry: DomainRegistry | None = None,
 ) -> list[dict[str, Any]]:
-    result = gate_result or evaluate_safety_gate(project_state, object_id, now=approved_at)
+    result = gate_result or evaluate_safety_gate(
+        project_state,
+        object_id,
+        now=approved_at,
+        domain_registry=domain_registry,
+    )
     if result["gate_status"] == "blocked":
         raise ValueError(_blocked_message(result))
     if result["approval_satisfied"] or not result["approval_required"]:
@@ -180,7 +194,12 @@ def show_safety_approvals(
     now: str | None = None,
 ) -> dict[str, Any]:
     bundle = load_runtime(runtime_paths(ai_dir))
-    return build_safety_approval_report(bundle["project_state"], object_id=object_id, now=now)
+    return build_safety_approval_report(
+        bundle["project_state"],
+        object_id=object_id,
+        now=now,
+        domain_registry=load_domain_registry(ai_dir),
+    )
 
 
 def build_safety_approval_report(
@@ -188,13 +207,19 @@ def build_safety_approval_report(
     *,
     object_id: str | None = None,
     now: str | None = None,
+    domain_registry: DomainRegistry | None = None,
 ) -> dict[str, Any]:
     as_of = now or project_state.get("state", {}).get("updated_at") or utc_now()
     reference = _parse_timestamp(as_of, "as_of")
     active_gate_digest = None
     active_approval_artifact_ids: list[str] = []
     if object_id is not None:
-        gate = evaluate_safety_gate(project_state, object_id, now=as_of)
+        gate = evaluate_safety_gate(
+            project_state,
+            object_id,
+            now=as_of,
+            domain_registry=domain_registry,
+        )
         active_gate_digest = gate["gate_digest"]
         active_approval_artifact_ids = gate["approval_artifact_ids"]
 

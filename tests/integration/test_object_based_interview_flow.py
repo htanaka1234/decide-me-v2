@@ -17,6 +17,7 @@ from decide_me.store import (
     transact,
     validate_runtime,
 )
+from tests.helpers.typed_metadata import evidence_metadata, risk_metadata
 
 
 class ObjectBasedInterviewFlowTests(unittest.TestCase):
@@ -105,11 +106,25 @@ class ObjectBasedInterviewFlowTests(unittest.TestCase):
                 context="Plan a cohort study.",
                 domain_pack_id="research",
             )
+            session_id = session["session"]["id"]
+            discover_decision(
+                str(ai_dir),
+                session_id,
+                {
+                    "id": "D-study-design",
+                    "title": "Study design",
+                    "priority": "P0",
+                    "frontier": "now",
+                    "question": "Which study design should we use?",
+                    "context": "Plan a retrospective cohort study.",
+                },
+            )
+            transact(ai_dir, lambda _bundle: _research_evidence_events(session_id, "D-study-design"))
             turn = advance_session(str(ai_dir), session["session"]["id"], repo_root=tmp)
 
             result = handle_reply(
                 str(ai_dir),
-                session["session"]["id"],
+                session_id,
                 "Use a retrospective cohort study, and we also need missing data strategy before launch.",
                 repo_root=tmp,
             )
@@ -215,6 +230,70 @@ class ObjectBasedInterviewFlowTests(unittest.TestCase):
                                         "frontier": "now",
                                         **metadata,
                                     },
+                                )
+                            },
+                        }
+                    ],
+                )
+                rebuild_and_persist(ai_dir)
+
+                self.assertTrue(any(message in issue for issue in validate_runtime(ai_dir)))
+
+    def test_validate_runtime_rejects_invalid_evidence_and_risk_pack_metadata(self) -> None:
+        research_pack = load_builtin_packs()["research"]
+        research_identity = {
+            "domain_pack_id": "research",
+            "domain_pack_version": research_pack.version,
+            "domain_pack_digest": domain_pack_digest(research_pack),
+        }
+        cases = (
+            (
+                "evidence",
+                {
+                    **evidence_metadata(),
+                    **research_identity,
+                    "evidence_requirement_id": "missing_evidence",
+                },
+                "evidence_requirement_id missing_evidence is not defined",
+            ),
+            (
+                "evidence",
+                {
+                    **evidence_metadata(),
+                    **research_identity,
+                    "evidence_requirement_id": "protocol_or_project_brief",
+                    "domain_evidence_type": "data_dictionary",
+                },
+                "domain_evidence_type does not match evidence requirement protocol_or_project_brief",
+            ),
+            (
+                "risk",
+                {
+                    **risk_metadata(),
+                    **research_identity,
+                    "domain_risk_type": "missing_risk",
+                },
+                "domain_risk_type missing_risk is not defined",
+            ),
+        )
+        for object_type, metadata, message in cases:
+            with self.subTest(message=message), TemporaryDirectory() as tmp:
+                ai_dir = Path(tmp) / ".ai" / "decide-me"
+                _bootstrap_runtime(ai_dir)
+                session_id = create_session(str(ai_dir), context="Broken pack metadata")["session"]["id"]
+                transact(
+                    ai_dir,
+                    lambda _bundle, object_type=object_type, metadata=metadata: [
+                        {
+                            "event_id": "E-bad-domain-object",
+                            "session_id": session_id,
+                            "event_type": "object_recorded",
+                            "payload": {
+                                "object": _object(
+                                    "O-bad-domain",
+                                    object_type,
+                                    "active" if object_type == "evidence" else "open",
+                                    metadata,
                                 )
                             },
                         }
@@ -403,6 +482,76 @@ def _mutate_session_created_event(ai_dir: Path, session_id: str, mutator) -> Non
     raise AssertionError(f"session_created event not found for {session_id}")
 
 
+def _research_evidence_events(session_id: str, decision_id: str) -> list[dict]:
+    identity = _research_pack_identity()
+    return [
+        {
+            "event_id": "E-study-protocol",
+            "session_id": session_id,
+            "event_type": "object_recorded",
+            "payload": {
+                "object": _object(
+                    "E-study-protocol",
+                    "evidence",
+                    "active",
+                    {
+                        **evidence_metadata(source_ref="docs/protocol.md"),
+                        **identity,
+                        "evidence_requirement_id": "protocol_or_project_brief",
+                    },
+                )
+            },
+        },
+        {
+            "event_id": "E-study-governance",
+            "session_id": session_id,
+            "event_type": "object_recorded",
+            "payload": {
+                "object": _object(
+                    "E-study-governance",
+                    "evidence",
+                    "active",
+                    {
+                        **evidence_metadata(source="external", source_ref="irb/review.md"),
+                        **identity,
+                        "evidence_requirement_id": "ethics_or_governance",
+                    },
+                )
+            },
+        },
+        {
+            "event_id": "E-link-study-protocol",
+            "session_id": session_id,
+            "event_type": "object_linked",
+            "payload": {
+                "link": _link("L-E-study-protocol-supports-D-study-design", "E-study-protocol", "supports", decision_id)
+            },
+        },
+        {
+            "event_id": "E-link-study-governance",
+            "session_id": session_id,
+            "event_type": "object_linked",
+            "payload": {
+                "link": _link(
+                    "L-E-study-governance-supports-D-study-design",
+                    "E-study-governance",
+                    "supports",
+                    decision_id,
+                )
+            },
+        },
+    ]
+
+
+def _research_pack_identity() -> dict:
+    pack = load_builtin_packs()["research"]
+    return {
+        "domain_pack_id": pack.pack_id,
+        "domain_pack_version": pack.version,
+        "domain_pack_digest": domain_pack_digest(pack),
+    }
+
+
 def _object(object_id: str, object_type: str, status: str, metadata: dict) -> dict:
     return {
         "id": object_id,
@@ -414,6 +563,18 @@ def _object(object_id: str, object_type: str, status: str, metadata: dict) -> di
         "updated_at": None,
         "source_event_ids": ["E-fixture"],
         "metadata": metadata,
+    }
+
+
+def _link(link_id: str, source: str, relation: str, target: str) -> dict:
+    return {
+        "id": link_id,
+        "source_object_id": source,
+        "relation": relation,
+        "target_object_id": target,
+        "rationale": "Domain pack metadata fixture link.",
+        "created_at": "2026-04-28T00:00:00Z",
+        "source_event_ids": ["E-fixture-link"],
     }
 
 

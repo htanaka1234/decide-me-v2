@@ -107,7 +107,8 @@
         "expired_assumption_review_required",
         "external_review_required",
         "human_review_required",
-        "explicit_acceptance_required"
+        "explicit_acceptance_required",
+        "domain_required_evidence_missing"
       ]
     },
     "confidence": {
@@ -170,7 +171,9 @@
         "freshness",
         "observed_at",
         "valid_until",
-        "is_stale"
+        "is_stale",
+        "domain_evidence_type",
+        "evidence_requirement_id"
       ],
       "properties": {
         "object_id": {
@@ -217,6 +220,12 @@
         },
         "is_stale": {
           "type": "boolean"
+        },
+        "domain_evidence_type": {
+          "$ref": "#/$defs/nullable_string"
+        },
+        "evidence_requirement_id": {
+          "$ref": "#/$defs/nullable_string"
         }
       },
       "additionalProperties": false
@@ -295,7 +304,8 @@
         "risk_tier",
         "reversibility",
         "mitigation_object_ids",
-        "approval_threshold"
+        "approval_threshold",
+        "domain_risk_type"
       ],
       "properties": {
         "object_id": {
@@ -345,6 +355,102 @@
         },
         "approval_threshold": {
           "$ref": "#/$defs/approval_threshold"
+        },
+        "domain_risk_type": {
+          "$ref": "#/$defs/nullable_string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "domain_requirement": {
+      "type": "object",
+      "required": [
+        "pack_id",
+        "decision_type",
+        "required_evidence_id",
+        "domain_evidence_type",
+        "label",
+        "evidence_source",
+        "min_confidence",
+        "freshness_required",
+        "satisfied",
+        "satisfied_by_object_ids",
+        "reason"
+      ],
+      "properties": {
+        "pack_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "decision_type": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "required_evidence_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "domain_evidence_type": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_source": {
+          "$ref": "#/$defs/evidence_source"
+        },
+        "min_confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "freshness_required": {
+          "$ref": "#/$defs/evidence_freshness"
+        },
+        "satisfied": {
+          "type": "boolean"
+        },
+        "satisfied_by_object_ids": {
+          "$ref": "#/$defs/string_array"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "domain_safety_rule": {
+      "type": "object",
+      "required": [
+        "pack_id",
+        "rule_id",
+        "approval_threshold",
+        "reason",
+        "matched_risk_types",
+        "matched_risk_object_ids"
+      ],
+      "properties": {
+        "pack_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "rule_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "approval_threshold": {
+          "$ref": "#/$defs/approval_threshold"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "matched_risk_types": {
+          "$ref": "#/$defs/string_array"
+        },
+        "matched_risk_object_ids": {
+          "$ref": "#/$defs/string_array"
         }
       },
       "additionalProperties": false
@@ -373,6 +479,8 @@
         "evidence",
         "assumptions",
         "risks",
+        "domain_requirements",
+        "domain_safety_rules",
         "source_link_ids"
       ],
       "properties": {
@@ -463,6 +571,18 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/risk_item"
+          }
+        },
+        "domain_requirements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/domain_requirement"
+          }
+        },
+        "domain_safety_rules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/domain_safety_rule"
           }
         },
         "source_link_ids": {
