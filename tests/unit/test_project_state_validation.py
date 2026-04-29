@@ -88,6 +88,43 @@ class ProjectStateValidationTests(unittest.TestCase):
                 with self.assertRaisesRegex(StateValidationError, f"metadata.{key}"):
                     validate_project_state(payload)
 
+    def test_accepts_decision_domain_pack_metadata(self) -> None:
+        payload = _valid_project_state()
+        payload["objects"][0]["metadata"].update(
+            {
+                "domain_pack_id": "research",
+                "domain_pack_version": "0.1.0",
+                "domain_pack_digest": "DP-123456789abc",
+                "domain_decision_type": "primary_endpoint",
+                "domain_criteria": ["scientific_validity", "feasibility"],
+            }
+        )
+
+        validate_project_state(payload)
+
+    def test_rejects_invalid_decision_domain_pack_metadata(self) -> None:
+        cases = (
+            ({"domain_pack_id": None, "domain_pack_version": "0.1.0", "domain_pack_digest": "DP-123456789abc"}, "domain_pack_id"),
+            ({"domain_pack_id": "research", "domain_pack_version": "0.1.0", "domain_pack_digest": "bad"}, "domain_pack_digest"),
+            (
+                {
+                    "domain_pack_id": "research",
+                    "domain_pack_version": "0.1.0",
+                    "domain_pack_digest": "DP-123456789abc",
+                    "domain_criteria": "scientific_validity",
+                },
+                "domain_criteria",
+            ),
+            ({"domain_decision_type": "primary_endpoint"}, "requires domain pack metadata"),
+        )
+        for metadata, pattern in cases:
+            with self.subTest(metadata=metadata):
+                payload = _valid_project_state()
+                payload["objects"][0]["metadata"].update(metadata)
+
+                with self.assertRaisesRegex(StateValidationError, pattern):
+                    validate_project_state(payload)
+
     def test_rejects_invalidated_by_on_non_invalidated_decision(self) -> None:
         payload = _valid_project_state()
         payload["objects"][0]["metadata"]["invalidated_by"] = {

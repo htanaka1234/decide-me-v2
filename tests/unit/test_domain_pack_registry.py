@@ -14,8 +14,10 @@ from decide_me.domains import (
     DomainPack,
     DomainPackLoadError,
     DomainRegistry,
+    build_interview_policy,
     domain_pack_digest,
     domain_pack_from_dict,
+    infer_decision_type,
     load_builtin_packs,
     load_domain_registry,
     load_user_packs,
@@ -153,6 +155,42 @@ class DomainPackRegistryTests(unittest.TestCase):
 
         with self.assertRaises(TypeError):
             registry.packs["extra"] = registry.get("generic")
+
+    def test_build_interview_policy_handles_generic_known_and_unknown_packs(self) -> None:
+        registry = load_domain_registry()
+
+        generic = build_interview_policy(registry, domain_pack_id=None)
+        research = build_interview_policy(registry, domain_pack_id="research")
+        unknown = build_interview_policy(registry, domain_pack_id="missing")
+
+        self.assertEqual("generic", generic.pack_id)
+        self.assertTrue(generic.is_generic)
+        self.assertIsNone(generic.initial_decision_type)
+        self.assertEqual("research", research.pack_id)
+        self.assertFalse(research.is_generic)
+        self.assertEqual("research_question", research.initial_decision_type.id)
+        self.assertEqual("generic", unknown.pack_id)
+
+    def test_infer_decision_type_matches_representative_pack_terms(self) -> None:
+        packs = load_builtin_packs()
+        cases = (
+            ("research", "primary endpoint", "primary_endpoint"),
+            ("research", "missing data handling", "missing_data_strategy"),
+            ("research", "cohort", "cohort_definition"),
+            ("procurement", "contract", "contract_review"),
+            ("procurement", "security review", "security_review"),
+            ("procurement", "budget", "budget_limit"),
+            ("software", "auth", "auth_strategy"),
+            ("software", "api", "api_contract"),
+            ("software", "data model", "data_model"),
+        )
+        for pack_id, text, expected in cases:
+            with self.subTest(pack_id=pack_id, text=text):
+                self.assertEqual(expected, infer_decision_type(packs[pack_id], text))
+
+        self.assertIsNone(infer_decision_type(packs["research"], "endpoint"))
+        self.assertIsNone(infer_decision_type(packs["procurement"], "selection"))
+        self.assertIsNone(infer_decision_type(packs["software"], "unrelated topic"))
 
     def test_infer_from_context_is_deterministic_and_uses_generic_only_as_fallback(self) -> None:
         registry = load_domain_registry()

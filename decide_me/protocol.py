@@ -12,6 +12,7 @@ from decide_me.constants import (
     EVIDENCE_SOURCES,
     FORBIDDEN_DISCOVERED_DECISION_FIELDS,
 )
+from decide_me.domains import apply_decision_pack_metadata, build_interview_policy, load_domain_registry
 from decide_me.events import new_entity_id, new_event_id, utc_now
 from decide_me.object_views import (
     active_proposal_view,
@@ -42,11 +43,11 @@ def discover_decision(ai_dir: str, session_id: str, decision: dict[str, Any]) ->
     event_id = new_event_id()
 
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
-        _require_mutable_session(bundle, session_id)
+        session = _require_mutable_session(bundle, session_id)
         decision_id = sanitized_decision.get("id")
         if decision_id and _decision_exists(bundle, decision_id):
             raise ValueError(f"decision {decision_id} already exists")
-        event_decision = deepcopy(sanitized_decision)
+        event_decision = _apply_session_domain_pack(ai_dir, session, sanitized_decision)
         event_decision["requirement_id"] = next_requirement_id(decision_views(bundle["project_state"]))
         obj = _decision_object_from_payload(event_decision, now, event_id)
         return [
@@ -1324,6 +1325,11 @@ def _decision_object_from_payload(decision: dict[str, Any], created_at: str, eve
         "context",
         "bundle_id",
         "agent_relevant",
+        "domain_pack_id",
+        "domain_pack_version",
+        "domain_pack_digest",
+        "domain_decision_type",
+        "domain_criteria",
         "depends_on",
         "blocked_by",
     ):
@@ -1370,6 +1376,20 @@ def _sanitize_discovered_decision(decision: dict[str, Any]) -> dict[str, Any]:
     sanitized = {key: deepcopy(value) for key, value in decision.items() if key in DISCOVERABLE_DECISION_FIELDS}
     sanitized["status"] = status
     return sanitized
+
+
+def _apply_session_domain_pack(
+    ai_dir: str,
+    session: dict[str, Any],
+    decision: dict[str, Any],
+) -> dict[str, Any]:
+    classification = session.get("classification", {})
+    registry = load_domain_registry(ai_dir)
+    policy = build_interview_policy(
+        registry,
+        domain_pack_id=decision.get("domain_pack_id") or classification.get("domain_pack_id"),
+    )
+    return apply_decision_pack_metadata(policy, decision)
 
 
 def _validate_agent_relevant(value: Any, label: str) -> None:

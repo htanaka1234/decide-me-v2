@@ -444,6 +444,7 @@ def _validate_decision_object_metadata(decision: dict[str, Any]) -> None:
             )
     if "notes" in metadata:
         _require_list(metadata["notes"], f"decision object {decision['id']}.metadata.notes")
+    _validate_decision_domain_pack_metadata(decision)
     invalidated_by = metadata.get("invalidated_by")
     if decision["status"] == "invalidated":
         invalidated = _require_dict(invalidated_by, f"decision object {decision['id']}.metadata.invalidated_by")
@@ -457,6 +458,34 @@ def _validate_decision_object_metadata(decision: dict[str, Any]) -> None:
         )
     elif invalidated_by is not None:
         raise StateValidationError(f"non-invalidated decision object {decision['id']} must not carry invalidated_by")
+
+
+def _validate_decision_domain_pack_metadata(decision: dict[str, Any]) -> None:
+    metadata = decision["metadata"]
+    label = f"decision object {decision['id']}.metadata"
+    present = [key for key in PACK_METADATA_KEYS if key in metadata]
+    has_domain_details = "domain_decision_type" in metadata or "domain_criteria" in metadata
+    if present and len(present) != len(PACK_METADATA_KEYS):
+        missing = sorted(set(PACK_METADATA_KEYS) - set(present))
+        raise StateValidationError(f"{label} has incomplete domain pack metadata; missing: {', '.join(missing)}")
+    if has_domain_details and not present:
+        raise StateValidationError(f"{label} domain decision metadata requires domain pack metadata")
+    if "domain_pack_id" in metadata:
+        _require_non_empty_string(metadata["domain_pack_id"], f"{label}.domain_pack_id")
+        if not DOMAIN_PACK_ID_PATTERN.fullmatch(metadata["domain_pack_id"]):
+            raise StateValidationError(f"{label}.domain_pack_id must match ^[a-z][a-z0-9_]*$")
+    if "domain_pack_version" in metadata:
+        _require_non_empty_string(metadata["domain_pack_version"], f"{label}.domain_pack_version")
+    if "domain_pack_digest" in metadata:
+        _require_non_empty_string(metadata["domain_pack_digest"], f"{label}.domain_pack_digest")
+        if not DOMAIN_PACK_DIGEST_PATTERN.fullmatch(metadata["domain_pack_digest"]):
+            raise StateValidationError(f"{label}.domain_pack_digest must match ^DP-[0-9a-f]{{12}}$")
+    if "domain_decision_type" in metadata:
+        _require_non_empty_string(metadata["domain_decision_type"], f"{label}.domain_decision_type")
+        if not DOMAIN_PACK_ID_PATTERN.fullmatch(metadata["domain_decision_type"]):
+            raise StateValidationError(f"{label}.domain_decision_type must match ^[a-z][a-z0-9_]*$")
+    if "domain_criteria" in metadata:
+        _require_string_list(metadata["domain_criteria"], f"{label}.domain_criteria")
 
 
 def _validate_evidence_object_metadata(obj: dict[str, Any]) -> None:
