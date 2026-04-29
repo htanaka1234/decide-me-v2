@@ -1,0 +1,367 @@
+schema_version: 1
+pack_id: research
+version: 0.1.0
+label: Research
+description: Research planning and analysis decision support.
+aliases:
+  - research
+  - research plan
+  - study
+  - study design
+  - cohort study
+  - protocol
+  - clinical research
+  - analysis plan
+  - statistical analysis plan
+default_core_domain: data
+decision_types:
+  - id: research_question
+    label: Research question
+    object_type: decision
+    layer: purpose
+    kind: choice
+    default_priority: P0
+    default_reversibility: hard-to-reverse
+    criteria:
+      - scientific_validity
+      - clinical_or_business_relevance
+      - feasibility
+    required_evidence:
+      - protocol_or_project_brief
+      - literature_or_background
+  - id: study_design
+    label: Study design
+    object_type: decision
+    layer: strategy
+    kind: choice
+    default_priority: P0
+    default_reversibility: hard-to-reverse
+    criteria:
+      - scientific_validity
+      - feasibility
+      - ethical_acceptability
+    required_evidence:
+      - protocol_or_project_brief
+      - ethics_or_governance
+  - id: cohort_definition
+    label: Cohort definition
+    object_type: decision
+    layer: design
+    kind: choice
+    default_priority: P0
+    default_reversibility: hard-to-reverse
+    criteria:
+      - internal_validity
+      - data_availability
+      - feasibility
+    required_evidence:
+      - data_dictionary
+      - protocol_or_project_brief
+  - id: inclusion_exclusion
+    label: Inclusion and exclusion criteria
+    object_type: decision
+    layer: design
+    kind: constraint
+    default_priority: P0
+    default_reversibility: hard-to-reverse
+    criteria:
+      - internal_validity
+      - data_availability
+      - scientific_validity
+    required_evidence:
+      - data_dictionary
+      - protocol_or_project_brief
+  - id: exposure_definition
+    label: Exposure definition
+    object_type: decision
+    layer: design
+    kind: choice
+    default_priority: P0
+    default_reversibility: hard-to-reverse
+    criteria:
+      - scientific_validity
+      - data_availability
+      - reproducibility
+    required_evidence:
+      - data_dictionary
+      - analysis_plan
+  - id: comparator_definition
+    label: Comparator definition
+    object_type: decision
+    layer: design
+    kind: choice
+    default_priority: P0
+    default_reversibility: hard-to-reverse
+    criteria:
+      - scientific_validity
+      - internal_validity
+      - feasibility
+    required_evidence:
+      - protocol_or_project_brief
+      - data_dictionary
+  - id: primary_endpoint
+    label: Primary endpoint
+    object_type: decision
+    layer: design
+    kind: choice
+    default_priority: P0
+    default_reversibility: hard-to-reverse
+    criteria:
+      - scientific_validity
+      - clinical_or_business_relevance
+      - data_availability
+    required_evidence:
+      - protocol_or_project_brief
+      - data_dictionary
+  - id: secondary_endpoint
+    label: Secondary endpoint
+    object_type: decision
+    layer: design
+    kind: choice
+    default_priority: P1
+    default_reversibility: hard-to-reverse
+    criteria:
+      - scientific_validity
+      - clinical_or_business_relevance
+      - data_availability
+    required_evidence:
+      - protocol_or_project_brief
+      - data_dictionary
+  - id: covariate_strategy
+    label: Covariate strategy
+    object_type: decision
+    layer: design
+    kind: choice
+    default_priority: P0
+    default_reversibility: hard-to-reverse
+    criteria:
+      - internal_validity
+      - scientific_validity
+      - reproducibility
+    required_evidence:
+      - analysis_plan
+      - literature_or_background
+  - id: missing_data_strategy
+    label: Missing data strategy
+    object_type: decision
+    layer: design
+    kind: choice
+    default_priority: P0
+    default_reversibility: hard-to-reverse
+    criteria:
+      - scientific_validity
+      - data_availability
+      - reproducibility
+    required_evidence:
+      - data_dictionary
+      - analysis_plan
+  - id: sensitivity_analysis
+    label: Sensitivity analysis
+    object_type: decision
+    layer: verification
+    kind: choice
+    default_priority: P1
+    default_reversibility: reversible
+    criteria:
+      - scientific_validity
+      - reproducibility
+      - feasibility
+    required_evidence:
+      - analysis_plan
+  - id: reproducibility_plan
+    label: Reproducibility plan
+    object_type: decision
+    layer: verification
+    kind: choice
+    default_priority: P1
+    default_reversibility: reversible
+    criteria:
+      - reproducibility
+      - feasibility
+    required_evidence:
+      - analysis_plan
+      - data_dictionary
+  - id: publication_plan
+    label: Publication plan
+    object_type: decision
+    layer: review
+    kind: choice
+    default_priority: P2
+    default_reversibility: reversible
+    criteria:
+      - clinical_or_business_relevance
+      - ethical_acceptability
+      - reproducibility
+    required_evidence:
+      - protocol_or_project_brief
+      - ethics_or_governance
+criteria:
+  - id: scientific_validity
+    label: Scientific validity
+    description: Whether the decision preserves internal and external validity.
+  - id: feasibility
+    label: Feasibility
+    description: Whether the plan can be executed with available data, time, and resources.
+  - id: clinical_or_business_relevance
+    label: Clinical or business relevance
+    description: Whether the decision answers a question that matters to the intended audience.
+  - id: internal_validity
+    label: Internal validity
+    description: Whether the design reduces bias and supports credible causal or descriptive claims.
+  - id: data_availability
+    label: Data availability
+    description: Whether required fields, samples, and observations are accessible and usable.
+  - id: reproducibility
+    label: Reproducibility
+    description: Whether the decision can be rerun, audited, and explained from source inputs.
+  - id: ethical_acceptability
+    label: Ethical acceptability
+    description: Whether the decision respects review, privacy, and participant protection needs.
+evidence_requirements:
+  - id: protocol_or_project_brief
+    label: Protocol or project brief
+    evidence_source: docs
+    domain_evidence_type: protocol
+    min_confidence: medium
+    freshness_required: current
+  - id: data_dictionary
+    label: Data dictionary
+    evidence_source: docs
+    domain_evidence_type: data_dictionary
+    min_confidence: medium
+    freshness_required: current
+  - id: literature_or_background
+    label: Literature or background
+    evidence_source: external
+    domain_evidence_type: literature
+    min_confidence: medium
+    freshness_required: current
+  - id: analysis_plan
+    label: Analysis plan
+    evidence_source: docs
+    domain_evidence_type: analysis_plan
+    min_confidence: medium
+    freshness_required: current
+  - id: ethics_or_governance
+    label: Ethics or governance review
+    evidence_source: external
+    domain_evidence_type: governance
+    min_confidence: medium
+    freshness_required: current
+risk_types:
+  - id: unclear_endpoint
+    label: Unclear endpoint
+    default_risk_tier: high
+    default_approval_threshold: human_review
+  - id: selection_bias
+    label: Selection bias
+    default_risk_tier: high
+    default_approval_threshold: human_review
+  - id: information_bias
+    label: Information bias
+    default_risk_tier: high
+    default_approval_threshold: human_review
+  - id: confounding
+    label: Confounding
+    default_risk_tier: high
+    default_approval_threshold: human_review
+  - id: missing_data
+    label: Missing data
+    default_risk_tier: medium
+    default_approval_threshold: explicit_acceptance
+  - id: data_access
+    label: Data access
+    default_risk_tier: high
+    default_approval_threshold: human_review
+  - id: patient_data
+    label: Patient data
+    default_risk_tier: critical
+    default_approval_threshold: external_review
+  - id: ethics_or_irb
+    label: Ethics or IRB
+    default_risk_tier: critical
+    default_approval_threshold: external_review
+  - id: reproducibility
+    label: Reproducibility
+    default_risk_tier: medium
+    default_approval_threshold: explicit_acceptance
+safety_rules:
+  - id: patient_data_external_review
+    applies_when:
+      risk_types:
+        - patient_data
+        - ethics_or_irb
+    approval_threshold: external_review
+    reason: Human-subjects or patient-data decisions require external review.
+  - id: validity_review
+    applies_when:
+      risk_types:
+        - unclear_endpoint
+        - selection_bias
+        - information_bias
+        - confounding
+    approval_threshold: human_review
+    reason: Validity-threatening research risks require explicit scientific review.
+  - id: data_access_review
+    applies_when:
+      risk_types:
+        - data_access
+    approval_threshold: human_review
+    reason: Data access risk must be reviewed before dependent analysis decisions are accepted.
+documents:
+  - document_type: research-plan
+    default: true
+    profile_id: research_protocol
+    required_sections:
+      - objective
+      - research-question-decision-targets
+      - evidence-base
+      - analysis-verification-plan
+      - risks-and-mitigations
+      - source-traceability
+  - document_type: risk-register
+    default: true
+    profile_id: research_risk_register
+    required_sections:
+      - summary
+      - risks
+  - document_type: review-memo
+    default: true
+    profile_id: research_review_memo
+    required_sections:
+      - review-summary
+      - required-decisions
+      - verification-gaps
+interview:
+  domain_hints:
+    - cohort
+    - endpoint
+    - primary endpoint
+    - secondary endpoint
+    - inclusion criteria
+    - exclusion criteria
+    - exposure
+    - comparator
+    - covariate
+    - confounding
+    - missing data
+    - sensitivity analysis
+    - protocol
+    - irb
+    - patient data
+    - reproducibility
+    - statistical analysis plan
+  question_templates:
+    research_question: What research question should this plan answer?
+    study_design: What study design should be used?
+    cohort_definition: How should the cohort be defined?
+    inclusion_exclusion: What inclusion and exclusion criteria should apply?
+    exposure_definition: How should the exposure or intervention be defined?
+    comparator_definition: What comparator should be used?
+    primary_endpoint: What should be the primary endpoint?
+    secondary_endpoint: What secondary endpoints should be included?
+    covariate_strategy: What covariate strategy should control confounding?
+    missing_data_strategy: How should missing data be handled?
+    sensitivity_analysis: What sensitivity analyses should be planned?
+    reproducibility_plan: How should the analysis be made reproducible?
+    publication_plan: What publication or reporting plan should apply?

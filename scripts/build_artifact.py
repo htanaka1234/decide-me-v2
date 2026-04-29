@@ -98,9 +98,9 @@ def write_zip(dist_dir: Path, staging_dir: Path, zip_path: Path) -> None:
 
 
 def unix_mode(path: Path) -> int:
-    mode = stat.S_IMODE(path.stat().st_mode)
+    mode = 0o644
     if path.name == "decide_me.py" or path.name == "build_artifact.py":
-        mode |= stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+        mode = 0o755
     return stat.S_IFREG | mode
 
 

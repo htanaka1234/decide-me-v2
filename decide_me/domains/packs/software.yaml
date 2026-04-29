@@ -1,0 +1,361 @@
+schema_version: 1
+pack_id: software
+version: 0.1.0
+label: Software
+description: Software engineering decision support for architecture, implementation, operations, and verification.
+aliases:
+  - software
+  - engineering
+  - codebase
+  - application
+  - development
+default_core_domain: technical
+decision_types:
+  - id: architecture_choice
+    label: Architecture choice
+    object_type: decision
+    layer: strategy
+    kind: choice
+    default_priority: P0
+    default_reversibility: hard-to-reverse
+    criteria:
+      - maintainability
+      - scalability
+      - operability
+      - testability
+    required_evidence:
+      - codebase_context
+      - requirements_brief
+  - id: api_contract
+    label: API contract
+    object_type: decision
+    layer: design
+    kind: choice
+    default_priority: P1
+    default_reversibility: hard-to-reverse
+    criteria:
+      - maintainability
+      - security
+      - usability
+    required_evidence:
+      - codebase_context
+      - requirements_brief
+  - id: auth_strategy
+    label: Authentication strategy
+    object_type: decision
+    layer: design
+    kind: choice
+    default_priority: P0
+    default_reversibility: hard-to-reverse
+    criteria:
+      - security
+      - compliance_fit
+      - usability
+    required_evidence:
+      - codebase_context
+      - requirements_brief
+      - compliance_constraint
+  - id: data_model
+    label: Data model
+    object_type: decision
+    layer: design
+    kind: choice
+    default_priority: P0
+    default_reversibility: hard-to-reverse
+    criteria:
+      - data_integrity
+      - maintainability
+      - scalability
+    required_evidence:
+      - codebase_context
+      - requirements_brief
+  - id: ux_flow
+    label: UX flow
+    object_type: decision
+    layer: design
+    kind: choice
+    default_priority: P1
+    default_reversibility: reversible
+    criteria:
+      - usability
+      - delivery_risk
+    required_evidence:
+      - requirements_brief
+  - id: deployment_strategy
+    label: Deployment strategy
+    object_type: decision
+    layer: execution
+    kind: choice
+    default_priority: P1
+    default_reversibility: hard-to-reverse
+    criteria:
+      - operability
+      - security
+      - delivery_risk
+    required_evidence:
+      - operational_context
+      - test_coverage
+  - id: compliance_requirement
+    label: Compliance requirement
+    object_type: decision
+    layer: constraint
+    kind: constraint
+    default_priority: P0
+    default_reversibility: hard-to-reverse
+    criteria:
+      - compliance_fit
+      - security
+    required_evidence:
+      - compliance_constraint
+  - id: verification_strategy
+    label: Verification strategy
+    object_type: decision
+    layer: verification
+    kind: choice
+    default_priority: P1
+    default_reversibility: reversible
+    criteria:
+      - testability
+      - delivery_risk
+    required_evidence:
+      - test_coverage
+      - codebase_context
+criteria:
+  - id: maintainability
+    label: Maintainability
+    description: Whether the decision keeps the codebase understandable and changeable.
+  - id: scalability
+    label: Scalability
+    description: Whether the design can support expected load and growth.
+  - id: operability
+    label: Operability
+    description: Whether the system can be deployed, monitored, and recovered reliably.
+  - id: testability
+    label: Testability
+    description: Whether the behavior can be verified with practical tests or checks.
+  - id: security
+    label: Security
+    description: Whether the decision protects access, data, and abuse-sensitive surfaces.
+  - id: usability
+    label: Usability
+    description: Whether the user-facing behavior remains clear and ergonomic.
+  - id: compliance_fit
+    label: Compliance fit
+    description: Whether the decision respects privacy, legal, and contractual constraints.
+  - id: data_integrity
+    label: Data integrity
+    description: Whether data remains accurate, recoverable, and consistently modeled.
+  - id: delivery_risk
+    label: Delivery risk
+    description: Whether the decision can be delivered without disproportionate schedule or coordination risk.
+evidence_requirements:
+  - id: codebase_context
+    label: Codebase context
+    evidence_source: codebase
+    domain_evidence_type: implementation
+    min_confidence: medium
+    freshness_required: current
+  - id: requirements_brief
+    label: Requirements brief
+    evidence_source: docs
+    domain_evidence_type: requirements
+    min_confidence: medium
+    freshness_required: current
+  - id: test_coverage
+    label: Test coverage
+    evidence_source: tests
+    domain_evidence_type: tests
+    min_confidence: medium
+    freshness_required: current
+  - id: compliance_constraint
+    label: Compliance constraint
+    evidence_source: external
+    domain_evidence_type: compliance
+    min_confidence: medium
+    freshness_required: current
+  - id: operational_context
+    label: Operational context
+    evidence_source: docs
+    domain_evidence_type: operations
+    min_confidence: medium
+    freshness_required: current
+risk_types:
+  - id: security_exposure
+    label: Security exposure
+    default_risk_tier: high
+    default_approval_threshold: human_review
+  - id: data_loss
+    label: Data loss
+    default_risk_tier: critical
+    default_approval_threshold: human_review
+  - id: migration_failure
+    label: Migration failure
+    default_risk_tier: high
+    default_approval_threshold: human_review
+  - id: operational_outage
+    label: Operational outage
+    default_risk_tier: high
+    default_approval_threshold: human_review
+  - id: compliance_gap
+    label: Compliance gap
+    default_risk_tier: high
+    default_approval_threshold: external_review
+  - id: vendor_dependency
+    label: Vendor dependency
+    default_risk_tier: medium
+    default_approval_threshold: explicit_acceptance
+safety_rules:
+  - id: security_review
+    applies_when:
+      risk_types:
+        - security_exposure
+        - data_loss
+    approval_threshold: human_review
+    reason: Security-sensitive and data-loss risks require human review.
+  - id: compliance_review
+    applies_when:
+      risk_types:
+        - compliance_gap
+    approval_threshold: external_review
+    reason: Compliance gaps require external review before acceptance.
+  - id: operations_review
+    applies_when:
+      risk_types:
+        - migration_failure
+        - operational_outage
+    approval_threshold: human_review
+    reason: Migration and outage risks require an explicit operations review.
+documents:
+  - document_type: decision-brief
+    default: true
+    profile_id: software_decision_brief
+    required_sections:
+      - project
+      - purpose-principles-constraints
+      - current-decisions
+      - evidence-and-assumptions
+      - risks-and-safety
+      - actions-and-verification
+      - revisit-triggers
+      - source-traceability
+  - document_type: action-plan
+    default: true
+    profile_id: software_action_plan
+    required_sections:
+      - summary
+      - implementation-ready-actions
+      - actions
+      - blockers
+      - risks
+      - evidence
+      - source-traceability
+  - document_type: risk-register
+    default: true
+    profile_id: software_risk_register
+    required_sections:
+      - summary
+      - risks
+  - document_type: comparison-table
+    default: true
+    profile_id: software_option_comparison
+    required_sections:
+      - comparison
+interview:
+  domain_hints:
+    - auth
+    - authentication
+    - password
+    - magic link
+    - login
+    - session
+    - api
+    - endpoint
+    - service
+    - backend
+    - frontend
+    - s3
+    - bucket
+    - smtp
+    - oauth
+    - token
+    - encryption
+    - reset
+    - export
+    - analytics
+    - metric
+    - metrics
+    - dataset
+    - warehouse
+    - pipeline
+    - report
+    - reporting
+    - csv
+    - parquet
+    - table
+    - schema
+    - retention
+    - import
+    - ux
+    - ui
+    - screen
+    - modal
+    - form
+    - copy
+    - flow
+    - journey
+    - navigation
+    - onboarding
+    - accessibility
+    - mobile
+    - deploy
+    - deployment
+    - monitoring
+    - alert
+    - incident
+    - infra
+    - infrastructure
+    - hosting
+    - region
+    - backup
+    - docker
+    - ci
+    - cd
+    - runbook
+    - logging
+    - privacy
+    - legal
+    - compliance
+    - gdpr
+    - contract
+    - terms
+    - consent
+    - policy
+    - soc 2
+    - soc2
+    - residency
+    - dpa
+    - audit
+    - eu
+    - integration
+    - provider
+    - vendor
+    - webhook
+    - credential
+    - credentials
+    - secret
+    - secrets
+    - irreversible
+    - permanent
+    - one-way
+    - destructive
+    - migration
+    - database
+  question_templates:
+    architecture_choice: What architecture choice should guide this implementation?
+    api_contract: What API contract should this feature expose or consume?
+    auth_strategy: What authentication or authorization strategy should apply?
+    data_model: What data model or schema should this implementation use?
+    ux_flow: What user flow should this implementation support?
+    deployment_strategy: How should this change be deployed and operated?
+    compliance_requirement: What compliance or privacy requirement constrains this work?
+    verification_strategy: How should this software decision be verified?
