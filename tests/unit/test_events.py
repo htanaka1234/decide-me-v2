@@ -176,6 +176,33 @@ class EventTests(unittest.TestCase):
                         },
                     )
 
+    def test_session_created_rejects_partial_domain_pack_classification(self) -> None:
+        cases = (
+            {"domain_pack_id": "research"},
+            {"domain_pack_digest": "DP-123456789abc"},
+            {"domain_pack_id": "research", "domain_pack_version": "0.1.0"},
+        )
+        for metadata in cases:
+            with self.subTest(metadata=metadata):
+                classification = _classification_payload()
+                for key in ("domain_pack_id", "domain_pack_version", "domain_pack_digest"):
+                    classification.pop(key)
+                classification.update(metadata)
+
+                with self.assertRaisesRegex(EventValidationError, "incomplete domain pack metadata"):
+                    _event(
+                        event_type="session_created",
+                        payload={
+                            "session": {
+                                "id": "S-001",
+                                "started_at": "2026-04-23T12:00:00Z",
+                                "last_seen_at": "2026-04-23T12:00:00Z",
+                                "bound_context_hint": "Research context",
+                                "classification": classification,
+                            }
+                        },
+                    )
+
 
 def _event(*, event_type: str, payload: dict, session_id: str = "S-001") -> dict:
     return build_event(

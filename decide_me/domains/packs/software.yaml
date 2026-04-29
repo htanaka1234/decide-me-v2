@@ -267,10 +267,11 @@ interview:
     - password
     - magic link
     - login
-    - session
+    - auth session
+    - session management
     - api
     - endpoint
-    - service
+    - backend service
     - backend
     - frontend
     - s3
@@ -287,7 +288,7 @@ interview:
     - dataset
     - warehouse
     - pipeline
-    - report
+    - analytics reporting
     - reporting
     - csv
     - parquet
@@ -300,8 +301,9 @@ interview:
     - screen
     - modal
     - form
-    - copy
-    - flow
+    - ui copy
+    - user flow
+    - ux flow
     - journey
     - navigation
     - onboarding

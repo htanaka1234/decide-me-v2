@@ -117,6 +117,20 @@
           ]
         }
       },
+      "dependentRequired": {
+        "domain_pack_id": [
+          "domain_pack_version",
+          "domain_pack_digest"
+        ],
+        "domain_pack_version": [
+          "domain_pack_id",
+          "domain_pack_digest"
+        ],
+        "domain_pack_digest": [
+          "domain_pack_id",
+          "domain_pack_version"
+        ]
+      },
       "additionalProperties": false
     },
     "close_summary": {

@@ -173,6 +173,20 @@ class DomainPackRegistryTests(unittest.TestCase):
                 self.assertEqual(expected, registry.infer_from_context(text))
                 self.assertEqual(expected, registry.infer_from_context(text))
 
+    def test_infer_from_context_does_not_overclassify_ambiguous_generic_terms(self) -> None:
+        registry = load_domain_registry()
+
+        cases = (
+            "planning session",
+            "decision session",
+            "support plan",
+            "copy editing",
+            "data report",
+        )
+        for text in cases:
+            with self.subTest(text=text):
+                self.assertEqual("generic", registry.infer_from_context(text))
+
     def test_infer_from_context_returns_generic_on_ties(self) -> None:
         generic = load_builtin_packs()["generic"]
         first = _pack_payload("alpha")

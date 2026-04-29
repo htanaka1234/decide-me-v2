@@ -11,6 +11,7 @@ from decide_me.domains.model import DecisionTypeSpec, DomainPack
 GENERIC_PACK_ID = "generic"
 ALIAS_WEIGHT = 3
 HINT_WEIGHT = 1
+MIN_SPECIALIZED_SCORE = 2
 SEPARATOR_PATTERN = re.compile(r"[_\-/]+")
 WHITESPACE_PATTERN = re.compile(r"\s+")
 
@@ -65,6 +66,8 @@ class DomainRegistry:
             return GENERIC_PACK_ID
 
         best_score = max(score for score, _pack_id in positive_scores)
+        if best_score < MIN_SPECIALIZED_SCORE:
+            return GENERIC_PACK_ID
         best = sorted(pack_id for score, pack_id in positive_scores if score == best_score)
         if len(best) != 1:
             return GENERIC_PACK_ID

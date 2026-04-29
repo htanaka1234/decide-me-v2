@@ -64,6 +64,7 @@ SYSTEM_EVENT_TYPES = {
 }
 DOMAIN_PACK_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 DOMAIN_PACK_DIGEST_PATTERN = re.compile(r"^DP-[0-9a-f]{12}$")
+PACK_METADATA_KEYS = ("domain_pack_id", "domain_pack_version", "domain_pack_digest")
 SESSION_SCOPED_EVENT_TYPES = {
     "session_created",
     "session_resumed",
@@ -699,6 +700,10 @@ def validate_session_state(session_state: dict[str, Any]) -> None:
     )
     for key in ("assigned_tags", "search_terms", "source_refs"):
         _require_list(session_state["classification"][key], f"session_state.classification.{key}")
+    _validate_domain_pack_metadata_completeness(
+        session_state["classification"],
+        "session_state.classification",
+    )
     _require_optional_non_empty_string(
         session_state["classification"].get("domain_pack_id"),
         "session_state.classification.domain_pack_id",
@@ -725,6 +730,15 @@ def validate_session_state(session_state: dict[str, Any]) -> None:
         close_summary.get("generated_at"),
         "session_state.close_summary.generated_at",
     )
+
+
+def _validate_domain_pack_metadata_completeness(classification: dict[str, Any], label: str) -> None:
+    present = [key for key in PACK_METADATA_KEYS if key in classification]
+    if present and len(present) != len(PACK_METADATA_KEYS):
+        missing = sorted(set(PACK_METADATA_KEYS) - set(present))
+        raise StateValidationError(
+            f"{label} has incomplete domain pack metadata; missing: {', '.join(missing)}"
+        )
 
 
 def validate_taxonomy_state(taxonomy_state: dict[str, Any]) -> None:

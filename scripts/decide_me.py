@@ -626,8 +626,10 @@ def main(argv: list[str] | None = None) -> int:
             )
             _print_json({"path": str(path)})
         elif args.command == "export-document":
-            if args.domain_pack:
-                _require_domain_pack(args.ai_dir, args.domain_pack)
+            domain_pack_id = None
+            if args.domain_pack is not None:
+                pack = _require_domain_pack(args.ai_dir, args.domain_pack)
+                domain_pack_id = pack.pack_id
             path = export_document(
                 args.ai_dir,
                 document_type=args.type,
@@ -640,7 +642,16 @@ def main(argv: list[str] | None = None) -> int:
                 force=args.force,
                 managed_region=args.managed_region,
             )
-            _print_json({"path": str(path), "type": args.type, "format": args.format})
+            result = {"path": str(path), "type": args.type, "format": args.format}
+            if domain_pack_id is not None:
+                result.update(
+                    {
+                        "domain_pack_id": domain_pack_id,
+                        "domain_pack_applied": False,
+                        "note": "domain pack was validated but is not applied to document rendering yet",
+                    }
+                )
+            _print_json(result)
         elif args.command == "export-impact-report":
             path = export_impact_report(
                 args.ai_dir,
@@ -697,6 +708,9 @@ def _list_domain_packs(ai_dir: str) -> dict[str, object]:
 
 
 def _require_domain_pack(ai_dir: str, pack_id: str) -> DomainPack:
+    pack_id = pack_id.strip()
+    if not pack_id:
+        raise ValueError("domain pack must be a non-empty string")
     try:
         return load_domain_registry(ai_dir).get(pack_id)
     except KeyError as exc:

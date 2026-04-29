@@ -50,6 +50,10 @@ class DomainPackCliTests(unittest.TestCase):
                 ("vendor, contract, budget, comparison", "procurement", "ops"),
                 ("API/auth endpoint database", "software", "technical"),
                 ("general planning note", "generic", "other"),
+                ("planning session", "generic", "other"),
+                ("support plan", "generic", "other"),
+                ("copy editing", "generic", "other"),
+                ("data report", "generic", "other"),
             )
             inferred = [
                 _run_json("create-session", "--ai-dir", str(ai_dir), "--context", context)
@@ -112,6 +116,15 @@ class DomainPackCliTests(unittest.TestCase):
                     "missing",
                 ),
                 (
+                    "create-session",
+                    "--ai-dir",
+                    str(ai_dir),
+                    "--context",
+                    "anything",
+                    "--domain-pack",
+                    "",
+                ),
+                (
                     "export-document",
                     "--ai-dir",
                     str(ai_dir),
@@ -129,7 +142,34 @@ class DomainPackCliTests(unittest.TestCase):
                 with self.subTest(command=args[0]):
                     result = _run_cli(*args, check=False)
                     self.assertNotEqual(0, result.returncode)
-                    self.assertIn("unknown domain pack: missing", result.stderr)
+                    self.assertRegex(
+                        result.stderr,
+                        "unknown domain pack: missing|domain pack must be a non-empty string",
+                    )
+
+    def test_export_document_domain_pack_reports_validation_only(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = _bootstrap(tmp)
+            output = ai_dir / "exports" / "documents" / "risk-register.md"
+
+            exported = _run_json(
+                "export-document",
+                "--ai-dir",
+                str(ai_dir),
+                "--type",
+                "risk-register",
+                "--format",
+                "markdown",
+                "--output",
+                str(output),
+                "--domain-pack",
+                "research",
+            )
+
+        self.assertEqual(str(output), exported["path"])
+        self.assertEqual("research", exported["domain_pack_id"])
+        self.assertFalse(exported["domain_pack_applied"])
+        self.assertIn("not applied to document rendering yet", exported["note"])
 
 
 def _bootstrap(tmp: str) -> Path:

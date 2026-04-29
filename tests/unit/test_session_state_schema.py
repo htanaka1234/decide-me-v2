@@ -74,6 +74,21 @@ class SessionStateSchemaTests(unittest.TestCase):
                 with self.assertRaisesRegex(StateValidationError, message):
                     validate_session_state(payload)
 
+    def test_session_state_rejects_partial_domain_pack_metadata(self) -> None:
+        cases = (
+            {"domain_pack_id": "research"},
+            {"domain_pack_digest": "DP-123456789abc"},
+            {"domain_pack_id": "research", "domain_pack_version": "0.1.0"},
+        )
+        for metadata in cases:
+            with self.subTest(metadata=metadata):
+                payload = default_session_state("S-001", "2026-04-29T00:00:00Z", "Bad session")
+                payload["classification"].update(metadata)
+
+                self.assertTrue(list(self.validator.iter_errors(payload)))
+                with self.assertRaisesRegex(StateValidationError, "incomplete domain pack metadata"):
+                    validate_session_state(payload)
+
 
 if __name__ == "__main__":
     unittest.main()

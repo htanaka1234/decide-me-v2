@@ -277,7 +277,12 @@ def _select_domain_pack(
     domain_pack_id: str | None,
 ) -> DomainPack:
     registry = load_domain_registry(ai_dir)
-    selected_pack_id = domain_pack_id or registry.infer_from_context(context or "")
+    if domain_pack_id is None:
+        selected_pack_id = registry.infer_from_context(context or "")
+    else:
+        selected_pack_id = domain_pack_id.strip()
+        if not selected_pack_id:
+            raise ValueError("domain pack must be a non-empty string")
     try:
         return registry.get(selected_pack_id)
     except KeyError as exc:

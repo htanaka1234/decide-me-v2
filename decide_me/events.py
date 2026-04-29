@@ -32,6 +32,7 @@ LINK_KEYS = {
 OBJECT_PATCH_KEYS = {"title", "body", "metadata"}
 DOMAIN_PACK_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 DOMAIN_PACK_DIGEST_PATTERN = re.compile(r"^DP-[0-9a-f]{12}$")
+PACK_METADATA_KEYS = ("domain_pack_id", "domain_pack_version", "domain_pack_digest")
 SESSION_CLASSIFICATION_KEYS = {
     "domain",
     "abstraction_level",
@@ -226,6 +227,7 @@ def _validate_session_classification(classification: dict[str, Any], label: str)
     unsupported = sorted(set(classification) - SESSION_CLASSIFICATION_KEYS)
     if unsupported:
         raise EventValidationError(f"{label} contains unsupported fields: {', '.join(unsupported)}")
+    _validate_domain_pack_metadata_completeness(classification, label)
     domain = classification.get("domain")
     if domain is not None and domain not in DOMAIN_VALUES:
         allowed = ", ".join(sorted(DOMAIN_VALUES))
@@ -248,6 +250,15 @@ def _validate_session_classification(classification: dict[str, Any], label: str)
         _require_non_empty_string(digest, f"{label}.domain_pack_digest")
         if not DOMAIN_PACK_DIGEST_PATTERN.fullmatch(str(digest)):
             raise EventValidationError(f"{label}.domain_pack_digest must match ^DP-[0-9a-f]{12}$")
+
+
+def _validate_domain_pack_metadata_completeness(classification: dict[str, Any], label: str) -> None:
+    present = [key for key in PACK_METADATA_KEYS if key in classification]
+    if present and len(present) != len(PACK_METADATA_KEYS):
+        missing = sorted(set(PACK_METADATA_KEYS) - set(present))
+        raise EventValidationError(
+            f"{label} has incomplete domain pack metadata; missing: {', '.join(missing)}"
+        )
 
 
 def _validate_object_patch(patch: dict[str, Any]) -> None:
