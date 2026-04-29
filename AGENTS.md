@@ -111,6 +111,10 @@
 - Rebuild the distribution artifact with `python3 scripts/build_artifact.py` after any project
   update that changes the Skill, runtime code, references, schemas, templates, bundled agent
   metadata, packaging metadata, or packaging rules.
+- When rebuilding the distribution artifact, also write a companion diff file under `dist/`
+  for the source changes being packaged. For branch-based work, prefer
+  `git diff origin/main...HEAD --output=dist/<topic>.diff`; for uncommitted local work,
+  generate the equivalent staged or working-tree diff and state the base used.
 - Treat files under `dist/` as generated output. Do not edit them by hand; update source files
   and rebuild the artifact instead.
 - The distribution artifact must contain only the installable Skill package rooted at
