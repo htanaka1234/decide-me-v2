@@ -328,7 +328,7 @@ interview:
     - legal
     - compliance
     - gdpr
-    - contract
+    - terms of service
     - terms
     - consent
     - policy
@@ -340,7 +340,9 @@ interview:
     - eu
     - integration
     - provider
-    - vendor
+    - vendor dependency
+    - third party provider
+    - api provider
     - webhook
     - credential
     - credentials

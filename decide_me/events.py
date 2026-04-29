@@ -229,6 +229,7 @@ def _validate_session_classification(classification: dict[str, Any], label: str)
         raise EventValidationError(f"{label} contains unsupported fields: {', '.join(unsupported)}")
     _validate_domain_pack_metadata_completeness(classification, label)
     domain = classification.get("domain")
+    _require_string_or_null(domain, f"{label}.domain")
     if domain is not None and domain not in DOMAIN_VALUES:
         allowed = ", ".join(sorted(DOMAIN_VALUES))
         raise EventValidationError(f"{label}.domain must be one of: {allowed}")

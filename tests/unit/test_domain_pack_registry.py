@@ -165,6 +165,12 @@ class DomainPackRegistryTests(unittest.TestCase):
             ("vendor, contract, budget, comparison", "procurement"),
             ("API, auth, endpoint, database", "software"),
             ("API/auth endpoint database", "software"),
+            ("auth", "software"),
+            ("API", "software"),
+            ("cohort", "research"),
+            ("vendor", "procurement"),
+            ("contract", "procurement"),
+            ("endpoint", "generic"),
             ("decision option risk evidence verification", "generic"),
             ("", "generic"),
         )
