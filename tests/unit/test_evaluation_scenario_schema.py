@@ -106,6 +106,58 @@ class EvaluationScenarioSchemaTests(unittest.TestCase):
 
         self.assertEqual([], list(self.validator.iter_errors(payload)))
 
+    def test_accepts_optional_question_probe_expectations(self) -> None:
+        payload = _valid_scenario()
+        payload["evaluation"]["expected_questions"]["probe_session_ids"] = ["S-research-protocol"]
+        payload["evaluation"]["expected_questions"]["advance_steps"] = 2
+
+        self.assertEqual([], list(self.validator.iter_errors(payload)))
+
+    def test_rejects_invalid_question_probe_session_id(self) -> None:
+        payload = _valid_scenario()
+        payload["evaluation"]["expected_questions"]["probe_session_ids"] = ["../S"]
+
+        self.assertTrue(list(self.validator.iter_errors(payload)))
+
+    def test_accepts_optional_document_source_traceability_requirement(self) -> None:
+        payload = _valid_scenario()
+        payload["evaluation"]["expected_documents"][0]["require_source_traceability"] = True
+
+        self.assertEqual([], list(self.validator.iter_errors(payload)))
+
+    def test_rejects_invalid_document_source_traceability_requirement(self) -> None:
+        payload = _valid_scenario()
+        payload["evaluation"]["expected_documents"][0]["require_source_traceability"] = "yes"
+
+        self.assertTrue(list(self.validator.iter_errors(payload)))
+
+    def test_accepts_optional_plan_and_revisit_expectations(self) -> None:
+        payload = _valid_scenario()
+        payload["evaluation"]["expected_plan_executability"] = {
+            "readiness": "conditional",
+            "min_implementation_ready_count": 1,
+        }
+        payload["evaluation"]["expected_revisit_quality"] = {"mode": "min", "count": 1}
+
+        self.assertEqual([], list(self.validator.iter_errors(payload)))
+
+    def test_rejects_invalid_plan_and_revisit_expectations(self) -> None:
+        invalid_payloads = []
+        payload = _valid_scenario()
+        payload["evaluation"]["expected_plan_executability"] = {
+            "readiness": "partial",
+            "min_implementation_ready_count": 1,
+        }
+        invalid_payloads.append(payload)
+
+        payload = _valid_scenario()
+        payload["evaluation"]["expected_revisit_quality"] = {"mode": "at_least", "count": 1}
+        invalid_payloads.append(payload)
+
+        for payload in invalid_payloads:
+            with self.subTest(payload=payload["evaluation"]):
+                self.assertTrue(list(self.validator.iter_errors(payload)))
+
     def test_rejects_invalid_safety_gate_approval_threshold(self) -> None:
         payload = _valid_scenario()
         payload["evaluation"]["expected_safety_gates"] = {

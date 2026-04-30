@@ -65,6 +65,13 @@
       "type": "integer",
       "minimum": 0
     },
+    "session_id_array": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/session_id"
+      },
+      "uniqueItems": true
+    },
     "relative_jsonl_path": {
       "type": "string",
       "pattern": "^(?!/)(?!.*//)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9._/-]+\\.jsonl$"
@@ -101,6 +108,13 @@
       "enum": [
         "exact",
         "min"
+      ]
+    },
+    "plan_readiness": {
+      "enum": [
+        "ready",
+        "conditional",
+        "blocked"
       ]
     },
     "risk_tier": {
@@ -211,6 +225,12 @@
         "expected_safety_gates": {
           "$ref": "#/$defs/expected_safety_gates"
         },
+        "expected_plan_executability": {
+          "$ref": "#/$defs/expected_plan_executability"
+        },
+        "expected_revisit_quality": {
+          "$ref": "#/$defs/expected_revisit_quality"
+        },
         "expected_documents": {
           "type": "array",
           "items": {
@@ -276,6 +296,12 @@
         },
         "forbidden_repeated_decision_types": {
           "$ref": "#/$defs/identifier_array"
+        },
+        "probe_session_ids": {
+          "$ref": "#/$defs/session_id_array"
+        },
+        "advance_steps": {
+          "$ref": "#/$defs/non_negative_integer"
         }
       },
       "additionalProperties": false
@@ -339,6 +365,38 @@
       },
       "additionalProperties": false
     },
+    "expected_plan_executability": {
+      "type": "object",
+      "required": [
+        "readiness",
+        "min_implementation_ready_count"
+      ],
+      "properties": {
+        "readiness": {
+          "$ref": "#/$defs/plan_readiness"
+        },
+        "min_implementation_ready_count": {
+          "$ref": "#/$defs/non_negative_integer"
+        }
+      },
+      "additionalProperties": false
+    },
+    "expected_revisit_quality": {
+      "type": "object",
+      "required": [
+        "mode",
+        "count"
+      ],
+      "properties": {
+        "mode": {
+          "$ref": "#/$defs/status_count_mode"
+        },
+        "count": {
+          "$ref": "#/$defs/non_negative_integer"
+        }
+      },
+      "additionalProperties": false
+    },
     "expected_conflicts": {
       "type": "object",
       "required": [
@@ -385,6 +443,9 @@
             "$ref": "#/$defs/non_empty_string"
           },
           "uniqueItems": true
+        },
+        "require_source_traceability": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false

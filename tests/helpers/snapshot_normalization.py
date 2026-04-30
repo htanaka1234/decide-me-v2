@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+"""JSON snapshot normalization for Phase 10 helpers.
+
+Markdown generated-region extraction and CSV row-order normalization are Step 5 work.
+"""
+
 import json
 from typing import Any
 

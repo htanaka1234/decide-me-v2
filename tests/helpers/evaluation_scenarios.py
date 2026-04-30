@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from collections import Counter
 from copy import deepcopy
 from dataclasses import dataclass
@@ -14,6 +15,7 @@ from jsonschema import Draft202012Validator, FormatChecker
 from decide_me.documents.compiler import compile_document
 from decide_me.domains import domain_pack_digest, load_domain_registry
 from decide_me.events import build_event
+from decide_me.interview import advance_session
 from decide_me.lifecycle import close_session
 from decide_me.planner import assemble_action_plan, detect_conflicts
 from decide_me.registers import build_evidence_register, build_risk_register
@@ -69,6 +71,7 @@ class EvaluationScenario:
 @dataclass(frozen=True)
 class ScenarioRuntime:
     ai_dir: Path
+    question_probe_ai_dir: Path
     bundle: dict[str, Any]
     events: list[dict[str, Any]]
     session_ids: list[str]
@@ -101,10 +104,19 @@ def build_scenario_runtime(
     ensure_runtime_dirs(paths)
     _write_bootstrap_events(scenario, ai_dir)
     rebuild_and_persist(ai_dir)
+    question_probe_ai_dir = Path(tmp_path) / scenario.scenario_id / ".ai" / "decide-me-question-probe"
+    shutil.copytree(ai_dir, question_probe_ai_dir)
 
-    for session in scenario.sessions:
+    close_base = _parse_timestamp(scenario.evaluation["now"]) + timedelta(seconds=9000)
+    for index, session in enumerate(scenario.sessions, start=1):
         if session["close"]:
-            close_session(str(ai_dir), session["session_id"])
+            close_session(
+                str(ai_dir),
+                session["session_id"],
+                now=_format_timestamp(close_base + timedelta(seconds=index)),
+                tx_id=_tx_id(scenario, f"close-{_safe_id(session['session_id'])}"),
+                event_id_prefix=_event_id(scenario, f"close-{_safe_id(session['session_id'])}"),
+            )
 
     bundle = rebuild_and_persist(ai_dir)
     events = read_event_log(runtime_paths(ai_dir))
@@ -115,6 +127,7 @@ def build_scenario_runtime(
     ]
     return ScenarioRuntime(
         ai_dir=ai_dir,
+        question_probe_ai_dir=question_probe_ai_dir,
         bundle=bundle,
         events=events,
         session_ids=_scenario_session_ids(scenario),
@@ -135,14 +148,14 @@ def run_scenario_evaluation(
 
     validation_issues = validate_runtime(ai_dir)
     metrics = {
-        "question_efficiency": _question_efficiency_metric(scenario, events, project_state, failures),
+        "question_efficiency": _question_efficiency_metric(scenario, runtime, failures),
         "decision_completeness": _decision_completeness_metric(scenario, project_state, failures),
         "evidence_coverage": _evidence_coverage_metric(scenario, project_state, failures),
         "risk_coverage": _risk_and_safety_metric(scenario, runtime, project_state, failures),
         "conflict_detection": _conflict_detection_metric(scenario, runtime, bundle, failures),
-        "plan_executability": _plan_executability_metric(runtime, bundle, failures),
+        "plan_executability": _plan_executability_metric(scenario, runtime, bundle, failures),
         "document_readability": _document_readability_metric(scenario, runtime, failures),
-        "revisit_quality": _revisit_quality_metric(project_state, evaluation["now"]),
+        "revisit_quality": _revisit_quality_metric(scenario, project_state, evaluation["now"], failures),
     }
     if validation_issues:
         metrics["plan_executability"]["passed"] = False
@@ -286,6 +299,9 @@ def _write_bootstrap_events(scenario: EvaluationScenario, ai_dir: Path) -> None:
 
 
 def _write_event_specs(paths: Any, *, tx_id: str, specs: list[dict[str, Any]]) -> None:
+    # Scenario fixtures need fixed session IDs, timestamps, transaction IDs, and EventSpec JSONL
+    # replay before a public scenario runner exists, so this dev-only helper writes deterministic
+    # transaction files directly and still relies on rebuild_and_persist() for projections.
     tx_size = len(specs)
     events = [
         build_event(
@@ -360,18 +376,35 @@ def _normalize_seed_spec(
 
 def _question_efficiency_metric(
     scenario: EvaluationScenario,
-    events: list[dict[str, Any]],
-    project_state: dict[str, Any],
+    runtime: ScenarioRuntime,
     failures: list[dict[str, Any]],
 ) -> dict[str, Any]:
     expected = scenario.evaluation["expected_questions"]
-    scenario_sessions = set(_scenario_session_ids(scenario))
+    probe_session_ids = expected.get("probe_session_ids") or _scenario_session_ids(scenario)
+    advance_steps = expected.get("advance_steps", 1)
+    known_sessions = set(_scenario_session_ids(scenario))
+    unknown_sessions = [session_id for session_id in probe_session_ids if session_id not in known_sessions]
+    before_event_ids = {event["event_id"] for event in read_event_log(runtime_paths(runtime.question_probe_ai_dir))}
+
+    probe_errors: list[str] = []
+    for session_id in probe_session_ids:
+        if session_id in unknown_sessions:
+            continue
+        for _step in range(advance_steps):
+            try:
+                advance_session(str(runtime.question_probe_ai_dir), session_id, repo_root=scenario.root)
+            except Exception as exc:  # pragma: no cover - future scenario fixtures may exercise this
+                probe_errors.append(f"{session_id}: {exc}")
+                break
+
+    probe_bundle = load_runtime(runtime_paths(runtime.question_probe_ai_dir))
+    probe_events = read_event_log(runtime_paths(runtime.question_probe_ai_dir))
     question_events = [
         event
-        for event in events
-        if event["session_id"] in scenario_sessions and event["event_type"] == "session_question_asked"
+        for event in probe_events
+        if event["event_id"] not in before_event_ids and event["event_type"] == "session_question_asked"
     ]
-    object_by_id = _objects_by_id(project_state)
+    object_by_id = _objects_by_id(probe_bundle["project_state"])
     decision_types = [
         object_by_id.get(event["payload"]["target_object_id"], {}).get("metadata", {}).get("domain_decision_type")
         for event in question_events
@@ -382,7 +415,12 @@ def _question_efficiency_metric(
         for decision_type in expected["forbidden_repeated_decision_types"]
         if counts.get(decision_type, 0) > 1
     )
-    passed = len(question_events) <= expected["max_questions"] and not repeated
+    passed = (
+        len(question_events) <= expected["max_questions"]
+        and not repeated
+        and not unknown_sessions
+        and not probe_errors
+    )
     if len(question_events) > expected["max_questions"]:
         failures.append(
             _failure(
@@ -401,6 +439,26 @@ def _question_efficiency_metric(
                 "$.metrics.question_efficiency.repeated_forbidden_decision_types",
                 expected=[],
                 actual=repeated,
+            )
+        )
+    if unknown_sessions:
+        failures.append(
+            _failure(
+                "question_efficiency",
+                "Question probe references unknown scenario sessions.",
+                "$.evaluation.expected_questions.probe_session_ids",
+                expected=sorted(known_sessions),
+                actual=unknown_sessions,
+            )
+        )
+    if probe_errors:
+        failures.append(
+            _failure(
+                "question_efficiency",
+                "Question probe execution failed.",
+                "$.metrics.question_efficiency",
+                expected="advance_session probe succeeds",
+                actual=probe_errors,
             )
         )
     return {
@@ -700,6 +758,7 @@ def _scenario_conflicts(runtime: ScenarioRuntime, bundle: dict[str, Any]) -> lis
 
 
 def _plan_executability_metric(
+    scenario: EvaluationScenario,
     runtime: ScenarioRuntime,
     bundle: dict[str, Any],
     failures: list[dict[str, Any]],
@@ -736,10 +795,32 @@ def _plan_executability_metric(
             "implementation_ready_count": 0,
             "passed": False,
         }
+    readiness = action_plan["readiness"]
+    implementation_ready_count = len(action_plan["implementation_ready_actions"])
+    expected = scenario.evaluation.get("expected_plan_executability")
+    passed = True
+    if expected is not None:
+        passed = (
+            readiness == expected["readiness"]
+            and implementation_ready_count >= expected["min_implementation_ready_count"]
+        )
+        if not passed:
+            failures.append(
+                _failure(
+                    "plan_executability",
+                    "Action plan executability did not match expectations.",
+                    "$.metrics.plan_executability",
+                    expected=expected,
+                    actual={
+                        "readiness": readiness,
+                        "implementation_ready_count": implementation_ready_count,
+                    },
+                )
+            )
     return {
-        "readiness": action_plan["readiness"],
-        "implementation_ready_count": len(action_plan["implementation_ready_actions"]),
-        "passed": True,
+        "readiness": readiness,
+        "implementation_ready_count": implementation_ready_count,
+        "passed": passed,
     }
 
 
@@ -751,6 +832,7 @@ def _document_readability_metric(
     expected_documents = scenario.evaluation["expected_documents"]
     missing_sections: list[str] = []
     empty_sections: list[str] = []
+    missing_traceability: list[str] = []
     for expected in expected_documents:
         try:
             document = compile_document(
@@ -780,18 +862,21 @@ def _document_readability_metric(
                 missing_sections.append(section_id)
             elif not _section_has_content(section):
                 empty_sections.append(section_id)
+        if expected.get("require_source_traceability") and not _document_has_source_traceability(document):
+            missing_traceability.append(expected["type"])
 
-    passed = not missing_sections and not empty_sections
-    if missing_sections or empty_sections:
+    passed = not missing_sections and not empty_sections and not missing_traceability
+    if missing_sections or empty_sections or missing_traceability:
         failures.append(
             _failure(
                 "document_readability",
-                "Document required sections were missing or empty.",
+                "Document required sections or source traceability were missing or empty.",
                 "$.metrics.document_readability",
                 expected=expected_documents,
                 actual={
                     "missing_sections": sorted(stable_unique(missing_sections)),
                     "empty_sections": sorted(stable_unique(empty_sections)),
+                    "missing_source_traceability": sorted(stable_unique(missing_traceability)),
                 },
             )
         )
@@ -802,15 +887,45 @@ def _document_readability_metric(
     }
 
 
-def _revisit_quality_metric(project_state: dict[str, Any], now: str) -> dict[str, Any]:
+def _revisit_quality_metric(
+    scenario: EvaluationScenario,
+    project_state: dict[str, Any],
+    now: str,
+    failures: list[dict[str, Any]],
+) -> dict[str, Any]:
     detect_stale_assumptions(project_state, now=now)
     detect_stale_evidence(project_state, now=now)
     detect_verification_gaps(project_state, now=now)
     revisit_due = detect_revisit_due(project_state, now=now)
+    due_count = revisit_due["summary"]["item_count"]
+    expected = scenario.evaluation.get("expected_revisit_quality")
+    passed = True
+    if expected is not None:
+        passed = due_count == expected["count"] if expected["mode"] == "exact" else due_count >= expected["count"]
+        if not passed:
+            failures.append(
+                _failure(
+                    "revisit_quality",
+                    "Due revisit count did not match expectations.",
+                    "$.metrics.revisit_quality.due_revisit_count",
+                    expected=expected,
+                    actual=due_count,
+                )
+            )
     return {
-        "due_revisit_count": revisit_due["summary"]["item_count"],
-        "passed": True,
+        "due_revisit_count": due_count,
+        "passed": passed,
     }
+
+
+def _document_has_source_traceability(document: dict[str, Any]) -> bool:
+    source = document.get("source", {})
+    has_document_source = bool(source.get("object_ids")) and bool(source.get("link_ids"))
+    sections_by_id = {section["id"]: section for section in document.get("sections", [])}
+    trace_section = sections_by_id.get("source-traceability")
+    if trace_section is not None:
+        return has_document_source and _section_has_content(trace_section)
+    return has_document_source
 
 
 def _section_has_content(section: dict[str, Any]) -> bool:
@@ -871,12 +986,17 @@ def _domain_pack_classification(pack: Any, updated_at: str) -> dict[str, Any]:
     }
 
 
-def _tx_id(scenario: EvaluationScenario, index: int) -> str:
-    return f"T-eval-{scenario.scenario_id}-{index:04d}"
+def _tx_id(scenario: EvaluationScenario, index: int | str) -> str:
+    suffix = f"{index:04d}" if isinstance(index, int) else index
+    return f"T-eval-{scenario.scenario_id}-{suffix}"
 
 
 def _event_id(scenario: EvaluationScenario, suffix: str) -> str:
     return f"E-eval-{scenario.scenario_id}-{suffix}"
+
+
+def _safe_id(value: str) -> str:
+    return value.lower().replace("_", "-").replace(".", "-")
 
 
 def _parse_timestamp(value: str) -> datetime:
