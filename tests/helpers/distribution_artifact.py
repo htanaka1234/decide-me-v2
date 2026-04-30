@@ -24,6 +24,12 @@ class BuiltArtifact:
         self.zip_path = self._build()
         self._skill_dir: Path | None = None
 
+    def __enter__(self) -> BuiltArtifact:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, traceback: object) -> None:
+        self.cleanup()
+
     def cleanup(self) -> None:
         self._temp_dir.cleanup()
 
@@ -72,8 +78,13 @@ class BuiltArtifact:
             )
         return result
 
-    def run_packaged_json(self, *args: str, check: bool = True) -> dict[str, Any]:
-        return json.loads(self.run_packaged_cli(*args, check=check).stdout)
+    def run_packaged_json(self, *args: str) -> dict[str, Any]:
+        result = self.run_packaged_cli(*args, check=True)
+        if not result.stdout.strip():
+            raise AssertionError(
+                f"Packaged CLI produced no JSON stdout: {' '.join(args)}"
+            )
+        return json.loads(result.stdout)
 
     def _build(self) -> Path:
         env = dict(os.environ)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from contextlib import redirect_stderr, redirect_stdout
 from dataclasses import dataclass
 from io import StringIO
@@ -33,10 +34,12 @@ def run_cli(
     stderr = StringIO()
     merged_env = _test_env(env)
     previous_env = os.environ.copy()
+    previous_argv = sys.argv[:]
 
     try:
         os.environ.clear()
         os.environ.update(merged_env)
+        sys.argv = [str(REPO_ROOT / "scripts" / "decide_me.py"), *args]
         if cwd is not None:
             os.chdir(cwd)
         with redirect_stdout(stdout), redirect_stderr(stderr):
@@ -47,6 +50,7 @@ def run_cli(
     finally:
         if cwd is not None:
             os.chdir(previous_cwd)
+        sys.argv = previous_argv
         os.environ.clear()
         os.environ.update(previous_env)
 
@@ -67,11 +71,15 @@ def run_cli(
 
 def run_json_cli(
     *args: str,
-    check: bool = True,
     cwd: str | Path | None = None,
     env: dict[str, str] | None = None,
 ) -> dict[str, Any]:
-    result = run_cli(*args, check=check, cwd=cwd, env=env)
+    result = run_cli(*args, check=True, cwd=cwd, env=env)
+    if not result.stdout.strip():
+        raise AssertionError(
+            f"CLI produced no JSON stdout: {' '.join(result.args)}\n"
+            f"STDERR:\n{result.stderr}"
+        )
     return json.loads(result.stdout)
 
 
