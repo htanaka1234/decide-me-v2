@@ -2,15 +2,19 @@ from __future__ import annotations
 
 import json
 import unittest
+from datetime import datetime
 from pathlib import Path
 
-from jsonschema import Draft202012Validator
+from jsonschema import Draft202012Validator, FormatChecker
 
 
 class EvaluationReportSchemaTests(unittest.TestCase):
     def setUp(self) -> None:
         schema_path = Path(__file__).resolve().parents[2] / "schemas" / "evaluation-report.schema.json"
-        self.validator = Draft202012Validator(json.loads(schema_path.read_text(encoding="utf-8")))
+        self.validator = Draft202012Validator(
+            json.loads(schema_path.read_text(encoding="utf-8")),
+            format_checker=_format_checker(),
+        )
 
     def test_accepts_valid_passed_report(self) -> None:
         self.assertEqual([], list(self.validator.iter_errors(_valid_report())))
@@ -58,6 +62,48 @@ class EvaluationReportSchemaTests(unittest.TestCase):
                 "message": "Unexpected snapshot diff.",
             }
         ]
+
+        self.assertTrue(list(self.validator.iter_errors(payload)))
+
+    def test_rejects_passed_report_with_failed_metric(self) -> None:
+        payload = _valid_report()
+        payload["metrics"]["decision_completeness"]["passed"] = False
+
+        self.assertTrue(list(self.validator.iter_errors(payload)))
+
+    def test_rejects_passed_report_with_failures(self) -> None:
+        payload = _valid_report()
+        payload["failures"] = [
+            {
+                "metric": "decision_completeness",
+                "message": "Failure payload contradicts passed status.",
+            }
+        ]
+
+        self.assertTrue(list(self.validator.iter_errors(payload)))
+
+    def test_rejects_failed_report_with_all_metrics_passing(self) -> None:
+        payload = _valid_report()
+        payload["status"] = "failed"
+        payload["failures"] = [
+            {
+                "metric": "decision_completeness",
+                "message": "Failure payload must correspond to a failed metric.",
+            }
+        ]
+
+        self.assertTrue(list(self.validator.iter_errors(payload)))
+
+    def test_rejects_failed_report_without_failures(self) -> None:
+        payload = _valid_report()
+        payload["status"] = "failed"
+        payload["metrics"]["decision_completeness"]["passed"] = False
+
+        self.assertTrue(list(self.validator.iter_errors(payload)))
+
+    def test_rejects_invalid_generated_at_timestamp(self) -> None:
+        payload = _valid_report()
+        payload["generated_at"] = "not-a-date"
 
         self.assertTrue(list(self.validator.iter_errors(payload)))
 
@@ -111,6 +157,20 @@ def _valid_report() -> dict:
         },
         "failures": [],
     }
+
+
+def _format_checker() -> FormatChecker:
+    checker = FormatChecker()
+
+    @checker.checks("date-time", raises=ValueError)
+    def is_date_time(value: object) -> bool:
+        if not isinstance(value, str):
+            return True
+        normalized = value[:-1] + "+00:00" if value.endswith("Z") else value
+        datetime.fromisoformat(normalized)
+        return True
+
+    return checker
 
 
 if __name__ == "__main__":

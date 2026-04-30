@@ -48,9 +48,16 @@ evaluation:
       - cohort_definition
       - primary_endpoint
       - missing_data_strategy
-    required_statuses:
-      accepted: 2
-      unresolved_min: 1
+    required_status_counts:
+      - status: accepted
+        mode: exact
+        count: 2
+      - status: unresolved
+        mode: min
+        count: 1
+      - status: resolved-by-evidence
+        mode: min
+        count: 1
   expected_questions:
     max_questions: 4
     forbidden_repeated_decision_types:
@@ -64,7 +71,17 @@ evaluation:
     required_domain_risk_types:
       - unclear_endpoint
       - missing_data
+    required_risk_tiers:
+      - high
     min_high_or_critical_risks: 1
+  expected_safety_gates:
+    required_rule_ids:
+      - validity_review
+    required_approval_thresholds:
+      - human_review
+    min_approval_required_count: 1
+    required_insufficient_evidence_ids:
+      - data_dictionary
   expected_conflicts:
     count: 0
   expected_documents:
@@ -82,6 +99,16 @@ evaluation:
 `domain_pack` is an identifier rather than a fixed enum so future custom packs can be evaluated
 with the same harness. `sessions[].seed_events` must be a safe relative `.jsonl` path. Absolute
 paths, parent-directory traversal, and non-JSONL files are invalid.
+
+Decision status expectations use runtime status names verbatim. The allowed decision statuses are
+`unresolved`, `proposed`, `blocked`, `accepted`, `deferred`, `resolved-by-evidence`, and
+`invalidated`. Evidence-based resolution must be represented as `resolved-by-evidence`; do not add
+fixture-only aliases such as `answered_by_codebase`.
+
+Risk expectations describe risk objects and risk tiers. Safety Gate expectations are separate and
+describe gate outputs such as applied domain safety rules, approval thresholds, approval-required
+counts, and missing domain evidence requirements. Runner code should match these expectations
+against the projected runtime, register outputs, Safety Gate diagnostics, and document models.
 
 ## Evaluation report
 
@@ -141,6 +168,17 @@ The report is a schema-shaped JSON object with deterministic timestamps. Runners
 
 Failures identify the metric, include a human-readable message, and may include a JSON path plus
 the expected and actual values that caused the mismatch.
+
+The report schema validates both structure and pass/fail consistency:
+
+- `status: "passed"` requires all metric `passed` flags to be true and `failures` to be empty.
+- `status: "failed"` requires at least one metric `passed` flag to be false and at least one
+  failure entry.
+
+Runtime-derived semantic checks still belong in the Evaluation Suite runner and assertion helpers.
+Those helpers decide whether projections, registers, Safety Gate diagnostics, and compiled
+documents satisfy the scenario. The report schema guarantees that the runner cannot emit a
+self-contradictory report.
 
 ## Read-only behavior
 

@@ -2,15 +2,19 @@ from __future__ import annotations
 
 import json
 import unittest
+from datetime import datetime
 from pathlib import Path
 
-from jsonschema import Draft202012Validator
+from jsonschema import Draft202012Validator, FormatChecker
 
 
 class EvaluationScenarioSchemaTests(unittest.TestCase):
     def setUp(self) -> None:
         schema_path = Path(__file__).resolve().parents[2] / "schemas" / "evaluation-scenario.schema.json"
-        self.validator = Draft202012Validator(json.loads(schema_path.read_text(encoding="utf-8")))
+        self.validator = Draft202012Validator(
+            json.loads(schema_path.read_text(encoding="utf-8")),
+            format_checker=_format_checker(),
+        )
 
     def test_accepts_valid_research_protocol_scenario(self) -> None:
         self.assertEqual([], list(self.validator.iter_errors(_valid_scenario())))
@@ -24,6 +28,37 @@ class EvaluationScenarioSchemaTests(unittest.TestCase):
     def test_rejects_missing_required_evaluation_section(self) -> None:
         payload = _valid_scenario()
         del payload["evaluation"]["expected_documents"]
+
+        self.assertTrue(list(self.validator.iter_errors(payload)))
+
+    def test_accepts_resolved_by_evidence_and_invalidated_status_counts(self) -> None:
+        payload = _valid_scenario()
+        payload["evaluation"]["expected_decision_coverage"]["required_status_counts"] = [
+            {"status": "resolved-by-evidence", "mode": "min", "count": 1},
+            {"status": "invalidated", "mode": "exact", "count": 0},
+        ]
+
+        self.assertEqual([], list(self.validator.iter_errors(payload)))
+
+    def test_rejects_legacy_answered_by_codebase_status_count(self) -> None:
+        payload = _valid_scenario()
+        payload["evaluation"]["expected_decision_coverage"]["required_status_counts"] = [
+            {"status": "answered_by_codebase", "mode": "min", "count": 1}
+        ]
+
+        self.assertTrue(list(self.validator.iter_errors(payload)))
+
+    def test_rejects_old_status_count_object_shape(self) -> None:
+        payload = _valid_scenario()
+        coverage = payload["evaluation"]["expected_decision_coverage"]
+        del coverage["required_status_counts"]
+        coverage["required_statuses"] = {"answered_by_codebase": 1}
+
+        self.assertTrue(list(self.validator.iter_errors(payload)))
+
+    def test_rejects_invalid_now_timestamp(self) -> None:
+        payload = _valid_scenario()
+        payload["evaluation"]["now"] = "not-a-date"
 
         self.assertTrue(list(self.validator.iter_errors(payload)))
 
@@ -60,6 +95,39 @@ class EvaluationScenarioSchemaTests(unittest.TestCase):
 
         self.assertTrue(list(self.validator.iter_errors(payload)))
 
+    def test_accepts_optional_safety_gate_expectations(self) -> None:
+        payload = _valid_scenario()
+        payload["evaluation"]["expected_safety_gates"] = {
+            "required_rule_ids": ["validity_review"],
+            "required_approval_thresholds": ["human_review"],
+            "min_approval_required_count": 1,
+            "required_insufficient_evidence_ids": ["data_dictionary"],
+        }
+
+        self.assertEqual([], list(self.validator.iter_errors(payload)))
+
+    def test_rejects_invalid_safety_gate_approval_threshold(self) -> None:
+        payload = _valid_scenario()
+        payload["evaluation"]["expected_safety_gates"] = {
+            "required_rule_ids": ["validity_review"],
+            "required_approval_thresholds": ["manual_review"],
+            "min_approval_required_count": 1,
+            "required_insufficient_evidence_ids": ["data_dictionary"],
+        }
+
+        self.assertTrue(list(self.validator.iter_errors(payload)))
+
+    def test_rejects_invalid_insufficient_evidence_ids(self) -> None:
+        payload = _valid_scenario()
+        payload["evaluation"]["expected_safety_gates"] = {
+            "required_rule_ids": ["validity_review"],
+            "required_approval_thresholds": ["human_review"],
+            "min_approval_required_count": 1,
+            "required_insufficient_evidence_ids": ["../data_dictionary"],
+        }
+
+        self.assertTrue(list(self.validator.iter_errors(payload)))
+
 
 def _valid_scenario() -> dict:
     return {
@@ -89,10 +157,10 @@ def _valid_scenario() -> dict:
                     "primary_endpoint",
                     "missing_data_strategy",
                 ],
-                "required_statuses": {
-                    "accepted": 2,
-                    "unresolved_min": 1,
-                },
+                "required_status_counts": [
+                    {"status": "accepted", "mode": "exact", "count": 2},
+                    {"status": "unresolved", "mode": "min", "count": 1},
+                ],
             },
             "expected_questions": {
                 "max_questions": 4,
@@ -107,6 +175,7 @@ def _valid_scenario() -> dict:
             },
             "expected_risks": {
                 "required_domain_risk_types": ["unclear_endpoint", "missing_data"],
+                "required_risk_tiers": ["high"],
                 "min_high_or_critical_risks": 1,
             },
             "expected_conflicts": {
@@ -128,6 +197,20 @@ def _valid_scenario() -> dict:
             ],
         },
     }
+
+
+def _format_checker() -> FormatChecker:
+    checker = FormatChecker()
+
+    @checker.checks("date-time", raises=ValueError)
+    def is_date_time(value: object) -> bool:
+        if not isinstance(value, str):
+            return True
+        normalized = value[:-1] + "+00:00" if value.endswith("Z") else value
+        datetime.fromisoformat(normalized)
+        return True
+
+    return checker
 
 
 if __name__ == "__main__":

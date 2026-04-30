@@ -40,6 +40,52 @@
     }
   },
   "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "const": "passed"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "failures": {
+            "maxItems": 0
+          },
+          "metrics": {
+            "$ref": "#/$defs/all_metrics_passed"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "const": "failed"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "failures": {
+            "minItems": 1
+          },
+          "metrics": {
+            "$ref": "#/$defs/any_metric_failed"
+          }
+        }
+      }
+    }
+  ],
   "$defs": {
     "identifier": {
       "type": "string",
@@ -63,6 +109,117 @@
         "plan_executability",
         "document_readability",
         "revisit_quality"
+      ]
+    },
+    "metric_passed_true": {
+      "type": "object",
+      "required": [
+        "passed"
+      ],
+      "properties": {
+        "passed": {
+          "const": true
+        }
+      }
+    },
+    "metric_passed_false": {
+      "type": "object",
+      "required": [
+        "passed"
+      ],
+      "properties": {
+        "passed": {
+          "const": false
+        }
+      }
+    },
+    "all_metrics_passed": {
+      "type": "object",
+      "properties": {
+        "question_efficiency": {
+          "$ref": "#/$defs/metric_passed_true"
+        },
+        "decision_completeness": {
+          "$ref": "#/$defs/metric_passed_true"
+        },
+        "evidence_coverage": {
+          "$ref": "#/$defs/metric_passed_true"
+        },
+        "risk_coverage": {
+          "$ref": "#/$defs/metric_passed_true"
+        },
+        "conflict_detection": {
+          "$ref": "#/$defs/metric_passed_true"
+        },
+        "plan_executability": {
+          "$ref": "#/$defs/metric_passed_true"
+        },
+        "document_readability": {
+          "$ref": "#/$defs/metric_passed_true"
+        },
+        "revisit_quality": {
+          "$ref": "#/$defs/metric_passed_true"
+        }
+      }
+    },
+    "any_metric_failed": {
+      "anyOf": [
+        {
+          "properties": {
+            "question_efficiency": {
+              "$ref": "#/$defs/metric_passed_false"
+            }
+          }
+        },
+        {
+          "properties": {
+            "decision_completeness": {
+              "$ref": "#/$defs/metric_passed_false"
+            }
+          }
+        },
+        {
+          "properties": {
+            "evidence_coverage": {
+              "$ref": "#/$defs/metric_passed_false"
+            }
+          }
+        },
+        {
+          "properties": {
+            "risk_coverage": {
+              "$ref": "#/$defs/metric_passed_false"
+            }
+          }
+        },
+        {
+          "properties": {
+            "conflict_detection": {
+              "$ref": "#/$defs/metric_passed_false"
+            }
+          }
+        },
+        {
+          "properties": {
+            "plan_executability": {
+              "$ref": "#/$defs/metric_passed_false"
+            }
+          }
+        },
+        {
+          "properties": {
+            "document_readability": {
+              "$ref": "#/$defs/metric_passed_false"
+            }
+          }
+        },
+        {
+          "properties": {
+            "revisit_quality": {
+              "$ref": "#/$defs/metric_passed_false"
+            }
+          }
+        }
       ]
     },
     "metrics": {
