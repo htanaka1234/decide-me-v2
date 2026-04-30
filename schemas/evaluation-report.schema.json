@@ -1,0 +1,282 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/decide-me/evaluation-report.schema.json",
+  "title": "Decide Me Evaluation Report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "scenario_id",
+    "status",
+    "generated_at",
+    "metrics",
+    "failures"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "scenario_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "status": {
+      "enum": [
+        "passed",
+        "failed"
+      ]
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "metrics": {
+      "$ref": "#/$defs/metrics"
+    },
+    "failures": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/failure"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "non_empty_string": {
+      "type": "string",
+      "minLength": 1
+    },
+    "non_negative_integer": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "metric_name": {
+      "enum": [
+        "question_efficiency",
+        "decision_completeness",
+        "evidence_coverage",
+        "risk_coverage",
+        "conflict_detection",
+        "plan_executability",
+        "document_readability",
+        "revisit_quality"
+      ]
+    },
+    "metrics": {
+      "type": "object",
+      "required": [
+        "question_efficiency",
+        "decision_completeness",
+        "evidence_coverage",
+        "risk_coverage",
+        "conflict_detection",
+        "plan_executability",
+        "document_readability",
+        "revisit_quality"
+      ],
+      "properties": {
+        "question_efficiency": {
+          "$ref": "#/$defs/question_efficiency_metric"
+        },
+        "decision_completeness": {
+          "$ref": "#/$defs/coverage_metric"
+        },
+        "evidence_coverage": {
+          "$ref": "#/$defs/coverage_metric"
+        },
+        "risk_coverage": {
+          "$ref": "#/$defs/coverage_metric"
+        },
+        "conflict_detection": {
+          "$ref": "#/$defs/conflict_detection_metric"
+        },
+        "plan_executability": {
+          "$ref": "#/$defs/plan_executability_metric"
+        },
+        "document_readability": {
+          "$ref": "#/$defs/document_readability_metric"
+        },
+        "revisit_quality": {
+          "$ref": "#/$defs/revisit_quality_metric"
+        }
+      },
+      "additionalProperties": false
+    },
+    "question_efficiency_metric": {
+      "type": "object",
+      "required": [
+        "asked_count",
+        "max_allowed",
+        "passed"
+      ],
+      "properties": {
+        "asked_count": {
+          "$ref": "#/$defs/non_negative_integer"
+        },
+        "max_allowed": {
+          "$ref": "#/$defs/non_negative_integer"
+        },
+        "repeated_forbidden_decision_types": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identifier"
+          },
+          "uniqueItems": true
+        },
+        "passed": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "coverage_metric": {
+      "type": "object",
+      "required": [
+        "required_count",
+        "covered_count",
+        "passed"
+      ],
+      "properties": {
+        "required_count": {
+          "$ref": "#/$defs/non_negative_integer"
+        },
+        "covered_count": {
+          "$ref": "#/$defs/non_negative_integer"
+        },
+        "missing_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          },
+          "uniqueItems": true
+        },
+        "passed": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "conflict_detection_metric": {
+      "type": "object",
+      "required": [
+        "expected_count",
+        "actual_count",
+        "passed"
+      ],
+      "properties": {
+        "expected_count": {
+          "$ref": "#/$defs/non_negative_integer"
+        },
+        "actual_count": {
+          "$ref": "#/$defs/non_negative_integer"
+        },
+        "missing_conflict_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          },
+          "uniqueItems": true
+        },
+        "unexpected_conflict_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          },
+          "uniqueItems": true
+        },
+        "passed": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "plan_executability_metric": {
+      "type": "object",
+      "required": [
+        "readiness",
+        "implementation_ready_count",
+        "passed"
+      ],
+      "properties": {
+        "readiness": {
+          "enum": [
+            "ready",
+            "conditional",
+            "blocked"
+          ]
+        },
+        "implementation_ready_count": {
+          "$ref": "#/$defs/non_negative_integer"
+        },
+        "passed": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "document_readability_metric": {
+      "type": "object",
+      "required": [
+        "required_sections_present",
+        "empty_required_sections",
+        "passed"
+      ],
+      "properties": {
+        "required_sections_present": {
+          "type": "boolean"
+        },
+        "empty_required_sections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          },
+          "uniqueItems": true
+        },
+        "passed": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "revisit_quality_metric": {
+      "type": "object",
+      "required": [
+        "due_revisit_count",
+        "passed"
+      ],
+      "properties": {
+        "due_revisit_count": {
+          "$ref": "#/$defs/non_negative_integer"
+        },
+        "passed": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "failure": {
+      "type": "object",
+      "required": [
+        "metric",
+        "message"
+      ],
+      "properties": {
+        "metric": {
+          "$ref": "#/$defs/metric_name"
+        },
+        "message": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "expected": true,
+        "actual": true
+      },
+      "additionalProperties": false
+    }
+  }
+}

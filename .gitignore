@@ -1,4 +1,5 @@
 # decide-me runtime: track only transaction event logs and human-readable exports.
+.agents/
 .ai/*
 !.ai/decide-me/
 .ai/decide-me/*
