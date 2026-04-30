@@ -84,6 +84,61 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
                 stable_json(second.bundle["sessions"]),
             )
 
+    def test_runtime_builder_close_ids_do_not_collide_for_similar_session_ids(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "scenario"
+            work = Path(tmp) / "work"
+            payload = _valid_scenario()
+            payload["scenario_id"] = "close_id_collision"
+            payload["sessions"] = [
+                {
+                    "session_id": "S-a",
+                    "context": "Close session A.",
+                    "seed_events": "s-a.jsonl",
+                    "close": True,
+                },
+                {
+                    "session_id": "S_a",
+                    "context": "Close session underscore.",
+                    "seed_events": "s_underscore.jsonl",
+                    "close": True,
+                },
+                {
+                    "session_id": "S.a",
+                    "context": "Close session dot.",
+                    "seed_events": "s_dot.jsonl",
+                    "close": True,
+                },
+            ]
+            payload["evaluation"]["expected_decision_coverage"] = {
+                "required_domain_decision_types": [],
+                "required_status_counts": [
+                    {"status": "accepted", "mode": "exact", "count": 0},
+                ],
+            }
+            _write_scenario_fixture(
+                root,
+                payload,
+                seed_events={
+                    "s-a.jsonl": [],
+                    "s_underscore.jsonl": [],
+                    "s_dot.jsonl": [],
+                },
+            )
+            scenario = load_scenario(root / "scenario.yaml")
+
+            runtime = build_scenario_runtime(scenario, work)
+            close_events = [
+                event
+                for event in read_event_log(runtime_paths(runtime.ai_dir))
+                if event["event_type"] == "session_closed"
+            ]
+
+            self.assertEqual(["S-a", "S_a", "S.a"], runtime.closed_session_ids)
+            self.assertEqual(3, len(close_events))
+            self.assertEqual(3, len({event["tx_id"] for event in close_events}))
+            self.assertEqual(3, len({event["event_id"] for event in close_events}))
+
     def test_close_session_accepts_deterministic_now_and_ids(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "scenario"
@@ -261,6 +316,30 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
             self.assertEqual([], validate_evaluation_report(report))
             self.assertEqual("failed", report["status"])
             self.assertIn("plan_executability", {item["metric"] for item in report["failures"]})
+
+    def test_plan_executability_expectation_fails_without_closed_sessions(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "scenario"
+            work = Path(tmp) / "work"
+            payload = _valid_scenario()
+            payload["sessions"][0]["close"] = False
+            payload["evaluation"]["expected_plan_executability"] = {
+                "readiness": "ready",
+                "min_implementation_ready_count": 0,
+            }
+            _write_scenario_fixture(root, payload)
+            scenario = load_scenario(root / "scenario.yaml")
+            runtime = build_scenario_runtime(scenario, work)
+
+            report = run_scenario_evaluation(scenario, runtime)
+
+            self.assertEqual([], validate_evaluation_report(report))
+            self.assertEqual("failed", report["status"])
+            plan_failures = [
+                item for item in report["failures"] if item["metric"] == "plan_executability"
+            ]
+            self.assertEqual(1, len(plan_failures))
+            self.assertIn("requires at least one closed session", plan_failures[0]["message"])
 
     def test_revisit_quality_expectation_fails_when_due_count_does_not_match(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

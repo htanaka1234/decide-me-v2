@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
 from collections import Counter
@@ -110,12 +111,13 @@ def build_scenario_runtime(
     close_base = _parse_timestamp(scenario.evaluation["now"]) + timedelta(seconds=9000)
     for index, session in enumerate(scenario.sessions, start=1):
         if session["close"]:
+            close_id_suffix = _close_id_suffix(index, session["session_id"])
             close_session(
                 str(ai_dir),
                 session["session_id"],
                 now=_format_timestamp(close_base + timedelta(seconds=index)),
-                tx_id=_tx_id(scenario, f"close-{_safe_id(session['session_id'])}"),
-                event_id_prefix=_event_id(scenario, f"close-{_safe_id(session['session_id'])}"),
+                tx_id=_tx_id(scenario, close_id_suffix),
+                event_id_prefix=_event_id(scenario, close_id_suffix),
             )
 
     bundle = rebuild_and_persist(ai_dir)
@@ -768,7 +770,23 @@ def _plan_executability_metric(
         for session_id in runtime.closed_session_ids
         if session_id in bundle["sessions"]
     ]
+    expected = scenario.evaluation.get("expected_plan_executability")
     if not closed_sessions:
+        if expected is not None:
+            failures.append(
+                _failure(
+                    "plan_executability",
+                    "Plan executability requires at least one closed session.",
+                    "$.metrics.plan_executability",
+                    expected=expected,
+                    actual={"closed_session_count": 0},
+                )
+            )
+            return {
+                "readiness": "blocked",
+                "implementation_ready_count": 0,
+                "passed": False,
+            }
         return {
             "readiness": "ready",
             "implementation_ready_count": 0,
@@ -797,7 +815,6 @@ def _plan_executability_metric(
         }
     readiness = action_plan["readiness"]
     implementation_ready_count = len(action_plan["implementation_ready_actions"])
-    expected = scenario.evaluation.get("expected_plan_executability")
     passed = True
     if expected is not None:
         passed = (
@@ -995,8 +1012,9 @@ def _event_id(scenario: EvaluationScenario, suffix: str) -> str:
     return f"E-eval-{scenario.scenario_id}-{suffix}"
 
 
-def _safe_id(value: str) -> str:
-    return value.lower().replace("_", "-").replace(".", "-")
+def _close_id_suffix(index: int, session_id: str) -> str:
+    digest = hashlib.sha1(session_id.encode("utf-8")).hexdigest()[:8]
+    return f"close-{index:04d}-{digest}"
 
 
 def _parse_timestamp(value: str) -> datetime:
