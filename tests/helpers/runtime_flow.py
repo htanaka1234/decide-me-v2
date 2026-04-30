@@ -1,34 +1,20 @@
 from __future__ import annotations
 
 import json
-import os
-import subprocess
-import sys
 from pathlib import Path
 from typing import Any
 
 from decide_me.events import EVENT_TYPES
 from decide_me.protocol import discover_decision
 from decide_me.store import load_runtime, read_event_log, runtime_paths
+from tests.helpers.cli import run_json_cli
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = REPO_ROOT / "scripts" / "decide_me.py"
-CLI_TIMEOUT_SECONDS = 30
 
 
 def run_cli(*args: str, cwd: str | Path = REPO_ROOT) -> dict[str, Any]:
-    result = subprocess.run(
-        [sys.executable, str(SCRIPT), *args],
-        cwd=cwd,
-        env=_env(),
-        check=True,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        timeout=CLI_TIMEOUT_SECONDS,
-    )
-    return json.loads(result.stdout)
+    return run_json_cli(*args, cwd=cwd)
 
 
 def bootstrap_cli(ai_dir: Path, *, objective: str = "Exercise Phase 5 runtime gate.") -> dict[str, Any]:
@@ -187,8 +173,3 @@ def delete_derived_projection_files(ai_dir: Path) -> None:
         for path in sessions_dir.glob("*.json"):
             path.unlink()
 
-
-def _env() -> dict[str, str]:
-    env = dict(os.environ)
-    env["PYTHONPATH"] = str(REPO_ROOT)
-    return env

@@ -1,21 +1,17 @@
 from __future__ import annotations
 
 import json
-import os
-import subprocess
-import sys
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
 from decide_me.lifecycle import create_session
 from decide_me.store import bootstrap_runtime, rebuild_and_persist, transact
+from tests.helpers.cli import CliResult, run_cli as run_source_cli
 from tests.helpers.typed_metadata import metadata_for_object_type
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = REPO_ROOT / "scripts" / "decide_me.py"
-CLI_TIMEOUT_SECONDS = 30
 
 
 def build_impact_runtime(tmp: Path) -> Path:
@@ -33,21 +29,8 @@ def build_impact_runtime(tmp: Path) -> Path:
     return ai_dir
 
 
-def run_cli(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
-    result = subprocess.run(
-        [sys.executable, str(SCRIPT), *args],
-        cwd=REPO_ROOT,
-        env=_env(),
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=CLI_TIMEOUT_SECONDS,
-    )
-    if check and result.returncode != 0:
-        raise AssertionError(
-            f"CLI failed with {result.returncode}\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
-        )
-    return result
+def run_cli(*args: str, check: bool = True) -> CliResult:
+    return run_source_cli(*args, check=check, cwd=REPO_ROOT)
 
 
 def run_json_cli(*args: str) -> dict[str, Any]:
@@ -227,8 +210,3 @@ def _hash_snapshot(root: Path, paths: list[Path]) -> dict[str, str]:
         if path.is_file()
     }
 
-
-def _env() -> dict[str, str]:
-    env = dict(os.environ)
-    env["PYTHONPATH"] = str(REPO_ROOT)
-    return env
