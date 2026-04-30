@@ -703,7 +703,13 @@ def _conflict_detection_metric(
     expected = scenario.evaluation["expected_conflicts"]
     conflicts = _scenario_conflicts(runtime, bundle)
     actual_ids = sorted(conflict["conflict_id"] for conflict in conflicts)
-    actual_types = sorted({conflict.get("conflict_type") for conflict in conflicts if conflict.get("conflict_type")})
+    actual_types = sorted(
+        {
+            conflict_type
+            for conflict in conflicts
+            if (conflict_type := conflict.get("conflict_type") or conflict.get("kind"))
+        }
+    )
     required_ids = expected.get("required_conflict_ids", [])
     required_types = expected.get("required_conflict_types", [])
     missing_ids = [conflict_id for conflict_id in required_ids if conflict_id not in actual_ids]

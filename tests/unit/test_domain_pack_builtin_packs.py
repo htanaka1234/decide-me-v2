@@ -168,6 +168,7 @@ class DomainPackBuiltinPacksTests(unittest.TestCase):
         self.assertIn("choose_option", _ids(pack["decision_types"]))
         self.assertIn("resolve_constraint", _ids(pack["decision_types"]))
         self.assertIn("plan_verification", _ids(pack["decision_types"]))
+        self.assertIn(("review-memo", "generic_review_memo"), _document_profiles(pack["documents"]))
         for item in pack["decision_types"]:
             with self.subTest(decision_type=item["id"]):
                 self.assertEqual([], item["required_evidence"])

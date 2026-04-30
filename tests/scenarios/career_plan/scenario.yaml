@@ -1,0 +1,58 @@
+schema_version: 1
+scenario_id: career_plan
+label: Career plan
+domain_pack: generic
+project:
+  name: Demo career project
+  objective: Choose the next career move with visible tradeoffs and follow-up checks.
+  current_milestone: Next role direction
+sessions:
+  - session_id: S-career-plan
+    context: Decide a career direction and verification plan.
+    seed_events: events.jsonl
+    close: true
+evaluation:
+  now: "2026-04-29T00:00:00Z"
+  expected_decision_coverage:
+    required_domain_decision_types:
+      - clarify_goal
+      - choose_option
+      - resolve_constraint
+      - plan_verification
+    required_status_counts:
+      - status: accepted
+        mode: min
+        count: 4
+  expected_questions:
+    max_questions: 0
+    forbidden_repeated_decision_types: []
+  expected_evidence_coverage:
+    min_supporting_evidence: 0
+    required_evidence_requirement_ids: []
+  expected_risks:
+    required_domain_risk_types: []
+    min_high_or_critical_risks: 0
+  expected_conflicts:
+    count: 0
+  expected_revisit_quality:
+    mode: min
+    count: 1
+  expected_documents:
+    - type: decision-brief
+      format: json
+      required_sections:
+        - project
+        - purpose-principles-constraints
+        - current-decisions
+        - actions-and-verification
+        - revisit-triggers
+        - source-traceability
+      require_source_traceability: true
+    - type: action-plan
+      format: json
+      required_sections:
+        - summary
+        - implementation-ready-actions
+        - actions
+        - source-traceability
+      require_source_traceability: true

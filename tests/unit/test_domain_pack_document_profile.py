@@ -123,6 +123,20 @@ class DomainPackDocumentProfileTests(unittest.TestCase):
         self.assertEqual("generic", model["metadata"]["domain_pack_id"])
         self.assertEqual("generic_decision_brief", model["metadata"]["document_profile_id"])
 
+    def test_generic_pack_applies_review_memo_profile(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir, session_id = build_document_runtime(Path(tmp))
+
+            model = compile_document(
+                ai_dir,
+                document_type="review-memo",
+                session_ids=[session_id],
+                now=NOW,
+            )
+
+        self.assertEqual("generic", model["metadata"]["domain_pack_id"])
+        self.assertEqual("generic_review_memo", model["metadata"]["document_profile_id"])
+
     def test_pack_specific_mixed_scope_requires_explicit_pack(self) -> None:
         with TemporaryDirectory() as tmp:
             ai_dir, research_session_id = build_domain_document_runtime(Path(tmp), "research")

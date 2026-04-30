@@ -1,0 +1,65 @@
+schema_version: 1
+scenario_id: research_protocol
+label: Research protocol planning
+domain_pack: research
+project:
+  name: Demo research project
+  objective: Define a reproducible retrospective cohort study.
+  current_milestone: Protocol decisions
+sessions:
+  - session_id: S-research-protocol
+    context: Plan a retrospective cohort study with endpoint and missing-data decisions.
+    seed_events: events.jsonl
+    close: true
+evaluation:
+  now: "2026-04-29T00:00:00Z"
+  expected_decision_coverage:
+    required_domain_decision_types:
+      - research_question
+      - cohort_definition
+      - primary_endpoint
+      - missing_data_strategy
+    required_status_counts:
+      - status: accepted
+        mode: min
+        count: 3
+      - status: unresolved
+        mode: min
+        count: 1
+  expected_questions:
+    max_questions: 4
+    forbidden_repeated_decision_types:
+      - primary_endpoint
+  expected_evidence_coverage:
+    min_supporting_evidence: 2
+    required_evidence_requirement_ids:
+      - protocol_or_project_brief
+      - data_dictionary
+  expected_risks:
+    required_domain_risk_types:
+      - unclear_endpoint
+      - missing_data
+    required_risk_tiers:
+      - high
+    min_high_or_critical_risks: 1
+  expected_safety_gates:
+    required_rule_ids:
+      - validity_review
+    required_approval_thresholds:
+      - human_review
+    min_approval_required_count: 1
+    required_insufficient_evidence_ids:
+      - analysis_plan
+  expected_conflicts:
+    count: 0
+  expected_documents:
+    - type: research-plan
+      format: json
+      required_sections:
+        - objective
+        - research-question-decision-targets
+        - evidence-base
+        - analysis-verification-plan
+        - risks-and-mitigations
+        - source-traceability
+      require_source_traceability: true
