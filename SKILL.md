@@ -58,6 +58,7 @@ Bundled assets:
 - deterministic CLI: `python3 scripts/decide_me.py ...`
 - JSON contracts: `schemas/*.json`
 - export templates: `templates/`
+- runtime requirements: `requirements.txt` (`PyYAML` is required for declarative Domain Pack YAML)
 
 User-facing commands:
 
@@ -131,4 +132,5 @@ Runtime invariants:
 - Domain packs are declarative policy overlays. Session and object pack metadata must keep
   `domain_pack_id`, `domain_pack_version`, and `domain_pack_digest` together; stale digest or
   version mismatches fail validation or pack-aware evaluation instead of silently falling back.
+  YAML pack loading uses the bundled runtime dependency declaration in `requirements.txt`.
 - Free-form answers apply only to the current active proposal in the current session.

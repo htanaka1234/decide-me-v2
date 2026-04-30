@@ -23,7 +23,8 @@ The distribution includes four built-in packs:
   implementation planning.
 
 User-defined packs may be placed under `.ai/decide-me/domain-packs/` as `.yaml`, `.yml`, or
-`.json`. They must pass the same strict contract as built-ins. Duplicate pack IDs are rejected.
+`.json`. YAML loading uses the runtime dependency declared in `requirements.txt` (`PyYAML>=6.0`).
+They must pass the same strict contract as built-ins. Duplicate pack IDs are rejected.
 
 ## CLI surface
 
@@ -60,8 +61,8 @@ fallback, not a strong inference candidate.
 ## Contract and validation
 
 `schemas/domain-pack.schema.json` is the external contract. Runtime loading uses the Python
-validator and model boundary in `decide_me.domains` so packs can be consumed without adding a
-runtime JSON Schema dependency.
+validator and model boundary in `decide_me.domains`; JSON Schema validation remains a development
+and test-time contract check rather than a runtime dependency.
 
 Pack validation rejects unknown fields, invalid enum values, duplicate semantic IDs, duplicate
 document profiles, multiple defaults for the same document type, unresolved internal references,

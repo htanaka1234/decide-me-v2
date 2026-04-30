@@ -12,6 +12,7 @@ SKILL_NAME = "decide-me"
 DIST_DIR = REPO_ROOT / "dist"
 
 INCLUDE_FILES = (
+    "requirements.txt",
     "SKILL.md",
     "agents/openai.yaml",
     "scripts/decide_me.py",

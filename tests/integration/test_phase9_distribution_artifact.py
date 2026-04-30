@@ -23,6 +23,7 @@ class Phase9DistributionArtifactTests(unittest.TestCase):
             names = set(archive.namelist())
 
         required = {
+            "decide-me/requirements.txt",
             "decide-me/decide_me/domains/__init__.py",
             "decide-me/decide_me/domains/apply.py",
             "decide-me/decide_me/domains/infer.py",
@@ -44,22 +45,26 @@ class Phase9DistributionArtifactTests(unittest.TestCase):
             "decide-me/templates/documents/risk-register.md",
         }
         self.assertEqual(set(), required - names)
+        self.assertNotIn("decide-me/requirements-dev.txt", names)
         self.assertFalse(any(name.startswith("decide-me/tests/") for name in names))
         self.assertFalse(any("/.ai/" in name or name.startswith("decide-me/.ai/") for name in names))
         self.assertFalse(any("/.git/" in name or name.startswith("decide-me/.git/") for name in names))
 
-    def test_distribution_domain_pack_files_have_normal_file_modes(self) -> None:
+    def test_distribution_declares_runtime_dependency_and_normal_file_modes(self) -> None:
         with _built_artifact() as archive:
             modes = {name: archive.getinfo(name).external_attr >> 16 for name in archive.namelist()}
+            requirements = _read_text(archive, "decide-me/requirements.txt").splitlines()
 
         checked_names = [
             name
             for name in modes
-            if name.startswith("decide-me/decide_me/domains/")
+            if name == "decide-me/requirements.txt"
+            or name.startswith("decide-me/decide_me/domains/")
             or name == "decide-me/schemas/domain-pack.schema.json"
             or name == "decide-me/references/domain-packs.md"
             or name.startswith("decide-me/templates/documents/")
         ]
+        self.assertIn("PyYAML>=6.0", requirements)
         self.assertTrue(checked_names)
         for name in checked_names:
             with self.subTest(name=name):
@@ -95,6 +100,36 @@ class Phase9DistributionArtifactTests(unittest.TestCase):
                 "research",
             )
             help_result = _run_cli(cli, env, "export-document", "--help")
+            _run_json(
+                cli,
+                env,
+                "bootstrap",
+                "--ai-dir",
+                str(ai_dir),
+                "--project-name",
+                "Artifact Smoke",
+                "--objective",
+                "Exercise packaged Domain Pack export.",
+                "--current-milestone",
+                "Phase 9 distribution",
+            )
+            output = ai_dir / "exports" / "documents" / "research-plan.md"
+            exported = _run_json(
+                cli,
+                env,
+                "export-document",
+                "--ai-dir",
+                str(ai_dir),
+                "--type",
+                "research-plan",
+                "--domain-pack",
+                "research",
+                "--format",
+                "markdown",
+                "--output",
+                str(output),
+            )
+            exported_path_exists = output.is_file()
 
         self.assertEqual("ok", listed["status"])
         self.assertEqual(
@@ -105,6 +140,11 @@ class Phase9DistributionArtifactTests(unittest.TestCase):
         self.assertEqual("research", shown["pack"]["pack_id"])
         self.assertTrue(shown["digest"].startswith("DP-"))
         self.assertIn("--domain-pack", help_result.stdout)
+        self.assertEqual(str(output), exported["path"])
+        self.assertTrue(exported_path_exists)
+        self.assertTrue(exported["domain_pack_applied"])
+        self.assertEqual("research", exported["domain_pack_id"])
+        self.assertEqual("research_protocol", exported["document_profile_id"])
 
 
 @contextmanager
@@ -146,6 +186,10 @@ def _run_cli(cli: Path, env: dict[str, str], *args: str) -> subprocess.Completed
         text=True,
         timeout=CLI_TIMEOUT_SECONDS,
     )
+
+
+def _read_text(archive: ZipFile, name: str) -> str:
+    return archive.read(name).decode("utf-8")
 
 
 if __name__ == "__main__":
