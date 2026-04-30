@@ -62,6 +62,9 @@ evaluation:
     max_questions: 4
     forbidden_repeated_decision_types:
       - primary_endpoint
+    probe_session_ids:
+      - S-research-protocol
+    advance_steps: 1
   expected_evidence_coverage:
     min_supporting_evidence: 2
     required_evidence_requirement_ids:
@@ -84,9 +87,16 @@ evaluation:
       - data_dictionary
   expected_conflicts:
     count: 0
+  expected_plan_executability:
+    readiness: conditional
+    min_implementation_ready_count: 1
+  expected_revisit_quality:
+    mode: min
+    count: 1
   expected_documents:
     - type: research-plan
       format: json
+      require_source_traceability: true
       required_sections:
         - objective
         - research-question-decision-targets
@@ -109,6 +119,16 @@ Risk expectations describe risk objects and risk tiers. Safety Gate expectations
 describe gate outputs such as applied domain safety rules, approval thresholds, approval-required
 counts, and missing domain evidence requirements. Runner code should match these expectations
 against the projected runtime, register outputs, Safety Gate diagnostics, and document models.
+
+Question efficiency is evaluated by running `advance_session()` against a temporary pre-close copy
+of the scenario runtime. `probe_session_ids` defaults to all scenario sessions and `advance_steps`
+defaults to `1`; the probe copy may be mutated, but the main evaluation runtime must remain stable
+for document, register, gate, conflict, and snapshot checks.
+
+Plan executability and revisit quality are diagnostic-only unless `expected_plan_executability` or
+`expected_revisit_quality` is present. When document `require_source_traceability` is true, the
+compiled document must carry non-empty source object and link traceability, and a
+`source-traceability` section must be non-empty when the document type emits that section.
 
 ## Evaluation report
 
@@ -205,8 +225,9 @@ Snapshots should compare normalized outputs only. Prefer fixed event timestamps 
 `generated_at`, `project_head`, `last_event_id`, and `tx_id` when they cannot be made stable by the
 scenario clock.
 
-Markdown snapshots should compare generated regions, preserving human-authored notes outside
-managed markers. CSV snapshots should use deterministic row ordering.
+The Step 2 helper normalizes JSON only. Markdown snapshots should compare generated regions,
+preserving human-authored notes outside managed markers, and CSV snapshots should use deterministic
+row ordering when Step 5 adds those snapshot comparators.
 
 ## Distribution boundary
 

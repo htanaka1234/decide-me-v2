@@ -572,7 +572,12 @@ EventSpec = dict[str, Any]
 Builder = Callable[[dict[str, Any]], list[EventSpec]]
 
 
-def transact(ai_dir: str | Path, builder: Builder) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+def transact(
+    ai_dir: str | Path,
+    builder: Builder,
+    *,
+    tx_id: str | None = None,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     paths = runtime_paths(ai_dir)
     ensure_runtime_dirs(paths)
     with _write_lock(paths.lock_path):
@@ -584,7 +589,7 @@ def transact(ai_dir: str | Path, builder: Builder) -> tuple[list[dict[str, Any]]
         if not specs:
             return [], current_bundle
 
-        tx_id = new_tx_id()
+        transaction_id = tx_id or new_tx_id()
         tx_timestamp = _next_transaction_timestamp(runtime_index, utc_now())
         tx_size = len(specs)
         built_events: list[dict[str, Any]] = []
@@ -598,7 +603,7 @@ def transact(ai_dir: str | Path, builder: Builder) -> tuple[list[dict[str, Any]]
                 raise StateValidationError("transaction events must share one session_id")
             built_events.append(
                 build_event(
-                    tx_id=tx_id,
+                    tx_id=transaction_id,
                     tx_index=offset,
                     tx_size=tx_size,
                     session_id=session_id,

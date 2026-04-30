@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from copy import deepcopy
-from typing import Any
+from typing import Any, Callable
 
 from decide_me.domains import DomainPack, domain_pack_digest, load_domain_registry
 from decide_me.object_views import active_proposal_view, links_for, objects_by_id
@@ -134,8 +134,17 @@ def resume_session(ai_dir: str, session_id: str) -> dict[str, Any]:
     return bundle["sessions"][session_id]
 
 
-def close_session(ai_dir: str, session_id: str) -> dict[str, Any]:
-    now = utc_now()
+def close_session(
+    ai_dir: str,
+    session_id: str,
+    *,
+    now: str | None = None,
+    tx_id: str | None = None,
+    event_id_prefix: str | None = None,
+) -> dict[str, Any]:
+    fixed_now = now is not None
+    closed_at = now or utc_now()
+    event_id_factory = _event_id_factory(event_id_prefix)
 
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
         session = _require_session(bundle, session_id)
@@ -144,7 +153,8 @@ def close_session(ai_dir: str, session_id: str) -> dict[str, Any]:
         action_events, action_ids, action_link_ids = _close_session_action_events(
             bundle["project_state"],
             session,
-            now,
+            closed_at,
+            event_id_factory=event_id_factory,
         )
         close_summary = build_close_summary(
             bundle["project_state"],
@@ -152,12 +162,12 @@ def close_session(ai_dir: str, session_id: str) -> dict[str, Any]:
             action_ids=action_ids,
             action_link_ids=action_link_ids,
         )
-        close_summary["generated_at"] = now
-        return [
+        close_summary["generated_at"] = closed_at
+        events = [
             *_proposal_boundary_status_events(
                 bundle,
                 session,
-                now,
+                closed_at,
                 "Session closed with unresolved active proposal.",
             ),
             *action_events,
@@ -169,12 +179,33 @@ def close_session(ai_dir: str, session_id: str) -> dict[str, Any]:
             {
                 "session_id": session_id,
                 "event_type": "session_closed",
-                "payload": {"closed_at": now},
+                "payload": {"closed_at": closed_at},
             },
         ]
+        if fixed_now:
+            for event in events:
+                event.setdefault("ts", closed_at)
+        if event_id_factory is not None:
+            for event in events:
+                if "event_id" not in event:
+                    event["event_id"] = event_id_factory()
+        return events
 
-    _, bundle = transact(ai_dir, builder)
+    _, bundle = transact(ai_dir, builder, tx_id=tx_id)
     return bundle["sessions"][session_id]
+
+
+def _event_id_factory(prefix: str | None) -> Callable[[], str] | None:
+    if prefix is None:
+        return None
+    counter = 0
+
+    def next_event_id() -> str:
+        nonlocal counter
+        counter += 1
+        return f"{prefix}-{counter:04d}"
+
+    return next_event_id
 
 
 def build_close_summary(
@@ -365,6 +396,8 @@ def _close_session_action_events(
     project_state: dict[str, Any],
     session_state: dict[str, Any],
     created_at: str,
+    *,
+    event_id_factory: Callable[[], str] | None = None,
 ) -> tuple[list[dict[str, Any]], list[str], list[str]]:
     by_id = objects_by_id(project_state)
     link_by_id = {link["id"]: link for link in project_state.get("links", [])}
@@ -388,7 +421,7 @@ def _close_session_action_events(
         if existing_action is not None and existing_action.get("type") != "action":
             raise ValueError(f"deterministic action id {action_id} already exists as {existing_action.get('type')}")
         if existing_action is None:
-            event_id = new_event_id()
+            event_id = event_id_factory() if event_id_factory is not None else new_event_id()
             action["source_event_ids"] = [event_id]
             events.append(
                 {
@@ -417,7 +450,7 @@ def _close_session_action_events(
             ):
                 raise ValueError(f"deterministic action link id {link_id} already exists with different endpoints")
             continue
-        event_id = new_event_id()
+        event_id = event_id_factory() if event_id_factory is not None else new_event_id()
         link["source_event_ids"] = [event_id]
         events.append(
             {
