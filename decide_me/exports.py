@@ -9,7 +9,7 @@ from decide_me.exporters.agents import export_agent_instructions
 from decide_me.exporters.adr import export_structured_adr
 from decide_me.exporters.architecture import export_architecture_doc
 from decide_me.exporters.decision_register import export_decision_register
-from decide_me.exporters.documents import export_document
+from decide_me.exporters.documents import export_document, export_document_detailed
 from decide_me.exporters.traceability import export_traceability, export_verification_gaps
 from decide_me.impact_analysis import analyze_impact
 from decide_me.impact_report import render_impact_report

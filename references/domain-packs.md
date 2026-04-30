@@ -7,5 +7,8 @@ For Phase 9, runtime objects and sessions store `domain_pack_id`, `domain_pack_v
 Document profiles are selected from the same pack metadata. A document export may specify
 `--domain-pack`; otherwise the compiler uses the single pack represented by selected closed
 sessions, or the `generic` profile for mixed scopes when the generic pack declares that document
-type. The emitted `DocumentModel.metadata` records the pack id, version, digest, and profile id
-when a profile is applied.
+type. If a single selected pack does not define a pack-specific document type and no generic profile
+exists for that type, export fails instead of silently rendering an unprofiled document. The emitted
+`DocumentModel.metadata` records the pack id, version, digest, and profile id when a profile is
+applied. Phase 9 profiles currently control profile metadata and required-section ordering; richer
+domain-specific document sections are future builder work.

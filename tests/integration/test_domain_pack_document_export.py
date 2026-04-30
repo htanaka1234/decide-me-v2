@@ -51,7 +51,7 @@ class DomainPackDocumentExportTests(unittest.TestCase):
             ai_dir, session_id = build_domain_document_runtime(Path(tmp), "procurement")
             output = ai_dir / "exports" / "documents" / "comparison-table.json"
 
-            run_cli(
+            result = run_cli(
                 "export-document",
                 "--ai-dir",
                 str(ai_dir),
@@ -61,18 +61,55 @@ class DomainPackDocumentExportTests(unittest.TestCase):
                 "json",
                 "--session-id",
                 session_id,
-                "--domain-pack",
-                "procurement",
                 "--now",
                 NOW,
                 "--output",
                 str(output),
             )
 
+            payload = json.loads(result.stdout)
             model = json.loads(output.read_text(encoding="utf-8"))
+            self.assertTrue(payload["domain_pack_applied"])
+            self.assertEqual("procurement", payload["domain_pack_id"])
+            self.assertEqual("procurement_comparison", payload["document_profile_id"])
+            self.assertEqual("inferred_from_sessions", payload["domain_pack_selection"])
             self.assertEqual("procurement", model["metadata"]["domain_pack_id"])
             self.assertEqual("procurement_comparison", model["metadata"]["document_profile_id"])
             self.assertEqual(["comparison"], [section["id"] for section in model["sections"]])
+
+    def test_single_pack_mismatched_pack_specific_export_fails_before_writing(self) -> None:
+        cases = (
+            ("procurement", "research-plan", "research-plan.json"),
+            ("research", "comparison-table", "comparison-table.json"),
+        )
+        for pack_id, document_type, filename in cases:
+            with self.subTest(pack_id=pack_id, document_type=document_type), TemporaryDirectory() as tmp:
+                ai_dir, session_id = build_domain_document_runtime(Path(tmp), pack_id)
+                output = ai_dir / "exports" / "documents" / filename
+
+                result = run_cli(
+                    "export-document",
+                    "--ai-dir",
+                    str(ai_dir),
+                    "--type",
+                    document_type,
+                    "--format",
+                    "json",
+                    "--session-id",
+                    session_id,
+                    "--now",
+                    NOW,
+                    "--output",
+                    str(output),
+                    check=False,
+                )
+
+                self.assertNotEqual(0, result.returncode)
+                self.assertIn(
+                    f"domain pack {pack_id} does not define document type {document_type}",
+                    result.stderr,
+                )
+                self.assertFalse(output.exists())
 
     def test_ambiguous_pack_specific_export_fails_before_writing(self) -> None:
         with TemporaryDirectory() as tmp:

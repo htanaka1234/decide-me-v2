@@ -170,6 +170,8 @@ class DomainPackCliTests(unittest.TestCase):
 
         self.assertEqual(str(output), exported["path"])
         self.assertEqual("research", exported["domain_pack_id"])
+        self.assertEqual("research_risk_register", exported["document_profile_id"])
+        self.assertEqual("explicit", exported["domain_pack_selection"])
         self.assertTrue(exported["domain_pack_applied"])
 
 

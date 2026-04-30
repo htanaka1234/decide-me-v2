@@ -18,7 +18,7 @@ from decide_me.exports import (
     export_agent_instructions,
     export_architecture_doc,
     export_decision_register,
-    export_document,
+    export_document_detailed,
     export_github_issues,
     export_github_templates,
     export_impact_report,
@@ -644,7 +644,7 @@ def main(argv: list[str] | None = None) -> int:
             if args.domain_pack is not None:
                 pack = _require_domain_pack(args.ai_dir, args.domain_pack)
                 domain_pack_id = pack.pack_id
-            path = export_document(
+            export_result = export_document_detailed(
                 args.ai_dir,
                 document_type=args.type,
                 format=args.format,
@@ -657,12 +657,23 @@ def main(argv: list[str] | None = None) -> int:
                 force=args.force,
                 managed_region=args.managed_region,
             )
-            result = {"path": str(path), "type": args.type, "format": args.format}
-            if domain_pack_id is not None:
+            metadata = export_result.get("metadata", {})
+            applied = all(
+                isinstance(metadata.get(key), str)
+                for key in ("domain_pack_id", "document_profile_id")
+            )
+            result = {
+                "path": str(export_result["path"]),
+                "type": args.type,
+                "format": args.format,
+                "domain_pack_applied": applied,
+            }
+            if applied:
                 result.update(
                     {
-                        "domain_pack_id": domain_pack_id,
-                        "domain_pack_applied": True,
+                        "domain_pack_id": metadata["domain_pack_id"],
+                        "document_profile_id": metadata["document_profile_id"],
+                        "domain_pack_selection": "explicit" if domain_pack_id is not None else "inferred_from_sessions",
                     }
                 )
             _print_json(result)

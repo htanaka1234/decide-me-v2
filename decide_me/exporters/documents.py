@@ -29,6 +29,35 @@ def export_document(
     force: bool = False,
     managed_region: bool = True,
 ) -> Path:
+    return export_document_detailed(
+        ai_dir,
+        document_type=document_type,
+        format=format,
+        output=output,
+        session_ids=session_ids,
+        object_ids=object_ids,
+        domain_pack_id=domain_pack_id,
+        include_invalidated=include_invalidated,
+        now=now,
+        force=force,
+        managed_region=managed_region,
+    )["path"]
+
+
+def export_document_detailed(
+    ai_dir: str | Path,
+    *,
+    document_type: str,
+    format: str,
+    output: str | Path,
+    session_ids: list[str] | None = None,
+    object_ids: list[str] | None = None,
+    domain_pack_id: str | None = None,
+    include_invalidated: bool = False,
+    now: str | None = None,
+    force: bool = False,
+    managed_region: bool = True,
+) -> dict[str, Any]:
     normalized_type = normalize_document_type(document_type)
     if format not in DOCUMENT_FORMATS:
         raise ValueError("format must be one of: markdown, json, csv")
@@ -55,10 +84,10 @@ def export_document(
 
     if format == "json":
         _write_text(output_path, render_json_document(model))
-        return output_path
+        return _export_result(output_path, model)
     if format == "csv":
         _write_text(output_path, render_csv_document(model))
-        return output_path
+        return _export_result(output_path, model)
 
     if managed_region:
         model["warnings"].extend(
@@ -95,7 +124,14 @@ def export_document(
         _write_text(output_path, merged)
     else:
         _write_text(output_path, markdown)
-    return output_path
+    return _export_result(output_path, model)
+
+
+def _export_result(output_path: Path, model: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "path": output_path,
+        "metadata": dict(model.get("metadata", {})),
+    }
 
 
 def _assert_safe_document_output(exports_dir: Path, output_path: Path) -> None:
