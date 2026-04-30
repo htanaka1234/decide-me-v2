@@ -1,18 +1,16 @@
 from __future__ import annotations
 
 import json
-import os
 import re
-import subprocess
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
 from zipfile import ZipFile
 
+from tests.helpers.cli import run_cli
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-CLI_TIMEOUT_SECONDS = 30
 TEXT_SUFFIXES = {
     ".json",
     ".md",
@@ -45,6 +43,8 @@ CLI_HELP_COMMANDS = (
     ("bootstrap",),
     ("create-session",),
     ("list-sessions",),
+    ("list-domain-packs",),
+    ("show-domain-pack",),
     ("show-session",),
     ("resume-session",),
     ("close-session",),
@@ -58,6 +58,20 @@ CLI_HELP_COMMANDS = (
     ("show-session-graph",),
     ("detect-session-conflicts",),
     ("resolve-decision-supersession",),
+    ("show-impact",),
+    ("show-invalidation-candidates",),
+    ("show-decision-stack",),
+    ("show-evidence-register",),
+    ("show-assumption-register",),
+    ("show-risk-register",),
+    ("show-safety-gate",),
+    ("show-safety-gates",),
+    ("approve-safety-gate",),
+    ("show-safety-approvals",),
+    ("show-stale-assumptions",),
+    ("show-stale-evidence",),
+    ("show-verification-gaps",),
+    ("show-revisit-due",),
     ("export-adr",),
     ("export-structured-adr",),
     ("export-decision-register",),
@@ -67,6 +81,8 @@ CLI_HELP_COMMANDS = (
     ("export-architecture-doc",),
     ("export-traceability",),
     ("export-verification-gaps",),
+    ("export-document",),
+    ("export-impact-report",),
     ("advance-session",),
     ("handle-reply",),
 )
@@ -151,21 +167,10 @@ def source_legacy_term_findings(
 
 def cli_help_legacy_term_findings(commands: Iterable[tuple[str, ...]] = CLI_HELP_COMMANDS) -> list[LegacyTermFinding]:
     findings: list[LegacyTermFinding] = []
-    env = dict(os.environ)
-    env["PYTHONPATH"] = str(REPO_ROOT)
     for command in commands:
-        result = subprocess.run(
-            [sys.executable, "scripts/decide_me.py", *command, "--help"],
-            cwd=REPO_ROOT,
-            env=env,
-            check=True,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            timeout=CLI_TIMEOUT_SECONDS,
-        )
+        result = run_cli(*command, "--help", cwd=REPO_ROOT)
         label = " ".join(command) or "<root>"
-        findings.extend(scan_text(result.stdout, f"help {label}"))
+        findings.extend(scan_text(result.stdout + result.stderr, f"help {label}"))
     return findings
 
 

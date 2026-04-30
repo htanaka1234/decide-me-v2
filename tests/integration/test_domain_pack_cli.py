@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import json
-import subprocess
-import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -10,10 +8,10 @@ from tempfile import TemporaryDirectory
 from decide_me.domains import domain_pack_digest, load_builtin_packs
 from decide_me.events import utc_now
 from decide_me.store import bootstrap_runtime, transact
+from tests.helpers.cli import CliResult, run_cli
 
 
-CLI = Path(__file__).resolve().parents[2] / "scripts" / "decide_me.py"
-CLI_TIMEOUT_SECONDS = 30
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 class DomainPackCliTests(unittest.TestCase):
@@ -219,14 +217,8 @@ def _run_json(*args: str) -> dict:
     return json.loads(result.stdout)
 
 
-def _run_cli(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        [sys.executable, str(CLI), *args],
-        check=check,
-        capture_output=True,
-        text=True,
-        timeout=CLI_TIMEOUT_SECONDS,
-    )
+def _run_cli(*args: str, check: bool = True) -> CliResult:
+    return run_cli(*args, check=check, cwd=REPO_ROOT)
 
 
 if __name__ == "__main__":

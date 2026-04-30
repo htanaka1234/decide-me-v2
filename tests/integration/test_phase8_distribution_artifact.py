@@ -1,24 +1,21 @@
 from __future__ import annotations
 
-import os
-import subprocess
-import sys
 import unittest
-from contextlib import contextmanager
-from collections.abc import Iterator
-from pathlib import Path
-from tempfile import TemporaryDirectory
-from zipfile import ZipFile
 
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-CLI_TIMEOUT_SECONDS = 30
+from tests.helpers.distribution_artifact import BuiltArtifact
 
 
 class Phase8DistributionArtifactTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.artifact = BuiltArtifact()
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.artifact.cleanup()
+
     def test_distribution_contains_document_compiler_files(self) -> None:
-        with _built_artifact() as archive:
-            names = set(archive.namelist())
+        names = self.artifact.names()
 
         required = {
             "decide-me/decide_me/documents/__init__.py",
@@ -46,52 +43,9 @@ class Phase8DistributionArtifactTests(unittest.TestCase):
         self.assertFalse(any("/.git/" in name or name.startswith("decide-me/.git/") for name in names))
 
     def test_distribution_supports_export_document_help(self) -> None:
-        with TemporaryDirectory() as temp_dir:
-            dist_dir = Path(temp_dir) / "dist"
-            extract_dir = Path(temp_dir) / "extracted"
-            zip_path = _build_artifact(dist_dir)
-            with ZipFile(zip_path) as archive:
-                archive.extractall(extract_dir)
-            skill_dir = extract_dir / "decide-me"
-            env = dict(os.environ)
-            env["PYTHONPATH"] = str(skill_dir)
-
-            result = subprocess.run(
-                [sys.executable, str(skill_dir / "scripts" / "decide_me.py"), "export-document", "--help"],
-                cwd=skill_dir,
-                env=env,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                timeout=CLI_TIMEOUT_SECONDS,
-            )
-            self.assertIn("decision-brief", result.stdout)
-            self.assertIn("comparison-table", result.stdout)
-
-
-@contextmanager
-def _built_artifact() -> Iterator[ZipFile]:
-    with TemporaryDirectory() as temp_dir:
-        dist_dir = Path(temp_dir) / "dist"
-        with ZipFile(_build_artifact(dist_dir)) as archive:
-            yield archive
-
-
-def _build_artifact(dist_dir: Path) -> Path:
-    env = dict(os.environ)
-    env["PYTHONPATH"] = str(REPO_ROOT)
-    subprocess.run(
-        [sys.executable, "scripts/build_artifact.py", "--dist-dir", str(dist_dir)],
-        cwd=REPO_ROOT,
-        env=env,
-        check=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        timeout=CLI_TIMEOUT_SECONDS,
-    )
-    return dist_dir / "decide-me.zip"
+        result = self.artifact.run_packaged_cli("export-document", "--help")
+        self.assertIn("decision-brief", result.stdout)
+        self.assertIn("comparison-table", result.stdout)
 
 
 if __name__ == "__main__":
