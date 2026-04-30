@@ -68,6 +68,46 @@
     },
     "metadata": {
       "type": "object",
+      "properties": {
+        "domain_pack_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "domain_pack_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "domain_pack_digest": {
+          "type": "string",
+          "pattern": "^DP-[0-9a-f]{12}$"
+        },
+        "document_profile_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        }
+      },
+      "dependentRequired": {
+        "domain_pack_id": [
+          "domain_pack_version",
+          "domain_pack_digest",
+          "document_profile_id"
+        ],
+        "domain_pack_version": [
+          "domain_pack_id",
+          "domain_pack_digest",
+          "document_profile_id"
+        ],
+        "domain_pack_digest": [
+          "domain_pack_id",
+          "domain_pack_version",
+          "document_profile_id"
+        ],
+        "document_profile_id": [
+          "domain_pack_id",
+          "domain_pack_version",
+          "domain_pack_digest"
+        ]
+      },
       "additionalProperties": true
     }
   },

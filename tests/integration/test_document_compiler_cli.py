@@ -30,6 +30,7 @@ class DocumentCompilerCliTests(unittest.TestCase):
             ):
                 with self.subTest(document_type=document_type):
                     output = ai_dir / "exports" / "documents" / f"{document_type}.md"
+                    domain_pack_args = _domain_pack_args_for_document_type(document_type)
                     result = run_cli(
                         "export-document",
                         "--ai-dir",
@@ -40,6 +41,7 @@ class DocumentCompilerCliTests(unittest.TestCase):
                         "markdown",
                         "--session-id",
                         session_id,
+                        *domain_pack_args,
                         "--now",
                         NOW,
                         "--output",
@@ -91,6 +93,8 @@ class DocumentCompilerCliTests(unittest.TestCase):
                 "csv",
                 "--session-id",
                 session_id,
+                "--domain-pack",
+                "procurement",
                 "--now",
                 NOW,
                 "--output",
@@ -203,6 +207,8 @@ class DocumentCompilerCliTests(unittest.TestCase):
                 "json",
                 "--session-id",
                 session_id,
+                "--domain-pack",
+                "procurement",
                 "--object-id",
                 "OPT-001",
                 "--now",
@@ -341,6 +347,17 @@ def _build_conflict_runtime(tmp: Path) -> tuple[Path, list[str]]:
     rebuild_and_persist(ai_dir)
     close_session(str(ai_dir), second_id)
     return ai_dir, [first_id, second_id]
+
+
+def _domain_pack_args_for_document_type(document_type: str) -> tuple[str, ...]:
+    pack_id = {
+        "review-memo": "research",
+        "research-plan": "research",
+        "comparison-table": "procurement",
+    }.get(document_type)
+    if pack_id is None:
+        return ()
+    return ("--domain-pack", pack_id)
 
 
 def _first_conflict_events(session_id: str) -> list[dict]:

@@ -14,6 +14,7 @@ def compile_document(
     document_type: str,
     session_ids: list[str] | None = None,
     object_ids: list[str] | None = None,
+    domain_pack_id: str | None = None,
     include_invalidated: bool = False,
     now: str | None = None,
 ) -> dict[str, Any]:
@@ -23,6 +24,7 @@ def compile_document(
         document_type=normalized,
         session_ids=session_ids,
         object_ids=object_ids,
+        domain_pack_id=domain_pack_id,
         include_invalidated=include_invalidated,
         now=now,
     )
