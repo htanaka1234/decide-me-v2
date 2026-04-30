@@ -9,7 +9,7 @@ from typing import Any, Callable
 from decide_me.documents.compiler import compile_document
 from decide_me.store import rebuild_and_persist, runtime_paths
 from tests.helpers.domain_document_runtime import build_domain_document_runtime
-from tests.helpers.document_runtime import NOW
+from tests.helpers.document_runtime import NOW, build_document_runtime
 
 
 class DomainPackDocumentProfileTests(unittest.TestCase):
@@ -83,6 +83,23 @@ class DomainPackDocumentProfileTests(unittest.TestCase):
                 with self.assertRaisesRegex(
                     ValueError,
                     f"domain pack {pack_id} does not define document type {document_type}",
+                ):
+                    compile_document(
+                        ai_dir,
+                        document_type=document_type,
+                        session_ids=[session_id],
+                        now=NOW,
+                    )
+
+    def test_explicit_generic_session_rejects_pack_specific_documents_without_generic_profile(self) -> None:
+        cases = ("research-plan", "comparison-table")
+        for document_type in cases:
+            with self.subTest(document_type=document_type), TemporaryDirectory() as tmp:
+                ai_dir, session_id = build_document_runtime(Path(tmp))
+
+                with self.assertRaisesRegex(
+                    ValueError,
+                    f"domain pack generic does not define document type {document_type}",
                 ):
                     compile_document(
                         ai_dir,

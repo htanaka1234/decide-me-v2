@@ -167,9 +167,6 @@ def _resolve_document_profile(
         if generic_spec is not None:
             return generic, domain_pack_digest(generic), generic_spec
 
-        if pack.pack_id == GENERIC_PACK_ID:
-            return None, None, None
-
         defining_packs = _packs_defining_document(registry, document_type)
         if defining_packs:
             raise ValueError(

@@ -30,10 +30,16 @@ class DocumentBuilderTests(unittest.TestCase):
                 "comparison-table",
             ):
                 with self.subTest(document_type=document_type):
+                    domain_pack_id = {
+                        "review-memo": "research",
+                        "research-plan": "research",
+                        "comparison-table": "procurement",
+                    }.get(document_type)
                     model = compile_document(
                         ai_dir,
                         document_type=document_type,
                         session_ids=[session_id],
+                        domain_pack_id=domain_pack_id,
                         now=NOW,
                     )
                     self.assertEqual([], list(validator.iter_errors(model)))
@@ -52,6 +58,7 @@ class DocumentBuilderTests(unittest.TestCase):
                 ai_dir,
                 document_type="review-memo",
                 session_ids=[session_id],
+                domain_pack_id="research",
                 now=NOW,
             )
 
@@ -111,6 +118,7 @@ class DocumentBuilderTests(unittest.TestCase):
                 ai_dir,
                 document_type="comparison-table",
                 session_ids=[session_id],
+                domain_pack_id="procurement",
                 now=NOW,
             )
 
