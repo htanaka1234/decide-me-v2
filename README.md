@@ -345,11 +345,11 @@ PYTHONPATH=. python3 -m unittest discover -v
 ## Project layout
 
 - `SKILL.md`: public Skill entrypoint
-- `references/`: protocol, lifecycle, taxonomy, event model, plan generation,
-  output contract, and examples
+- `references/`: protocol, lifecycle, taxonomy, event model, domain packs, plan generation,
+  output contract, document compiler behavior, and examples
 - `schemas/`: JSON contracts for events and projections
-- `templates/`: plan, ADR, structured ADR, GitHub issue, traceability, verification gap, and agent
-  instruction export templates
+- `templates/`: plan, ADR, structured ADR, GitHub issue, traceability, verification gap, domain
+  document, and agent instruction export templates
 - `decide_me/`: runtime implementation
 - `scripts/decide_me.py`: deterministic CLI
 - `requirements-dev.txt`: development-only dependencies for schema validation tests

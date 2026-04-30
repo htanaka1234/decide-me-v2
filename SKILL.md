@@ -50,6 +50,7 @@ Read only the reference file needed for the turn:
 - [references/plan-generation.md](references/plan-generation.md)
 - [references/output-contract.md](references/output-contract.md)
 - [references/document-compiler.md](references/document-compiler.md)
+- [references/domain-packs.md](references/domain-packs.md)
 - [references/examples.md](references/examples.md)
 
 Bundled assets:
@@ -76,6 +77,8 @@ User-facing commands:
 - `Show invalidation candidates for object O-...`
 - `Show decision stack around object O-...`
 - `Classify session S-...`
+- `List domain packs`
+- `Show domain pack research`
 - `Advance session S-...`
 - `Handle reply for session S-...`
 - `Export impact report for object O-...`
@@ -86,6 +89,7 @@ User-facing commands:
 - `Export traceability matrix as CSV or Markdown`
 - `Export verification gaps`
 - `Export document as Markdown, JSON, or CSV`
+- `Export document with domain pack research`
 
 Runtime invariants:
 
@@ -124,4 +128,7 @@ Runtime invariants:
   GitHub issue draft, agent instruction, arc42 architecture, traceability matrix, and verification gap files are derived
   exports, not runtime state. Software-oriented exports are allowed, but they must be derived from
   the domain-neutral object/link core.
+- Domain packs are declarative policy overlays. Session and object pack metadata must keep
+  `domain_pack_id`, `domain_pack_version`, and `domain_pack_digest` together; stale digest or
+  version mismatches fail validation or pack-aware evaluation instead of silently falling back.
 - Free-form answers apply only to the current active proposal in the current session.
