@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import PurePosixPath
 import unittest
 
 from tests.helpers.distribution_artifact import BuiltArtifact
@@ -27,11 +28,13 @@ class Phase10DistributionArtifactTests(unittest.TestCase):
 
     def test_distribution_excludes_development_evaluation_suite_files(self) -> None:
         names = self.artifact.names()
+        script_names = {name for name in names if name.startswith("decide-me/scripts/")}
 
+        self.assertEqual({"decide-me/scripts/decide_me.py"}, script_names)
         self.assertNotIn("decide-me/scripts/evaluate_scenarios.py", names)
         self.assertFalse(any(name.startswith("decide-me/tests/") for name in names))
-        self.assertFalse(any("tests/scenarios" in name for name in names))
-        self.assertFalse(any("expected_outputs" in name for name in names))
+        self.assertFalse(any(_is_scenario_fixture_path(name) for name in names))
+        self.assertFalse(any(_has_path_part(name, "expected_outputs") for name in names))
         self.assertFalse(any("/.ai/" in name or name.startswith("decide-me/.ai/") for name in names))
         self.assertFalse(any("/.git/" in name or name.startswith("decide-me/.git/") for name in names))
         self.assertFalse(any("/dist/" in name or name.startswith("decide-me/dist/") for name in names))
@@ -48,6 +51,15 @@ class Phase10DistributionArtifactTests(unittest.TestCase):
         ]:
             with self.subTest(expected=expected):
                 self.assertIn(expected, reference)
+
+
+def _has_path_part(name: str, part: str) -> bool:
+    return part in PurePosixPath(name).parts
+
+
+def _is_scenario_fixture_path(name: str) -> bool:
+    parts = PurePosixPath(name).parts
+    return len(parts) >= 3 and parts[:3] == ("decide-me", "tests", "scenarios")
 
 
 if __name__ == "__main__":
