@@ -1,0 +1,629 @@
+{
+  "counts": {
+    "by_relation": {
+      "accepts": 2,
+      "addresses": 5,
+      "recommends": 2,
+      "revisits": 1
+    },
+    "by_status": {
+      "accepted": 4,
+      "active": 7,
+      "unresolved": 1
+    },
+    "by_type": {
+      "action": 3,
+      "decision": 3,
+      "objective": 1,
+      "option": 2,
+      "proposal": 2,
+      "revisit_trigger": 1
+    },
+    "link_total": 10,
+    "object_total": 12
+  },
+  "graph": {
+    "edges": [
+      {
+        "link_id": "L-ACT-wp-draft-addresses-DEC-wp-topic",
+        "relation": "addresses",
+        "source_layer": "execution",
+        "source_object_id": "ACT-wp-draft",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-wp-topic"
+      },
+      {
+        "link_id": "L-DEC-wp-goal-accepts-PRO-wp-goal",
+        "relation": "accepts",
+        "source_layer": "strategy",
+        "source_object_id": "DEC-wp-goal",
+        "target_layer": "strategy",
+        "target_object_id": "PRO-wp-goal"
+      },
+      {
+        "link_id": "L-DEC-wp-topic-accepts-PRO-wp-topic",
+        "relation": "accepts",
+        "source_layer": "strategy",
+        "source_object_id": "DEC-wp-topic",
+        "target_layer": "strategy",
+        "target_object_id": "PRO-wp-topic"
+      },
+      {
+        "link_id": "L-O-action-3de88c1af187-addresses-DEC-wp-goal",
+        "relation": "addresses",
+        "source_layer": "execution",
+        "source_object_id": "O-action-3de88c1af187",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-wp-goal"
+      },
+      {
+        "link_id": "L-O-action-8ba4e6b7c729-addresses-DEC-wp-topic",
+        "relation": "addresses",
+        "source_layer": "execution",
+        "source_object_id": "O-action-8ba4e6b7c729",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-wp-topic"
+      },
+      {
+        "link_id": "L-PRO-wp-goal-addresses-DEC-wp-goal",
+        "relation": "addresses",
+        "source_layer": "strategy",
+        "source_object_id": "PRO-wp-goal",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-wp-goal"
+      },
+      {
+        "link_id": "L-PRO-wp-goal-recommends-OPT-wp-goal",
+        "relation": "recommends",
+        "source_layer": "strategy",
+        "source_object_id": "PRO-wp-goal",
+        "target_layer": "strategy",
+        "target_object_id": "OPT-wp-goal"
+      },
+      {
+        "link_id": "L-PRO-wp-topic-addresses-DEC-wp-topic",
+        "relation": "addresses",
+        "source_layer": "strategy",
+        "source_object_id": "PRO-wp-topic",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-wp-topic"
+      },
+      {
+        "link_id": "L-PRO-wp-topic-recommends-OPT-wp-evaluation-article",
+        "relation": "recommends",
+        "source_layer": "strategy",
+        "source_object_id": "PRO-wp-topic",
+        "target_layer": "strategy",
+        "target_object_id": "OPT-wp-evaluation-article"
+      },
+      {
+        "link_id": "L-REV-wp-review-revisits-DEC-wp-review",
+        "relation": "revisits",
+        "source_layer": "review",
+        "source_object_id": "REV-wp-review",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-wp-review"
+      }
+    ],
+    "inferred_candidates": [],
+    "nodes": [
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "execution",
+        "object_id": "ACT-wp-draft",
+        "object_type": "action",
+        "status": "active",
+        "title": "Draft evaluation suite article"
+      },
+      {
+        "is_frontier": true,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "DEC-wp-goal",
+        "object_type": "decision",
+        "status": "accepted",
+        "title": "Writing goal"
+      },
+      {
+        "is_frontier": true,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "DEC-wp-review",
+        "object_type": "decision",
+        "status": "unresolved",
+        "title": "Review method"
+      },
+      {
+        "is_frontier": true,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "DEC-wp-topic",
+        "object_type": "decision",
+        "status": "accepted",
+        "title": "Article topic"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "execution",
+        "object_id": "O-action-3de88c1af187",
+        "object_type": "action",
+        "status": "active",
+        "title": "Writing goal"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "execution",
+        "object_id": "O-action-8ba4e6b7c729",
+        "object_type": "action",
+        "status": "active",
+        "title": "Article topic"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "purpose",
+        "object_id": "O-project-objective",
+        "object_type": "objective",
+        "status": "active",
+        "title": "Article outline and review plan"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "OPT-wp-evaluation-article",
+        "object_type": "option",
+        "status": "active",
+        "title": "Evaluation suite article"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "OPT-wp-goal",
+        "object_type": "option",
+        "status": "active",
+        "title": "Concise technical article"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "PRO-wp-goal",
+        "object_type": "proposal",
+        "status": "accepted",
+        "title": "Write a concise technical article"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "PRO-wp-topic",
+        "object_type": "proposal",
+        "status": "accepted",
+        "title": "Use an evaluation-suite article"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "review",
+        "object_id": "REV-wp-review",
+        "object_type": "revisit_trigger",
+        "status": "active",
+        "title": "Draft review checkpoint"
+      }
+    ],
+    "resolved_conflicts": []
+  },
+  "links": [
+    {
+      "created_at": "2026-04-29T00:20:11Z",
+      "id": "L-ACT-wp-draft-addresses-DEC-wp-topic",
+      "rationale": "Drafting action implements the topic decision.",
+      "relation": "addresses",
+      "source_event_ids": [
+        "E-wp-012"
+      ],
+      "source_object_id": "ACT-wp-draft",
+      "target_object_id": "DEC-wp-topic"
+    },
+    {
+      "created_at": "2026-04-29T00:20:08Z",
+      "id": "L-DEC-wp-goal-accepts-PRO-wp-goal",
+      "rationale": "Accepted the writing goal.",
+      "relation": "accepts",
+      "source_event_ids": [
+        "E-wp-009"
+      ],
+      "source_object_id": "DEC-wp-goal",
+      "target_object_id": "PRO-wp-goal"
+    },
+    {
+      "created_at": "2026-04-29T00:20:09Z",
+      "id": "L-DEC-wp-topic-accepts-PRO-wp-topic",
+      "rationale": "Accepted the article topic.",
+      "relation": "accepts",
+      "source_event_ids": [
+        "E-wp-010"
+      ],
+      "source_object_id": "DEC-wp-topic",
+      "target_object_id": "PRO-wp-topic"
+    },
+    {
+      "created_at": "2026-04-29T02:30:01Z",
+      "id": "L-O-action-3de88c1af187-addresses-DEC-wp-goal",
+      "rationale": "Concise technical article",
+      "relation": "addresses",
+      "source_event_ids": [
+        "E-eval-writing_project-close-0001-c0ed39c4-0002"
+      ],
+      "source_object_id": "O-action-3de88c1af187",
+      "target_object_id": "DEC-wp-goal"
+    },
+    {
+      "created_at": "2026-04-29T02:30:01Z",
+      "id": "L-O-action-8ba4e6b7c729-addresses-DEC-wp-topic",
+      "rationale": "Evaluation suite article",
+      "relation": "addresses",
+      "source_event_ids": [
+        "E-eval-writing_project-close-0001-c0ed39c4-0004"
+      ],
+      "source_object_id": "O-action-8ba4e6b7c729",
+      "target_object_id": "DEC-wp-topic"
+    },
+    {
+      "created_at": "2026-04-29T00:20:14Z",
+      "id": "L-PRO-wp-goal-addresses-DEC-wp-goal",
+      "rationale": "Goal proposal addresses the writing goal decision.",
+      "relation": "addresses",
+      "source_event_ids": [
+        "E-wp-015"
+      ],
+      "source_object_id": "PRO-wp-goal",
+      "target_object_id": "DEC-wp-goal"
+    },
+    {
+      "created_at": "2026-04-29T00:20:15Z",
+      "id": "L-PRO-wp-goal-recommends-OPT-wp-goal",
+      "rationale": "Goal proposal recommends the concise article option.",
+      "relation": "recommends",
+      "source_event_ids": [
+        "E-wp-016"
+      ],
+      "source_object_id": "PRO-wp-goal",
+      "target_object_id": "OPT-wp-goal"
+    },
+    {
+      "created_at": "2026-04-29T00:20:16Z",
+      "id": "L-PRO-wp-topic-addresses-DEC-wp-topic",
+      "rationale": "Topic proposal addresses the topic decision.",
+      "relation": "addresses",
+      "source_event_ids": [
+        "E-wp-017"
+      ],
+      "source_object_id": "PRO-wp-topic",
+      "target_object_id": "DEC-wp-topic"
+    },
+    {
+      "created_at": "2026-04-29T00:20:10Z",
+      "id": "L-PRO-wp-topic-recommends-OPT-wp-evaluation-article",
+      "rationale": "Topic proposal recommends the evaluation-suite article option.",
+      "relation": "recommends",
+      "source_event_ids": [
+        "E-wp-011"
+      ],
+      "source_object_id": "PRO-wp-topic",
+      "target_object_id": "OPT-wp-evaluation-article"
+    },
+    {
+      "created_at": "2026-04-29T00:20:12Z",
+      "id": "L-REV-wp-review-revisits-DEC-wp-review",
+      "rationale": "Review checkpoint revisits the unresolved review decision.",
+      "relation": "revisits",
+      "source_event_ids": [
+        "E-wp-013"
+      ],
+      "source_object_id": "REV-wp-review",
+      "target_object_id": "DEC-wp-review"
+    }
+  ],
+  "objects": [
+    {
+      "body": "Draft the article outline and first section.",
+      "created_at": "2026-04-29T00:20:06Z",
+      "id": "ACT-wp-draft",
+      "metadata": {
+        "decision_id": "DEC-wp-topic",
+        "evidence_backed": false,
+        "evidence_source": null,
+        "implementation_ready": true,
+        "kind": "execution",
+        "next_step": "Draft the article outline and first section.",
+        "origin_session_id": "S-writing-project",
+        "priority": "P0",
+        "resolvable_by": "docs",
+        "responsibility": "author",
+        "reversibility": "reversible"
+      },
+      "source_event_ids": [
+        "E-wp-007"
+      ],
+      "status": "active",
+      "title": "Draft evaluation suite article",
+      "type": "action",
+      "updated_at": null
+    },
+    {
+      "body": "Clarify the article goal.",
+      "created_at": "2026-04-29T00:20:00Z",
+      "id": "DEC-wp-goal",
+      "metadata": {
+        "domain_criteria": [
+          "clarity",
+          "relevance"
+        ],
+        "domain_decision_type": "clarify_goal",
+        "domain_pack_digest": "DP-6995c80372d5",
+        "domain_pack_id": "generic",
+        "domain_pack_version": "0.1.0",
+        "frontier": "now",
+        "priority": "P0",
+        "resolvable_by": "human",
+        "reversibility": "reversible"
+      },
+      "source_event_ids": [
+        "E-wp-001"
+      ],
+      "status": "accepted",
+      "title": "Writing goal",
+      "type": "decision",
+      "updated_at": null
+    },
+    {
+      "body": "Decide who should review the draft and how feedback will be verified.",
+      "created_at": "2026-04-29T00:20:02Z",
+      "id": "DEC-wp-review",
+      "metadata": {
+        "domain_criteria": [
+          "verifiability",
+          "feasibility"
+        ],
+        "domain_decision_type": "plan_verification",
+        "domain_pack_digest": "DP-6995c80372d5",
+        "domain_pack_id": "generic",
+        "domain_pack_version": "0.1.0",
+        "frontier": "now",
+        "priority": "P0",
+        "resolvable_by": "human",
+        "reversibility": "reversible"
+      },
+      "source_event_ids": [
+        "E-wp-003"
+      ],
+      "status": "unresolved",
+      "title": "Review method",
+      "type": "decision",
+      "updated_at": null
+    },
+    {
+      "body": "Choose the article topic and outline direction.",
+      "created_at": "2026-04-29T00:20:01Z",
+      "id": "DEC-wp-topic",
+      "metadata": {
+        "domain_criteria": [
+          "fitness",
+          "tradeoff_visibility"
+        ],
+        "domain_decision_type": "choose_option",
+        "domain_pack_digest": "DP-6995c80372d5",
+        "domain_pack_id": "generic",
+        "domain_pack_version": "0.1.0",
+        "frontier": "now",
+        "priority": "P0",
+        "resolvable_by": "human",
+        "reversibility": "reversible"
+      },
+      "source_event_ids": [
+        "E-wp-002"
+      ],
+      "status": "accepted",
+      "title": "Article topic",
+      "type": "decision",
+      "updated_at": null
+    },
+    {
+      "body": "Concise technical article",
+      "created_at": "2026-04-29T02:30:01Z",
+      "id": "O-action-3de88c1af187",
+      "metadata": {
+        "decision_id": "DEC-wp-goal",
+        "decision_status": "accepted",
+        "evidence": [],
+        "evidence_backed": false,
+        "evidence_source": null,
+        "implementation_ready": false,
+        "kind": "choice",
+        "next_step": "Drive Writing goal to completion.",
+        "origin_session_id": "S-writing-project",
+        "priority": "P0",
+        "resolvable_by": "human",
+        "responsibility": "other",
+        "reversibility": "reversible"
+      },
+      "source_event_ids": [
+        "E-eval-writing_project-close-0001-c0ed39c4-0001"
+      ],
+      "status": "active",
+      "title": "Writing goal",
+      "type": "action",
+      "updated_at": null
+    },
+    {
+      "body": "Evaluation suite article",
+      "created_at": "2026-04-29T02:30:01Z",
+      "id": "O-action-8ba4e6b7c729",
+      "metadata": {
+        "decision_id": "DEC-wp-topic",
+        "decision_status": "accepted",
+        "evidence": [],
+        "evidence_backed": false,
+        "evidence_source": null,
+        "implementation_ready": false,
+        "kind": "choice",
+        "next_step": "Drive Article topic to completion.",
+        "origin_session_id": "S-writing-project",
+        "priority": "P0",
+        "resolvable_by": "human",
+        "responsibility": "other",
+        "reversibility": "reversible"
+      },
+      "source_event_ids": [
+        "E-eval-writing_project-close-0001-c0ed39c4-0003"
+      ],
+      "status": "active",
+      "title": "Article topic",
+      "type": "action",
+      "updated_at": null
+    },
+    {
+      "body": "Plan a concise technical article with unresolved review work visible.",
+      "created_at": "2026-04-29T00:00:00Z",
+      "id": "O-project-objective",
+      "metadata": {
+        "project_name": "Demo writing project",
+        "stop_rule": "All relevant P0 decisions with frontier=now are resolved, accepted, or explicitly deferred."
+      },
+      "source_event_ids": [
+        "E-eval-writing_project-project"
+      ],
+      "status": "active",
+      "title": "Article outline and review plan",
+      "type": "objective",
+      "updated_at": null
+    },
+    {
+      "body": "Article uses the evaluation suite as the primary example.",
+      "created_at": "2026-04-29T00:20:05Z",
+      "id": "OPT-wp-evaluation-article",
+      "metadata": {},
+      "source_event_ids": [
+        "E-wp-006"
+      ],
+      "status": "active",
+      "title": "Evaluation suite article",
+      "type": "option",
+      "updated_at": null
+    },
+    {
+      "body": "Write a concise article about decision evaluation.",
+      "created_at": "2026-04-29T00:20:13Z",
+      "id": "OPT-wp-goal",
+      "metadata": {},
+      "source_event_ids": [
+        "E-wp-014"
+      ],
+      "status": "active",
+      "title": "Concise technical article",
+      "type": "option",
+      "updated_at": null
+    },
+    {
+      "body": "Write a concise article that explains the decision workflow.",
+      "created_at": "2026-04-29T00:20:03Z",
+      "id": "PRO-wp-goal",
+      "metadata": {
+        "origin_session_id": "S-writing-project"
+      },
+      "source_event_ids": [
+        "E-wp-004"
+      ],
+      "status": "accepted",
+      "title": "Write a concise technical article",
+      "type": "proposal",
+      "updated_at": null
+    },
+    {
+      "body": "Explain how scenario fixtures catch decision regressions.",
+      "created_at": "2026-04-29T00:20:04Z",
+      "id": "PRO-wp-topic",
+      "metadata": {
+        "origin_session_id": "S-writing-project"
+      },
+      "source_event_ids": [
+        "E-wp-005"
+      ],
+      "status": "accepted",
+      "title": "Use an evaluation-suite article",
+      "type": "proposal",
+      "updated_at": null
+    },
+    {
+      "body": "Revisit when the draft has no reviewer assigned by the checkpoint.",
+      "created_at": "2026-04-29T00:20:07Z",
+      "id": "REV-wp-review",
+      "metadata": {
+        "condition": "No reviewer assigned for the draft by the checkpoint.",
+        "due_at": "2026-04-28T00:00:00Z",
+        "target_object_ids": [
+          "DEC-wp-review"
+        ],
+        "trigger_type": "time"
+      },
+      "source_event_ids": [
+        "E-wp-008"
+      ],
+      "status": "active",
+      "title": "Draft review checkpoint",
+      "type": "revisit_trigger",
+      "updated_at": null
+    }
+  ],
+  "project": {
+    "current_milestone": "Article outline and review plan",
+    "name": "Demo writing project",
+    "objective": "Plan a concise technical article with unresolved review work visible.",
+    "stop_rule": "All relevant P0 decisions with frontier=now are resolved, accepted, or explicitly deferred."
+  },
+  "protocol": {
+    "close_policy": "generate-close-summary-on-close",
+    "plain_ok_scope": "same-session-active-proposal-only",
+    "proposal_expiry_rules": [
+      "project-head-changed",
+      "session-boundary",
+      "superseded-proposal",
+      "decision-invalidated",
+      "session-closed"
+    ]
+  },
+  "schema_version": 12,
+  "sessions_index": {
+    "S-writing-project": {
+      "bound_context_hint": "Choose the article direction, action chain, and review gaps.",
+      "closed_at": "2026-04-29T02:30:01Z",
+      "id": "S-writing-project",
+      "last_seen_at": "2026-04-29T02:30:01Z",
+      "related_object_ids": [
+        "DEC-wp-goal",
+        "DEC-wp-topic",
+        "DEC-wp-review",
+        "PRO-wp-goal",
+        "PRO-wp-topic",
+        "OPT-wp-evaluation-article",
+        "ACT-wp-draft",
+        "REV-wp-review",
+        "OPT-wp-goal",
+        "O-action-3de88c1af187",
+        "O-action-8ba4e6b7c729"
+      ],
+      "started_at": "2026-04-29T00:00:01Z",
+      "status": "closed"
+    }
+  },
+  "state": {
+    "event_count": 25,
+    "updated_at": "2026-04-29T02:30:01Z"
+  }
+}

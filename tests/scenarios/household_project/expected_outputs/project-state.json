@@ -1,0 +1,538 @@
+{
+  "counts": {
+    "by_relation": {
+      "accepts": 1,
+      "addresses": 3,
+      "recommends": 1,
+      "revisits": 2,
+      "verifies": 2
+    },
+    "by_status": {
+      "accepted": 2,
+      "active": 8
+    },
+    "by_type": {
+      "action": 2,
+      "decision": 1,
+      "objective": 1,
+      "option": 1,
+      "proposal": 1,
+      "revisit_trigger": 2,
+      "verification": 2
+    },
+    "link_total": 9,
+    "object_total": 10
+  },
+  "graph": {
+    "edges": [
+      {
+        "link_id": "L-ACT-hp-reset-addresses-DEC-hp-option",
+        "relation": "addresses",
+        "source_layer": "execution",
+        "source_object_id": "ACT-hp-reset",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-hp-option"
+      },
+      {
+        "link_id": "L-DEC-hp-option-accepts-PRO-hp-option",
+        "relation": "accepts",
+        "source_layer": "strategy",
+        "source_object_id": "DEC-hp-option",
+        "target_layer": "strategy",
+        "target_object_id": "PRO-hp-option"
+      },
+      {
+        "link_id": "L-O-action-a2d391016881-addresses-DEC-hp-option",
+        "relation": "addresses",
+        "source_layer": "execution",
+        "source_object_id": "O-action-a2d391016881",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-hp-option"
+      },
+      {
+        "link_id": "L-PRO-hp-option-addresses-DEC-hp-option",
+        "relation": "addresses",
+        "source_layer": "strategy",
+        "source_object_id": "PRO-hp-option",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-hp-option"
+      },
+      {
+        "link_id": "L-PRO-hp-option-recommends-OPT-hp-one-room",
+        "relation": "recommends",
+        "source_layer": "strategy",
+        "source_object_id": "PRO-hp-option",
+        "target_layer": "strategy",
+        "target_object_id": "OPT-hp-one-room"
+      },
+      {
+        "link_id": "L-REV-hp-due-revisits-DEC-hp-option",
+        "relation": "revisits",
+        "source_layer": "review",
+        "source_object_id": "REV-hp-due",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-hp-option"
+      },
+      {
+        "link_id": "L-REV-hp-future-revisits-DEC-hp-option",
+        "relation": "revisits",
+        "source_layer": "review",
+        "source_object_id": "REV-hp-future",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-hp-option"
+      },
+      {
+        "link_id": "L-VER-hp-close-option-verifies-O-action-a2d391016881",
+        "relation": "verifies",
+        "source_layer": "verification",
+        "source_object_id": "VER-hp-close-option",
+        "target_layer": "execution",
+        "target_object_id": "O-action-a2d391016881"
+      },
+      {
+        "link_id": "L-VER-hp-reset-verifies-ACT-hp-reset",
+        "relation": "verifies",
+        "source_layer": "verification",
+        "source_object_id": "VER-hp-reset",
+        "target_layer": "execution",
+        "target_object_id": "ACT-hp-reset"
+      }
+    ],
+    "inferred_candidates": [],
+    "nodes": [
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "execution",
+        "object_id": "ACT-hp-reset",
+        "object_type": "action",
+        "status": "active",
+        "title": "Reset entryway shelf"
+      },
+      {
+        "is_frontier": true,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "DEC-hp-option",
+        "object_type": "decision",
+        "status": "accepted",
+        "title": "Weekend household plan"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "execution",
+        "object_id": "O-action-a2d391016881",
+        "object_type": "action",
+        "status": "active",
+        "title": "Verify one-room reset choice"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "purpose",
+        "object_id": "O-project-objective",
+        "object_type": "objective",
+        "status": "active",
+        "title": "Weekend plan"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "OPT-hp-one-room",
+        "object_type": "option",
+        "status": "active",
+        "title": "One-room reset"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "PRO-hp-option",
+        "object_type": "proposal",
+        "status": "accepted",
+        "title": "One-room reset plan"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "review",
+        "object_id": "REV-hp-due",
+        "object_type": "revisit_trigger",
+        "status": "active",
+        "title": "Same-day household revisit"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "review",
+        "object_id": "REV-hp-future",
+        "object_type": "revisit_trigger",
+        "status": "active",
+        "title": "Next-week household revisit"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "verification",
+        "object_id": "VER-hp-close-option",
+        "object_type": "verification",
+        "status": "active",
+        "title": "Household close verification"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "verification",
+        "object_id": "VER-hp-reset",
+        "object_type": "verification",
+        "status": "active",
+        "title": "Shelf reset verification"
+      }
+    ],
+    "resolved_conflicts": []
+  },
+  "links": [
+    {
+      "created_at": "2026-04-29T00:20:09Z",
+      "id": "L-ACT-hp-reset-addresses-DEC-hp-option",
+      "rationale": "Shelf reset action implements the household plan.",
+      "relation": "addresses",
+      "source_event_ids": [
+        "E-hp-010"
+      ],
+      "source_object_id": "ACT-hp-reset",
+      "target_object_id": "DEC-hp-option"
+    },
+    {
+      "created_at": "2026-04-29T00:20:07Z",
+      "id": "L-DEC-hp-option-accepts-PRO-hp-option",
+      "rationale": "Accepted the one-room reset plan.",
+      "relation": "accepts",
+      "source_event_ids": [
+        "E-hp-008"
+      ],
+      "source_object_id": "DEC-hp-option",
+      "target_object_id": "PRO-hp-option"
+    },
+    {
+      "created_at": "2026-04-29T02:30:01Z",
+      "id": "L-O-action-a2d391016881-addresses-DEC-hp-option",
+      "rationale": "One-room reset",
+      "relation": "addresses",
+      "source_event_ids": [
+        "E-eval-household_project-close-0001-39911e0d-0001"
+      ],
+      "source_object_id": "O-action-a2d391016881",
+      "target_object_id": "DEC-hp-option"
+    },
+    {
+      "created_at": "2026-04-29T00:20:13Z",
+      "id": "L-PRO-hp-option-addresses-DEC-hp-option",
+      "rationale": "Household proposal addresses the option decision.",
+      "relation": "addresses",
+      "source_event_ids": [
+        "E-hp-014"
+      ],
+      "source_object_id": "PRO-hp-option",
+      "target_object_id": "DEC-hp-option"
+    },
+    {
+      "created_at": "2026-04-29T00:20:08Z",
+      "id": "L-PRO-hp-option-recommends-OPT-hp-one-room",
+      "rationale": "Proposal recommends the one-room option.",
+      "relation": "recommends",
+      "source_event_ids": [
+        "E-hp-009"
+      ],
+      "source_object_id": "PRO-hp-option",
+      "target_object_id": "OPT-hp-one-room"
+    },
+    {
+      "created_at": "2026-04-29T00:20:11Z",
+      "id": "L-REV-hp-due-revisits-DEC-hp-option",
+      "rationale": "Due trigger revisits the household plan.",
+      "relation": "revisits",
+      "source_event_ids": [
+        "E-hp-012"
+      ],
+      "source_object_id": "REV-hp-due",
+      "target_object_id": "DEC-hp-option"
+    },
+    {
+      "created_at": "2026-04-29T00:20:12Z",
+      "id": "L-REV-hp-future-revisits-DEC-hp-option",
+      "rationale": "Future trigger revisits the household plan later.",
+      "relation": "revisits",
+      "source_event_ids": [
+        "E-hp-013"
+      ],
+      "source_object_id": "REV-hp-future",
+      "target_object_id": "DEC-hp-option"
+    },
+    {
+      "created_at": "2026-04-29T00:20:16Z",
+      "id": "L-VER-hp-close-option-verifies-O-action-a2d391016881",
+      "rationale": "Close action has verification coverage.",
+      "relation": "verifies",
+      "source_event_ids": [
+        "E-hp-017"
+      ],
+      "source_object_id": "VER-hp-close-option",
+      "target_object_id": "O-action-a2d391016881"
+    },
+    {
+      "created_at": "2026-04-29T00:20:10Z",
+      "id": "L-VER-hp-reset-verifies-ACT-hp-reset",
+      "rationale": "Inspection verifies the shelf reset action.",
+      "relation": "verifies",
+      "source_event_ids": [
+        "E-hp-011"
+      ],
+      "source_object_id": "VER-hp-reset",
+      "target_object_id": "ACT-hp-reset"
+    }
+  ],
+  "objects": [
+    {
+      "body": "Clear and label the entryway shelf.",
+      "created_at": "2026-04-29T00:20:03Z",
+      "id": "ACT-hp-reset",
+      "metadata": {
+        "decision_id": "DEC-hp-option",
+        "evidence_backed": false,
+        "evidence_source": null,
+        "implementation_ready": true,
+        "kind": "execution",
+        "next_step": "Clear and label the entryway shelf.",
+        "origin_session_id": "S-household-project",
+        "priority": "P1",
+        "resolvable_by": "human",
+        "responsibility": "household",
+        "reversibility": "reversible"
+      },
+      "source_event_ids": [
+        "E-hp-004"
+      ],
+      "status": "active",
+      "title": "Reset entryway shelf",
+      "type": "action",
+      "updated_at": null
+    },
+    {
+      "body": "Choose the weekend household organization plan.",
+      "created_at": "2026-04-29T00:20:00Z",
+      "id": "DEC-hp-option",
+      "metadata": {
+        "domain_criteria": [
+          "fitness",
+          "tradeoff_visibility"
+        ],
+        "domain_decision_type": "choose_option",
+        "domain_pack_digest": "DP-6995c80372d5",
+        "domain_pack_id": "generic",
+        "domain_pack_version": "0.1.0",
+        "frontier": "now",
+        "priority": "P1",
+        "resolvable_by": "human",
+        "reversibility": "reversible"
+      },
+      "source_event_ids": [
+        "E-hp-001"
+      ],
+      "status": "accepted",
+      "title": "Weekend household plan",
+      "type": "decision",
+      "updated_at": null
+    },
+    {
+      "body": "Confirm the one-room reset plan remains low-risk and reversible.",
+      "created_at": "2026-04-29T00:20:14Z",
+      "id": "O-action-a2d391016881",
+      "metadata": {
+        "decision_id": "DEC-hp-option",
+        "evidence_backed": false,
+        "evidence_source": null,
+        "implementation_ready": true,
+        "kind": "choice",
+        "next_step": "Review the one-room reset plan.",
+        "origin_session_id": "S-household-project",
+        "priority": "P1",
+        "resolvable_by": "human",
+        "responsibility": "household",
+        "reversibility": "reversible"
+      },
+      "source_event_ids": [
+        "E-hp-015"
+      ],
+      "status": "active",
+      "title": "Verify one-room reset choice",
+      "type": "action",
+      "updated_at": null
+    },
+    {
+      "body": "Choose a lightweight weekend organization plan.",
+      "created_at": "2026-04-29T00:00:00Z",
+      "id": "O-project-objective",
+      "metadata": {
+        "project_name": "Demo household project",
+        "stop_rule": "All relevant P0 decisions with frontier=now are resolved, accepted, or explicitly deferred."
+      },
+      "source_event_ids": [
+        "E-eval-household_project-project"
+      ],
+      "status": "active",
+      "title": "Weekend plan",
+      "type": "objective",
+      "updated_at": null
+    },
+    {
+      "body": "Organize one room and keep the rest unchanged.",
+      "created_at": "2026-04-29T00:20:02Z",
+      "id": "OPT-hp-one-room",
+      "metadata": {},
+      "source_event_ids": [
+        "E-hp-003"
+      ],
+      "status": "active",
+      "title": "One-room reset",
+      "type": "option",
+      "updated_at": null
+    },
+    {
+      "body": "Reset one room and defer optional tasks.",
+      "created_at": "2026-04-29T00:20:01Z",
+      "id": "PRO-hp-option",
+      "metadata": {
+        "origin_session_id": "S-household-project"
+      },
+      "source_event_ids": [
+        "E-hp-002"
+      ],
+      "status": "accepted",
+      "title": "One-room reset plan",
+      "type": "proposal",
+      "updated_at": null
+    },
+    {
+      "body": "Revisit if the entryway shelf is not reset by the end of day.",
+      "created_at": "2026-04-29T00:20:05Z",
+      "id": "REV-hp-due",
+      "metadata": {
+        "condition": "Entryway shelf is not reset by the end of day.",
+        "due_at": "2026-04-28T00:00:00Z",
+        "target_object_ids": [
+          "DEC-hp-option"
+        ],
+        "trigger_type": "time"
+      },
+      "source_event_ids": [
+        "E-hp-006"
+      ],
+      "status": "active",
+      "title": "Same-day household revisit",
+      "type": "revisit_trigger",
+      "updated_at": null
+    },
+    {
+      "body": "Revisit optional storage changes next week.",
+      "created_at": "2026-04-29T00:20:06Z",
+      "id": "REV-hp-future",
+      "metadata": {
+        "condition": "Review optional storage changes next week.",
+        "due_at": "2026-05-06T00:00:00Z",
+        "target_object_ids": [
+          "DEC-hp-option"
+        ],
+        "trigger_type": "time"
+      },
+      "source_event_ids": [
+        "E-hp-007"
+      ],
+      "status": "active",
+      "title": "Next-week household revisit",
+      "type": "revisit_trigger",
+      "updated_at": null
+    },
+    {
+      "body": "The one-room reset plan has been reviewed as low-risk.",
+      "created_at": "2026-04-29T00:20:15Z",
+      "id": "VER-hp-close-option",
+      "metadata": {
+        "expected_result": "The one-room reset plan remains low-risk and reversible.",
+        "method": "inspection",
+        "result": "pass",
+        "verified_at": "2026-04-29T00:20:15Z"
+      },
+      "source_event_ids": [
+        "E-hp-016"
+      ],
+      "status": "active",
+      "title": "Household close verification",
+      "type": "verification",
+      "updated_at": null
+    },
+    {
+      "body": "Shelf is clear and labels are visible.",
+      "created_at": "2026-04-29T00:20:04Z",
+      "id": "VER-hp-reset",
+      "metadata": {
+        "expected_result": "Entryway shelf is clear and labels are visible.",
+        "method": "inspection",
+        "result": "pending",
+        "verified_at": null
+      },
+      "source_event_ids": [
+        "E-hp-005"
+      ],
+      "status": "active",
+      "title": "Shelf reset verification",
+      "type": "verification",
+      "updated_at": null
+    }
+  ],
+  "project": {
+    "current_milestone": "Weekend plan",
+    "name": "Demo household project",
+    "objective": "Choose a lightweight weekend organization plan.",
+    "stop_rule": "All relevant P0 decisions with frontier=now are resolved, accepted, or explicitly deferred."
+  },
+  "protocol": {
+    "close_policy": "generate-close-summary-on-close",
+    "plain_ok_scope": "same-session-active-proposal-only",
+    "proposal_expiry_rules": [
+      "project-head-changed",
+      "session-boundary",
+      "superseded-proposal",
+      "decision-invalidated",
+      "session-closed"
+    ]
+  },
+  "schema_version": 12,
+  "sessions_index": {
+    "S-household-project": {
+      "bound_context_hint": "Pick a low-risk household plan and revisit triggers.",
+      "closed_at": "2026-04-29T02:30:01Z",
+      "id": "S-household-project",
+      "last_seen_at": "2026-04-29T02:30:01Z",
+      "related_object_ids": [
+        "DEC-hp-option",
+        "PRO-hp-option",
+        "OPT-hp-one-room",
+        "ACT-hp-reset",
+        "VER-hp-reset",
+        "REV-hp-due",
+        "REV-hp-future",
+        "O-action-a2d391016881",
+        "VER-hp-close-option"
+      ],
+      "started_at": "2026-04-29T00:00:01Z",
+      "status": "closed"
+    }
+  },
+  "state": {
+    "event_count": 22,
+    "updated_at": "2026-04-29T02:30:01Z"
+  }
+}

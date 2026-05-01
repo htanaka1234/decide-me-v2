@@ -1,0 +1,634 @@
+{
+  "audience": "human",
+  "document_id": "DOC-20260429-decision-brief",
+  "document_type": "decision-brief",
+  "metadata": {
+    "document_profile_id": "procurement_recommendation",
+    "domain_pack_digest": "DP-2583792220b4",
+    "domain_pack_id": "procurement",
+    "domain_pack_version": "0.1.0"
+  },
+  "schema_version": 1,
+  "sections": [
+    {
+      "blocks": [
+        {
+          "columns": [
+            "Field",
+            "Value"
+          ],
+          "rows": [
+            [
+              "Name",
+              "Demo procurement project"
+            ],
+            [
+              "Objective",
+              "Select a vendor with clear requirements, comparison evidence, and review gates."
+            ],
+            [
+              "Current Milestone",
+              "Vendor selection decision"
+            ],
+            [
+              "Project Head",
+              "121db06a55730953d40e3089435c46ee7f73e1c2d2e98238abaca9060ee3d764"
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "project",
+      "order": 10,
+      "source_link_ids": [],
+      "source_object_ids": [],
+      "title": "Project"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "ID",
+            "Type",
+            "Title",
+            "Status",
+            "Statement"
+          ],
+          "rows": [
+            [
+              "O-project-objective",
+              "objective",
+              "Vendor selection decision",
+              "active",
+              "Select a vendor with clear requirements, comparison evidence, and review gates."
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "purpose-principles-constraints",
+      "order": 20,
+      "source_link_ids": [],
+      "source_object_ids": [
+        "O-project-objective"
+      ],
+      "title": "Purpose / Principles / Constraints"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "ID",
+            "Title",
+            "Status",
+            "Priority",
+            "Frontier",
+            "Summary"
+          ],
+          "rows": [
+            [
+              "DEC-pd-candidates",
+              "Candidate selection",
+              "accepted",
+              "P1",
+              "now",
+              "Compare Vendor A and Vendor B"
+            ],
+            [
+              "DEC-pd-criteria",
+              "Evaluation criteria",
+              "accepted",
+              "P0",
+              "now",
+              "Score fit, cost, and security"
+            ],
+            [
+              "DEC-pd-final",
+              "Final vendor selection",
+              "accepted",
+              "P0",
+              "now",
+              "Select Vendor A"
+            ],
+            [
+              "DEC-pd-requirements",
+              "Requirements definition",
+              "accepted",
+              "P0",
+              "now",
+              "Accept must-have requirements"
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "current-decisions",
+      "order": 30,
+      "source_link_ids": [
+        "L-DEC-pd-candidates-accepts-PRO-pd-candidates",
+        "L-DEC-pd-criteria-accepts-PRO-pd-criteria",
+        "L-DEC-pd-final-accepts-PRO-pd-final-a",
+        "L-DEC-pd-requirements-accepts-PRO-pd-requirements",
+        "L-EVID-pd-budget-supports-DEC-pd-criteria",
+        "L-EVID-pd-budget-supports-DEC-pd-final",
+        "L-EVID-pd-comparison-supports-DEC-pd-final",
+        "L-EVID-pd-requirements-supports-DEC-pd-candidates",
+        "L-EVID-pd-requirements-supports-DEC-pd-criteria",
+        "L-EVID-pd-requirements-supports-DEC-pd-requirements",
+        "L-O-action-1eebb47b2426-addresses-DEC-pd-criteria",
+        "L-O-action-4f256876bf9d-addresses-DEC-pd-candidates",
+        "L-O-action-84541d235359-addresses-DEC-pd-requirements",
+        "L-O-action-bdd443373302-addresses-DEC-pd-final",
+        "L-PRO-pd-candidates-addresses-DEC-pd-candidates",
+        "L-PRO-pd-criteria-addresses-DEC-pd-criteria",
+        "L-PRO-pd-final-a-addresses-DEC-pd-final",
+        "L-PRO-pd-requirements-addresses-DEC-pd-requirements",
+        "L-RISK-pd-contract-challenges-DEC-pd-final",
+        "L-RISK-pd-lock-in-challenges-DEC-pd-final"
+      ],
+      "source_object_ids": [
+        "DEC-pd-candidates",
+        "DEC-pd-criteria",
+        "DEC-pd-final",
+        "DEC-pd-requirements"
+      ],
+      "title": "Current Decisions"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "Evidence ID",
+            "Source",
+            "Ref",
+            "Confidence",
+            "Freshness",
+            "Summary"
+          ],
+          "rows": [
+            [
+              "EVID-pd-budget",
+              "docs",
+              "docs/budget.md",
+              "medium",
+              "current",
+              "Budget context supports the selected annual spend range."
+            ],
+            [
+              "EVID-pd-comparison",
+              "docs",
+              "docs/vendor-comparison.md",
+              "medium",
+              "current",
+              "Comparison table supports selecting Vendor A."
+            ],
+            [
+              "EVID-pd-requirements",
+              "docs",
+              "docs/procurement-requirements.md",
+              "high",
+              "current",
+              "Requirements brief defines must-have and target needs."
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "columns": [
+            "Assumption ID",
+            "Statement",
+            "Confidence",
+            "Expires At",
+            "Owner"
+          ],
+          "rows": [],
+          "type": "table"
+        },
+        {
+          "columns": [
+            "Input ID",
+            "Reason",
+            "Until"
+          ],
+          "rows": [],
+          "type": "table"
+        }
+      ],
+      "id": "evidence-and-assumptions",
+      "order": 40,
+      "source_link_ids": [
+        "L-EVID-pd-budget-supports-DEC-pd-criteria",
+        "L-EVID-pd-budget-supports-DEC-pd-final",
+        "L-EVID-pd-comparison-supports-DEC-pd-final",
+        "L-EVID-pd-requirements-supports-DEC-pd-candidates",
+        "L-EVID-pd-requirements-supports-DEC-pd-criteria",
+        "L-EVID-pd-requirements-supports-DEC-pd-requirements"
+      ],
+      "source_object_ids": [
+        "EVID-pd-budget",
+        "EVID-pd-comparison",
+        "EVID-pd-requirements"
+      ],
+      "title": "Evidence and Assumptions"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "Risk ID",
+            "Statement",
+            "Risk Tier",
+            "Reversibility",
+            "Approval Threshold",
+            "Mitigated By"
+          ],
+          "rows": [
+            [
+              "RISK-pd-contract",
+              "Unreviewed contract terms may constrain exit or data handling.",
+              "high",
+              "partially_reversible",
+              "external_review",
+              ""
+            ],
+            [
+              "RISK-pd-lock-in",
+              "Vendor A creates switching-cost and lock-in risk.",
+              "high",
+              "partially_reversible",
+              "human_review",
+              ""
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "columns": [
+            "Object ID",
+            "Gate Status",
+            "Risk Tier",
+            "Reversibility",
+            "Approval Required",
+            "Blocking Reasons"
+          ],
+          "rows": [
+            [
+              "DEC-pd-candidates",
+              "needs_approval",
+              "none",
+              "reversible",
+              true,
+              ""
+            ],
+            [
+              "DEC-pd-criteria",
+              "passed",
+              "none",
+              "partially_reversible",
+              false,
+              ""
+            ],
+            [
+              "DEC-pd-final",
+              "needs_approval",
+              "high",
+              "partially_reversible",
+              true,
+              ""
+            ],
+            [
+              "DEC-pd-requirements",
+              "passed",
+              "none",
+              "partially_reversible",
+              false,
+              ""
+            ],
+            [
+              "O-action-1eebb47b2426",
+              "needs_approval",
+              "none",
+              "partially_reversible",
+              true,
+              ""
+            ],
+            [
+              "O-action-4f256876bf9d",
+              "needs_approval",
+              "none",
+              "reversible",
+              true,
+              ""
+            ],
+            [
+              "O-action-84541d235359",
+              "needs_approval",
+              "none",
+              "partially_reversible",
+              true,
+              ""
+            ],
+            [
+              "O-action-bdd443373302",
+              "needs_approval",
+              "none",
+              "partially_reversible",
+              true,
+              ""
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "risks-and-safety",
+      "order": 50,
+      "source_link_ids": [
+        "L-DEC-pd-candidates-accepts-PRO-pd-candidates",
+        "L-DEC-pd-criteria-accepts-PRO-pd-criteria",
+        "L-DEC-pd-final-accepts-PRO-pd-final-a",
+        "L-DEC-pd-requirements-accepts-PRO-pd-requirements",
+        "L-EVID-pd-budget-supports-DEC-pd-criteria",
+        "L-EVID-pd-budget-supports-DEC-pd-final",
+        "L-EVID-pd-comparison-supports-DEC-pd-final",
+        "L-EVID-pd-requirements-supports-DEC-pd-candidates",
+        "L-EVID-pd-requirements-supports-DEC-pd-criteria",
+        "L-EVID-pd-requirements-supports-DEC-pd-requirements",
+        "L-O-action-1eebb47b2426-addresses-DEC-pd-criteria",
+        "L-O-action-4f256876bf9d-addresses-DEC-pd-candidates",
+        "L-O-action-84541d235359-addresses-DEC-pd-requirements",
+        "L-O-action-bdd443373302-addresses-DEC-pd-final",
+        "L-PRO-pd-candidates-addresses-DEC-pd-candidates",
+        "L-PRO-pd-criteria-addresses-DEC-pd-criteria",
+        "L-PRO-pd-final-a-addresses-DEC-pd-final",
+        "L-PRO-pd-requirements-addresses-DEC-pd-requirements",
+        "L-RISK-pd-contract-challenges-DEC-pd-final",
+        "L-RISK-pd-lock-in-challenges-DEC-pd-final"
+      ],
+      "source_object_ids": [
+        "DEC-pd-candidates",
+        "DEC-pd-criteria",
+        "DEC-pd-final",
+        "DEC-pd-requirements",
+        "EVID-pd-budget",
+        "EVID-pd-comparison",
+        "EVID-pd-requirements",
+        "O-action-1eebb47b2426",
+        "O-action-4f256876bf9d",
+        "O-action-84541d235359",
+        "O-action-bdd443373302",
+        "RISK-pd-contract",
+        "RISK-pd-lock-in"
+      ],
+      "title": "Risks and Safety"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "Action ID",
+            "Title",
+            "Status",
+            "Responsibility",
+            "Ready",
+            "Next Step"
+          ],
+          "rows": [
+            [
+              "O-action-1eebb47b2426",
+              "Evaluation criteria",
+              "active",
+              "other",
+              false,
+              "Drive Evaluation criteria to completion."
+            ],
+            [
+              "O-action-4f256876bf9d",
+              "Candidate selection",
+              "active",
+              "other",
+              false,
+              "Drive Candidate selection to completion."
+            ],
+            [
+              "O-action-84541d235359",
+              "Requirements definition",
+              "active",
+              "other",
+              false,
+              "Drive Requirements definition to completion."
+            ],
+            [
+              "O-action-bdd443373302",
+              "Final vendor selection",
+              "active",
+              "other",
+              false,
+              "Drive Final vendor selection to completion."
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "columns": [
+            "Action ID",
+            "Gap Severity",
+            "Gap Reason"
+          ],
+          "rows": [
+            [
+              "O-action-1eebb47b2426",
+              "medium",
+              "missing_verification"
+            ],
+            [
+              "O-action-4f256876bf9d",
+              "medium",
+              "missing_verification"
+            ],
+            [
+              "O-action-84541d235359",
+              "medium",
+              "missing_verification"
+            ],
+            [
+              "O-action-bdd443373302",
+              "medium",
+              "missing_verification"
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "actions-and-verification",
+      "order": 60,
+      "source_link_ids": [
+        "L-O-action-1eebb47b2426-addresses-DEC-pd-criteria",
+        "L-O-action-4f256876bf9d-addresses-DEC-pd-candidates",
+        "L-O-action-84541d235359-addresses-DEC-pd-requirements",
+        "L-O-action-bdd443373302-addresses-DEC-pd-final"
+      ],
+      "source_object_ids": [
+        "O-action-1eebb47b2426",
+        "O-action-4f256876bf9d",
+        "O-action-84541d235359",
+        "O-action-bdd443373302"
+      ],
+      "title": "Actions and Verification"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "Trigger ID",
+            "Title",
+            "Type",
+            "Due At",
+            "Status",
+            "Condition"
+          ],
+          "rows": [],
+          "type": "table"
+        }
+      ],
+      "id": "revisit-triggers",
+      "order": 70,
+      "source_link_ids": [],
+      "source_object_ids": [],
+      "title": "Revisit Triggers"
+    },
+    {
+      "blocks": [
+        {
+          "items": [
+            "Sessions: S-procurement-decision",
+            "Objects: DEC-pd-candidates, DEC-pd-criteria, DEC-pd-final, DEC-pd-requirements, EVID-pd-budget, EVID-pd-comparison, EVID-pd-requirements, O-action-1eebb47b2426, O-action-4f256876bf9d, O-action-84541d235359, O-action-bdd443373302, O-project-objective, OPT-pd-candidates, OPT-pd-criteria, OPT-pd-requirements, OPT-pd-vendor-a, OPT-pd-vendor-b, PRO-pd-candidates, PRO-pd-criteria, PRO-pd-final-a, PRO-pd-requirements, RISK-pd-contract, RISK-pd-lock-in",
+            "Links: L-DEC-pd-candidates-accepts-PRO-pd-candidates, L-DEC-pd-criteria-accepts-PRO-pd-criteria, L-DEC-pd-final-accepts-PRO-pd-final-a, L-DEC-pd-requirements-accepts-PRO-pd-requirements, L-EVID-pd-budget-supports-DEC-pd-criteria, L-EVID-pd-budget-supports-DEC-pd-final, L-EVID-pd-comparison-supports-DEC-pd-final, L-EVID-pd-requirements-supports-DEC-pd-candidates, L-EVID-pd-requirements-supports-DEC-pd-criteria, L-EVID-pd-requirements-supports-DEC-pd-requirements, L-O-action-1eebb47b2426-addresses-DEC-pd-criteria, L-O-action-4f256876bf9d-addresses-DEC-pd-candidates, L-O-action-84541d235359-addresses-DEC-pd-requirements, L-O-action-bdd443373302-addresses-DEC-pd-final, L-PRO-pd-candidates-addresses-DEC-pd-candidates, L-PRO-pd-candidates-recommends-OPT-pd-candidates, L-PRO-pd-criteria-addresses-DEC-pd-criteria, L-PRO-pd-criteria-recommends-OPT-pd-criteria, L-PRO-pd-final-a-addresses-DEC-pd-final, L-PRO-pd-final-a-recommends-OPT-pd-vendor-a, L-PRO-pd-requirements-addresses-DEC-pd-requirements, L-PRO-pd-requirements-recommends-OPT-pd-requirements, L-RISK-pd-contract-challenges-DEC-pd-final, L-RISK-pd-lock-in-challenges-DEC-pd-final"
+          ],
+          "type": "list"
+        }
+      ],
+      "id": "source-traceability",
+      "order": 80,
+      "source_link_ids": [
+        "L-DEC-pd-candidates-accepts-PRO-pd-candidates",
+        "L-DEC-pd-criteria-accepts-PRO-pd-criteria",
+        "L-DEC-pd-final-accepts-PRO-pd-final-a",
+        "L-DEC-pd-requirements-accepts-PRO-pd-requirements",
+        "L-EVID-pd-budget-supports-DEC-pd-criteria",
+        "L-EVID-pd-budget-supports-DEC-pd-final",
+        "L-EVID-pd-comparison-supports-DEC-pd-final",
+        "L-EVID-pd-requirements-supports-DEC-pd-candidates",
+        "L-EVID-pd-requirements-supports-DEC-pd-criteria",
+        "L-EVID-pd-requirements-supports-DEC-pd-requirements",
+        "L-O-action-1eebb47b2426-addresses-DEC-pd-criteria",
+        "L-O-action-4f256876bf9d-addresses-DEC-pd-candidates",
+        "L-O-action-84541d235359-addresses-DEC-pd-requirements",
+        "L-O-action-bdd443373302-addresses-DEC-pd-final",
+        "L-PRO-pd-candidates-addresses-DEC-pd-candidates",
+        "L-PRO-pd-candidates-recommends-OPT-pd-candidates",
+        "L-PRO-pd-criteria-addresses-DEC-pd-criteria",
+        "L-PRO-pd-criteria-recommends-OPT-pd-criteria",
+        "L-PRO-pd-final-a-addresses-DEC-pd-final",
+        "L-PRO-pd-final-a-recommends-OPT-pd-vendor-a",
+        "L-PRO-pd-requirements-addresses-DEC-pd-requirements",
+        "L-PRO-pd-requirements-recommends-OPT-pd-requirements",
+        "L-RISK-pd-contract-challenges-DEC-pd-final",
+        "L-RISK-pd-lock-in-challenges-DEC-pd-final"
+      ],
+      "source_object_ids": [
+        "DEC-pd-candidates",
+        "DEC-pd-criteria",
+        "DEC-pd-final",
+        "DEC-pd-requirements",
+        "EVID-pd-budget",
+        "EVID-pd-comparison",
+        "EVID-pd-requirements",
+        "O-action-1eebb47b2426",
+        "O-action-4f256876bf9d",
+        "O-action-84541d235359",
+        "O-action-bdd443373302",
+        "O-project-objective",
+        "OPT-pd-candidates",
+        "OPT-pd-criteria",
+        "OPT-pd-requirements",
+        "OPT-pd-vendor-a",
+        "OPT-pd-vendor-b",
+        "PRO-pd-candidates",
+        "PRO-pd-criteria",
+        "PRO-pd-final-a",
+        "PRO-pd-requirements",
+        "RISK-pd-contract",
+        "RISK-pd-lock-in"
+      ],
+      "title": "Source Traceability"
+    }
+  ],
+  "source": {
+    "diagnostic_types": [
+      "assumption_register",
+      "evidence_register",
+      "revisit_due",
+      "risk_register",
+      "safety_gates",
+      "stale_assumptions",
+      "stale_evidence",
+      "verification_gaps"
+    ],
+    "link_ids": [
+      "L-DEC-pd-candidates-accepts-PRO-pd-candidates",
+      "L-DEC-pd-criteria-accepts-PRO-pd-criteria",
+      "L-DEC-pd-final-accepts-PRO-pd-final-a",
+      "L-DEC-pd-requirements-accepts-PRO-pd-requirements",
+      "L-EVID-pd-budget-supports-DEC-pd-criteria",
+      "L-EVID-pd-budget-supports-DEC-pd-final",
+      "L-EVID-pd-comparison-supports-DEC-pd-final",
+      "L-EVID-pd-requirements-supports-DEC-pd-candidates",
+      "L-EVID-pd-requirements-supports-DEC-pd-criteria",
+      "L-EVID-pd-requirements-supports-DEC-pd-requirements",
+      "L-O-action-1eebb47b2426-addresses-DEC-pd-criteria",
+      "L-O-action-4f256876bf9d-addresses-DEC-pd-candidates",
+      "L-O-action-84541d235359-addresses-DEC-pd-requirements",
+      "L-O-action-bdd443373302-addresses-DEC-pd-final",
+      "L-PRO-pd-candidates-addresses-DEC-pd-candidates",
+      "L-PRO-pd-criteria-addresses-DEC-pd-criteria",
+      "L-PRO-pd-final-a-addresses-DEC-pd-final",
+      "L-PRO-pd-requirements-addresses-DEC-pd-requirements",
+      "L-RISK-pd-contract-challenges-DEC-pd-final",
+      "L-RISK-pd-lock-in-challenges-DEC-pd-final",
+      "L-PRO-pd-candidates-recommends-OPT-pd-candidates",
+      "L-PRO-pd-criteria-recommends-OPT-pd-criteria",
+      "L-PRO-pd-final-a-recommends-OPT-pd-vendor-a",
+      "L-PRO-pd-requirements-recommends-OPT-pd-requirements"
+    ],
+    "object_ids": [
+      "O-project-objective",
+      "DEC-pd-candidates",
+      "DEC-pd-criteria",
+      "DEC-pd-final",
+      "DEC-pd-requirements",
+      "EVID-pd-budget",
+      "EVID-pd-comparison",
+      "EVID-pd-requirements",
+      "O-action-1eebb47b2426",
+      "O-action-4f256876bf9d",
+      "O-action-84541d235359",
+      "O-action-bdd443373302",
+      "RISK-pd-contract",
+      "RISK-pd-lock-in",
+      "OPT-pd-candidates",
+      "OPT-pd-criteria",
+      "OPT-pd-requirements",
+      "OPT-pd-vendor-a",
+      "OPT-pd-vendor-b",
+      "PRO-pd-candidates",
+      "PRO-pd-criteria",
+      "PRO-pd-final-a",
+      "PRO-pd-requirements"
+    ],
+    "session_ids": [
+      "S-procurement-decision"
+    ]
+  },
+  "title": "Decision Brief",
+  "warnings": []
+}

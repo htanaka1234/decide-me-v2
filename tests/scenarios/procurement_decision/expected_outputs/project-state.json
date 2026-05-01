@@ -1,0 +1,1252 @@
+{
+  "counts": {
+    "by_relation": {
+      "accepts": 4,
+      "addresses": 8,
+      "challenges": 2,
+      "recommends": 4,
+      "supports": 6
+    },
+    "by_status": {
+      "accepted": 8,
+      "active": 15
+    },
+    "by_type": {
+      "action": 4,
+      "decision": 4,
+      "evidence": 3,
+      "objective": 1,
+      "option": 5,
+      "proposal": 4,
+      "risk": 2
+    },
+    "link_total": 24,
+    "object_total": 23
+  },
+  "graph": {
+    "edges": [
+      {
+        "link_id": "L-DEC-pd-candidates-accepts-PRO-pd-candidates",
+        "relation": "accepts",
+        "source_layer": "strategy",
+        "source_object_id": "DEC-pd-candidates",
+        "target_layer": "strategy",
+        "target_object_id": "PRO-pd-candidates"
+      },
+      {
+        "link_id": "L-DEC-pd-criteria-accepts-PRO-pd-criteria",
+        "relation": "accepts",
+        "source_layer": "strategy",
+        "source_object_id": "DEC-pd-criteria",
+        "target_layer": "strategy",
+        "target_object_id": "PRO-pd-criteria"
+      },
+      {
+        "link_id": "L-DEC-pd-final-accepts-PRO-pd-final-a",
+        "relation": "accepts",
+        "source_layer": "strategy",
+        "source_object_id": "DEC-pd-final",
+        "target_layer": "strategy",
+        "target_object_id": "PRO-pd-final-a"
+      },
+      {
+        "link_id": "L-DEC-pd-requirements-accepts-PRO-pd-requirements",
+        "relation": "accepts",
+        "source_layer": "strategy",
+        "source_object_id": "DEC-pd-requirements",
+        "target_layer": "strategy",
+        "target_object_id": "PRO-pd-requirements"
+      },
+      {
+        "link_id": "L-EVID-pd-budget-supports-DEC-pd-criteria",
+        "relation": "supports",
+        "source_layer": "verification",
+        "source_object_id": "EVID-pd-budget",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-pd-criteria"
+      },
+      {
+        "link_id": "L-EVID-pd-budget-supports-DEC-pd-final",
+        "relation": "supports",
+        "source_layer": "verification",
+        "source_object_id": "EVID-pd-budget",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-pd-final"
+      },
+      {
+        "link_id": "L-EVID-pd-comparison-supports-DEC-pd-final",
+        "relation": "supports",
+        "source_layer": "verification",
+        "source_object_id": "EVID-pd-comparison",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-pd-final"
+      },
+      {
+        "link_id": "L-EVID-pd-requirements-supports-DEC-pd-candidates",
+        "relation": "supports",
+        "source_layer": "verification",
+        "source_object_id": "EVID-pd-requirements",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-pd-candidates"
+      },
+      {
+        "link_id": "L-EVID-pd-requirements-supports-DEC-pd-criteria",
+        "relation": "supports",
+        "source_layer": "verification",
+        "source_object_id": "EVID-pd-requirements",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-pd-criteria"
+      },
+      {
+        "link_id": "L-EVID-pd-requirements-supports-DEC-pd-requirements",
+        "relation": "supports",
+        "source_layer": "verification",
+        "source_object_id": "EVID-pd-requirements",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-pd-requirements"
+      },
+      {
+        "link_id": "L-O-action-1eebb47b2426-addresses-DEC-pd-criteria",
+        "relation": "addresses",
+        "source_layer": "execution",
+        "source_object_id": "O-action-1eebb47b2426",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-pd-criteria"
+      },
+      {
+        "link_id": "L-O-action-4f256876bf9d-addresses-DEC-pd-candidates",
+        "relation": "addresses",
+        "source_layer": "execution",
+        "source_object_id": "O-action-4f256876bf9d",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-pd-candidates"
+      },
+      {
+        "link_id": "L-O-action-84541d235359-addresses-DEC-pd-requirements",
+        "relation": "addresses",
+        "source_layer": "execution",
+        "source_object_id": "O-action-84541d235359",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-pd-requirements"
+      },
+      {
+        "link_id": "L-O-action-bdd443373302-addresses-DEC-pd-final",
+        "relation": "addresses",
+        "source_layer": "execution",
+        "source_object_id": "O-action-bdd443373302",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-pd-final"
+      },
+      {
+        "link_id": "L-PRO-pd-candidates-addresses-DEC-pd-candidates",
+        "relation": "addresses",
+        "source_layer": "strategy",
+        "source_object_id": "PRO-pd-candidates",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-pd-candidates"
+      },
+      {
+        "link_id": "L-PRO-pd-candidates-recommends-OPT-pd-candidates",
+        "relation": "recommends",
+        "source_layer": "strategy",
+        "source_object_id": "PRO-pd-candidates",
+        "target_layer": "strategy",
+        "target_object_id": "OPT-pd-candidates"
+      },
+      {
+        "link_id": "L-PRO-pd-criteria-addresses-DEC-pd-criteria",
+        "relation": "addresses",
+        "source_layer": "strategy",
+        "source_object_id": "PRO-pd-criteria",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-pd-criteria"
+      },
+      {
+        "link_id": "L-PRO-pd-criteria-recommends-OPT-pd-criteria",
+        "relation": "recommends",
+        "source_layer": "strategy",
+        "source_object_id": "PRO-pd-criteria",
+        "target_layer": "strategy",
+        "target_object_id": "OPT-pd-criteria"
+      },
+      {
+        "link_id": "L-PRO-pd-final-a-addresses-DEC-pd-final",
+        "relation": "addresses",
+        "source_layer": "strategy",
+        "source_object_id": "PRO-pd-final-a",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-pd-final"
+      },
+      {
+        "link_id": "L-PRO-pd-final-a-recommends-OPT-pd-vendor-a",
+        "relation": "recommends",
+        "source_layer": "strategy",
+        "source_object_id": "PRO-pd-final-a",
+        "target_layer": "strategy",
+        "target_object_id": "OPT-pd-vendor-a"
+      },
+      {
+        "link_id": "L-PRO-pd-requirements-addresses-DEC-pd-requirements",
+        "relation": "addresses",
+        "source_layer": "strategy",
+        "source_object_id": "PRO-pd-requirements",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-pd-requirements"
+      },
+      {
+        "link_id": "L-PRO-pd-requirements-recommends-OPT-pd-requirements",
+        "relation": "recommends",
+        "source_layer": "strategy",
+        "source_object_id": "PRO-pd-requirements",
+        "target_layer": "strategy",
+        "target_object_id": "OPT-pd-requirements"
+      },
+      {
+        "link_id": "L-RISK-pd-contract-challenges-DEC-pd-final",
+        "relation": "challenges",
+        "source_layer": "constraint",
+        "source_object_id": "RISK-pd-contract",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-pd-final"
+      },
+      {
+        "link_id": "L-RISK-pd-lock-in-challenges-DEC-pd-final",
+        "relation": "challenges",
+        "source_layer": "constraint",
+        "source_object_id": "RISK-pd-lock-in",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-pd-final"
+      }
+    ],
+    "inferred_candidates": [],
+    "nodes": [
+      {
+        "is_frontier": true,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "DEC-pd-candidates",
+        "object_type": "decision",
+        "status": "accepted",
+        "title": "Candidate selection"
+      },
+      {
+        "is_frontier": true,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "DEC-pd-criteria",
+        "object_type": "decision",
+        "status": "accepted",
+        "title": "Evaluation criteria"
+      },
+      {
+        "is_frontier": true,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "DEC-pd-final",
+        "object_type": "decision",
+        "status": "accepted",
+        "title": "Final vendor selection"
+      },
+      {
+        "is_frontier": true,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "DEC-pd-requirements",
+        "object_type": "decision",
+        "status": "accepted",
+        "title": "Requirements definition"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "verification",
+        "object_id": "EVID-pd-budget",
+        "object_type": "evidence",
+        "status": "active",
+        "title": "Budget context"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "verification",
+        "object_id": "EVID-pd-comparison",
+        "object_type": "evidence",
+        "status": "active",
+        "title": "Comparison table evidence"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "verification",
+        "object_id": "EVID-pd-requirements",
+        "object_type": "evidence",
+        "status": "active",
+        "title": "Requirements brief"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "execution",
+        "object_id": "O-action-1eebb47b2426",
+        "object_type": "action",
+        "status": "active",
+        "title": "Evaluation criteria"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "execution",
+        "object_id": "O-action-4f256876bf9d",
+        "object_type": "action",
+        "status": "active",
+        "title": "Candidate selection"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "execution",
+        "object_id": "O-action-84541d235359",
+        "object_type": "action",
+        "status": "active",
+        "title": "Requirements definition"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "execution",
+        "object_id": "O-action-bdd443373302",
+        "object_type": "action",
+        "status": "active",
+        "title": "Final vendor selection"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "purpose",
+        "object_id": "O-project-objective",
+        "object_type": "objective",
+        "status": "active",
+        "title": "Vendor selection decision"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "OPT-pd-candidates",
+        "object_type": "option",
+        "status": "active",
+        "title": "Two-vendor shortlist"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "OPT-pd-criteria",
+        "object_type": "option",
+        "status": "active",
+        "title": "Fit cost security criteria"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "OPT-pd-requirements",
+        "object_type": "option",
+        "status": "active",
+        "title": "Must-have requirements"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "OPT-pd-vendor-a",
+        "object_type": "option",
+        "status": "active",
+        "title": "Vendor A"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "OPT-pd-vendor-b",
+        "object_type": "option",
+        "status": "active",
+        "title": "Vendor B"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "PRO-pd-candidates",
+        "object_type": "proposal",
+        "status": "accepted",
+        "title": "Compare Vendor A and Vendor B"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "PRO-pd-criteria",
+        "object_type": "proposal",
+        "status": "accepted",
+        "title": "Score fit, cost, and security"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "PRO-pd-final-a",
+        "object_type": "proposal",
+        "status": "accepted",
+        "title": "Select Vendor A"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "PRO-pd-requirements",
+        "object_type": "proposal",
+        "status": "accepted",
+        "title": "Accept must-have requirements"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "constraint",
+        "object_id": "RISK-pd-contract",
+        "object_type": "risk",
+        "status": "active",
+        "title": "Contract constraint"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "constraint",
+        "object_id": "RISK-pd-lock-in",
+        "object_type": "risk",
+        "status": "active",
+        "title": "Vendor lock-in"
+      }
+    ],
+    "resolved_conflicts": []
+  },
+  "links": [
+    {
+      "created_at": "2026-04-29T00:20:35Z",
+      "id": "L-DEC-pd-candidates-accepts-PRO-pd-candidates",
+      "rationale": "Accepted the candidate shortlist proposal.",
+      "relation": "accepts",
+      "source_event_ids": [
+        "E-pd-036"
+      ],
+      "source_object_id": "DEC-pd-candidates",
+      "target_object_id": "PRO-pd-candidates"
+    },
+    {
+      "created_at": "2026-04-29T00:20:32Z",
+      "id": "L-DEC-pd-criteria-accepts-PRO-pd-criteria",
+      "rationale": "Accepted the criteria proposal.",
+      "relation": "accepts",
+      "source_event_ids": [
+        "E-pd-033"
+      ],
+      "source_object_id": "DEC-pd-criteria",
+      "target_object_id": "PRO-pd-criteria"
+    },
+    {
+      "created_at": "2026-04-29T00:20:12Z",
+      "id": "L-DEC-pd-final-accepts-PRO-pd-final-a",
+      "rationale": "Accepted Vendor A as final selection.",
+      "relation": "accepts",
+      "source_event_ids": [
+        "E-pd-013"
+      ],
+      "source_object_id": "DEC-pd-final",
+      "target_object_id": "PRO-pd-final-a"
+    },
+    {
+      "created_at": "2026-04-29T00:20:29Z",
+      "id": "L-DEC-pd-requirements-accepts-PRO-pd-requirements",
+      "rationale": "Accepted the requirements proposal.",
+      "relation": "accepts",
+      "source_event_ids": [
+        "E-pd-030"
+      ],
+      "source_object_id": "DEC-pd-requirements",
+      "target_object_id": "PRO-pd-requirements"
+    },
+    {
+      "created_at": "2026-04-29T00:20:18Z",
+      "id": "L-EVID-pd-budget-supports-DEC-pd-criteria",
+      "rationale": "Budget context supports criteria.",
+      "relation": "supports",
+      "source_event_ids": [
+        "E-pd-019"
+      ],
+      "source_object_id": "EVID-pd-budget",
+      "target_object_id": "DEC-pd-criteria"
+    },
+    {
+      "created_at": "2026-04-29T00:20:19Z",
+      "id": "L-EVID-pd-budget-supports-DEC-pd-final",
+      "rationale": "Budget context supports final selection.",
+      "relation": "supports",
+      "source_event_ids": [
+        "E-pd-020"
+      ],
+      "source_object_id": "EVID-pd-budget",
+      "target_object_id": "DEC-pd-final"
+    },
+    {
+      "created_at": "2026-04-29T00:20:20Z",
+      "id": "L-EVID-pd-comparison-supports-DEC-pd-final",
+      "rationale": "Comparison table supports final selection.",
+      "relation": "supports",
+      "source_event_ids": [
+        "E-pd-021"
+      ],
+      "source_object_id": "EVID-pd-comparison",
+      "target_object_id": "DEC-pd-final"
+    },
+    {
+      "created_at": "2026-04-29T00:20:17Z",
+      "id": "L-EVID-pd-requirements-supports-DEC-pd-candidates",
+      "rationale": "Requirements brief supports candidate selection.",
+      "relation": "supports",
+      "source_event_ids": [
+        "E-pd-018"
+      ],
+      "source_object_id": "EVID-pd-requirements",
+      "target_object_id": "DEC-pd-candidates"
+    },
+    {
+      "created_at": "2026-04-29T00:20:16Z",
+      "id": "L-EVID-pd-requirements-supports-DEC-pd-criteria",
+      "rationale": "Requirements brief supports criteria.",
+      "relation": "supports",
+      "source_event_ids": [
+        "E-pd-017"
+      ],
+      "source_object_id": "EVID-pd-requirements",
+      "target_object_id": "DEC-pd-criteria"
+    },
+    {
+      "created_at": "2026-04-29T00:20:15Z",
+      "id": "L-EVID-pd-requirements-supports-DEC-pd-requirements",
+      "rationale": "Requirements brief supports requirement definition.",
+      "relation": "supports",
+      "source_event_ids": [
+        "E-pd-016"
+      ],
+      "source_object_id": "EVID-pd-requirements",
+      "target_object_id": "DEC-pd-requirements"
+    },
+    {
+      "created_at": "2026-04-29T02:30:01Z",
+      "id": "L-O-action-1eebb47b2426-addresses-DEC-pd-criteria",
+      "rationale": "Fit cost security criteria",
+      "relation": "addresses",
+      "source_event_ids": [
+        "E-eval-procurement_decision-close-0001-ba89012a-0004"
+      ],
+      "source_object_id": "O-action-1eebb47b2426",
+      "target_object_id": "DEC-pd-criteria"
+    },
+    {
+      "created_at": "2026-04-29T02:30:01Z",
+      "id": "L-O-action-4f256876bf9d-addresses-DEC-pd-candidates",
+      "rationale": "Two-vendor shortlist",
+      "relation": "addresses",
+      "source_event_ids": [
+        "E-eval-procurement_decision-close-0001-ba89012a-0002"
+      ],
+      "source_object_id": "O-action-4f256876bf9d",
+      "target_object_id": "DEC-pd-candidates"
+    },
+    {
+      "created_at": "2026-04-29T02:30:01Z",
+      "id": "L-O-action-84541d235359-addresses-DEC-pd-requirements",
+      "rationale": "Must-have requirements",
+      "relation": "addresses",
+      "source_event_ids": [
+        "E-eval-procurement_decision-close-0001-ba89012a-0008"
+      ],
+      "source_object_id": "O-action-84541d235359",
+      "target_object_id": "DEC-pd-requirements"
+    },
+    {
+      "created_at": "2026-04-29T02:30:01Z",
+      "id": "L-O-action-bdd443373302-addresses-DEC-pd-final",
+      "rationale": "Vendor A",
+      "relation": "addresses",
+      "source_event_ids": [
+        "E-eval-procurement_decision-close-0001-ba89012a-0006"
+      ],
+      "source_object_id": "O-action-bdd443373302",
+      "target_object_id": "DEC-pd-final"
+    },
+    {
+      "created_at": "2026-04-29T00:20:36Z",
+      "id": "L-PRO-pd-candidates-addresses-DEC-pd-candidates",
+      "rationale": "Candidate proposal addresses the candidate decision.",
+      "relation": "addresses",
+      "source_event_ids": [
+        "E-pd-037"
+      ],
+      "source_object_id": "PRO-pd-candidates",
+      "target_object_id": "DEC-pd-candidates"
+    },
+    {
+      "created_at": "2026-04-29T00:20:37Z",
+      "id": "L-PRO-pd-candidates-recommends-OPT-pd-candidates",
+      "rationale": "Candidate proposal recommends the two-vendor shortlist.",
+      "relation": "recommends",
+      "source_event_ids": [
+        "E-pd-038"
+      ],
+      "source_object_id": "PRO-pd-candidates",
+      "target_object_id": "OPT-pd-candidates"
+    },
+    {
+      "created_at": "2026-04-29T00:20:33Z",
+      "id": "L-PRO-pd-criteria-addresses-DEC-pd-criteria",
+      "rationale": "Criteria proposal addresses the criteria decision.",
+      "relation": "addresses",
+      "source_event_ids": [
+        "E-pd-034"
+      ],
+      "source_object_id": "PRO-pd-criteria",
+      "target_object_id": "DEC-pd-criteria"
+    },
+    {
+      "created_at": "2026-04-29T00:20:34Z",
+      "id": "L-PRO-pd-criteria-recommends-OPT-pd-criteria",
+      "rationale": "Criteria proposal recommends the fit-cost-security option.",
+      "relation": "recommends",
+      "source_event_ids": [
+        "E-pd-035"
+      ],
+      "source_object_id": "PRO-pd-criteria",
+      "target_object_id": "OPT-pd-criteria"
+    },
+    {
+      "created_at": "2026-04-29T00:20:14Z",
+      "id": "L-PRO-pd-final-a-addresses-DEC-pd-final",
+      "rationale": "Proposal addresses the final selection decision.",
+      "relation": "addresses",
+      "source_event_ids": [
+        "E-pd-015"
+      ],
+      "source_object_id": "PRO-pd-final-a",
+      "target_object_id": "DEC-pd-final"
+    },
+    {
+      "created_at": "2026-04-29T00:20:13Z",
+      "id": "L-PRO-pd-final-a-recommends-OPT-pd-vendor-a",
+      "rationale": "Proposal recommends Vendor A.",
+      "relation": "recommends",
+      "source_event_ids": [
+        "E-pd-014"
+      ],
+      "source_object_id": "PRO-pd-final-a",
+      "target_object_id": "OPT-pd-vendor-a"
+    },
+    {
+      "created_at": "2026-04-29T00:20:30Z",
+      "id": "L-PRO-pd-requirements-addresses-DEC-pd-requirements",
+      "rationale": "Requirements proposal addresses the requirements decision.",
+      "relation": "addresses",
+      "source_event_ids": [
+        "E-pd-031"
+      ],
+      "source_object_id": "PRO-pd-requirements",
+      "target_object_id": "DEC-pd-requirements"
+    },
+    {
+      "created_at": "2026-04-29T00:20:31Z",
+      "id": "L-PRO-pd-requirements-recommends-OPT-pd-requirements",
+      "rationale": "Requirements proposal recommends the must-have option.",
+      "relation": "recommends",
+      "source_event_ids": [
+        "E-pd-032"
+      ],
+      "source_object_id": "PRO-pd-requirements",
+      "target_object_id": "OPT-pd-requirements"
+    },
+    {
+      "created_at": "2026-04-29T00:20:22Z",
+      "id": "L-RISK-pd-contract-challenges-DEC-pd-final",
+      "rationale": "Contract risk challenges final selection.",
+      "relation": "challenges",
+      "source_event_ids": [
+        "E-pd-023"
+      ],
+      "source_object_id": "RISK-pd-contract",
+      "target_object_id": "DEC-pd-final"
+    },
+    {
+      "created_at": "2026-04-29T00:20:21Z",
+      "id": "L-RISK-pd-lock-in-challenges-DEC-pd-final",
+      "rationale": "Lock-in risk challenges final selection.",
+      "relation": "challenges",
+      "source_event_ids": [
+        "E-pd-022"
+      ],
+      "source_object_id": "RISK-pd-lock-in",
+      "target_object_id": "DEC-pd-final"
+    }
+  ],
+  "objects": [
+    {
+      "body": "Select candidates for comparison.",
+      "created_at": "2026-04-29T00:20:02Z",
+      "id": "DEC-pd-candidates",
+      "metadata": {
+        "domain_criteria": [
+          "requirement_fit",
+          "vendor_viability",
+          "support_quality"
+        ],
+        "domain_decision_type": "candidate_selection",
+        "domain_pack_digest": "DP-2583792220b4",
+        "domain_pack_id": "procurement",
+        "domain_pack_version": "0.1.0",
+        "frontier": "now",
+        "priority": "P1",
+        "resolvable_by": "human",
+        "reversibility": "reversible"
+      },
+      "source_event_ids": [
+        "E-pd-003"
+      ],
+      "status": "accepted",
+      "title": "Candidate selection",
+      "type": "decision",
+      "updated_at": null
+    },
+    {
+      "body": "Define vendor evaluation criteria.",
+      "created_at": "2026-04-29T00:20:01Z",
+      "id": "DEC-pd-criteria",
+      "metadata": {
+        "domain_criteria": [
+          "requirement_fit",
+          "total_cost",
+          "security_compliance"
+        ],
+        "domain_decision_type": "evaluation_criteria",
+        "domain_pack_digest": "DP-2583792220b4",
+        "domain_pack_id": "procurement",
+        "domain_pack_version": "0.1.0",
+        "frontier": "now",
+        "priority": "P0",
+        "resolvable_by": "human",
+        "reversibility": "hard-to-reverse"
+      },
+      "source_event_ids": [
+        "E-pd-002"
+      ],
+      "status": "accepted",
+      "title": "Evaluation criteria",
+      "type": "decision",
+      "updated_at": null
+    },
+    {
+      "body": "Choose the vendor for the procurement decision.",
+      "created_at": "2026-04-29T00:20:03Z",
+      "id": "DEC-pd-final",
+      "metadata": {
+        "domain_criteria": [
+          "requirement_fit",
+          "total_cost",
+          "security_compliance",
+          "vendor_viability"
+        ],
+        "domain_decision_type": "final_selection",
+        "domain_pack_digest": "DP-2583792220b4",
+        "domain_pack_id": "procurement",
+        "domain_pack_version": "0.1.0",
+        "frontier": "now",
+        "priority": "P0",
+        "resolvable_by": "human",
+        "reversibility": "hard-to-reverse"
+      },
+      "source_event_ids": [
+        "E-pd-004"
+      ],
+      "status": "accepted",
+      "title": "Final vendor selection",
+      "type": "decision",
+      "updated_at": null
+    },
+    {
+      "body": "Define must-have procurement requirements.",
+      "created_at": "2026-04-29T00:20:00Z",
+      "id": "DEC-pd-requirements",
+      "metadata": {
+        "domain_criteria": [
+          "requirement_fit",
+          "implementation_feasibility"
+        ],
+        "domain_decision_type": "requirement_definition",
+        "domain_pack_digest": "DP-2583792220b4",
+        "domain_pack_id": "procurement",
+        "domain_pack_version": "0.1.0",
+        "frontier": "now",
+        "priority": "P0",
+        "resolvable_by": "human",
+        "reversibility": "hard-to-reverse"
+      },
+      "source_event_ids": [
+        "E-pd-001"
+      ],
+      "status": "accepted",
+      "title": "Requirements definition",
+      "type": "decision",
+      "updated_at": null
+    },
+    {
+      "body": "Budget context sets the annual spend limit.",
+      "created_at": "2026-04-29T00:20:08Z",
+      "id": "EVID-pd-budget",
+      "metadata": {
+        "confidence": "medium",
+        "domain_evidence_type": "budget",
+        "domain_pack_digest": "DP-2583792220b4",
+        "domain_pack_id": "procurement",
+        "domain_pack_version": "0.1.0",
+        "evidence_requirement_id": "budget_context",
+        "freshness": "current",
+        "observed_at": "2026-04-29T00:19:30Z",
+        "source": "docs",
+        "source_ref": "docs/budget.md",
+        "summary": "Budget context supports the selected annual spend range.",
+        "valid_until": null
+      },
+      "source_event_ids": [
+        "E-pd-009"
+      ],
+      "status": "active",
+      "title": "Budget context",
+      "type": "evidence",
+      "updated_at": null
+    },
+    {
+      "body": "Comparison table ranks Vendor A highest on fit and implementation readiness.",
+      "created_at": "2026-04-29T00:20:09Z",
+      "id": "EVID-pd-comparison",
+      "metadata": {
+        "confidence": "medium",
+        "domain_evidence_type": "comparison",
+        "domain_pack_digest": "DP-2583792220b4",
+        "domain_pack_id": "procurement",
+        "domain_pack_version": "0.1.0",
+        "evidence_requirement_id": "comparison_table",
+        "freshness": "current",
+        "observed_at": "2026-04-29T00:19:45Z",
+        "source": "docs",
+        "source_ref": "docs/vendor-comparison.md",
+        "summary": "Comparison table supports selecting Vendor A.",
+        "valid_until": null
+      },
+      "source_event_ids": [
+        "E-pd-010"
+      ],
+      "status": "active",
+      "title": "Comparison table evidence",
+      "type": "evidence",
+      "updated_at": null
+    },
+    {
+      "body": "Requirements brief lists must-have workflow, integration, and support needs.",
+      "created_at": "2026-04-29T00:20:07Z",
+      "id": "EVID-pd-requirements",
+      "metadata": {
+        "confidence": "high",
+        "domain_evidence_type": "requirements",
+        "domain_pack_digest": "DP-2583792220b4",
+        "domain_pack_id": "procurement",
+        "domain_pack_version": "0.1.0",
+        "evidence_requirement_id": "requirements_brief",
+        "freshness": "current",
+        "observed_at": "2026-04-29T00:19:00Z",
+        "source": "docs",
+        "source_ref": "docs/procurement-requirements.md",
+        "summary": "Requirements brief defines must-have and target needs.",
+        "valid_until": null
+      },
+      "source_event_ids": [
+        "E-pd-008"
+      ],
+      "status": "active",
+      "title": "Requirements brief",
+      "type": "evidence",
+      "updated_at": null
+    },
+    {
+      "body": "Fit cost security criteria",
+      "created_at": "2026-04-29T02:30:01Z",
+      "id": "O-action-1eebb47b2426",
+      "metadata": {
+        "decision_id": "DEC-pd-criteria",
+        "decision_status": "accepted",
+        "evidence": [
+          "docs/procurement-requirements.md",
+          "docs/budget.md"
+        ],
+        "evidence_backed": true,
+        "evidence_source": "docs",
+        "implementation_ready": false,
+        "kind": "choice",
+        "next_step": "Drive Evaluation criteria to completion.",
+        "origin_session_id": "S-procurement-decision",
+        "priority": "P0",
+        "resolvable_by": "human",
+        "responsibility": "other",
+        "reversibility": "hard-to-reverse"
+      },
+      "source_event_ids": [
+        "E-eval-procurement_decision-close-0001-ba89012a-0003"
+      ],
+      "status": "active",
+      "title": "Evaluation criteria",
+      "type": "action",
+      "updated_at": null
+    },
+    {
+      "body": "Two-vendor shortlist",
+      "created_at": "2026-04-29T02:30:01Z",
+      "id": "O-action-4f256876bf9d",
+      "metadata": {
+        "decision_id": "DEC-pd-candidates",
+        "decision_status": "accepted",
+        "evidence": [
+          "docs/procurement-requirements.md"
+        ],
+        "evidence_backed": true,
+        "evidence_source": "docs",
+        "implementation_ready": false,
+        "kind": "choice",
+        "next_step": "Drive Candidate selection to completion.",
+        "origin_session_id": "S-procurement-decision",
+        "priority": "P1",
+        "resolvable_by": "human",
+        "responsibility": "other",
+        "reversibility": "reversible"
+      },
+      "source_event_ids": [
+        "E-eval-procurement_decision-close-0001-ba89012a-0001"
+      ],
+      "status": "active",
+      "title": "Candidate selection",
+      "type": "action",
+      "updated_at": null
+    },
+    {
+      "body": "Must-have requirements",
+      "created_at": "2026-04-29T02:30:01Z",
+      "id": "O-action-84541d235359",
+      "metadata": {
+        "decision_id": "DEC-pd-requirements",
+        "decision_status": "accepted",
+        "evidence": [
+          "docs/procurement-requirements.md"
+        ],
+        "evidence_backed": true,
+        "evidence_source": "docs",
+        "implementation_ready": false,
+        "kind": "choice",
+        "next_step": "Drive Requirements definition to completion.",
+        "origin_session_id": "S-procurement-decision",
+        "priority": "P0",
+        "resolvable_by": "human",
+        "responsibility": "other",
+        "reversibility": "hard-to-reverse"
+      },
+      "source_event_ids": [
+        "E-eval-procurement_decision-close-0001-ba89012a-0007"
+      ],
+      "status": "active",
+      "title": "Requirements definition",
+      "type": "action",
+      "updated_at": null
+    },
+    {
+      "body": "Vendor A",
+      "created_at": "2026-04-29T02:30:01Z",
+      "id": "O-action-bdd443373302",
+      "metadata": {
+        "decision_id": "DEC-pd-final",
+        "decision_status": "accepted",
+        "evidence": [
+          "docs/budget.md",
+          "docs/vendor-comparison.md"
+        ],
+        "evidence_backed": true,
+        "evidence_source": "docs",
+        "implementation_ready": false,
+        "kind": "choice",
+        "next_step": "Drive Final vendor selection to completion.",
+        "origin_session_id": "S-procurement-decision",
+        "priority": "P0",
+        "resolvable_by": "human",
+        "responsibility": "other",
+        "reversibility": "hard-to-reverse"
+      },
+      "source_event_ids": [
+        "E-eval-procurement_decision-close-0001-ba89012a-0005"
+      ],
+      "status": "active",
+      "title": "Final vendor selection",
+      "type": "action",
+      "updated_at": null
+    },
+    {
+      "body": "Select a vendor with clear requirements, comparison evidence, and review gates.",
+      "created_at": "2026-04-29T00:00:00Z",
+      "id": "O-project-objective",
+      "metadata": {
+        "project_name": "Demo procurement project",
+        "stop_rule": "All relevant P0 decisions with frontier=now are resolved, accepted, or explicitly deferred."
+      },
+      "source_event_ids": [
+        "E-eval-procurement_decision-project"
+      ],
+      "status": "active",
+      "title": "Vendor selection decision",
+      "type": "objective",
+      "updated_at": null
+    },
+    {
+      "body": "Vendor A and Vendor B remain in the shortlist.",
+      "created_at": "2026-04-29T00:20:28Z",
+      "id": "OPT-pd-candidates",
+      "metadata": {},
+      "source_event_ids": [
+        "E-pd-029"
+      ],
+      "status": "active",
+      "title": "Two-vendor shortlist",
+      "type": "option",
+      "updated_at": null
+    },
+    {
+      "body": "Criteria balance fit, cost, and security compliance.",
+      "created_at": "2026-04-29T00:20:26Z",
+      "id": "OPT-pd-criteria",
+      "metadata": {},
+      "source_event_ids": [
+        "E-pd-027"
+      ],
+      "status": "active",
+      "title": "Fit cost security criteria",
+      "type": "option",
+      "updated_at": null
+    },
+    {
+      "body": "Workflow, integration, and support requirements from the brief.",
+      "created_at": "2026-04-29T00:20:24Z",
+      "id": "OPT-pd-requirements",
+      "metadata": {},
+      "source_event_ids": [
+        "E-pd-025"
+      ],
+      "status": "active",
+      "title": "Must-have requirements",
+      "type": "option",
+      "updated_at": null
+    },
+    {
+      "body": "Vendor A satisfies requirements with acceptable implementation effort.",
+      "created_at": "2026-04-29T00:20:05Z",
+      "id": "OPT-pd-vendor-a",
+      "metadata": {},
+      "source_event_ids": [
+        "E-pd-006"
+      ],
+      "status": "active",
+      "title": "Vendor A",
+      "type": "option",
+      "updated_at": null
+    },
+    {
+      "body": "Vendor B is cheaper but has weaker security review inputs.",
+      "created_at": "2026-04-29T00:20:06Z",
+      "id": "OPT-pd-vendor-b",
+      "metadata": {},
+      "source_event_ids": [
+        "E-pd-007"
+      ],
+      "status": "active",
+      "title": "Vendor B",
+      "type": "option",
+      "updated_at": null
+    },
+    {
+      "body": "Shortlist Vendor A and Vendor B for comparison.",
+      "created_at": "2026-04-29T00:20:27Z",
+      "id": "PRO-pd-candidates",
+      "metadata": {
+        "origin_session_id": "S-procurement-decision"
+      },
+      "source_event_ids": [
+        "E-pd-028"
+      ],
+      "status": "accepted",
+      "title": "Compare Vendor A and Vendor B",
+      "type": "proposal",
+      "updated_at": null
+    },
+    {
+      "body": "Evaluate vendors by requirement fit, total cost, and security readiness.",
+      "created_at": "2026-04-29T00:20:25Z",
+      "id": "PRO-pd-criteria",
+      "metadata": {
+        "origin_session_id": "S-procurement-decision"
+      },
+      "source_event_ids": [
+        "E-pd-026"
+      ],
+      "status": "accepted",
+      "title": "Score fit, cost, and security",
+      "type": "proposal",
+      "updated_at": null
+    },
+    {
+      "body": "Select Vendor A because it fits must-have requirements and budget.",
+      "created_at": "2026-04-29T00:20:04Z",
+      "id": "PRO-pd-final-a",
+      "metadata": {
+        "origin_session_id": "S-procurement-decision"
+      },
+      "source_event_ids": [
+        "E-pd-005"
+      ],
+      "status": "accepted",
+      "title": "Select Vendor A",
+      "type": "proposal",
+      "updated_at": null
+    },
+    {
+      "body": "Use the documented must-have workflow and integration requirements.",
+      "created_at": "2026-04-29T00:20:23Z",
+      "id": "PRO-pd-requirements",
+      "metadata": {
+        "origin_session_id": "S-procurement-decision"
+      },
+      "source_event_ids": [
+        "E-pd-024"
+      ],
+      "status": "accepted",
+      "title": "Accept must-have requirements",
+      "type": "proposal",
+      "updated_at": null
+    },
+    {
+      "body": "Contract terms are not yet reviewed.",
+      "created_at": "2026-04-29T00:20:11Z",
+      "id": "RISK-pd-contract",
+      "metadata": {
+        "approval_threshold": "external_review",
+        "domain_pack_digest": "DP-2583792220b4",
+        "domain_pack_id": "procurement",
+        "domain_pack_version": "0.1.0",
+        "domain_risk_type": "contract_constraint",
+        "likelihood": "medium",
+        "mitigation_object_ids": [],
+        "reversibility": "partially_reversible",
+        "risk_tier": "high",
+        "severity": "high",
+        "statement": "Unreviewed contract terms may constrain exit or data handling."
+      },
+      "source_event_ids": [
+        "E-pd-012"
+      ],
+      "status": "active",
+      "title": "Contract constraint",
+      "type": "risk",
+      "updated_at": null
+    },
+    {
+      "body": "Vendor A uses proprietary workflow configuration.",
+      "created_at": "2026-04-29T00:20:10Z",
+      "id": "RISK-pd-lock-in",
+      "metadata": {
+        "approval_threshold": "human_review",
+        "domain_pack_digest": "DP-2583792220b4",
+        "domain_pack_id": "procurement",
+        "domain_pack_version": "0.1.0",
+        "domain_risk_type": "vendor_lock_in",
+        "likelihood": "medium",
+        "mitigation_object_ids": [],
+        "reversibility": "partially_reversible",
+        "risk_tier": "high",
+        "severity": "high",
+        "statement": "Vendor A creates switching-cost and lock-in risk."
+      },
+      "source_event_ids": [
+        "E-pd-011"
+      ],
+      "status": "active",
+      "title": "Vendor lock-in",
+      "type": "risk",
+      "updated_at": null
+    }
+  ],
+  "project": {
+    "current_milestone": "Vendor selection decision",
+    "name": "Demo procurement project",
+    "objective": "Select a vendor with clear requirements, comparison evidence, and review gates.",
+    "stop_rule": "All relevant P0 decisions with frontier=now are resolved, accepted, or explicitly deferred."
+  },
+  "protocol": {
+    "close_policy": "generate-close-summary-on-close",
+    "plain_ok_scope": "same-session-active-proposal-only",
+    "proposal_expiry_rules": [
+      "project-head-changed",
+      "session-boundary",
+      "superseded-proposal",
+      "decision-invalidated",
+      "session-closed"
+    ]
+  },
+  "schema_version": 12,
+  "sessions_index": {
+    "S-procurement-decision": {
+      "bound_context_hint": "Compare vendors and select an option with procurement risks visible.",
+      "closed_at": "2026-04-29T02:30:01Z",
+      "id": "S-procurement-decision",
+      "last_seen_at": "2026-04-29T02:30:01Z",
+      "related_object_ids": [
+        "DEC-pd-requirements",
+        "DEC-pd-criteria",
+        "DEC-pd-candidates",
+        "DEC-pd-final",
+        "PRO-pd-final-a",
+        "OPT-pd-vendor-a",
+        "OPT-pd-vendor-b",
+        "EVID-pd-requirements",
+        "EVID-pd-budget",
+        "EVID-pd-comparison",
+        "RISK-pd-lock-in",
+        "RISK-pd-contract",
+        "PRO-pd-requirements",
+        "OPT-pd-requirements",
+        "PRO-pd-criteria",
+        "OPT-pd-criteria",
+        "PRO-pd-candidates",
+        "OPT-pd-candidates",
+        "O-action-4f256876bf9d",
+        "O-action-1eebb47b2426",
+        "O-action-bdd443373302",
+        "O-action-84541d235359"
+      ],
+      "started_at": "2026-04-29T00:00:01Z",
+      "status": "closed"
+    }
+  },
+  "state": {
+    "event_count": 50,
+    "updated_at": "2026-04-29T02:30:01Z"
+  }
+}

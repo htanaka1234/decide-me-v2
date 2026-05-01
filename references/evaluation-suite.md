@@ -259,9 +259,22 @@ Snapshots should compare normalized outputs only. Prefer fixed event timestamps 
 `generated_at`, `project_head`, `last_event_id`, and `tx_id` when they cannot be made stable by the
 scenario clock.
 
-The Step 2 helper normalizes JSON only. Markdown snapshots should compare generated regions,
-preserving human-authored notes outside managed markers, and CSV snapshots should use deterministic
-row ordering when Step 5 adds those snapshot comparators.
+Step 5 stores committed baselines under each scenario's `expected_outputs/` directory:
+
+- `project-state.json` (the normalized full project-state projection)
+- `evaluation-report.json`
+- `safety-gates.json`
+- `risk-register.json`
+- `documents/<document-type>.json`
+- `documents/<document-type>.md` or `.csv` when the scenario asks for Markdown or CSV output
+
+Markdown snapshots compare only the generated region when `decide-me` markers are present, ignoring
+marker attributes and human-authored notes outside the region. Malformed marker blocks are invalid
+snapshots and should fail normalization. JSON object keys named `project_head` are treated as
+volatile, but rendered Markdown lines such as `Project head: ...` remain in snapshots because
+scenario event streams are deterministic and the rendered line is part of the document contract. CSV
+snapshots preserve the header and sort data rows deterministically. Normal tests never update
+baselines automatically; explicit snapshot update support belongs to the Step 6 scenario runner.
 
 ## Distribution boundary
 

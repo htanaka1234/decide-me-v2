@@ -1,0 +1,6 @@
+Option,Recommended By,Criteria Fit,Evidence,Risks,Constraints,Status,Notes
+Fit cost security criteria,PRO-pd-criteria,,"EVID-pd-budget, EVID-pd-requirements",,,accepted by DEC-pd-criteria,"Criteria balance fit, cost, and security compliance."
+Must-have requirements,PRO-pd-requirements,,EVID-pd-requirements,,,accepted by DEC-pd-requirements,"Workflow, integration, and support requirements from the brief."
+Two-vendor shortlist,PRO-pd-candidates,,EVID-pd-requirements,,,accepted by DEC-pd-candidates,Vendor A and Vendor B remain in the shortlist.
+Vendor A,PRO-pd-final-a,,"EVID-pd-budget, EVID-pd-comparison","RISK-pd-contract, RISK-pd-lock-in",,accepted by DEC-pd-final,Vendor A satisfies requirements with acceptable implementation effort.
+Vendor B,,,,,,open,Vendor B is cheaper but has weaker security review inputs.

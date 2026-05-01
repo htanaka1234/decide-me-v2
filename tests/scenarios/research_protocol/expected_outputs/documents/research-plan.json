@@ -1,0 +1,494 @@
+{
+  "audience": "human",
+  "document_id": "DOC-20260429-research-plan",
+  "document_type": "research-plan",
+  "metadata": {
+    "document_profile_id": "research_protocol",
+    "domain_pack_digest": "DP-61aa75a006ad",
+    "domain_pack_id": "research",
+    "domain_pack_version": "0.1.0"
+  },
+  "schema_version": 1,
+  "sections": [
+    {
+      "blocks": [
+        {
+          "text": "Define a reproducible retrospective cohort study.",
+          "type": "text"
+        },
+        {
+          "columns": [
+            "Objective ID",
+            "Title",
+            "Status",
+            "Body"
+          ],
+          "rows": [
+            [
+              "O-project-objective",
+              "Protocol decisions",
+              "active",
+              "Define a reproducible retrospective cohort study."
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "objective",
+      "order": 10,
+      "source_link_ids": [],
+      "source_object_ids": [
+        "O-project-objective"
+      ],
+      "title": "Objective"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "Decision ID",
+            "Title",
+            "Status",
+            "Priority",
+            "Domain Type",
+            "Criteria",
+            "Question"
+          ],
+          "rows": [
+            [
+              "DEC-rp-cohort",
+              "Cohort definition",
+              "accepted",
+              "P0",
+              "cohort_definition",
+              "internal_validity, data_availability, feasibility",
+              "Define eligible encounters for the retrospective cohort."
+            ],
+            [
+              "DEC-rp-endpoint",
+              "Primary endpoint",
+              "accepted",
+              "P0",
+              "primary_endpoint",
+              "scientific_validity, clinical_or_business_relevance, data_availability",
+              "Choose the primary endpoint for the retrospective study."
+            ],
+            [
+              "DEC-rp-missing-data",
+              "Missing data strategy",
+              "unresolved",
+              "P0",
+              "missing_data_strategy",
+              "scientific_validity, data_availability, reproducibility",
+              "Decide how to handle missing follow-up status fields."
+            ],
+            [
+              "DEC-rp-question",
+              "Research question",
+              "accepted",
+              "P0",
+              "research_question",
+              "scientific_validity, clinical_or_business_relevance, feasibility",
+              "Estimate whether the new follow-up workflow reduces missed review events."
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "research-question-decision-targets",
+      "order": 20,
+      "source_link_ids": [
+        "L-DEC-rp-cohort-accepts-PRO-rp-cohort",
+        "L-DEC-rp-endpoint-accepts-PRO-rp-endpoint",
+        "L-DEC-rp-question-accepts-PRO-rp-question",
+        "L-EVID-rp-data-supports-DEC-rp-cohort",
+        "L-EVID-rp-data-supports-DEC-rp-endpoint",
+        "L-EVID-rp-data-supports-DEC-rp-missing-data",
+        "L-EVID-rp-protocol-supports-DEC-rp-endpoint",
+        "L-EVID-rp-protocol-supports-DEC-rp-question",
+        "L-O-action-2890e7452fcb-addresses-DEC-rp-question",
+        "L-O-action-446ce72a7638-addresses-DEC-rp-endpoint",
+        "L-O-action-a9c73f06a224-addresses-DEC-rp-cohort",
+        "L-PRO-rp-cohort-addresses-DEC-rp-cohort",
+        "L-PRO-rp-endpoint-addresses-DEC-rp-endpoint",
+        "L-PRO-rp-question-addresses-DEC-rp-question",
+        "L-RISK-rp-endpoint-challenges-DEC-rp-endpoint",
+        "L-RISK-rp-missing-challenges-DEC-rp-missing-data"
+      ],
+      "source_object_ids": [
+        "DEC-rp-cohort",
+        "DEC-rp-endpoint",
+        "DEC-rp-missing-data",
+        "DEC-rp-question"
+      ],
+      "title": "Research Question / Decision Targets"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "Evidence ID",
+            "Source",
+            "Ref",
+            "Confidence",
+            "Freshness",
+            "Summary"
+          ],
+          "rows": [
+            [
+              "EVID-rp-data-dictionary",
+              "docs",
+              "docs/data-dictionary.md",
+              "high",
+              "current",
+              "The dictionary includes fields required for cohort and endpoint definitions."
+            ],
+            [
+              "EVID-rp-protocol",
+              "docs",
+              "docs/protocol-brief.md",
+              "high",
+              "current",
+              "The brief states the retrospective cohort objective and candidate endpoint."
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "evidence-base",
+      "order": 50,
+      "source_link_ids": [
+        "L-EVID-rp-data-supports-DEC-rp-cohort",
+        "L-EVID-rp-data-supports-DEC-rp-endpoint",
+        "L-EVID-rp-data-supports-DEC-rp-missing-data",
+        "L-EVID-rp-protocol-supports-DEC-rp-endpoint",
+        "L-EVID-rp-protocol-supports-DEC-rp-question"
+      ],
+      "source_object_ids": [
+        "EVID-rp-data-dictionary",
+        "EVID-rp-protocol"
+      ],
+      "title": "Evidence Base"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "Verification ID",
+            "Method",
+            "Expected Result",
+            "Result"
+          ],
+          "rows": [
+            [
+              "VER-rp-analysis",
+              "analysis",
+              "Cohort and endpoint counts reproduce from the data dictionary.",
+              "pending"
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "columns": [
+            "Action ID",
+            "Gap Severity",
+            "Gap Reason"
+          ],
+          "rows": [
+            [
+              "O-action-2890e7452fcb",
+              "medium",
+              "missing_verification"
+            ],
+            [
+              "O-action-446ce72a7638",
+              "medium",
+              "missing_verification"
+            ],
+            [
+              "O-action-a9c73f06a224",
+              "medium",
+              "missing_verification"
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "analysis-verification-plan",
+      "order": 70,
+      "source_link_ids": [],
+      "source_object_ids": [
+        "O-action-2890e7452fcb",
+        "O-action-446ce72a7638",
+        "O-action-a9c73f06a224",
+        "VER-rp-analysis"
+      ],
+      "title": "Analysis / Verification Plan"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "ID",
+            "Type",
+            "Title",
+            "Status",
+            "Statement"
+          ],
+          "rows": [
+            [
+              "RISK-rp-endpoint",
+              "risk",
+              "Endpoint ambiguity risk",
+              "active",
+              "Primary endpoint may be interpreted inconsistently."
+            ],
+            [
+              "RISK-rp-missing",
+              "risk",
+              "Missing data risk",
+              "active",
+              "Missing follow-up fields may bias endpoint assessment."
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "risks-and-mitigations",
+      "order": 80,
+      "source_link_ids": [
+        "L-RISK-rp-endpoint-challenges-DEC-rp-endpoint",
+        "L-RISK-rp-missing-challenges-DEC-rp-missing-data"
+      ],
+      "source_object_ids": [
+        "RISK-rp-endpoint",
+        "RISK-rp-missing"
+      ],
+      "title": "Risks and Mitigations"
+    },
+    {
+      "blocks": [
+        {
+          "items": [
+            "Sessions: S-research-protocol",
+            "Objects: DEC-rp-cohort, DEC-rp-endpoint, DEC-rp-missing-data, DEC-rp-question, EVID-rp-data-dictionary, EVID-rp-protocol, O-action-2890e7452fcb, O-action-446ce72a7638, O-action-a9c73f06a224, O-project-objective, OPT-rp-cohort, OPT-rp-endpoint, OPT-rp-question, PRO-rp-cohort, PRO-rp-endpoint, PRO-rp-question, RISK-rp-endpoint, RISK-rp-missing, VER-rp-analysis",
+            "Links: L-DEC-rp-cohort-accepts-PRO-rp-cohort, L-DEC-rp-endpoint-accepts-PRO-rp-endpoint, L-DEC-rp-question-accepts-PRO-rp-question, L-EVID-rp-data-supports-DEC-rp-cohort, L-EVID-rp-data-supports-DEC-rp-endpoint, L-EVID-rp-data-supports-DEC-rp-missing-data, L-EVID-rp-protocol-supports-DEC-rp-endpoint, L-EVID-rp-protocol-supports-DEC-rp-question, L-O-action-2890e7452fcb-addresses-DEC-rp-question, L-O-action-446ce72a7638-addresses-DEC-rp-endpoint, L-O-action-a9c73f06a224-addresses-DEC-rp-cohort, L-PRO-rp-cohort-addresses-DEC-rp-cohort, L-PRO-rp-cohort-recommends-OPT-rp-cohort, L-PRO-rp-endpoint-addresses-DEC-rp-endpoint, L-PRO-rp-endpoint-recommends-OPT-rp-endpoint, L-PRO-rp-question-addresses-DEC-rp-question, L-PRO-rp-question-recommends-OPT-rp-question, L-RISK-rp-endpoint-challenges-DEC-rp-endpoint, L-RISK-rp-missing-challenges-DEC-rp-missing-data"
+          ],
+          "type": "list"
+        }
+      ],
+      "id": "source-traceability",
+      "order": 100,
+      "source_link_ids": [
+        "L-DEC-rp-cohort-accepts-PRO-rp-cohort",
+        "L-DEC-rp-endpoint-accepts-PRO-rp-endpoint",
+        "L-DEC-rp-question-accepts-PRO-rp-question",
+        "L-EVID-rp-data-supports-DEC-rp-cohort",
+        "L-EVID-rp-data-supports-DEC-rp-endpoint",
+        "L-EVID-rp-data-supports-DEC-rp-missing-data",
+        "L-EVID-rp-protocol-supports-DEC-rp-endpoint",
+        "L-EVID-rp-protocol-supports-DEC-rp-question",
+        "L-O-action-2890e7452fcb-addresses-DEC-rp-question",
+        "L-O-action-446ce72a7638-addresses-DEC-rp-endpoint",
+        "L-O-action-a9c73f06a224-addresses-DEC-rp-cohort",
+        "L-PRO-rp-cohort-addresses-DEC-rp-cohort",
+        "L-PRO-rp-cohort-recommends-OPT-rp-cohort",
+        "L-PRO-rp-endpoint-addresses-DEC-rp-endpoint",
+        "L-PRO-rp-endpoint-recommends-OPT-rp-endpoint",
+        "L-PRO-rp-question-addresses-DEC-rp-question",
+        "L-PRO-rp-question-recommends-OPT-rp-question",
+        "L-RISK-rp-endpoint-challenges-DEC-rp-endpoint",
+        "L-RISK-rp-missing-challenges-DEC-rp-missing-data"
+      ],
+      "source_object_ids": [
+        "DEC-rp-cohort",
+        "DEC-rp-endpoint",
+        "DEC-rp-missing-data",
+        "DEC-rp-question",
+        "EVID-rp-data-dictionary",
+        "EVID-rp-protocol",
+        "O-action-2890e7452fcb",
+        "O-action-446ce72a7638",
+        "O-action-a9c73f06a224",
+        "O-project-objective",
+        "OPT-rp-cohort",
+        "OPT-rp-endpoint",
+        "OPT-rp-question",
+        "PRO-rp-cohort",
+        "PRO-rp-endpoint",
+        "PRO-rp-question",
+        "RISK-rp-endpoint",
+        "RISK-rp-missing",
+        "VER-rp-analysis"
+      ],
+      "title": "Source Traceability"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "ID",
+            "Type",
+            "Title",
+            "Status",
+            "Statement"
+          ],
+          "rows": [],
+          "type": "table"
+        }
+      ],
+      "id": "constraints",
+      "order": 30,
+      "source_link_ids": [],
+      "source_object_ids": [],
+      "title": "Constraints"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "ID",
+            "Type",
+            "Title",
+            "Status",
+            "Statement"
+          ],
+          "rows": [],
+          "type": "table"
+        }
+      ],
+      "id": "assumptions",
+      "order": 40,
+      "source_link_ids": [],
+      "source_object_ids": [],
+      "title": "Assumptions"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "ID",
+            "Type",
+            "Title",
+            "Status",
+            "Statement"
+          ],
+          "rows": [
+            [
+              "O-action-2890e7452fcb",
+              "action",
+              "Research question",
+              "active",
+              "Missed review retrospective question"
+            ],
+            [
+              "O-action-446ce72a7638",
+              "action",
+              "Primary endpoint",
+              "active",
+              "30-day missed review endpoint"
+            ],
+            [
+              "O-action-a9c73f06a224",
+              "action",
+              "Cohort definition",
+              "active",
+              "Adult complete-status cohort"
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "planned-work-units",
+      "order": 60,
+      "source_link_ids": [
+        "L-O-action-2890e7452fcb-addresses-DEC-rp-question",
+        "L-O-action-446ce72a7638-addresses-DEC-rp-endpoint",
+        "L-O-action-a9c73f06a224-addresses-DEC-rp-cohort"
+      ],
+      "source_object_ids": [
+        "O-action-2890e7452fcb",
+        "O-action-446ce72a7638",
+        "O-action-a9c73f06a224"
+      ],
+      "title": "Planned Work Units"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "ID",
+            "Type",
+            "Title",
+            "Status",
+            "Statement"
+          ],
+          "rows": [],
+          "type": "table"
+        }
+      ],
+      "id": "revisit-conditions",
+      "order": 90,
+      "source_link_ids": [],
+      "source_object_ids": [],
+      "title": "Revisit Conditions"
+    }
+  ],
+  "source": {
+    "diagnostic_types": [
+      "assumption_register",
+      "evidence_register",
+      "revisit_due",
+      "risk_register",
+      "verification_gaps"
+    ],
+    "link_ids": [
+      "L-DEC-rp-cohort-accepts-PRO-rp-cohort",
+      "L-DEC-rp-endpoint-accepts-PRO-rp-endpoint",
+      "L-DEC-rp-question-accepts-PRO-rp-question",
+      "L-EVID-rp-data-supports-DEC-rp-cohort",
+      "L-EVID-rp-data-supports-DEC-rp-endpoint",
+      "L-EVID-rp-data-supports-DEC-rp-missing-data",
+      "L-EVID-rp-protocol-supports-DEC-rp-endpoint",
+      "L-EVID-rp-protocol-supports-DEC-rp-question",
+      "L-O-action-2890e7452fcb-addresses-DEC-rp-question",
+      "L-O-action-446ce72a7638-addresses-DEC-rp-endpoint",
+      "L-O-action-a9c73f06a224-addresses-DEC-rp-cohort",
+      "L-PRO-rp-cohort-addresses-DEC-rp-cohort",
+      "L-PRO-rp-endpoint-addresses-DEC-rp-endpoint",
+      "L-PRO-rp-question-addresses-DEC-rp-question",
+      "L-RISK-rp-endpoint-challenges-DEC-rp-endpoint",
+      "L-RISK-rp-missing-challenges-DEC-rp-missing-data",
+      "L-PRO-rp-cohort-recommends-OPT-rp-cohort",
+      "L-PRO-rp-endpoint-recommends-OPT-rp-endpoint",
+      "L-PRO-rp-question-recommends-OPT-rp-question"
+    ],
+    "object_ids": [
+      "O-project-objective",
+      "DEC-rp-cohort",
+      "DEC-rp-endpoint",
+      "DEC-rp-missing-data",
+      "DEC-rp-question",
+      "EVID-rp-data-dictionary",
+      "EVID-rp-protocol",
+      "O-action-2890e7452fcb",
+      "O-action-446ce72a7638",
+      "O-action-a9c73f06a224",
+      "VER-rp-analysis",
+      "RISK-rp-endpoint",
+      "RISK-rp-missing",
+      "OPT-rp-cohort",
+      "OPT-rp-endpoint",
+      "OPT-rp-question",
+      "PRO-rp-cohort",
+      "PRO-rp-endpoint",
+      "PRO-rp-question"
+    ],
+    "session_ids": [
+      "S-research-protocol"
+    ]
+  },
+  "title": "Research Plan",
+  "warnings": []
+}

@@ -1,0 +1,60 @@
+{
+  "failures": [],
+  "metrics": {
+    "conflict_detection": {
+      "actual_count": 0,
+      "expected_count": 0,
+      "missing_conflict_ids": [],
+      "passed": true,
+      "unexpected_conflict_ids": []
+    },
+    "decision_completeness": {
+      "covered_count": 5,
+      "missing_ids": [],
+      "passed": true,
+      "required_count": 5
+    },
+    "document_readability": {
+      "empty_required_sections": [],
+      "missing_source_traceability": [],
+      "passed": true,
+      "required_sections_present": true
+    },
+    "evidence_coverage": {
+      "covered_count": 0,
+      "missing_ids": [],
+      "passed": true,
+      "required_count": 0
+    },
+    "plan_executability": {
+      "action_count": 5,
+      "blocker_count": 0,
+      "implementation_ready_count": 5,
+      "passed": true,
+      "readiness": "ready",
+      "unresolved_conflict_count": 0
+    },
+    "question_efficiency": {
+      "asked_count": 0,
+      "max_allowed": 0,
+      "passed": true,
+      "repeated_forbidden_decision_types": []
+    },
+    "revisit_quality": {
+      "due_revisit_count": 1,
+      "passed": true,
+      "stale_assumption_count": 0,
+      "stale_evidence_count": 0,
+      "verification_gap_count": 0
+    },
+    "risk_coverage": {
+      "covered_count": 3,
+      "missing_ids": [],
+      "passed": true,
+      "required_count": 3
+    }
+  },
+  "scenario_id": "career_plan",
+  "schema_version": 1,
+  "status": "passed"
+}

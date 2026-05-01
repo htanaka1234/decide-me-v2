@@ -1,0 +1,906 @@
+{
+  "results": [
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [
+        "domain_required_evidence_missing"
+      ],
+      "approval_required": true,
+      "approval_satisfied": false,
+      "approval_threshold": "none",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [
+          "domain_required_evidence_missing"
+        ],
+        "approval_threshold": "none",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [
+          {
+            "decision_type": "cohort_definition",
+            "domain_evidence_type": "data_dictionary",
+            "evidence_source": "docs",
+            "freshness_required": "current",
+            "label": "Data dictionary",
+            "min_confidence": "medium",
+            "pack_id": "research",
+            "reason": "Data dictionary is linked to Cohort definition.",
+            "required_evidence_id": "data_dictionary",
+            "satisfied": true,
+            "satisfied_by_object_ids": [
+              "EVID-rp-data-dictionary"
+            ]
+          },
+          {
+            "decision_type": "cohort_definition",
+            "domain_evidence_type": "protocol",
+            "evidence_source": "docs",
+            "freshness_required": "current",
+            "label": "Protocol or project brief",
+            "min_confidence": "medium",
+            "pack_id": "research",
+            "reason": "Cohort definition requires Protocol or project brief.",
+            "required_evidence_id": "protocol_or_project_brief",
+            "satisfied": false,
+            "satisfied_by_object_ids": []
+          }
+        ],
+        "domain_safety_rules": [],
+        "evidence": [
+          {
+            "confidence": "high",
+            "domain_evidence_type": "data_dictionary",
+            "evidence_requirement_id": "data_dictionary",
+            "freshness": "current",
+            "is_stale": false,
+            "link_id": "L-EVID-rp-data-supports-DEC-rp-cohort",
+            "object_id": "EVID-rp-data-dictionary",
+            "observed_at": "2026-04-29T00:19:30Z",
+            "relation": "supports",
+            "source": "docs",
+            "source_ref": "docs/data-dictionary.md",
+            "status": "active",
+            "summary": "The dictionary includes fields required for cohort and endpoint definitions.",
+            "valid_until": null
+          }
+        ],
+        "evidence_coverage": "sufficient",
+        "object_id": "DEC-rp-cohort",
+        "object_type": "decision",
+        "reversibility": "partially_reversible",
+        "risk_tier": "none",
+        "risks": [],
+        "source_link_ids": [
+          "L-EVID-rp-data-supports-DEC-rp-cohort"
+        ],
+        "verification_gap": null,
+        "warning_reasons": [
+          "partially_reversible_change"
+        ]
+      },
+      "domain_requirements": [
+        {
+          "decision_type": "cohort_definition",
+          "domain_evidence_type": "data_dictionary",
+          "evidence_source": "docs",
+          "freshness_required": "current",
+          "label": "Data dictionary",
+          "min_confidence": "medium",
+          "pack_id": "research",
+          "reason": "Data dictionary is linked to Cohort definition.",
+          "required_evidence_id": "data_dictionary",
+          "satisfied": true,
+          "satisfied_by_object_ids": [
+            "EVID-rp-data-dictionary"
+          ]
+        },
+        {
+          "decision_type": "cohort_definition",
+          "domain_evidence_type": "protocol",
+          "evidence_source": "docs",
+          "freshness_required": "current",
+          "label": "Protocol or project brief",
+          "min_confidence": "medium",
+          "pack_id": "research",
+          "reason": "Cohort definition requires Protocol or project brief.",
+          "required_evidence_id": "protocol_or_project_brief",
+          "satisfied": false,
+          "satisfied_by_object_ids": []
+        }
+      ],
+      "domain_safety_rules": [],
+      "evidence": [
+        {
+          "confidence": "high",
+          "domain_evidence_type": "data_dictionary",
+          "evidence_requirement_id": "data_dictionary",
+          "freshness": "current",
+          "is_stale": false,
+          "link_id": "L-EVID-rp-data-supports-DEC-rp-cohort",
+          "object_id": "EVID-rp-data-dictionary",
+          "observed_at": "2026-04-29T00:19:30Z",
+          "relation": "supports",
+          "source": "docs",
+          "source_ref": "docs/data-dictionary.md",
+          "status": "active",
+          "summary": "The dictionary includes fields required for cohort and endpoint definitions.",
+          "valid_until": null
+        }
+      ],
+      "evidence_coverage": "sufficient",
+      "gate_digest": "SG-43100dcd85bd",
+      "gate_status": "needs_approval",
+      "object_id": "DEC-rp-cohort",
+      "object_type": "decision",
+      "reversibility": "partially_reversible",
+      "risk_tier": "none",
+      "risks": [],
+      "source_link_ids": [
+        "L-EVID-rp-data-supports-DEC-rp-cohort"
+      ],
+      "status": "accepted",
+      "title": "Cohort definition",
+      "warning_reasons": [
+        "partially_reversible_change"
+      ]
+    },
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [
+        "high_risk_tier",
+        "human_review_required"
+      ],
+      "approval_required": true,
+      "approval_satisfied": false,
+      "approval_threshold": "human_review",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [
+          "high_risk_tier",
+          "human_review_required"
+        ],
+        "approval_threshold": "human_review",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [
+          {
+            "decision_type": "primary_endpoint",
+            "domain_evidence_type": "protocol",
+            "evidence_source": "docs",
+            "freshness_required": "current",
+            "label": "Protocol or project brief",
+            "min_confidence": "medium",
+            "pack_id": "research",
+            "reason": "Protocol or project brief is linked to Primary endpoint.",
+            "required_evidence_id": "protocol_or_project_brief",
+            "satisfied": true,
+            "satisfied_by_object_ids": [
+              "EVID-rp-protocol"
+            ]
+          },
+          {
+            "decision_type": "primary_endpoint",
+            "domain_evidence_type": "data_dictionary",
+            "evidence_source": "docs",
+            "freshness_required": "current",
+            "label": "Data dictionary",
+            "min_confidence": "medium",
+            "pack_id": "research",
+            "reason": "Data dictionary is linked to Primary endpoint.",
+            "required_evidence_id": "data_dictionary",
+            "satisfied": true,
+            "satisfied_by_object_ids": [
+              "EVID-rp-data-dictionary"
+            ]
+          }
+        ],
+        "domain_safety_rules": [
+          {
+            "approval_threshold": "human_review",
+            "matched_risk_object_ids": [
+              "RISK-rp-endpoint"
+            ],
+            "matched_risk_types": [
+              "unclear_endpoint"
+            ],
+            "pack_id": "research",
+            "reason": "Validity-threatening research risks require explicit scientific review.",
+            "rule_id": "validity_review"
+          }
+        ],
+        "evidence": [
+          {
+            "confidence": "high",
+            "domain_evidence_type": "data_dictionary",
+            "evidence_requirement_id": "data_dictionary",
+            "freshness": "current",
+            "is_stale": false,
+            "link_id": "L-EVID-rp-data-supports-DEC-rp-endpoint",
+            "object_id": "EVID-rp-data-dictionary",
+            "observed_at": "2026-04-29T00:19:30Z",
+            "relation": "supports",
+            "source": "docs",
+            "source_ref": "docs/data-dictionary.md",
+            "status": "active",
+            "summary": "The dictionary includes fields required for cohort and endpoint definitions.",
+            "valid_until": null
+          },
+          {
+            "confidence": "high",
+            "domain_evidence_type": "protocol",
+            "evidence_requirement_id": "protocol_or_project_brief",
+            "freshness": "current",
+            "is_stale": false,
+            "link_id": "L-EVID-rp-protocol-supports-DEC-rp-endpoint",
+            "object_id": "EVID-rp-protocol",
+            "observed_at": "2026-04-29T00:19:00Z",
+            "relation": "supports",
+            "source": "docs",
+            "source_ref": "docs/protocol-brief.md",
+            "status": "active",
+            "summary": "The brief states the retrospective cohort objective and candidate endpoint.",
+            "valid_until": null
+          }
+        ],
+        "evidence_coverage": "sufficient",
+        "object_id": "DEC-rp-endpoint",
+        "object_type": "decision",
+        "reversibility": "partially_reversible",
+        "risk_tier": "high",
+        "risks": [
+          {
+            "approval_threshold": "human_review",
+            "domain_risk_type": "unclear_endpoint",
+            "likelihood": "medium",
+            "link_id": "L-RISK-rp-endpoint-challenges-DEC-rp-endpoint",
+            "mitigation_object_ids": [],
+            "object_id": "RISK-rp-endpoint",
+            "relation": "challenges",
+            "reversibility": "partially_reversible",
+            "risk_tier": "high",
+            "severity": "high",
+            "statement": "Primary endpoint may be interpreted inconsistently.",
+            "status": "active"
+          }
+        ],
+        "source_link_ids": [
+          "L-EVID-rp-data-supports-DEC-rp-endpoint",
+          "L-EVID-rp-protocol-supports-DEC-rp-endpoint",
+          "L-RISK-rp-endpoint-challenges-DEC-rp-endpoint"
+        ],
+        "verification_gap": null,
+        "warning_reasons": [
+          "partially_reversible_change"
+        ]
+      },
+      "domain_requirements": [
+        {
+          "decision_type": "primary_endpoint",
+          "domain_evidence_type": "protocol",
+          "evidence_source": "docs",
+          "freshness_required": "current",
+          "label": "Protocol or project brief",
+          "min_confidence": "medium",
+          "pack_id": "research",
+          "reason": "Protocol or project brief is linked to Primary endpoint.",
+          "required_evidence_id": "protocol_or_project_brief",
+          "satisfied": true,
+          "satisfied_by_object_ids": [
+            "EVID-rp-protocol"
+          ]
+        },
+        {
+          "decision_type": "primary_endpoint",
+          "domain_evidence_type": "data_dictionary",
+          "evidence_source": "docs",
+          "freshness_required": "current",
+          "label": "Data dictionary",
+          "min_confidence": "medium",
+          "pack_id": "research",
+          "reason": "Data dictionary is linked to Primary endpoint.",
+          "required_evidence_id": "data_dictionary",
+          "satisfied": true,
+          "satisfied_by_object_ids": [
+            "EVID-rp-data-dictionary"
+          ]
+        }
+      ],
+      "domain_safety_rules": [
+        {
+          "approval_threshold": "human_review",
+          "matched_risk_object_ids": [
+            "RISK-rp-endpoint"
+          ],
+          "matched_risk_types": [
+            "unclear_endpoint"
+          ],
+          "pack_id": "research",
+          "reason": "Validity-threatening research risks require explicit scientific review.",
+          "rule_id": "validity_review"
+        }
+      ],
+      "evidence": [
+        {
+          "confidence": "high",
+          "domain_evidence_type": "data_dictionary",
+          "evidence_requirement_id": "data_dictionary",
+          "freshness": "current",
+          "is_stale": false,
+          "link_id": "L-EVID-rp-data-supports-DEC-rp-endpoint",
+          "object_id": "EVID-rp-data-dictionary",
+          "observed_at": "2026-04-29T00:19:30Z",
+          "relation": "supports",
+          "source": "docs",
+          "source_ref": "docs/data-dictionary.md",
+          "status": "active",
+          "summary": "The dictionary includes fields required for cohort and endpoint definitions.",
+          "valid_until": null
+        },
+        {
+          "confidence": "high",
+          "domain_evidence_type": "protocol",
+          "evidence_requirement_id": "protocol_or_project_brief",
+          "freshness": "current",
+          "is_stale": false,
+          "link_id": "L-EVID-rp-protocol-supports-DEC-rp-endpoint",
+          "object_id": "EVID-rp-protocol",
+          "observed_at": "2026-04-29T00:19:00Z",
+          "relation": "supports",
+          "source": "docs",
+          "source_ref": "docs/protocol-brief.md",
+          "status": "active",
+          "summary": "The brief states the retrospective cohort objective and candidate endpoint.",
+          "valid_until": null
+        }
+      ],
+      "evidence_coverage": "sufficient",
+      "gate_digest": "SG-b14353faf64a",
+      "gate_status": "needs_approval",
+      "object_id": "DEC-rp-endpoint",
+      "object_type": "decision",
+      "reversibility": "partially_reversible",
+      "risk_tier": "high",
+      "risks": [
+        {
+          "approval_threshold": "human_review",
+          "domain_risk_type": "unclear_endpoint",
+          "likelihood": "medium",
+          "link_id": "L-RISK-rp-endpoint-challenges-DEC-rp-endpoint",
+          "mitigation_object_ids": [],
+          "object_id": "RISK-rp-endpoint",
+          "relation": "challenges",
+          "reversibility": "partially_reversible",
+          "risk_tier": "high",
+          "severity": "high",
+          "statement": "Primary endpoint may be interpreted inconsistently.",
+          "status": "active"
+        }
+      ],
+      "source_link_ids": [
+        "L-EVID-rp-data-supports-DEC-rp-endpoint",
+        "L-EVID-rp-protocol-supports-DEC-rp-endpoint",
+        "L-RISK-rp-endpoint-challenges-DEC-rp-endpoint"
+      ],
+      "status": "accepted",
+      "title": "Primary endpoint",
+      "warning_reasons": [
+        "partially_reversible_change"
+      ]
+    },
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [
+        "domain_required_evidence_missing",
+        "explicit_acceptance_required"
+      ],
+      "approval_required": true,
+      "approval_satisfied": false,
+      "approval_threshold": "explicit_acceptance",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [
+          "domain_required_evidence_missing",
+          "explicit_acceptance_required"
+        ],
+        "approval_threshold": "explicit_acceptance",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [
+          {
+            "decision_type": "missing_data_strategy",
+            "domain_evidence_type": "data_dictionary",
+            "evidence_source": "docs",
+            "freshness_required": "current",
+            "label": "Data dictionary",
+            "min_confidence": "medium",
+            "pack_id": "research",
+            "reason": "Data dictionary is linked to Missing data strategy.",
+            "required_evidence_id": "data_dictionary",
+            "satisfied": true,
+            "satisfied_by_object_ids": [
+              "EVID-rp-data-dictionary"
+            ]
+          },
+          {
+            "decision_type": "missing_data_strategy",
+            "domain_evidence_type": "analysis_plan",
+            "evidence_source": "docs",
+            "freshness_required": "current",
+            "label": "Analysis plan",
+            "min_confidence": "medium",
+            "pack_id": "research",
+            "reason": "Missing data strategy requires Analysis plan.",
+            "required_evidence_id": "analysis_plan",
+            "satisfied": false,
+            "satisfied_by_object_ids": []
+          }
+        ],
+        "domain_safety_rules": [],
+        "evidence": [
+          {
+            "confidence": "high",
+            "domain_evidence_type": "data_dictionary",
+            "evidence_requirement_id": "data_dictionary",
+            "freshness": "current",
+            "is_stale": false,
+            "link_id": "L-EVID-rp-data-supports-DEC-rp-missing-data",
+            "object_id": "EVID-rp-data-dictionary",
+            "observed_at": "2026-04-29T00:19:30Z",
+            "relation": "supports",
+            "source": "docs",
+            "source_ref": "docs/data-dictionary.md",
+            "status": "active",
+            "summary": "The dictionary includes fields required for cohort and endpoint definitions.",
+            "valid_until": null
+          }
+        ],
+        "evidence_coverage": "sufficient",
+        "object_id": "DEC-rp-missing-data",
+        "object_type": "decision",
+        "reversibility": "partially_reversible",
+        "risk_tier": "medium",
+        "risks": [
+          {
+            "approval_threshold": "explicit_acceptance",
+            "domain_risk_type": "missing_data",
+            "likelihood": "medium",
+            "link_id": "L-RISK-rp-missing-challenges-DEC-rp-missing-data",
+            "mitigation_object_ids": [],
+            "object_id": "RISK-rp-missing",
+            "relation": "challenges",
+            "reversibility": "partially_reversible",
+            "risk_tier": "medium",
+            "severity": "medium",
+            "statement": "Missing follow-up fields may bias endpoint assessment.",
+            "status": "active"
+          }
+        ],
+        "source_link_ids": [
+          "L-EVID-rp-data-supports-DEC-rp-missing-data",
+          "L-RISK-rp-missing-challenges-DEC-rp-missing-data"
+        ],
+        "verification_gap": null,
+        "warning_reasons": [
+          "medium_risk_tier",
+          "partially_reversible_change"
+        ]
+      },
+      "domain_requirements": [
+        {
+          "decision_type": "missing_data_strategy",
+          "domain_evidence_type": "data_dictionary",
+          "evidence_source": "docs",
+          "freshness_required": "current",
+          "label": "Data dictionary",
+          "min_confidence": "medium",
+          "pack_id": "research",
+          "reason": "Data dictionary is linked to Missing data strategy.",
+          "required_evidence_id": "data_dictionary",
+          "satisfied": true,
+          "satisfied_by_object_ids": [
+            "EVID-rp-data-dictionary"
+          ]
+        },
+        {
+          "decision_type": "missing_data_strategy",
+          "domain_evidence_type": "analysis_plan",
+          "evidence_source": "docs",
+          "freshness_required": "current",
+          "label": "Analysis plan",
+          "min_confidence": "medium",
+          "pack_id": "research",
+          "reason": "Missing data strategy requires Analysis plan.",
+          "required_evidence_id": "analysis_plan",
+          "satisfied": false,
+          "satisfied_by_object_ids": []
+        }
+      ],
+      "domain_safety_rules": [],
+      "evidence": [
+        {
+          "confidence": "high",
+          "domain_evidence_type": "data_dictionary",
+          "evidence_requirement_id": "data_dictionary",
+          "freshness": "current",
+          "is_stale": false,
+          "link_id": "L-EVID-rp-data-supports-DEC-rp-missing-data",
+          "object_id": "EVID-rp-data-dictionary",
+          "observed_at": "2026-04-29T00:19:30Z",
+          "relation": "supports",
+          "source": "docs",
+          "source_ref": "docs/data-dictionary.md",
+          "status": "active",
+          "summary": "The dictionary includes fields required for cohort and endpoint definitions.",
+          "valid_until": null
+        }
+      ],
+      "evidence_coverage": "sufficient",
+      "gate_digest": "SG-b6cda1441259",
+      "gate_status": "needs_approval",
+      "object_id": "DEC-rp-missing-data",
+      "object_type": "decision",
+      "reversibility": "partially_reversible",
+      "risk_tier": "medium",
+      "risks": [
+        {
+          "approval_threshold": "explicit_acceptance",
+          "domain_risk_type": "missing_data",
+          "likelihood": "medium",
+          "link_id": "L-RISK-rp-missing-challenges-DEC-rp-missing-data",
+          "mitigation_object_ids": [],
+          "object_id": "RISK-rp-missing",
+          "relation": "challenges",
+          "reversibility": "partially_reversible",
+          "risk_tier": "medium",
+          "severity": "medium",
+          "statement": "Missing follow-up fields may bias endpoint assessment.",
+          "status": "active"
+        }
+      ],
+      "source_link_ids": [
+        "L-EVID-rp-data-supports-DEC-rp-missing-data",
+        "L-RISK-rp-missing-challenges-DEC-rp-missing-data"
+      ],
+      "status": "unresolved",
+      "title": "Missing data strategy",
+      "warning_reasons": [
+        "medium_risk_tier",
+        "partially_reversible_change"
+      ]
+    },
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [
+        "domain_required_evidence_missing"
+      ],
+      "approval_required": true,
+      "approval_satisfied": false,
+      "approval_threshold": "none",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [
+          "domain_required_evidence_missing"
+        ],
+        "approval_threshold": "none",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [
+          {
+            "decision_type": "research_question",
+            "domain_evidence_type": "protocol",
+            "evidence_source": "docs",
+            "freshness_required": "current",
+            "label": "Protocol or project brief",
+            "min_confidence": "medium",
+            "pack_id": "research",
+            "reason": "Protocol or project brief is linked to Research question.",
+            "required_evidence_id": "protocol_or_project_brief",
+            "satisfied": true,
+            "satisfied_by_object_ids": [
+              "EVID-rp-protocol"
+            ]
+          },
+          {
+            "decision_type": "research_question",
+            "domain_evidence_type": "literature",
+            "evidence_source": "external",
+            "freshness_required": "current",
+            "label": "Literature or background",
+            "min_confidence": "medium",
+            "pack_id": "research",
+            "reason": "Research question requires Literature or background.",
+            "required_evidence_id": "literature_or_background",
+            "satisfied": false,
+            "satisfied_by_object_ids": []
+          }
+        ],
+        "domain_safety_rules": [],
+        "evidence": [
+          {
+            "confidence": "high",
+            "domain_evidence_type": "protocol",
+            "evidence_requirement_id": "protocol_or_project_brief",
+            "freshness": "current",
+            "is_stale": false,
+            "link_id": "L-EVID-rp-protocol-supports-DEC-rp-question",
+            "object_id": "EVID-rp-protocol",
+            "observed_at": "2026-04-29T00:19:00Z",
+            "relation": "supports",
+            "source": "docs",
+            "source_ref": "docs/protocol-brief.md",
+            "status": "active",
+            "summary": "The brief states the retrospective cohort objective and candidate endpoint.",
+            "valid_until": null
+          }
+        ],
+        "evidence_coverage": "sufficient",
+        "object_id": "DEC-rp-question",
+        "object_type": "decision",
+        "reversibility": "partially_reversible",
+        "risk_tier": "none",
+        "risks": [],
+        "source_link_ids": [
+          "L-EVID-rp-protocol-supports-DEC-rp-question"
+        ],
+        "verification_gap": null,
+        "warning_reasons": [
+          "partially_reversible_change"
+        ]
+      },
+      "domain_requirements": [
+        {
+          "decision_type": "research_question",
+          "domain_evidence_type": "protocol",
+          "evidence_source": "docs",
+          "freshness_required": "current",
+          "label": "Protocol or project brief",
+          "min_confidence": "medium",
+          "pack_id": "research",
+          "reason": "Protocol or project brief is linked to Research question.",
+          "required_evidence_id": "protocol_or_project_brief",
+          "satisfied": true,
+          "satisfied_by_object_ids": [
+            "EVID-rp-protocol"
+          ]
+        },
+        {
+          "decision_type": "research_question",
+          "domain_evidence_type": "literature",
+          "evidence_source": "external",
+          "freshness_required": "current",
+          "label": "Literature or background",
+          "min_confidence": "medium",
+          "pack_id": "research",
+          "reason": "Research question requires Literature or background.",
+          "required_evidence_id": "literature_or_background",
+          "satisfied": false,
+          "satisfied_by_object_ids": []
+        }
+      ],
+      "domain_safety_rules": [],
+      "evidence": [
+        {
+          "confidence": "high",
+          "domain_evidence_type": "protocol",
+          "evidence_requirement_id": "protocol_or_project_brief",
+          "freshness": "current",
+          "is_stale": false,
+          "link_id": "L-EVID-rp-protocol-supports-DEC-rp-question",
+          "object_id": "EVID-rp-protocol",
+          "observed_at": "2026-04-29T00:19:00Z",
+          "relation": "supports",
+          "source": "docs",
+          "source_ref": "docs/protocol-brief.md",
+          "status": "active",
+          "summary": "The brief states the retrospective cohort objective and candidate endpoint.",
+          "valid_until": null
+        }
+      ],
+      "evidence_coverage": "sufficient",
+      "gate_digest": "SG-64dfec2245bf",
+      "gate_status": "needs_approval",
+      "object_id": "DEC-rp-question",
+      "object_type": "decision",
+      "reversibility": "partially_reversible",
+      "risk_tier": "none",
+      "risks": [],
+      "source_link_ids": [
+        "L-EVID-rp-protocol-supports-DEC-rp-question"
+      ],
+      "status": "accepted",
+      "title": "Research question",
+      "warning_reasons": [
+        "partially_reversible_change"
+      ]
+    },
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [
+        "action_verification_gap"
+      ],
+      "approval_required": true,
+      "approval_satisfied": false,
+      "approval_threshold": "none",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [
+          "action_verification_gap"
+        ],
+        "approval_threshold": "none",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [],
+        "domain_safety_rules": [],
+        "evidence": [],
+        "evidence_coverage": "insufficient",
+        "object_id": "O-action-2890e7452fcb",
+        "object_type": "action",
+        "reversibility": "partially_reversible",
+        "risk_tier": "none",
+        "risks": [],
+        "source_link_ids": [],
+        "verification_gap": {
+          "gap_reason": "missing_verification",
+          "gap_severity": "medium",
+          "related_link_ids": []
+        },
+        "warning_reasons": [
+          "insufficient_evidence",
+          "partially_reversible_change"
+        ]
+      },
+      "domain_requirements": [],
+      "domain_safety_rules": [],
+      "evidence": [],
+      "evidence_coverage": "insufficient",
+      "gate_digest": "SG-422e8e0c31de",
+      "gate_status": "needs_approval",
+      "object_id": "O-action-2890e7452fcb",
+      "object_type": "action",
+      "reversibility": "partially_reversible",
+      "risk_tier": "none",
+      "risks": [],
+      "source_link_ids": [],
+      "status": "active",
+      "title": "Research question",
+      "warning_reasons": [
+        "insufficient_evidence",
+        "partially_reversible_change"
+      ]
+    },
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [
+        "action_verification_gap"
+      ],
+      "approval_required": true,
+      "approval_satisfied": false,
+      "approval_threshold": "none",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [
+          "action_verification_gap"
+        ],
+        "approval_threshold": "none",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [],
+        "domain_safety_rules": [],
+        "evidence": [],
+        "evidence_coverage": "insufficient",
+        "object_id": "O-action-446ce72a7638",
+        "object_type": "action",
+        "reversibility": "partially_reversible",
+        "risk_tier": "none",
+        "risks": [],
+        "source_link_ids": [],
+        "verification_gap": {
+          "gap_reason": "missing_verification",
+          "gap_severity": "medium",
+          "related_link_ids": []
+        },
+        "warning_reasons": [
+          "insufficient_evidence",
+          "partially_reversible_change"
+        ]
+      },
+      "domain_requirements": [],
+      "domain_safety_rules": [],
+      "evidence": [],
+      "evidence_coverage": "insufficient",
+      "gate_digest": "SG-95663dabc848",
+      "gate_status": "needs_approval",
+      "object_id": "O-action-446ce72a7638",
+      "object_type": "action",
+      "reversibility": "partially_reversible",
+      "risk_tier": "none",
+      "risks": [],
+      "source_link_ids": [],
+      "status": "active",
+      "title": "Primary endpoint",
+      "warning_reasons": [
+        "insufficient_evidence",
+        "partially_reversible_change"
+      ]
+    },
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [
+        "action_verification_gap"
+      ],
+      "approval_required": true,
+      "approval_satisfied": false,
+      "approval_threshold": "none",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [
+          "action_verification_gap"
+        ],
+        "approval_threshold": "none",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [],
+        "domain_safety_rules": [],
+        "evidence": [],
+        "evidence_coverage": "insufficient",
+        "object_id": "O-action-a9c73f06a224",
+        "object_type": "action",
+        "reversibility": "partially_reversible",
+        "risk_tier": "none",
+        "risks": [],
+        "source_link_ids": [],
+        "verification_gap": {
+          "gap_reason": "missing_verification",
+          "gap_severity": "medium",
+          "related_link_ids": []
+        },
+        "warning_reasons": [
+          "insufficient_evidence",
+          "partially_reversible_change"
+        ]
+      },
+      "domain_requirements": [],
+      "domain_safety_rules": [],
+      "evidence": [],
+      "evidence_coverage": "insufficient",
+      "gate_digest": "SG-7f28b5fe31a9",
+      "gate_status": "needs_approval",
+      "object_id": "O-action-a9c73f06a224",
+      "object_type": "action",
+      "reversibility": "partially_reversible",
+      "risk_tier": "none",
+      "risks": [],
+      "source_link_ids": [],
+      "status": "active",
+      "title": "Cohort definition",
+      "warning_reasons": [
+        "insufficient_evidence",
+        "partially_reversible_change"
+      ]
+    }
+  ],
+  "schema_version": 1,
+  "summary": {
+    "approval_required_count": 7,
+    "blocking_count": 0,
+    "by_gate_status": {
+      "needs_approval": 7
+    },
+    "evaluated_count": 7
+  }
+}

@@ -1,0 +1,411 @@
+{
+  "audience": "human",
+  "document_id": "DOC-20260429-decision-brief",
+  "document_type": "decision-brief",
+  "metadata": {
+    "document_profile_id": "generic_decision_brief",
+    "domain_pack_digest": "DP-6995c80372d5",
+    "domain_pack_id": "generic",
+    "domain_pack_version": "0.1.0"
+  },
+  "schema_version": 1,
+  "sections": [
+    {
+      "blocks": [
+        {
+          "columns": [
+            "Field",
+            "Value"
+          ],
+          "rows": [
+            [
+              "Name",
+              "Demo household project"
+            ],
+            [
+              "Objective",
+              "Choose a lightweight weekend organization plan."
+            ],
+            [
+              "Current Milestone",
+              "Weekend plan"
+            ],
+            [
+              "Project Head",
+              "9ce82db812883c6b2dc9e3733d35bba0bba09f205c45bb698c62418a0b806cdd"
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "project",
+      "order": 10,
+      "source_link_ids": [],
+      "source_object_ids": [],
+      "title": "Project"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "ID",
+            "Type",
+            "Title",
+            "Status",
+            "Statement"
+          ],
+          "rows": [
+            [
+              "O-project-objective",
+              "objective",
+              "Weekend plan",
+              "active",
+              "Choose a lightweight weekend organization plan."
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "purpose-principles-constraints",
+      "order": 20,
+      "source_link_ids": [],
+      "source_object_ids": [
+        "O-project-objective"
+      ],
+      "title": "Purpose / Principles / Constraints"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "ID",
+            "Title",
+            "Status",
+            "Priority",
+            "Frontier",
+            "Summary"
+          ],
+          "rows": [
+            [
+              "DEC-hp-option",
+              "Weekend household plan",
+              "accepted",
+              "P1",
+              "now",
+              "One-room reset plan"
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "current-decisions",
+      "order": 30,
+      "source_link_ids": [
+        "L-ACT-hp-reset-addresses-DEC-hp-option",
+        "L-DEC-hp-option-accepts-PRO-hp-option",
+        "L-O-action-a2d391016881-addresses-DEC-hp-option",
+        "L-PRO-hp-option-addresses-DEC-hp-option",
+        "L-REV-hp-due-revisits-DEC-hp-option",
+        "L-REV-hp-future-revisits-DEC-hp-option"
+      ],
+      "source_object_ids": [
+        "DEC-hp-option"
+      ],
+      "title": "Current Decisions"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "Evidence ID",
+            "Source",
+            "Ref",
+            "Confidence",
+            "Freshness",
+            "Summary"
+          ],
+          "rows": [],
+          "type": "table"
+        },
+        {
+          "columns": [
+            "Assumption ID",
+            "Statement",
+            "Confidence",
+            "Expires At",
+            "Owner"
+          ],
+          "rows": [],
+          "type": "table"
+        },
+        {
+          "columns": [
+            "Input ID",
+            "Reason",
+            "Until"
+          ],
+          "rows": [],
+          "type": "table"
+        }
+      ],
+      "id": "evidence-and-assumptions",
+      "order": 40,
+      "source_link_ids": [],
+      "source_object_ids": [],
+      "title": "Evidence and Assumptions"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "Risk ID",
+            "Statement",
+            "Risk Tier",
+            "Reversibility",
+            "Approval Threshold",
+            "Mitigated By"
+          ],
+          "rows": [],
+          "type": "table"
+        },
+        {
+          "columns": [
+            "Object ID",
+            "Gate Status",
+            "Risk Tier",
+            "Reversibility",
+            "Approval Required",
+            "Blocking Reasons"
+          ],
+          "rows": [
+            [
+              "ACT-hp-reset",
+              "passed",
+              "none",
+              "reversible",
+              false,
+              ""
+            ],
+            [
+              "DEC-hp-option",
+              "passed",
+              "none",
+              "reversible",
+              false,
+              ""
+            ],
+            [
+              "O-action-a2d391016881",
+              "passed",
+              "none",
+              "reversible",
+              false,
+              ""
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "risks-and-safety",
+      "order": 50,
+      "source_link_ids": [
+        "L-ACT-hp-reset-addresses-DEC-hp-option",
+        "L-DEC-hp-option-accepts-PRO-hp-option",
+        "L-O-action-a2d391016881-addresses-DEC-hp-option",
+        "L-PRO-hp-option-addresses-DEC-hp-option",
+        "L-REV-hp-due-revisits-DEC-hp-option",
+        "L-REV-hp-future-revisits-DEC-hp-option",
+        "L-VER-hp-close-option-verifies-O-action-a2d391016881",
+        "L-VER-hp-reset-verifies-ACT-hp-reset"
+      ],
+      "source_object_ids": [
+        "ACT-hp-reset",
+        "DEC-hp-option",
+        "O-action-a2d391016881"
+      ],
+      "title": "Risks and Safety"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "Action ID",
+            "Title",
+            "Status",
+            "Responsibility",
+            "Ready",
+            "Next Step"
+          ],
+          "rows": [
+            [
+              "ACT-hp-reset",
+              "Reset entryway shelf",
+              "active",
+              "household",
+              true,
+              "Clear and label the entryway shelf."
+            ],
+            [
+              "O-action-a2d391016881",
+              "Verify one-room reset choice",
+              "active",
+              "household",
+              true,
+              "Review the one-room reset plan."
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "columns": [
+            "Action ID",
+            "Gap Severity",
+            "Gap Reason"
+          ],
+          "rows": [],
+          "type": "table"
+        }
+      ],
+      "id": "actions-and-verification",
+      "order": 60,
+      "source_link_ids": [
+        "L-ACT-hp-reset-addresses-DEC-hp-option",
+        "L-O-action-a2d391016881-addresses-DEC-hp-option",
+        "L-VER-hp-close-option-verifies-O-action-a2d391016881",
+        "L-VER-hp-reset-verifies-ACT-hp-reset"
+      ],
+      "source_object_ids": [
+        "ACT-hp-reset",
+        "O-action-a2d391016881"
+      ],
+      "title": "Actions and Verification"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "Trigger ID",
+            "Title",
+            "Type",
+            "Due At",
+            "Status",
+            "Condition"
+          ],
+          "rows": [
+            [
+              "REV-hp-due",
+              "Same-day household revisit",
+              "time",
+              "2026-04-28T00:00:00Z",
+              "due",
+              "Entryway shelf is not reset by the end of day."
+            ],
+            [
+              "REV-hp-future",
+              "Next-week household revisit",
+              "time",
+              "2026-05-06T00:00:00Z",
+              "future",
+              "Review optional storage changes next week."
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "revisit-triggers",
+      "order": 70,
+      "source_link_ids": [
+        "L-ACT-hp-reset-addresses-DEC-hp-option",
+        "L-DEC-hp-option-accepts-PRO-hp-option",
+        "L-O-action-a2d391016881-addresses-DEC-hp-option",
+        "L-PRO-hp-option-addresses-DEC-hp-option",
+        "L-REV-hp-due-revisits-DEC-hp-option",
+        "L-REV-hp-future-revisits-DEC-hp-option"
+      ],
+      "source_object_ids": [
+        "DEC-hp-option",
+        "REV-hp-due",
+        "REV-hp-future"
+      ],
+      "title": "Revisit Triggers"
+    },
+    {
+      "blocks": [
+        {
+          "items": [
+            "Sessions: S-household-project",
+            "Objects: ACT-hp-reset, DEC-hp-option, O-action-a2d391016881, O-project-objective, OPT-hp-one-room, PRO-hp-option, REV-hp-due, REV-hp-future, VER-hp-close-option, VER-hp-reset",
+            "Links: L-ACT-hp-reset-addresses-DEC-hp-option, L-DEC-hp-option-accepts-PRO-hp-option, L-O-action-a2d391016881-addresses-DEC-hp-option, L-PRO-hp-option-addresses-DEC-hp-option, L-PRO-hp-option-recommends-OPT-hp-one-room, L-REV-hp-due-revisits-DEC-hp-option, L-REV-hp-future-revisits-DEC-hp-option, L-VER-hp-close-option-verifies-O-action-a2d391016881, L-VER-hp-reset-verifies-ACT-hp-reset"
+          ],
+          "type": "list"
+        }
+      ],
+      "id": "source-traceability",
+      "order": 80,
+      "source_link_ids": [
+        "L-ACT-hp-reset-addresses-DEC-hp-option",
+        "L-DEC-hp-option-accepts-PRO-hp-option",
+        "L-O-action-a2d391016881-addresses-DEC-hp-option",
+        "L-PRO-hp-option-addresses-DEC-hp-option",
+        "L-PRO-hp-option-recommends-OPT-hp-one-room",
+        "L-REV-hp-due-revisits-DEC-hp-option",
+        "L-REV-hp-future-revisits-DEC-hp-option",
+        "L-VER-hp-close-option-verifies-O-action-a2d391016881",
+        "L-VER-hp-reset-verifies-ACT-hp-reset"
+      ],
+      "source_object_ids": [
+        "ACT-hp-reset",
+        "DEC-hp-option",
+        "O-action-a2d391016881",
+        "O-project-objective",
+        "OPT-hp-one-room",
+        "PRO-hp-option",
+        "REV-hp-due",
+        "REV-hp-future",
+        "VER-hp-close-option",
+        "VER-hp-reset"
+      ],
+      "title": "Source Traceability"
+    }
+  ],
+  "source": {
+    "diagnostic_types": [
+      "assumption_register",
+      "evidence_register",
+      "revisit_due",
+      "risk_register",
+      "safety_gates",
+      "stale_assumptions",
+      "stale_evidence",
+      "verification_gaps"
+    ],
+    "link_ids": [
+      "L-ACT-hp-reset-addresses-DEC-hp-option",
+      "L-DEC-hp-option-accepts-PRO-hp-option",
+      "L-O-action-a2d391016881-addresses-DEC-hp-option",
+      "L-PRO-hp-option-addresses-DEC-hp-option",
+      "L-REV-hp-due-revisits-DEC-hp-option",
+      "L-REV-hp-future-revisits-DEC-hp-option",
+      "L-VER-hp-close-option-verifies-O-action-a2d391016881",
+      "L-VER-hp-reset-verifies-ACT-hp-reset",
+      "L-PRO-hp-option-recommends-OPT-hp-one-room"
+    ],
+    "object_ids": [
+      "O-project-objective",
+      "DEC-hp-option",
+      "ACT-hp-reset",
+      "O-action-a2d391016881",
+      "REV-hp-due",
+      "REV-hp-future",
+      "OPT-hp-one-room",
+      "PRO-hp-option",
+      "VER-hp-close-option",
+      "VER-hp-reset"
+    ],
+    "session_ids": [
+      "S-household-project"
+    ]
+  },
+  "title": "Decision Brief",
+  "warnings": []
+}

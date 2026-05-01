@@ -51,7 +51,7 @@ evaluation:
       count: 1
   expected_documents:
     - type: review-memo
-      format: json
+      format: markdown
       required_sections:
         - review-summary
         - required-decisions

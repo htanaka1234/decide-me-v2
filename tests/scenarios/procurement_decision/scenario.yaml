@@ -60,7 +60,7 @@ evaluation:
     require_no_unresolved_conflicts: true
   expected_documents:
     - type: comparison-table
-      format: json
+      format: csv
       required_sections:
         - comparison
       require_source_traceability: true

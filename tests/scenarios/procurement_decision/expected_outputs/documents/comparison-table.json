@@ -1,0 +1,180 @@
+{
+  "audience": "human",
+  "document_id": "DOC-20260429-comparison-table",
+  "document_type": "comparison-table",
+  "metadata": {
+    "document_profile_id": "procurement_comparison",
+    "domain_pack_digest": "DP-2583792220b4",
+    "domain_pack_id": "procurement",
+    "domain_pack_version": "0.1.0"
+  },
+  "schema_version": 1,
+  "sections": [
+    {
+      "blocks": [
+        {
+          "columns": [
+            "Option",
+            "Recommended By",
+            "Criteria Fit",
+            "Evidence",
+            "Risks",
+            "Constraints",
+            "Status",
+            "Notes"
+          ],
+          "rows": [
+            [
+              "Two-vendor shortlist",
+              "PRO-pd-candidates",
+              "",
+              "EVID-pd-requirements",
+              "",
+              "",
+              "accepted by DEC-pd-candidates",
+              "Vendor A and Vendor B remain in the shortlist."
+            ],
+            [
+              "Fit cost security criteria",
+              "PRO-pd-criteria",
+              "",
+              "EVID-pd-budget, EVID-pd-requirements",
+              "",
+              "",
+              "accepted by DEC-pd-criteria",
+              "Criteria balance fit, cost, and security compliance."
+            ],
+            [
+              "Must-have requirements",
+              "PRO-pd-requirements",
+              "",
+              "EVID-pd-requirements",
+              "",
+              "",
+              "accepted by DEC-pd-requirements",
+              "Workflow, integration, and support requirements from the brief."
+            ],
+            [
+              "Vendor A",
+              "PRO-pd-final-a",
+              "",
+              "EVID-pd-budget, EVID-pd-comparison",
+              "RISK-pd-contract, RISK-pd-lock-in",
+              "",
+              "accepted by DEC-pd-final",
+              "Vendor A satisfies requirements with acceptable implementation effort."
+            ],
+            [
+              "Vendor B",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "open",
+              "Vendor B is cheaper but has weaker security review inputs."
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "comparison",
+      "order": 10,
+      "source_link_ids": [
+        "L-DEC-pd-candidates-accepts-PRO-pd-candidates",
+        "L-DEC-pd-criteria-accepts-PRO-pd-criteria",
+        "L-DEC-pd-final-accepts-PRO-pd-final-a",
+        "L-DEC-pd-requirements-accepts-PRO-pd-requirements",
+        "L-EVID-pd-budget-supports-DEC-pd-criteria",
+        "L-EVID-pd-budget-supports-DEC-pd-final",
+        "L-EVID-pd-comparison-supports-DEC-pd-final",
+        "L-EVID-pd-requirements-supports-DEC-pd-candidates",
+        "L-EVID-pd-requirements-supports-DEC-pd-criteria",
+        "L-EVID-pd-requirements-supports-DEC-pd-requirements",
+        "L-PRO-pd-candidates-addresses-DEC-pd-candidates",
+        "L-PRO-pd-candidates-recommends-OPT-pd-candidates",
+        "L-PRO-pd-criteria-addresses-DEC-pd-criteria",
+        "L-PRO-pd-criteria-recommends-OPT-pd-criteria",
+        "L-PRO-pd-final-a-addresses-DEC-pd-final",
+        "L-PRO-pd-final-a-recommends-OPT-pd-vendor-a",
+        "L-PRO-pd-requirements-addresses-DEC-pd-requirements",
+        "L-PRO-pd-requirements-recommends-OPT-pd-requirements",
+        "L-RISK-pd-contract-challenges-DEC-pd-final",
+        "L-RISK-pd-lock-in-challenges-DEC-pd-final"
+      ],
+      "source_object_ids": [
+        "DEC-pd-candidates",
+        "DEC-pd-criteria",
+        "DEC-pd-final",
+        "DEC-pd-requirements",
+        "EVID-pd-budget",
+        "EVID-pd-comparison",
+        "EVID-pd-requirements",
+        "OPT-pd-candidates",
+        "OPT-pd-criteria",
+        "OPT-pd-requirements",
+        "OPT-pd-vendor-a",
+        "OPT-pd-vendor-b",
+        "PRO-pd-candidates",
+        "PRO-pd-criteria",
+        "PRO-pd-final-a",
+        "PRO-pd-requirements",
+        "RISK-pd-contract",
+        "RISK-pd-lock-in"
+      ],
+      "title": "Comparison Table"
+    }
+  ],
+  "source": {
+    "diagnostic_types": [
+      "object_link_graph"
+    ],
+    "link_ids": [
+      "L-DEC-pd-candidates-accepts-PRO-pd-candidates",
+      "L-DEC-pd-criteria-accepts-PRO-pd-criteria",
+      "L-DEC-pd-final-accepts-PRO-pd-final-a",
+      "L-DEC-pd-requirements-accepts-PRO-pd-requirements",
+      "L-EVID-pd-budget-supports-DEC-pd-criteria",
+      "L-EVID-pd-budget-supports-DEC-pd-final",
+      "L-EVID-pd-comparison-supports-DEC-pd-final",
+      "L-EVID-pd-requirements-supports-DEC-pd-candidates",
+      "L-EVID-pd-requirements-supports-DEC-pd-criteria",
+      "L-EVID-pd-requirements-supports-DEC-pd-requirements",
+      "L-PRO-pd-candidates-addresses-DEC-pd-candidates",
+      "L-PRO-pd-candidates-recommends-OPT-pd-candidates",
+      "L-PRO-pd-criteria-addresses-DEC-pd-criteria",
+      "L-PRO-pd-criteria-recommends-OPT-pd-criteria",
+      "L-PRO-pd-final-a-addresses-DEC-pd-final",
+      "L-PRO-pd-final-a-recommends-OPT-pd-vendor-a",
+      "L-PRO-pd-requirements-addresses-DEC-pd-requirements",
+      "L-PRO-pd-requirements-recommends-OPT-pd-requirements",
+      "L-RISK-pd-contract-challenges-DEC-pd-final",
+      "L-RISK-pd-lock-in-challenges-DEC-pd-final"
+    ],
+    "object_ids": [
+      "DEC-pd-candidates",
+      "DEC-pd-criteria",
+      "DEC-pd-final",
+      "DEC-pd-requirements",
+      "EVID-pd-budget",
+      "EVID-pd-comparison",
+      "EVID-pd-requirements",
+      "OPT-pd-candidates",
+      "OPT-pd-criteria",
+      "OPT-pd-requirements",
+      "OPT-pd-vendor-a",
+      "OPT-pd-vendor-b",
+      "PRO-pd-candidates",
+      "PRO-pd-criteria",
+      "PRO-pd-final-a",
+      "PRO-pd-requirements",
+      "RISK-pd-contract",
+      "RISK-pd-lock-in"
+    ],
+    "session_ids": [
+      "S-procurement-decision"
+    ]
+  },
+  "title": "Comparison Table",
+  "warnings": []
+}

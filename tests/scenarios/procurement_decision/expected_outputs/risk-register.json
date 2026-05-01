@@ -1,0 +1,62 @@
+{
+  "items": [
+    {
+      "approval_threshold": "external_review",
+      "created_at": "2026-04-29T00:20:11Z",
+      "likelihood": "medium",
+      "mitigated_by_object_ids": [],
+      "mitigation_link_ids": [],
+      "mitigation_object_ids": [],
+      "object_id": "RISK-pd-contract",
+      "related_link_ids": [],
+      "reversibility": "partially_reversible",
+      "risk_tier": "high",
+      "severity": "high",
+      "source_event_ids": [
+        "E-pd-012"
+      ],
+      "statement": "Unreviewed contract terms may constrain exit or data handling.",
+      "status": "active",
+      "title": "Contract constraint",
+      "updated_at": null
+    },
+    {
+      "approval_threshold": "human_review",
+      "created_at": "2026-04-29T00:20:10Z",
+      "likelihood": "medium",
+      "mitigated_by_object_ids": [],
+      "mitigation_link_ids": [],
+      "mitigation_object_ids": [],
+      "object_id": "RISK-pd-lock-in",
+      "related_link_ids": [],
+      "reversibility": "partially_reversible",
+      "risk_tier": "high",
+      "severity": "high",
+      "source_event_ids": [
+        "E-pd-011"
+      ],
+      "statement": "Vendor A creates switching-cost and lock-in risk.",
+      "status": "active",
+      "title": "Vendor lock-in",
+      "updated_at": null
+    }
+  ],
+  "register_type": "risk",
+  "schema_version": 1,
+  "summary": {
+    "by_approval_threshold": {
+      "external_review": 1,
+      "human_review": 1
+    },
+    "by_reversibility": {
+      "partially_reversible": 2
+    },
+    "by_risk_tier": {
+      "high": 2
+    },
+    "by_status": {
+      "active": 2
+    },
+    "item_count": 2
+  }
+}

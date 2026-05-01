@@ -1,0 +1,520 @@
+{
+  "results": [
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [],
+      "approval_required": false,
+      "approval_satisfied": false,
+      "approval_threshold": "none",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [],
+        "approval_threshold": "none",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [],
+        "domain_safety_rules": [],
+        "evidence": [],
+        "evidence_coverage": "insufficient",
+        "object_id": "ACT-sr-refactor",
+        "object_type": "action",
+        "reversibility": "reversible",
+        "risk_tier": "none",
+        "risks": [],
+        "source_link_ids": [],
+        "verification_gap": null,
+        "warning_reasons": [
+          "insufficient_evidence"
+        ]
+      },
+      "domain_requirements": [],
+      "domain_safety_rules": [],
+      "evidence": [],
+      "evidence_coverage": "insufficient",
+      "gate_digest": "SG-01d6fb009d28",
+      "gate_status": "passed",
+      "object_id": "ACT-sr-refactor",
+      "object_type": "action",
+      "reversibility": "reversible",
+      "risk_tier": "none",
+      "risks": [],
+      "source_link_ids": [],
+      "status": "active",
+      "title": "Implement billing adapter extraction",
+      "warning_reasons": [
+        "insufficient_evidence"
+      ]
+    },
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [
+        "domain_required_evidence_missing"
+      ],
+      "approval_required": true,
+      "approval_satisfied": false,
+      "approval_threshold": "none",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [
+          "domain_required_evidence_missing"
+        ],
+        "approval_threshold": "none",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [
+          {
+            "decision_type": "architecture_choice",
+            "domain_evidence_type": "implementation",
+            "evidence_source": "codebase",
+            "freshness_required": "current",
+            "label": "Codebase context",
+            "min_confidence": "medium",
+            "pack_id": "software",
+            "reason": "Codebase context is linked to Architecture choice.",
+            "required_evidence_id": "codebase_context",
+            "satisfied": true,
+            "satisfied_by_object_ids": [
+              "EVID-sr-codebase"
+            ]
+          },
+          {
+            "decision_type": "architecture_choice",
+            "domain_evidence_type": "requirements",
+            "evidence_source": "docs",
+            "freshness_required": "current",
+            "label": "Requirements brief",
+            "min_confidence": "medium",
+            "pack_id": "software",
+            "reason": "Architecture choice requires Requirements brief.",
+            "required_evidence_id": "requirements_brief",
+            "satisfied": false,
+            "satisfied_by_object_ids": []
+          }
+        ],
+        "domain_safety_rules": [],
+        "evidence": [
+          {
+            "confidence": "high",
+            "domain_evidence_type": "implementation",
+            "evidence_requirement_id": "codebase_context",
+            "freshness": "current",
+            "is_stale": false,
+            "link_id": "L-EVID-sr-codebase-supports-DEC-sr-architecture",
+            "object_id": "EVID-sr-codebase",
+            "observed_at": "2026-04-29T00:18:00Z",
+            "relation": "supports",
+            "source": "codebase",
+            "source_ref": "app/billing",
+            "status": "active",
+            "summary": "Billing provider calls are concentrated enough for an adapter extraction.",
+            "valid_until": null
+          }
+        ],
+        "evidence_coverage": "sufficient",
+        "object_id": "DEC-sr-architecture",
+        "object_type": "decision",
+        "reversibility": "partially_reversible",
+        "risk_tier": "none",
+        "risks": [],
+        "source_link_ids": [
+          "L-EVID-sr-codebase-supports-DEC-sr-architecture"
+        ],
+        "verification_gap": null,
+        "warning_reasons": [
+          "partially_reversible_change"
+        ]
+      },
+      "domain_requirements": [
+        {
+          "decision_type": "architecture_choice",
+          "domain_evidence_type": "implementation",
+          "evidence_source": "codebase",
+          "freshness_required": "current",
+          "label": "Codebase context",
+          "min_confidence": "medium",
+          "pack_id": "software",
+          "reason": "Codebase context is linked to Architecture choice.",
+          "required_evidence_id": "codebase_context",
+          "satisfied": true,
+          "satisfied_by_object_ids": [
+            "EVID-sr-codebase"
+          ]
+        },
+        {
+          "decision_type": "architecture_choice",
+          "domain_evidence_type": "requirements",
+          "evidence_source": "docs",
+          "freshness_required": "current",
+          "label": "Requirements brief",
+          "min_confidence": "medium",
+          "pack_id": "software",
+          "reason": "Architecture choice requires Requirements brief.",
+          "required_evidence_id": "requirements_brief",
+          "satisfied": false,
+          "satisfied_by_object_ids": []
+        }
+      ],
+      "domain_safety_rules": [],
+      "evidence": [
+        {
+          "confidence": "high",
+          "domain_evidence_type": "implementation",
+          "evidence_requirement_id": "codebase_context",
+          "freshness": "current",
+          "is_stale": false,
+          "link_id": "L-EVID-sr-codebase-supports-DEC-sr-architecture",
+          "object_id": "EVID-sr-codebase",
+          "observed_at": "2026-04-29T00:18:00Z",
+          "relation": "supports",
+          "source": "codebase",
+          "source_ref": "app/billing",
+          "status": "active",
+          "summary": "Billing provider calls are concentrated enough for an adapter extraction.",
+          "valid_until": null
+        }
+      ],
+      "evidence_coverage": "sufficient",
+      "gate_digest": "SG-082fd787c54d",
+      "gate_status": "needs_approval",
+      "object_id": "DEC-sr-architecture",
+      "object_type": "decision",
+      "reversibility": "partially_reversible",
+      "risk_tier": "none",
+      "risks": [],
+      "source_link_ids": [
+        "L-EVID-sr-codebase-supports-DEC-sr-architecture"
+      ],
+      "status": "accepted",
+      "title": "Billing refactor architecture",
+      "warning_reasons": [
+        "partially_reversible_change"
+      ]
+    },
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [
+        "domain_required_evidence_missing"
+      ],
+      "approval_required": true,
+      "approval_satisfied": false,
+      "approval_threshold": "none",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [
+          "domain_required_evidence_missing"
+        ],
+        "approval_threshold": "none",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [
+          {
+            "decision_type": "verification_strategy",
+            "domain_evidence_type": "tests",
+            "evidence_source": "tests",
+            "freshness_required": "current",
+            "label": "Test coverage",
+            "min_confidence": "medium",
+            "pack_id": "software",
+            "reason": "Test coverage is linked to Verification strategy.",
+            "required_evidence_id": "test_coverage",
+            "satisfied": true,
+            "satisfied_by_object_ids": [
+              "EVID-sr-tests"
+            ]
+          },
+          {
+            "decision_type": "verification_strategy",
+            "domain_evidence_type": "implementation",
+            "evidence_source": "codebase",
+            "freshness_required": "current",
+            "label": "Codebase context",
+            "min_confidence": "medium",
+            "pack_id": "software",
+            "reason": "Verification strategy requires Codebase context.",
+            "required_evidence_id": "codebase_context",
+            "satisfied": false,
+            "satisfied_by_object_ids": []
+          }
+        ],
+        "domain_safety_rules": [],
+        "evidence": [
+          {
+            "confidence": "medium",
+            "domain_evidence_type": "tests",
+            "evidence_requirement_id": "test_coverage",
+            "freshness": "current",
+            "is_stale": false,
+            "link_id": "L-EVID-sr-tests-supports-DEC-sr-verification",
+            "object_id": "EVID-sr-tests",
+            "observed_at": "2026-04-29T00:19:00Z",
+            "relation": "supports",
+            "source": "tests",
+            "source_ref": "tests/test_billing.py",
+            "status": "active",
+            "summary": "Regression tests cover the core billing behavior that must survive the refactor.",
+            "valid_until": null
+          }
+        ],
+        "evidence_coverage": "sufficient",
+        "object_id": "DEC-sr-verification",
+        "object_type": "decision",
+        "reversibility": "reversible",
+        "risk_tier": "none",
+        "risks": [],
+        "source_link_ids": [
+          "L-EVID-sr-tests-supports-DEC-sr-verification"
+        ],
+        "verification_gap": null,
+        "warning_reasons": []
+      },
+      "domain_requirements": [
+        {
+          "decision_type": "verification_strategy",
+          "domain_evidence_type": "tests",
+          "evidence_source": "tests",
+          "freshness_required": "current",
+          "label": "Test coverage",
+          "min_confidence": "medium",
+          "pack_id": "software",
+          "reason": "Test coverage is linked to Verification strategy.",
+          "required_evidence_id": "test_coverage",
+          "satisfied": true,
+          "satisfied_by_object_ids": [
+            "EVID-sr-tests"
+          ]
+        },
+        {
+          "decision_type": "verification_strategy",
+          "domain_evidence_type": "implementation",
+          "evidence_source": "codebase",
+          "freshness_required": "current",
+          "label": "Codebase context",
+          "min_confidence": "medium",
+          "pack_id": "software",
+          "reason": "Verification strategy requires Codebase context.",
+          "required_evidence_id": "codebase_context",
+          "satisfied": false,
+          "satisfied_by_object_ids": []
+        }
+      ],
+      "domain_safety_rules": [],
+      "evidence": [
+        {
+          "confidence": "medium",
+          "domain_evidence_type": "tests",
+          "evidence_requirement_id": "test_coverage",
+          "freshness": "current",
+          "is_stale": false,
+          "link_id": "L-EVID-sr-tests-supports-DEC-sr-verification",
+          "object_id": "EVID-sr-tests",
+          "observed_at": "2026-04-29T00:19:00Z",
+          "relation": "supports",
+          "source": "tests",
+          "source_ref": "tests/test_billing.py",
+          "status": "active",
+          "summary": "Regression tests cover the core billing behavior that must survive the refactor.",
+          "valid_until": null
+        }
+      ],
+      "evidence_coverage": "sufficient",
+      "gate_digest": "SG-bfe4532d6054",
+      "gate_status": "needs_approval",
+      "object_id": "DEC-sr-verification",
+      "object_type": "decision",
+      "reversibility": "reversible",
+      "risk_tier": "none",
+      "risks": [],
+      "source_link_ids": [
+        "L-EVID-sr-tests-supports-DEC-sr-verification"
+      ],
+      "status": "accepted",
+      "title": "Billing refactor verification",
+      "warning_reasons": []
+    },
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [
+        "action_verification_gap"
+      ],
+      "approval_required": true,
+      "approval_satisfied": false,
+      "approval_threshold": "none",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [
+          "action_verification_gap"
+        ],
+        "approval_threshold": "none",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [],
+        "domain_safety_rules": [],
+        "evidence": [],
+        "evidence_coverage": "insufficient",
+        "object_id": "O-action-470248235ff0",
+        "object_type": "action",
+        "reversibility": "partially_reversible",
+        "risk_tier": "none",
+        "risks": [],
+        "source_link_ids": [],
+        "verification_gap": {
+          "gap_reason": "missing_verification",
+          "gap_severity": "medium",
+          "related_link_ids": []
+        },
+        "warning_reasons": [
+          "insufficient_evidence",
+          "partially_reversible_change"
+        ]
+      },
+      "domain_requirements": [],
+      "domain_safety_rules": [],
+      "evidence": [],
+      "evidence_coverage": "insufficient",
+      "gate_digest": "SG-d3edf4a136ee",
+      "gate_status": "needs_approval",
+      "object_id": "O-action-470248235ff0",
+      "object_type": "action",
+      "reversibility": "partially_reversible",
+      "risk_tier": "none",
+      "risks": [],
+      "source_link_ids": [],
+      "status": "active",
+      "title": "Billing refactor architecture",
+      "warning_reasons": [
+        "insufficient_evidence",
+        "partially_reversible_change"
+      ]
+    },
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [
+        "action_verification_gap"
+      ],
+      "approval_required": true,
+      "approval_satisfied": false,
+      "approval_threshold": "none",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [
+          "action_verification_gap"
+        ],
+        "approval_threshold": "none",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [],
+        "domain_safety_rules": [],
+        "evidence": [],
+        "evidence_coverage": "insufficient",
+        "object_id": "O-action-619d40610f3e",
+        "object_type": "action",
+        "reversibility": "partially_reversible",
+        "risk_tier": "none",
+        "risks": [],
+        "source_link_ids": [],
+        "verification_gap": {
+          "gap_reason": "missing_verification",
+          "gap_severity": "medium",
+          "related_link_ids": []
+        },
+        "warning_reasons": [
+          "insufficient_evidence",
+          "partially_reversible_change"
+        ]
+      },
+      "domain_requirements": [],
+      "domain_safety_rules": [],
+      "evidence": [],
+      "evidence_coverage": "insufficient",
+      "gate_digest": "SG-384855eee062",
+      "gate_status": "needs_approval",
+      "object_id": "O-action-619d40610f3e",
+      "object_type": "action",
+      "reversibility": "partially_reversible",
+      "risk_tier": "none",
+      "risks": [],
+      "source_link_ids": [],
+      "status": "active",
+      "title": "Billing refactor architecture",
+      "warning_reasons": [
+        "insufficient_evidence",
+        "partially_reversible_change"
+      ]
+    },
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [
+        "action_verification_gap"
+      ],
+      "approval_required": true,
+      "approval_satisfied": false,
+      "approval_threshold": "none",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [
+          "action_verification_gap"
+        ],
+        "approval_threshold": "none",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [],
+        "domain_safety_rules": [],
+        "evidence": [],
+        "evidence_coverage": "insufficient",
+        "object_id": "O-action-f2ff70233f0e",
+        "object_type": "action",
+        "reversibility": "reversible",
+        "risk_tier": "none",
+        "risks": [],
+        "source_link_ids": [],
+        "verification_gap": {
+          "gap_reason": "missing_verification",
+          "gap_severity": "medium",
+          "related_link_ids": []
+        },
+        "warning_reasons": [
+          "insufficient_evidence"
+        ]
+      },
+      "domain_requirements": [],
+      "domain_safety_rules": [],
+      "evidence": [],
+      "evidence_coverage": "insufficient",
+      "gate_digest": "SG-bf91ca38dce2",
+      "gate_status": "needs_approval",
+      "object_id": "O-action-f2ff70233f0e",
+      "object_type": "action",
+      "reversibility": "reversible",
+      "risk_tier": "none",
+      "risks": [],
+      "source_link_ids": [],
+      "status": "active",
+      "title": "Billing refactor verification",
+      "warning_reasons": [
+        "insufficient_evidence"
+      ]
+    }
+  ],
+  "schema_version": 1,
+  "summary": {
+    "approval_required_count": 5,
+    "blocking_count": 0,
+    "by_gate_status": {
+      "needs_approval": 5,
+      "passed": 1
+    },
+    "evaluated_count": 6
+  }
+}

@@ -1,0 +1,257 @@
+{
+  "audience": "human",
+  "document_id": "DOC-20260429-review-memo",
+  "document_type": "review-memo",
+  "metadata": {
+    "document_profile_id": "generic_review_memo",
+    "domain_pack_digest": "DP-6995c80372d5",
+    "domain_pack_id": "generic",
+    "domain_pack_version": "0.1.0"
+  },
+  "schema_version": 1,
+  "sections": [
+    {
+      "blocks": [
+        {
+          "columns": [
+            "Metric",
+            "Count"
+          ],
+          "rows": [
+            [
+              "Blocking gates",
+              0
+            ],
+            [
+              "Approval required",
+              3
+            ],
+            [
+              "Stale evidence",
+              0
+            ],
+            [
+              "Expired assumptions",
+              0
+            ],
+            [
+              "Verification gaps",
+              3
+            ],
+            [
+              "Due revisits",
+              1
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "review-summary",
+      "order": 10,
+      "source_link_ids": [
+        "L-REV-wp-review-revisits-DEC-wp-review"
+      ],
+      "source_object_ids": [
+        "ACT-wp-draft",
+        "DEC-wp-goal",
+        "DEC-wp-review",
+        "DEC-wp-topic",
+        "O-action-3de88c1af187",
+        "O-action-8ba4e6b7c729",
+        "REV-wp-review"
+      ],
+      "title": "Review Summary"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "Object ID",
+            "Title",
+            "Gate Status",
+            "Approval Required",
+            "Blocking Reasons",
+            "Approval Reasons"
+          ],
+          "rows": [
+            [
+              "ACT-wp-draft",
+              "Draft evaluation suite article",
+              "needs_approval",
+              true,
+              "",
+              "action_verification_gap"
+            ],
+            [
+              "O-action-3de88c1af187",
+              "Writing goal",
+              "needs_approval",
+              true,
+              "",
+              "action_verification_gap"
+            ],
+            [
+              "O-action-8ba4e6b7c729",
+              "Article topic",
+              "needs_approval",
+              true,
+              "",
+              "action_verification_gap"
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "required-decisions",
+      "order": 20,
+      "source_link_ids": [],
+      "source_object_ids": [
+        "ACT-wp-draft",
+        "DEC-wp-goal",
+        "DEC-wp-review",
+        "DEC-wp-topic",
+        "O-action-3de88c1af187",
+        "O-action-8ba4e6b7c729"
+      ],
+      "title": "Required Decisions"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "Action ID",
+            "Title",
+            "Gap Severity",
+            "Gap Reason"
+          ],
+          "rows": [
+            [
+              "ACT-wp-draft",
+              "Draft evaluation suite article",
+              "medium",
+              "missing_verification"
+            ],
+            [
+              "O-action-3de88c1af187",
+              "Writing goal",
+              "medium",
+              "missing_verification"
+            ],
+            [
+              "O-action-8ba4e6b7c729",
+              "Article topic",
+              "medium",
+              "missing_verification"
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "verification-gaps",
+      "order": 40,
+      "source_link_ids": [],
+      "source_object_ids": [
+        "ACT-wp-draft",
+        "O-action-3de88c1af187",
+        "O-action-8ba4e6b7c729"
+      ],
+      "title": "Verification Gaps"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "Trigger ID",
+            "Type",
+            "Due At",
+            "Targets",
+            "Condition"
+          ],
+          "rows": [
+            [
+              "REV-wp-review",
+              "time",
+              "2026-04-28T00:00:00Z",
+              "DEC-wp-review",
+              "No reviewer assigned for the draft by the checkpoint."
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "revisit-due",
+      "order": 50,
+      "source_link_ids": [
+        "L-REV-wp-review-revisits-DEC-wp-review"
+      ],
+      "source_object_ids": [
+        "DEC-wp-review",
+        "REV-wp-review"
+      ],
+      "title": "Revisit Due"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "Kind",
+            "Object ID",
+            "Reason",
+            "Timestamp",
+            "Affected Objects"
+          ],
+          "rows": [],
+          "type": "table"
+        }
+      ],
+      "id": "stale-inputs",
+      "order": 30,
+      "source_link_ids": [],
+      "source_object_ids": [],
+      "title": "Stale Inputs"
+    },
+    {
+      "blocks": [
+        {
+          "items": [
+            "Record or refresh required safety approvals.",
+            "Define verification evidence for actions with gaps.",
+            "Revisit due trigger targets and update affected objects."
+          ],
+          "type": "list"
+        }
+      ],
+      "id": "recommended-next-actions",
+      "order": 60,
+      "source_link_ids": [],
+      "source_object_ids": [],
+      "title": "Recommended Next Actions"
+    }
+  ],
+  "source": {
+    "diagnostic_types": [
+      "revisit_due",
+      "safety_gates",
+      "stale_assumptions",
+      "stale_evidence",
+      "verification_gaps"
+    ],
+    "link_ids": [
+      "L-REV-wp-review-revisits-DEC-wp-review"
+    ],
+    "object_ids": [
+      "ACT-wp-draft",
+      "DEC-wp-goal",
+      "DEC-wp-review",
+      "DEC-wp-topic",
+      "O-action-3de88c1af187",
+      "O-action-8ba4e6b7c729",
+      "REV-wp-review"
+    ],
+    "session_ids": [
+      "S-writing-project"
+    ]
+  },
+  "title": "Review Memo",
+  "warnings": []
+}
