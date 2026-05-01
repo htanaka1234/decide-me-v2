@@ -276,6 +276,27 @@ scenario event streams are deterministic and the rendered line is part of the do
 snapshots preserve the header and sort data rows deterministically. Normal tests never update
 baselines automatically; explicit snapshot update support belongs to the Step 6 scenario runner.
 
+## Scenario runner
+
+Step 6 adds a development-only runner for local evaluation and explicit snapshot updates:
+
+```bash
+python3 scripts/evaluate_scenarios.py --scenarios tests/scenarios
+python3 scripts/evaluate_scenarios.py --scenarios tests/scenarios --format json
+python3 scripts/evaluate_scenarios.py --scenarios tests/scenarios --update-snapshots
+```
+
+`--scenarios` accepts either a directory containing `*/scenario.yaml` files or a single
+`scenario.yaml` file. The runner uses the same Python helper APIs as the integration tests: it
+loads each scenario, builds a temporary runtime, runs the evaluation metrics, collects snapshots,
+and compares them against `expected_outputs/`. It continues through all scenarios after failures
+and exits non-zero when any evaluation fails or any snapshot drifts.
+
+Snapshot updates are opt-in. With `--update-snapshots`, the runner rewrites `expected_outputs/`
+only for scenarios whose evaluation report passes; failed evaluations are never blessed as new
+baselines. Text output is intended for local scanning. JSON output reports aggregate status plus
+per-scenario evaluation, snapshot, failure, mismatch, and update counts for automation.
+
 ## Distribution boundary
 
 The evaluation contracts and this reference are bundled with the Skill because `schemas/` and

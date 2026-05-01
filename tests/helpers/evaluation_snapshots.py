@@ -69,6 +69,15 @@ def assert_evaluation_snapshots_match(
     scenario: EvaluationScenario,
     actual_snapshots: dict[str, str],
 ) -> None:
+    messages = compare_evaluation_snapshots(scenario, actual_snapshots)
+    if messages:
+        testcase.fail(f"{scenario.scenario_id} snapshot mismatch\n\n" + "\n\n".join(messages))
+
+
+def compare_evaluation_snapshots(
+    scenario: EvaluationScenario,
+    actual_snapshots: dict[str, str],
+) -> list[str]:
     expected_snapshots = load_expected_snapshots(scenario.root / "expected_outputs")
     expected_keys = set(expected_snapshots)
     actual_keys = set(actual_snapshots)
@@ -84,8 +93,38 @@ def assert_evaluation_snapshots_match(
         actual = normalize_snapshot_text(key, actual_snapshots[key])
         if expected != actual:
             messages.append(_snapshot_diff(key, expected, actual))
-    if messages:
-        testcase.fail(f"{scenario.scenario_id} snapshot mismatch\n\n" + "\n\n".join(messages))
+    return messages
+
+
+def write_expected_snapshots(
+    scenario: EvaluationScenario,
+    actual_snapshots: dict[str, str],
+) -> list[str]:
+    root = scenario.root / "expected_outputs"
+    root.mkdir(parents=True, exist_ok=True)
+    normalized = {
+        key: normalize_snapshot_text(key, value)
+        for key, value in sorted(actual_snapshots.items())
+    }
+    existing_keys = set(_list_expected_snapshot_keys(root))
+    desired_keys = set(normalized)
+    changed: list[str] = []
+
+    for key in sorted(existing_keys - desired_keys):
+        path = root / key
+        if path.is_file():
+            path.unlink()
+            changed.append(key)
+
+    for key, value in normalized.items():
+        path = root / key
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if not path.exists() or path.read_text(encoding="utf-8") != value:
+            path.write_text(value, encoding="utf-8")
+            changed.append(key)
+
+    _remove_empty_snapshot_dirs(root)
+    return changed
 
 
 def load_expected_snapshots(root: Path) -> dict[str, str]:
@@ -98,6 +137,32 @@ def load_expected_snapshots(root: Path) -> dict[str, str]:
         key = path.relative_to(root).as_posix()
         snapshots[key] = normalize_snapshot_text(key, path.read_text(encoding="utf-8"))
     return snapshots
+
+
+def _list_expected_snapshot_keys(root: Path) -> list[str]:
+    if not root.exists():
+        return []
+    return [
+        path.relative_to(root).as_posix()
+        for path in sorted(item for item in root.rglob("*") if item.is_file())
+        if path.name != ".gitkeep"
+    ]
+
+
+def _remove_empty_snapshot_dirs(root: Path) -> None:
+    if not root.exists():
+        return
+    for path in sorted(
+        (item for item in root.rglob("*") if item.is_dir()),
+        key=lambda item: len(item.relative_to(root).parts),
+        reverse=True,
+    ):
+        if path == root:
+            continue
+        try:
+            path.rmdir()
+        except OSError:
+            pass
 
 
 def _snapshot_diff(key: str, expected: str, actual: str) -> str:
