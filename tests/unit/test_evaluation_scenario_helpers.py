@@ -260,6 +260,37 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
             question_metric = report["metrics"]["question_efficiency"]
             self.assertEqual(["choose_option"], question_metric["repeated_forbidden_decision_types"])
 
+    def test_evidence_coverage_requires_linked_supporting_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "scenario"
+            work = Path(tmp) / "work"
+            payload = _valid_scenario()
+            payload["domain_pack"] = "research"
+            payload["evaluation"]["expected_decision_coverage"] = {
+                "required_domain_decision_types": ["research_question"],
+                "required_status_counts": [
+                    {"status": "accepted", "mode": "exact", "count": 1},
+                ],
+            }
+            payload["evaluation"]["expected_evidence_coverage"] = {
+                "min_supporting_evidence": 1,
+                "required_evidence_requirement_ids": ["protocol_or_project_brief"],
+            }
+            _write_scenario_fixture(
+                root,
+                payload,
+                seed_events=_research_seed_events_with_unlinked_evidence("S-generic-minimal"),
+            )
+            scenario = load_scenario(root / "scenario.yaml")
+            runtime = build_scenario_runtime(scenario, work)
+
+            report = run_scenario_evaluation(scenario, runtime)
+
+            self.assertEqual([], validate_evaluation_report(report))
+            self.assertEqual("failed", report["status"])
+            self.assertIn("evidence_coverage", {item["metric"] for item in report["failures"]})
+            self.assertIn("protocol_or_project_brief", report["metrics"]["evidence_coverage"]["missing_ids"])
+
     def test_safety_gate_negative_expectations_pass_and_fail(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "scenario"
@@ -363,6 +394,59 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
             self.assertEqual("failed", report["status"])
             self.assertIn("plan_executability", {item["metric"] for item in report["failures"]})
 
+    def test_plan_executability_expectation_fails_when_action_count_is_too_low(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "scenario"
+            work = Path(tmp) / "work"
+            payload = _valid_scenario()
+            payload["evaluation"]["expected_plan_executability"] = {
+                "readiness": "ready",
+                "min_implementation_ready_count": 0,
+                "min_action_count": 99,
+            }
+            _write_scenario_fixture(root, payload)
+            scenario = load_scenario(root / "scenario.yaml")
+            runtime = build_scenario_runtime(scenario, work)
+
+            report = run_scenario_evaluation(scenario, runtime)
+
+            self.assertEqual([], validate_evaluation_report(report))
+            self.assertEqual("failed", report["status"])
+            plan_metric = report["metrics"]["plan_executability"]
+            self.assertGreaterEqual(plan_metric["action_count"], 1)
+            self.assertIn("plan_executability", {item["metric"] for item in report["failures"]})
+
+    def test_plan_executability_expectation_fails_when_blocker_count_is_too_high(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "scenario"
+            work = Path(tmp) / "work"
+            payload = _valid_scenario()
+            payload["evaluation"]["expected_decision_coverage"]["required_domain_decision_types"] = [
+                "choose_option"
+            ]
+            payload["evaluation"]["expected_decision_coverage"]["required_status_counts"] = [
+                {"status": "unresolved", "mode": "exact", "count": 1}
+            ]
+            payload["evaluation"]["expected_plan_executability"] = {
+                "readiness": "blocked",
+                "min_implementation_ready_count": 0,
+                "max_blocker_count": 0,
+            }
+            _write_scenario_fixture(
+                root,
+                payload,
+                seed_events=_unresolved_decision_seed("E-seed-decision", "DEC-choice"),
+            )
+            scenario = load_scenario(root / "scenario.yaml")
+            runtime = build_scenario_runtime(scenario, work)
+
+            report = run_scenario_evaluation(scenario, runtime)
+
+            self.assertEqual([], validate_evaluation_report(report))
+            self.assertEqual("failed", report["status"])
+            self.assertGreater(report["metrics"]["plan_executability"]["blocker_count"], 0)
+            self.assertIn("plan_executability", {item["metric"] for item in report["failures"]})
+
     def test_plan_executability_expectation_fails_without_closed_sessions(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "scenario"
@@ -392,7 +476,12 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
             root = Path(tmp) / "scenario"
             work = Path(tmp) / "work"
             payload = _valid_scenario()
-            payload["evaluation"]["expected_revisit_quality"] = {"mode": "exact", "count": 1}
+            payload["evaluation"]["expected_revisit_quality"] = {
+                "stale_assumptions": {"mode": "exact", "count": 0},
+                "stale_evidence": {"mode": "exact", "count": 0},
+                "verification_gaps": {"mode": "exact", "count": 0},
+                "due_revisits": {"mode": "exact", "count": 1},
+            }
             _write_scenario_fixture(root, payload)
             scenario = load_scenario(root / "scenario.yaml")
             runtime = build_scenario_runtime(scenario, work)
@@ -402,6 +491,57 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
             self.assertEqual([], validate_evaluation_report(report))
             self.assertEqual("failed", report["status"])
             self.assertIn("revisit_quality", {item["metric"] for item in report["failures"]})
+
+    def test_revisit_quality_expectations_cover_stale_and_gap_diagnostics(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "scenario"
+            work = Path(tmp) / "work"
+            payload = _valid_scenario()
+            payload["sessions"][0]["close"] = False
+            payload["evaluation"]["expected_revisit_quality"] = {
+                "stale_assumptions": {"mode": "exact", "count": 1},
+                "stale_evidence": {"mode": "exact", "count": 1},
+                "verification_gaps": {"mode": "exact", "count": 1},
+                "due_revisits": {"mode": "exact", "count": 1},
+            }
+            _write_scenario_fixture(
+                root,
+                payload,
+                seed_events=_seed_events_with_revisit_diagnostics("S-generic-minimal"),
+            )
+            scenario = load_scenario(root / "scenario.yaml")
+            runtime = build_scenario_runtime(scenario, work)
+
+            passing_report = run_scenario_evaluation(scenario, runtime)
+
+            self.assertEqual([], validate_evaluation_report(passing_report))
+            self.assertEqual("passed", passing_report["status"])
+            revisit_metric = passing_report["metrics"]["revisit_quality"]
+            self.assertEqual(1, revisit_metric["stale_assumption_count"])
+            self.assertEqual(1, revisit_metric["stale_evidence_count"])
+            self.assertEqual(1, revisit_metric["verification_gap_count"])
+            self.assertEqual(1, revisit_metric["due_revisit_count"])
+
+            failing = deepcopy(payload)
+            failing["evaluation"]["expected_revisit_quality"] = {
+                "stale_assumptions": {"mode": "exact", "count": 0},
+                "stale_evidence": {"mode": "exact", "count": 0},
+                "verification_gaps": {"mode": "exact", "count": 0},
+                "due_revisits": {"mode": "exact", "count": 0},
+            }
+            _write_scenario_fixture(
+                root,
+                failing,
+                seed_events=_seed_events_with_revisit_diagnostics("S-generic-minimal"),
+            )
+            failing_scenario = load_scenario(root / "scenario.yaml")
+            failing_runtime = build_scenario_runtime(failing_scenario, Path(tmp) / "work-revisit-fail")
+
+            failing_report = run_scenario_evaluation(failing_scenario, failing_runtime)
+
+            self.assertEqual([], validate_evaluation_report(failing_report))
+            self.assertEqual("failed", failing_report["status"])
+            self.assertIn("revisit_quality", {item["metric"] for item in failing_report["failures"]})
 
     def test_evaluation_report_fails_with_schema_shaped_failures(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -594,6 +734,72 @@ def _unresolved_decision_seed(event_id: str, decision_id: str) -> list[dict]:
     ]
 
 
+def _research_seed_events_with_unlinked_evidence(session_id: str) -> list[dict]:
+    created_at = "2026-04-29T00:20:30Z"
+    return [
+        _object_event(
+            "E-seed-research-decision",
+            "DEC-research-question",
+            "decision",
+            "accepted",
+            "Define the research question.",
+            _research_decision_metadata(),
+            created_at,
+        ),
+        _object_event(
+            "E-seed-research-proposal",
+            "PRO-research-question",
+            "proposal",
+            "accepted",
+            "Study the retrospective cohort outcome.",
+            {"origin_session_id": session_id},
+            created_at,
+        ),
+        _object_event(
+            "E-seed-research-option",
+            "OPT-research-question",
+            "option",
+            "active",
+            "Retrospective cohort outcome question.",
+            {},
+            created_at,
+        ),
+        _link_event(
+            "E-seed-research-link-addresses",
+            "L-PRO-research-question-addresses-DEC-research-question",
+            "PRO-research-question",
+            "addresses",
+            "DEC-research-question",
+            created_at,
+        ),
+        _link_event(
+            "E-seed-research-link-accepts",
+            "L-DEC-research-question-accepts-PRO-research-question",
+            "DEC-research-question",
+            "accepts",
+            "PRO-research-question",
+            created_at,
+        ),
+        _link_event(
+            "E-seed-research-link-recommends",
+            "L-PRO-research-question-recommends-OPT-research-question",
+            "PRO-research-question",
+            "recommends",
+            "OPT-research-question",
+            created_at,
+        ),
+        _object_event(
+            "E-seed-unlinked-evidence",
+            "EVID-project-brief",
+            "evidence",
+            "active",
+            "Project brief exists but is not linked as support.",
+            _evidence_metadata("protocol_or_project_brief", pack_id="research", freshness="current"),
+            created_at,
+        ),
+    ]
+
+
 def _seed_events_with_human_review_risk(session_id: str) -> list[dict]:
     created_at = "2026-04-29T00:20:30Z"
     pack = load_builtin_packs()["generic"]
@@ -629,6 +835,148 @@ def _seed_events_with_human_review_risk(session_id: str) -> list[dict]:
             created_at,
         ),
     ]
+
+
+def _seed_events_with_revisit_diagnostics(session_id: str) -> list[dict]:
+    created_at = "2026-04-29T00:20:30Z"
+    return [
+        *_seed_events(session_id),
+        _object_event(
+            "E-seed-action-gap",
+            "ACT-diagnostic-gap",
+            "action",
+            "active",
+            "Action intentionally lacks verification.",
+            {
+                "decision_id": "DEC-choice",
+                "evidence_backed": False,
+                "evidence_source": None,
+                "implementation_ready": True,
+                "kind": "execution",
+                "next_step": "Perform the diagnostic action.",
+                "origin_session_id": session_id,
+                "priority": "P1",
+                "resolvable_by": "human",
+                "responsibility": "owner",
+                "reversibility": "reversible",
+            },
+            created_at,
+        ),
+        _object_event(
+            "E-seed-stale-assumption",
+            "ASM-diagnostic-expired",
+            "assumption",
+            "active",
+            "Expired assumption.",
+            {
+                "statement": "The context is still valid.",
+                "confidence": "medium",
+                "validation": "review",
+                "invalidates_if_false": ["DEC-choice"],
+                "expires_at": "2026-04-28T00:00:00Z",
+                "owner": "owner",
+            },
+            created_at,
+        ),
+        _object_event(
+            "E-seed-stale-evidence",
+            "EVID-diagnostic-stale",
+            "evidence",
+            "active",
+            "Stale supporting evidence.",
+            _evidence_metadata(None, freshness="stale", valid_until="2026-04-28T00:00:00Z"),
+            created_at,
+        ),
+        _object_event(
+            "E-seed-revisit-due",
+            "REV-diagnostic-due",
+            "revisit_trigger",
+            "active",
+            "Due revisit.",
+            {
+                "trigger_type": "time",
+                "condition": "Review the selected option.",
+                "due_at": "2026-04-28T00:00:00Z",
+                "target_object_ids": ["DEC-choice"],
+            },
+            created_at,
+        ),
+        _link_event(
+            "E-seed-action-gap-link",
+            "L-ACT-diagnostic-gap-addresses-DEC-choice",
+            "ACT-diagnostic-gap",
+            "addresses",
+            "DEC-choice",
+            created_at,
+        ),
+        _link_event(
+            "E-seed-stale-assumption-link",
+            "L-ASM-diagnostic-expired-constrains-DEC-choice",
+            "ASM-diagnostic-expired",
+            "constrains",
+            "DEC-choice",
+            created_at,
+        ),
+        _link_event(
+            "E-seed-stale-evidence-link",
+            "L-EVID-diagnostic-stale-supports-DEC-choice",
+            "EVID-diagnostic-stale",
+            "supports",
+            "DEC-choice",
+            created_at,
+        ),
+        _link_event(
+            "E-seed-revisit-due-link",
+            "L-REV-diagnostic-due-revisits-DEC-choice",
+            "REV-diagnostic-due",
+            "revisits",
+            "DEC-choice",
+            created_at,
+        ),
+    ]
+
+
+def _evidence_metadata(
+    requirement_id: str | None,
+    *,
+    pack_id: str = "generic",
+    freshness: str,
+    valid_until: str | None = None,
+) -> dict:
+    metadata = {
+        "source": "docs",
+        "source_ref": "fixture.md",
+        "summary": "Fixture evidence.",
+        "confidence": "high",
+        "freshness": freshness,
+        "observed_at": "2026-04-29T00:20:30Z",
+        "valid_until": valid_until,
+    }
+    if requirement_id is None:
+        return metadata
+    pack = load_builtin_packs()[pack_id]
+    metadata.update({
+        "domain_pack_id": pack.pack_id,
+        "domain_pack_version": pack.version,
+        "domain_pack_digest": domain_pack_digest(pack),
+        "domain_evidence_type": requirement_id,
+        "evidence_requirement_id": requirement_id,
+    })
+    return metadata
+
+
+def _research_decision_metadata() -> dict:
+    pack = load_builtin_packs()["research"]
+    return {
+        "priority": "P0",
+        "frontier": "now",
+        "reversibility": "reversible",
+        "domain_pack_id": pack.pack_id,
+        "domain_pack_version": pack.version,
+        "domain_pack_digest": domain_pack_digest(pack),
+        "domain_decision_type": "research_question",
+        "domain_criteria": ["scientific_validity", "clinical_or_business_relevance", "feasibility"],
+    }
 
 
 def _generic_decision_metadata() -> dict:

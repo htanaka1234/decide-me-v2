@@ -534,15 +534,17 @@ def _evidence_coverage_metric(
 ) -> dict[str, Any]:
     expected = scenario.evaluation["expected_evidence_coverage"]
     register = build_evidence_register(project_state)
-    supporting_count = sum(
-        1
+    objects_by_id = _objects_by_id(project_state)
+    linked_evidence_items = [
+        item
         for item in register["items"]
-        if item.get("supports_object_ids") or item.get("verifies_object_ids")
-    )
+        if _is_live_object(item) and (item.get("supports_object_ids") or item.get("verifies_object_ids"))
+    ]
+    supporting_count = len(linked_evidence_items)
     actual_requirement_ids = {
-        obj.get("metadata", {}).get("evidence_requirement_id")
-        for obj in project_state.get("objects", [])
-        if obj.get("type") == "evidence" and obj.get("metadata", {}).get("evidence_requirement_id")
+        objects_by_id.get(item["object_id"], {}).get("metadata", {}).get("evidence_requirement_id")
+        for item in linked_evidence_items
+        if objects_by_id.get(item["object_id"], {}).get("metadata", {}).get("evidence_requirement_id")
     }
     missing = [
         requirement_id
@@ -569,7 +571,7 @@ def _evidence_coverage_metric(
                 "$.metrics.evidence_coverage",
                 expected=expected,
                 actual={
-                    "evidence_requirement_ids": sorted(actual_requirement_ids),
+                    "supporting_evidence_requirement_ids": sorted(actual_requirement_ids),
                     "supporting_evidence": supporting_count,
                 },
             )
@@ -590,15 +592,17 @@ def _risk_and_safety_metric(
 ) -> dict[str, Any]:
     expected_risks = scenario.evaluation["expected_risks"]
     risk_register = build_risk_register(project_state)
+    objects_by_id = _objects_by_id(project_state)
+    live_risk_items = [item for item in risk_register["items"] if _is_live_object(item)]
     actual_risk_types = {
-        obj.get("metadata", {}).get("domain_risk_type")
-        for obj in project_state.get("objects", [])
-        if obj.get("type") == "risk" and obj.get("metadata", {}).get("domain_risk_type")
+        objects_by_id.get(item["object_id"], {}).get("metadata", {}).get("domain_risk_type")
+        for item in live_risk_items
+        if objects_by_id.get(item["object_id"], {}).get("metadata", {}).get("domain_risk_type")
     }
-    actual_tiers = {item.get("risk_tier") for item in risk_register["items"] if item.get("risk_tier")}
+    actual_tiers = {item.get("risk_tier") for item in live_risk_items if item.get("risk_tier")}
     high_or_critical = sum(
         1
-        for item in risk_register["items"]
+        for item in live_risk_items
         if item.get("risk_tier") in {"high", "critical"}
     )
     missing = [
@@ -805,12 +809,16 @@ def _plan_executability_metric(
             )
             return {
                 "readiness": "blocked",
+                "action_count": 0,
                 "implementation_ready_count": 0,
+                "blocker_count": 0,
                 "passed": False,
             }
         return {
             "readiness": "ready",
+            "action_count": 0,
             "implementation_ready_count": 0,
+            "blocker_count": 0,
             "passed": True,
         }
     try:
@@ -831,18 +839,29 @@ def _plan_executability_metric(
         )
         return {
             "readiness": "blocked",
+            "action_count": 0,
             "implementation_ready_count": 0,
+            "blocker_count": 0,
             "passed": False,
         }
     readiness = action_plan["readiness"]
+    action_count = len(action_plan["actions"])
     implementation_ready_count = len(action_plan["implementation_ready_actions"])
-    passed = True
+    blocker_count = len(action_plan["blockers"])
+    expectation_failures: list[str] = []
     if expected is not None:
-        passed = (
-            readiness == expected["readiness"]
-            and implementation_ready_count >= expected["min_implementation_ready_count"]
-        )
-        if not passed:
+        if readiness != expected["readiness"]:
+            expectation_failures.append(f"readiness:{expected['readiness']}")
+        if implementation_ready_count < expected["min_implementation_ready_count"]:
+            expectation_failures.append(
+                f"implementation_ready_min:{expected['min_implementation_ready_count']}"
+            )
+        if action_count < expected.get("min_action_count", 0):
+            expectation_failures.append(f"action_min:{expected['min_action_count']}")
+        max_blocker_count = expected.get("max_blocker_count")
+        if max_blocker_count is not None and blocker_count > max_blocker_count:
+            expectation_failures.append(f"blocker_max:{max_blocker_count}")
+        if expectation_failures:
             failures.append(
                 _failure(
                     "plan_executability",
@@ -851,14 +870,19 @@ def _plan_executability_metric(
                     expected=expected,
                     actual={
                         "readiness": readiness,
+                        "action_count": action_count,
                         "implementation_ready_count": implementation_ready_count,
+                        "blocker_count": blocker_count,
+                        "failed_expectations": expectation_failures,
                     },
                 )
             )
     return {
         "readiness": readiness,
+        "action_count": action_count,
         "implementation_ready_count": implementation_ready_count,
-        "passed": passed,
+        "blocker_count": blocker_count,
+        "passed": not expectation_failures,
     }
 
 
@@ -921,6 +945,7 @@ def _document_readability_metric(
     return {
         "required_sections_present": not missing_sections,
         "empty_required_sections": sorted(stable_unique(empty_sections)),
+        "missing_source_traceability": sorted(stable_unique(missing_traceability)),
         "passed": passed,
     }
 
@@ -931,28 +956,49 @@ def _revisit_quality_metric(
     now: str,
     failures: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    detect_stale_assumptions(project_state, now=now)
-    detect_stale_evidence(project_state, now=now)
-    detect_verification_gaps(project_state, now=now)
+    stale_assumptions = detect_stale_assumptions(project_state, now=now)
+    stale_evidence = detect_stale_evidence(project_state, now=now)
+    verification_gaps = detect_verification_gaps(project_state, now=now)
     revisit_due = detect_revisit_due(project_state, now=now)
-    due_count = revisit_due["summary"]["item_count"]
+    counts = {
+        "stale_assumptions": stale_assumptions["summary"]["item_count"],
+        "stale_evidence": stale_evidence["summary"]["item_count"],
+        "verification_gaps": verification_gaps["summary"]["item_count"],
+        "due_revisits": revisit_due["summary"]["item_count"],
+    }
     expected = scenario.evaluation.get("expected_revisit_quality")
-    passed = True
+    expectation_failures: list[dict[str, Any]] = []
     if expected is not None:
-        passed = due_count == expected["count"] if expected["mode"] == "exact" else due_count >= expected["count"]
-        if not passed:
+        for key, actual_count in counts.items():
+            expectation = expected[key]
+            if not _count_expectation_satisfied(expectation, actual_count):
+                expectation_failures.append(
+                    {
+                        "diagnostic": key,
+                        "mode": expectation["mode"],
+                        "expected": expectation["count"],
+                        "actual": actual_count,
+                    }
+                )
+        if expectation_failures:
             failures.append(
                 _failure(
                     "revisit_quality",
-                    "Due revisit count did not match expectations.",
-                    "$.metrics.revisit_quality.due_revisit_count",
+                    "Stale or revisit diagnostics did not match expectations.",
+                    "$.metrics.revisit_quality",
                     expected=expected,
-                    actual=due_count,
+                    actual={
+                        **counts,
+                        "failed_expectations": expectation_failures,
+                    },
                 )
             )
     return {
-        "due_revisit_count": due_count,
-        "passed": passed,
+        "stale_assumption_count": counts["stale_assumptions"],
+        "stale_evidence_count": counts["stale_evidence"],
+        "verification_gap_count": counts["verification_gaps"],
+        "due_revisit_count": counts["due_revisits"],
+        "passed": not expectation_failures,
     }
 
 
@@ -1004,6 +1050,17 @@ def _failure(
 
 def _objects_by_id(project_state: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {obj["id"]: obj for obj in project_state.get("objects", [])}
+
+
+def _is_live_object(obj: dict[str, Any]) -> bool:
+    return obj.get("status") != "invalidated"
+
+
+def _count_expectation_satisfied(expectation: dict[str, Any], actual_count: int) -> bool:
+    expected_count = expectation["count"]
+    if expectation["mode"] == "exact":
+        return actual_count == expected_count
+    return actual_count >= expected_count
 
 
 def _scenario_session_ids(scenario: EvaluationScenario) -> list[str]:

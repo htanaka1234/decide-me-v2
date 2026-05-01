@@ -354,7 +354,9 @@
       "type": "object",
       "required": [
         "readiness",
+        "action_count",
         "implementation_ready_count",
+        "blocker_count",
         "passed"
       ],
       "properties": {
@@ -365,7 +367,13 @@
             "blocked"
           ]
         },
+        "action_count": {
+          "$ref": "#/$defs/non_negative_integer"
+        },
         "implementation_ready_count": {
+          "$ref": "#/$defs/non_negative_integer"
+        },
+        "blocker_count": {
           "$ref": "#/$defs/non_negative_integer"
         },
         "passed": {
@@ -379,6 +387,7 @@
       "required": [
         "required_sections_present",
         "empty_required_sections",
+        "missing_source_traceability",
         "passed"
       ],
       "properties": {
@@ -386,6 +395,13 @@
           "type": "boolean"
         },
         "empty_required_sections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          },
+          "uniqueItems": true
+        },
+        "missing_source_traceability": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/non_empty_string"
@@ -401,10 +417,22 @@
     "revisit_quality_metric": {
       "type": "object",
       "required": [
+        "stale_assumption_count",
+        "stale_evidence_count",
+        "verification_gap_count",
         "due_revisit_count",
         "passed"
       ],
       "properties": {
+        "stale_assumption_count": {
+          "$ref": "#/$defs/non_negative_integer"
+        },
+        "stale_evidence_count": {
+          "$ref": "#/$defs/non_negative_integer"
+        },
+        "verification_gap_count": {
+          "$ref": "#/$defs/non_negative_integer"
+        },
         "due_revisit_count": {
           "$ref": "#/$defs/non_negative_integer"
         },

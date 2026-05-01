@@ -94,9 +94,21 @@ evaluation:
   expected_plan_executability:
     readiness: conditional
     min_implementation_ready_count: 1
+    min_action_count: 1
+    max_blocker_count: 0
   expected_revisit_quality:
-    mode: min
-    count: 1
+    stale_assumptions:
+      mode: exact
+      count: 0
+    stale_evidence:
+      mode: exact
+      count: 0
+    verification_gaps:
+      mode: min
+      count: 1
+    due_revisits:
+      mode: min
+      count: 1
   expected_documents:
     - type: research-plan
       format: json
@@ -132,10 +144,13 @@ of the scenario runtime. `probe_session_ids` defaults to all scenario sessions a
 defaults to `1`; the probe copy may be mutated, but the main evaluation runtime must remain stable
 for document, register, gate, conflict, and snapshot checks.
 
-Plan executability and revisit quality are diagnostic-only unless `expected_plan_executability` or
-`expected_revisit_quality` is present. When document `require_source_traceability` is true, the
-compiled document must carry non-empty source object and link traceability, and a
-`source-traceability` section must be non-empty when the document type emits that section.
+Plan executability is diagnostic-only unless `expected_plan_executability` is present. When present,
+the suite checks action-plan readiness, implementation-ready action count, and any configured total
+action or blocker bounds. Revisit quality is diagnostic-only unless `expected_revisit_quality` is
+present; when present, stale assumptions, stale evidence, verification gaps, and due revisits are
+checked independently. When document `require_source_traceability` is true, the compiled document
+must carry non-empty source object and link traceability, and a `source-traceability` section must
+be non-empty when the document type emits that section.
 
 ## Evaluation report
 
@@ -176,15 +191,21 @@ The report is a schema-shaped JSON object with deterministic timestamps. Runners
     },
     "plan_executability": {
       "readiness": "conditional",
+      "action_count": 2,
       "implementation_ready_count": 1,
+      "blocker_count": 0,
       "passed": true
     },
     "document_readability": {
       "required_sections_present": true,
       "empty_required_sections": [],
+      "missing_source_traceability": [],
       "passed": true
     },
     "revisit_quality": {
+      "stale_assumption_count": 0,
+      "stale_evidence_count": 0,
+      "verification_gap_count": 1,
       "due_revisit_count": 1,
       "passed": true
     }

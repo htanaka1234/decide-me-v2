@@ -36,6 +36,19 @@ evaluation:
     min_high_or_critical_risks: 0
   expected_conflicts:
     count: 0
+  expected_revisit_quality:
+    stale_assumptions:
+      mode: exact
+      count: 0
+    stale_evidence:
+      mode: exact
+      count: 0
+    verification_gaps:
+      mode: min
+      count: 1
+    due_revisits:
+      mode: exact
+      count: 1
   expected_documents:
     - type: review-memo
       format: json

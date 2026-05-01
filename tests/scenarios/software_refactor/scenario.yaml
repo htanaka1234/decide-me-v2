@@ -44,4 +44,6 @@ evaluation:
   expected_plan_executability:
     readiness: ready
     min_implementation_ready_count: 1
+    min_action_count: 1
+    max_blocker_count: 0
   expected_documents: []
