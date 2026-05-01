@@ -629,9 +629,21 @@ def _risk_and_safety_metric(
                 missing.append(f"approval_threshold:{threshold}")
         if safety_actual["approval_required_count"] < expected_safety["min_approval_required_count"]:
             missing.append(f"approval_required_min:{expected_safety['min_approval_required_count']}")
+        max_approval_required_count = expected_safety.get("max_approval_required_count")
+        if (
+            max_approval_required_count is not None
+            and safety_actual["approval_required_count"] > max_approval_required_count
+        ):
+            missing.append(f"approval_required_max:{max_approval_required_count}")
         for requirement_id in expected_safety["required_insufficient_evidence_ids"]:
             if requirement_id not in safety_actual["insufficient_evidence_ids"]:
                 missing.append(f"insufficient_evidence:{requirement_id}")
+        for rule_id in expected_safety.get("forbidden_rule_ids", []):
+            if rule_id in safety_actual["rule_ids"]:
+                missing.append(f"forbidden_safety_rule:{rule_id}")
+        for threshold in expected_safety.get("forbidden_approval_thresholds", []):
+            if threshold in safety_actual["approval_thresholds"]:
+                missing.append(f"forbidden_approval_threshold:{threshold}")
 
     required_count = (
         len(expected_risks["required_domain_risk_types"])
@@ -643,7 +655,10 @@ def _risk_and_safety_metric(
             len(expected_safety["required_rule_ids"])
             + len(expected_safety["required_approval_thresholds"])
             + (1 if expected_safety["min_approval_required_count"] else 0)
+            + (1 if expected_safety.get("max_approval_required_count") is not None else 0)
             + len(expected_safety["required_insufficient_evidence_ids"])
+            + len(expected_safety.get("forbidden_rule_ids", []))
+            + len(expected_safety.get("forbidden_approval_thresholds", []))
         )
     covered_count = max(0, required_count - len(missing))
     passed = not missing
@@ -651,7 +666,7 @@ def _risk_and_safety_metric(
         failures.append(
             _failure(
                 "risk_coverage",
-                "Missing required risk or safety gate coverage.",
+                "Risk or safety gate expectations did not match.",
                 "$.metrics.risk_coverage",
                 expected={
                     "risks": expected_risks,

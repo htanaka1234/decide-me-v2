@@ -83,8 +83,12 @@ evaluation:
     required_approval_thresholds:
       - human_review
     min_approval_required_count: 1
+    max_approval_required_count: 2
     required_insufficient_evidence_ids:
       - data_dictionary
+    forbidden_rule_ids: []
+    forbidden_approval_thresholds:
+      - external_review
   expected_conflicts:
     count: 0
   expected_plan_executability:
@@ -117,8 +121,11 @@ fixture-only aliases such as `answered_by_codebase`.
 
 Risk expectations describe risk objects and risk tiers. Safety Gate expectations are separate and
 describe gate outputs such as applied domain safety rules, approval thresholds, approval-required
-counts, and missing domain evidence requirements. Runner code should match these expectations
-against the projected runtime, register outputs, Safety Gate diagnostics, and document models.
+counts, and missing domain evidence requirements. They may also express negative expectations with
+`max_approval_required_count`, `forbidden_rule_ids`, and `forbidden_approval_thresholds`; generic
+low-risk scenarios should use these fields to prove that domain-specific or approval-required gates
+do not misfire. Runner code should match these expectations against the projected runtime, register
+outputs, Safety Gate diagnostics, and document models.
 
 Question efficiency is evaluated by running `advance_session()` against a temporary pre-close copy
 of the scenario runtime. `probe_session_ids` defaults to all scenario sessions and `advance_steps`

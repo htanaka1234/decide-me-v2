@@ -29,6 +29,16 @@ evaluation:
   expected_risks:
     required_domain_risk_types: []
     min_high_or_critical_risks: 0
+  expected_safety_gates:
+    required_rule_ids: []
+    required_approval_thresholds: []
+    min_approval_required_count: 0
+    max_approval_required_count: 0
+    required_insufficient_evidence_ids: []
+    forbidden_rule_ids: []
+    forbidden_approval_thresholds:
+      - human_review
+      - external_review
   expected_conflicts:
     count: 0
   expected_revisit_quality:

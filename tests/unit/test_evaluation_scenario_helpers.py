@@ -260,6 +260,52 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
             question_metric = report["metrics"]["question_efficiency"]
             self.assertEqual(["choose_option"], question_metric["repeated_forbidden_decision_types"])
 
+    def test_safety_gate_negative_expectations_pass_and_fail(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "scenario"
+            work = Path(tmp) / "work"
+            payload = _valid_scenario()
+            payload["sessions"][0]["close"] = False
+            payload["evaluation"]["expected_safety_gates"] = {
+                "required_rule_ids": [],
+                "required_approval_thresholds": [],
+                "min_approval_required_count": 0,
+                "max_approval_required_count": 0,
+                "required_insufficient_evidence_ids": [],
+                "forbidden_rule_ids": [],
+                "forbidden_approval_thresholds": ["human_review", "external_review"],
+            }
+            _write_scenario_fixture(root, payload)
+            scenario = load_scenario(root / "scenario.yaml")
+            runtime = build_scenario_runtime(scenario, work)
+
+            passing_report = run_scenario_evaluation(scenario, runtime)
+
+            self.assertEqual([], validate_evaluation_report(passing_report))
+            self.assertEqual("passed", passing_report["status"])
+
+            _write_scenario_fixture(
+                root,
+                payload,
+                seed_events=_seed_events_with_human_review_risk("S-generic-minimal"),
+            )
+            failing_scenario = load_scenario(root / "scenario.yaml")
+            failing_runtime = build_scenario_runtime(failing_scenario, Path(tmp) / "work-risk")
+
+            failing_report = run_scenario_evaluation(failing_scenario, failing_runtime)
+
+            self.assertEqual([], validate_evaluation_report(failing_report))
+            self.assertEqual("failed", failing_report["status"])
+            risk_failures = [
+                item for item in failing_report["failures"] if item["metric"] == "risk_coverage"
+            ]
+            self.assertEqual(1, len(risk_failures))
+            self.assertIn("approval_required_max:0", failing_report["metrics"]["risk_coverage"]["missing_ids"])
+            self.assertIn(
+                "forbidden_approval_threshold:human_review",
+                failing_report["metrics"]["risk_coverage"]["missing_ids"],
+            )
+
     def test_document_source_traceability_expectation_passes_and_fails(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "scenario"
@@ -545,6 +591,43 @@ def _unresolved_decision_seed(event_id: str, decision_id: str) -> list[dict]:
             metadata,
             "2026-04-29T00:20:00Z",
         )
+    ]
+
+
+def _seed_events_with_human_review_risk(session_id: str) -> list[dict]:
+    created_at = "2026-04-29T00:20:30Z"
+    pack = load_builtin_packs()["generic"]
+    return [
+        *_seed_events(session_id),
+        _object_event(
+            "E-seed-risk",
+            "RISK-high-review",
+            "risk",
+            "active",
+            "The option needs human review.",
+            {
+                "statement": "The option needs human review.",
+                "severity": "high",
+                "likelihood": "medium",
+                "risk_tier": "high",
+                "reversibility": "partially_reversible",
+                "mitigation_object_ids": [],
+                "approval_threshold": "human_review",
+                "domain_pack_id": pack.pack_id,
+                "domain_pack_version": pack.version,
+                "domain_pack_digest": domain_pack_digest(pack),
+                "domain_risk_type": "review_required",
+            },
+            created_at,
+        ),
+        _link_event(
+            "E-seed-risk-link",
+            "L-RISK-high-review-challenges-DEC-choice",
+            "RISK-high-review",
+            "challenges",
+            "DEC-choice",
+            created_at,
+        ),
     ]
 
 

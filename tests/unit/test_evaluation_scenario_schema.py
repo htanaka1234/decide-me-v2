@@ -101,7 +101,10 @@ class EvaluationScenarioSchemaTests(unittest.TestCase):
             "required_rule_ids": ["validity_review"],
             "required_approval_thresholds": ["human_review"],
             "min_approval_required_count": 1,
+            "max_approval_required_count": 2,
             "required_insufficient_evidence_ids": ["data_dictionary"],
+            "forbidden_rule_ids": ["contract_external_review"],
+            "forbidden_approval_thresholds": ["external_review"],
         }
 
         self.assertEqual([], list(self.validator.iter_errors(payload)))
@@ -168,6 +171,42 @@ class EvaluationScenarioSchemaTests(unittest.TestCase):
         }
 
         self.assertTrue(list(self.validator.iter_errors(payload)))
+
+    def test_rejects_invalid_negative_safety_gate_expectations(self) -> None:
+        invalid_payloads = []
+        payload = _valid_scenario()
+        payload["evaluation"]["expected_safety_gates"] = {
+            "required_rule_ids": [],
+            "required_approval_thresholds": [],
+            "min_approval_required_count": 0,
+            "max_approval_required_count": -1,
+            "required_insufficient_evidence_ids": [],
+        }
+        invalid_payloads.append(payload)
+
+        payload = _valid_scenario()
+        payload["evaluation"]["expected_safety_gates"] = {
+            "required_rule_ids": [],
+            "required_approval_thresholds": [],
+            "min_approval_required_count": 0,
+            "required_insufficient_evidence_ids": [],
+            "forbidden_rule_ids": ["../validity_review"],
+        }
+        invalid_payloads.append(payload)
+
+        payload = _valid_scenario()
+        payload["evaluation"]["expected_safety_gates"] = {
+            "required_rule_ids": [],
+            "required_approval_thresholds": [],
+            "min_approval_required_count": 0,
+            "required_insufficient_evidence_ids": [],
+            "forbidden_approval_thresholds": ["manual_review"],
+        }
+        invalid_payloads.append(payload)
+
+        for payload in invalid_payloads:
+            with self.subTest(payload=payload["evaluation"]["expected_safety_gates"]):
+                self.assertTrue(list(self.validator.iter_errors(payload)))
 
     def test_rejects_invalid_insufficient_evidence_ids(self) -> None:
         payload = _valid_scenario()
