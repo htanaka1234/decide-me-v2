@@ -78,7 +78,10 @@
 
 ## CLI And Maintainer Commands
 
-- Use Python 3.11 or newer. The runtime has no third-party Python dependency requirement.
+- Use Python 3.11 or newer.
+- Install runtime dependencies with `python3 -m pip install -r requirements.txt`.
+- Install development dependencies with `python3 -m pip install -r requirements-dev.txt` before
+  running the full test suite or Phase 10 evaluation suite.
 - Run the full test suite with `PYTHONPATH=. python3 -m unittest discover -v`.
 - Run the Phase 10 evaluation suite with
   `PYTHONPATH=. python3 scripts/evaluate_scenarios.py --scenarios tests/scenarios --format json`.
