@@ -51,6 +51,12 @@ def main(argv: list[str] | None = None) -> int:
                     "scenario_count": 0,
                     "update_snapshots": args.update_snapshots,
                     "scenarios": [],
+                    "failures": [
+                        {
+                            "metric": "scenario_discovery",
+                            "message": str(exc),
+                        }
+                    ],
                 }
             )
         else:
@@ -85,6 +91,9 @@ def _discover_scenario_paths(path: Path) -> list[Path]:
         return [scenario_path]
     if not scenario_path.is_dir():
         raise FileNotFoundError(f"scenario path does not exist: {scenario_path}")
+    direct_scenario = scenario_path / "scenario.yaml"
+    if direct_scenario.is_file():
+        return [direct_scenario.resolve()]
     paths = sorted(scenario_path.glob("*/scenario.yaml"))
     if not paths:
         raise FileNotFoundError(f"no scenario.yaml files found under {scenario_path}")

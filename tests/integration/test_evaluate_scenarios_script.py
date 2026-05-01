@@ -30,9 +30,25 @@ class EvaluateScenariosScriptTests(unittest.TestCase):
         self.assertEqual(0, code)
         summary = json.loads(stdout)
         self.assertEqual("passed", summary["status"])
-        self.assertEqual(6, summary["scenario_count"])
+        expected_count = len(list(SCENARIOS_DIR.glob("*/scenario.yaml")))
+        self.assertGreaterEqual(summary["scenario_count"], 6)
+        self.assertEqual(expected_count, summary["scenario_count"])
         self.assertFalse(summary["update_snapshots"])
         self.assertTrue(all(item["status"] == "passed" for item in summary["scenarios"]))
+
+    def test_single_scenario_directory_input_succeeds(self) -> None:
+        code, stdout, _stderr = _run_runner(
+            "--scenarios",
+            str(SCENARIOS_DIR / "career_plan"),
+            "--format",
+            "json",
+        )
+
+        self.assertEqual(0, code)
+        summary = json.loads(stdout)
+        self.assertEqual("passed", summary["status"])
+        self.assertEqual(1, summary["scenario_count"])
+        self.assertEqual("career_plan", summary["scenarios"][0]["scenario_id"])
 
     def test_single_scenario_yaml_input_succeeds(self) -> None:
         code, stdout, _stderr = _run_runner(
@@ -47,6 +63,26 @@ class EvaluateScenariosScriptTests(unittest.TestCase):
         self.assertEqual("passed", summary["status"])
         self.assertEqual(1, summary["scenario_count"])
         self.assertEqual("career_plan", summary["scenarios"][0]["scenario_id"])
+
+    def test_json_discovery_failure_includes_diagnostic_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            missing = Path(tmp) / "missing-scenarios"
+
+            code, stdout, stderr = _run_runner(
+                "--scenarios",
+                str(missing),
+                "--format",
+                "json",
+            )
+
+            self.assertEqual("", stderr)
+            self.assertEqual(1, code)
+            summary = json.loads(stdout)
+            self.assertEqual("failed", summary["status"])
+            self.assertEqual(0, summary["scenario_count"])
+            self.assertEqual([], summary["scenarios"])
+            self.assertEqual("scenario_discovery", summary["failures"][0]["metric"])
+            self.assertIn("scenario path does not exist", summary["failures"][0]["message"])
 
     def test_snapshot_mismatch_fails_without_update(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
