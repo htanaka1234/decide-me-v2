@@ -1,0 +1,63 @@
+{
+  "items": [
+    {
+      "approval_threshold": "human_review",
+      "created_at": "2026-04-29T00:20:12Z",
+      "likelihood": "medium",
+      "mitigated_by_object_ids": [],
+      "mitigation_link_ids": [],
+      "mitigation_object_ids": [],
+      "object_id": "RISK-rp-endpoint",
+      "related_link_ids": [],
+      "reversibility": "partially_reversible",
+      "risk_tier": "high",
+      "severity": "high",
+      "source_event_ids": [
+        "E-rp-013"
+      ],
+      "statement": "Primary endpoint may be interpreted inconsistently.",
+      "status": "active",
+      "title": "Endpoint ambiguity risk",
+      "updated_at": null
+    },
+    {
+      "approval_threshold": "explicit_acceptance",
+      "created_at": "2026-04-29T00:20:13Z",
+      "likelihood": "medium",
+      "mitigated_by_object_ids": [],
+      "mitigation_link_ids": [],
+      "mitigation_object_ids": [],
+      "object_id": "RISK-rp-missing",
+      "related_link_ids": [],
+      "reversibility": "partially_reversible",
+      "risk_tier": "medium",
+      "severity": "medium",
+      "source_event_ids": [
+        "E-rp-014"
+      ],
+      "statement": "Missing follow-up fields may bias endpoint assessment.",
+      "status": "active",
+      "title": "Missing data risk",
+      "updated_at": null
+    }
+  ],
+  "register_type": "risk",
+  "schema_version": 1,
+  "summary": {
+    "by_approval_threshold": {
+      "explicit_acceptance": 1,
+      "human_review": 1
+    },
+    "by_reversibility": {
+      "partially_reversible": 2
+    },
+    "by_risk_tier": {
+      "high": 1,
+      "medium": 1
+    },
+    "by_status": {
+      "active": 2
+    },
+    "item_count": 2
+  }
+}

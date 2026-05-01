@@ -1,0 +1,479 @@
+{
+  "audience": "human",
+  "document_id": "DOC-20260429-action-plan",
+  "document_type": "action-plan",
+  "metadata": {
+    "document_profile_id": "generic_action_plan",
+    "domain_pack_digest": "DP-6995c80372d5",
+    "domain_pack_id": "generic",
+    "domain_pack_version": "0.1.0",
+    "readiness": "ready"
+  },
+  "schema_version": 1,
+  "sections": [
+    {
+      "blocks": [
+        {
+          "items": [
+            "Readiness: ready",
+            "Action count: 5",
+            "Implementation-ready count: 5"
+          ],
+          "type": "list"
+        },
+        {
+          "items": [
+            "Decide a career direction and verification plan."
+          ],
+          "type": "list"
+        }
+      ],
+      "id": "summary",
+      "order": 10,
+      "source_link_ids": [
+        "L-ACT-cp-outreach-addresses-DEC-cp-option",
+        "L-DEC-cp-constraint-accepts-PRO-cp-constraint",
+        "L-DEC-cp-goal-accepts-PRO-cp-goal",
+        "L-DEC-cp-option-accepts-PRO-cp-option",
+        "L-DEC-cp-verify-accepts-PRO-cp-verify",
+        "L-O-action-18aeb6ff8b34-addresses-DEC-cp-verify",
+        "L-O-action-4dd513683008-addresses-DEC-cp-goal",
+        "L-O-action-b75f97ea2fb2-addresses-DEC-cp-option",
+        "L-O-action-cb716fc7dd7b-addresses-DEC-cp-constraint",
+        "L-PRO-cp-constraint-addresses-DEC-cp-constraint",
+        "L-PRO-cp-constraint-recommends-OPT-cp-constraint",
+        "L-PRO-cp-goal-addresses-DEC-cp-goal",
+        "L-PRO-cp-goal-recommends-OPT-cp-goal",
+        "L-PRO-cp-option-addresses-DEC-cp-option",
+        "L-PRO-cp-option-recommends-OPT-cp-transfer",
+        "L-PRO-cp-verify-addresses-DEC-cp-verify",
+        "L-PRO-cp-verify-recommends-OPT-cp-verify",
+        "L-REV-cp-monthly-revisits-DEC-cp-option",
+        "L-VER-cp-close-constraint-verifies-O-action-cb716fc7dd7b",
+        "L-VER-cp-close-goal-verifies-O-action-4dd513683008",
+        "L-VER-cp-close-option-verifies-O-action-b75f97ea2fb2",
+        "L-VER-cp-close-verify-verifies-O-action-18aeb6ff8b34",
+        "L-VER-cp-outreach-verifies-ACT-cp-outreach"
+      ],
+      "source_object_ids": [
+        "ACT-cp-outreach",
+        "DEC-cp-constraint",
+        "DEC-cp-goal",
+        "DEC-cp-option",
+        "DEC-cp-verify",
+        "O-action-18aeb6ff8b34",
+        "O-action-4dd513683008",
+        "O-action-b75f97ea2fb2",
+        "O-action-cb716fc7dd7b",
+        "O-project-objective",
+        "OPT-cp-constraint",
+        "OPT-cp-goal",
+        "OPT-cp-transfer",
+        "OPT-cp-verify",
+        "PRO-cp-constraint",
+        "PRO-cp-goal",
+        "PRO-cp-option",
+        "PRO-cp-verify",
+        "REV-cp-monthly",
+        "VER-cp-close-constraint",
+        "VER-cp-close-goal",
+        "VER-cp-close-option",
+        "VER-cp-close-verify",
+        "VER-cp-outreach"
+      ],
+      "title": "Summary"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "ID",
+            "Name",
+            "Decision ID",
+            "Status",
+            "Priority",
+            "Ready",
+            "Gate",
+            "Next Step"
+          ],
+          "rows": [
+            [
+              "ACT-cp-outreach",
+              "Schedule platform transfer conversations",
+              "DEC-cp-option",
+              "active",
+              "P0",
+              true,
+              "passed",
+              "Schedule three platform team conversations."
+            ],
+            [
+              "O-action-4dd513683008",
+              "Verify career goal direction",
+              "DEC-cp-goal",
+              "active",
+              "P0",
+              true,
+              "passed",
+              "Review the senior platform role direction."
+            ],
+            [
+              "O-action-b75f97ea2fb2",
+              "Verify career option choice",
+              "DEC-cp-option",
+              "active",
+              "P0",
+              true,
+              "passed",
+              "Review the internal transfer option."
+            ],
+            [
+              "O-action-cb716fc7dd7b",
+              "Verify preparation constraint",
+              "DEC-cp-constraint",
+              "active",
+              "P0",
+              true,
+              "passed",
+              "Review the preparation time constraint."
+            ],
+            [
+              "O-action-18aeb6ff8b34",
+              "Run career verification loop",
+              "DEC-cp-verify",
+              "active",
+              "P1",
+              true,
+              "passed",
+              "Run the monthly application and feedback review."
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "implementation-ready-actions",
+      "order": 20,
+      "source_link_ids": [
+        "L-ACT-cp-outreach-addresses-DEC-cp-option",
+        "L-O-action-18aeb6ff8b34-addresses-DEC-cp-verify",
+        "L-O-action-4dd513683008-addresses-DEC-cp-goal",
+        "L-O-action-b75f97ea2fb2-addresses-DEC-cp-option",
+        "L-O-action-cb716fc7dd7b-addresses-DEC-cp-constraint"
+      ],
+      "source_object_ids": [
+        "ACT-cp-outreach",
+        "DEC-cp-constraint",
+        "DEC-cp-goal",
+        "DEC-cp-option",
+        "DEC-cp-verify",
+        "O-action-18aeb6ff8b34",
+        "O-action-4dd513683008",
+        "O-action-b75f97ea2fb2",
+        "O-action-cb716fc7dd7b"
+      ],
+      "title": "Implementation-Ready Actions"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "ID",
+            "Name",
+            "Decision ID",
+            "Status",
+            "Priority",
+            "Ready",
+            "Gate",
+            "Next Step"
+          ],
+          "rows": [
+            [
+              "ACT-cp-outreach",
+              "Schedule platform transfer conversations",
+              "DEC-cp-option",
+              "active",
+              "P0",
+              true,
+              "passed",
+              "Schedule three platform team conversations."
+            ],
+            [
+              "O-action-4dd513683008",
+              "Verify career goal direction",
+              "DEC-cp-goal",
+              "active",
+              "P0",
+              true,
+              "passed",
+              "Review the senior platform role direction."
+            ],
+            [
+              "O-action-b75f97ea2fb2",
+              "Verify career option choice",
+              "DEC-cp-option",
+              "active",
+              "P0",
+              true,
+              "passed",
+              "Review the internal transfer option."
+            ],
+            [
+              "O-action-cb716fc7dd7b",
+              "Verify preparation constraint",
+              "DEC-cp-constraint",
+              "active",
+              "P0",
+              true,
+              "passed",
+              "Review the preparation time constraint."
+            ],
+            [
+              "O-action-18aeb6ff8b34",
+              "Run career verification loop",
+              "DEC-cp-verify",
+              "active",
+              "P1",
+              true,
+              "passed",
+              "Run the monthly application and feedback review."
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "actions",
+      "order": 30,
+      "source_link_ids": [
+        "L-ACT-cp-outreach-addresses-DEC-cp-option",
+        "L-O-action-18aeb6ff8b34-addresses-DEC-cp-verify",
+        "L-O-action-4dd513683008-addresses-DEC-cp-goal",
+        "L-O-action-b75f97ea2fb2-addresses-DEC-cp-option",
+        "L-O-action-cb716fc7dd7b-addresses-DEC-cp-constraint"
+      ],
+      "source_object_ids": [
+        "ACT-cp-outreach",
+        "DEC-cp-constraint",
+        "DEC-cp-goal",
+        "DEC-cp-option",
+        "DEC-cp-verify",
+        "O-action-18aeb6ff8b34",
+        "O-action-4dd513683008",
+        "O-action-b75f97ea2fb2",
+        "O-action-cb716fc7dd7b"
+      ],
+      "title": "Actions"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "ID",
+            "Title",
+            "Status",
+            "Priority",
+            "Evidence"
+          ],
+          "rows": [],
+          "type": "table"
+        }
+      ],
+      "id": "risks",
+      "order": 50,
+      "source_link_ids": [],
+      "source_object_ids": [],
+      "title": "Risks"
+    },
+    {
+      "blocks": [
+        {
+          "items": [
+            "Sessions: S-career-plan",
+            "Objects: O-action-cb716fc7dd7b, O-action-4dd513683008, O-action-b75f97ea2fb2, O-action-18aeb6ff8b34, ACT-cp-outreach, DEC-cp-goal, DEC-cp-option, DEC-cp-constraint, DEC-cp-verify, REV-cp-monthly, VER-cp-outreach, VER-cp-close-goal, VER-cp-close-option, VER-cp-close-constraint, VER-cp-close-verify, O-project-objective, PRO-cp-goal, PRO-cp-option, PRO-cp-constraint, PRO-cp-verify, OPT-cp-goal, OPT-cp-transfer, OPT-cp-constraint, OPT-cp-verify",
+            "Links: L-O-action-cb716fc7dd7b-addresses-DEC-cp-constraint, L-O-action-4dd513683008-addresses-DEC-cp-goal, L-O-action-b75f97ea2fb2-addresses-DEC-cp-option, L-O-action-18aeb6ff8b34-addresses-DEC-cp-verify, L-DEC-cp-goal-accepts-PRO-cp-goal, L-PRO-cp-goal-addresses-DEC-cp-goal, L-ACT-cp-outreach-addresses-DEC-cp-option, L-DEC-cp-option-accepts-PRO-cp-option, L-PRO-cp-option-addresses-DEC-cp-option, L-REV-cp-monthly-revisits-DEC-cp-option, L-DEC-cp-constraint-accepts-PRO-cp-constraint, L-PRO-cp-constraint-addresses-DEC-cp-constraint, L-DEC-cp-verify-accepts-PRO-cp-verify, L-PRO-cp-verify-addresses-DEC-cp-verify, L-PRO-cp-goal-recommends-OPT-cp-goal, L-PRO-cp-option-recommends-OPT-cp-transfer, L-PRO-cp-constraint-recommends-OPT-cp-constraint, L-PRO-cp-verify-recommends-OPT-cp-verify, L-VER-cp-outreach-verifies-ACT-cp-outreach, L-VER-cp-close-goal-verifies-O-action-4dd513683008, L-VER-cp-close-option-verifies-O-action-b75f97ea2fb2, L-VER-cp-close-constraint-verifies-O-action-cb716fc7dd7b, L-VER-cp-close-verify-verifies-O-action-18aeb6ff8b34"
+          ],
+          "type": "list"
+        }
+      ],
+      "id": "source-traceability",
+      "order": 70,
+      "source_link_ids": [
+        "L-ACT-cp-outreach-addresses-DEC-cp-option",
+        "L-DEC-cp-constraint-accepts-PRO-cp-constraint",
+        "L-DEC-cp-goal-accepts-PRO-cp-goal",
+        "L-DEC-cp-option-accepts-PRO-cp-option",
+        "L-DEC-cp-verify-accepts-PRO-cp-verify",
+        "L-O-action-18aeb6ff8b34-addresses-DEC-cp-verify",
+        "L-O-action-4dd513683008-addresses-DEC-cp-goal",
+        "L-O-action-b75f97ea2fb2-addresses-DEC-cp-option",
+        "L-O-action-cb716fc7dd7b-addresses-DEC-cp-constraint",
+        "L-PRO-cp-constraint-addresses-DEC-cp-constraint",
+        "L-PRO-cp-constraint-recommends-OPT-cp-constraint",
+        "L-PRO-cp-goal-addresses-DEC-cp-goal",
+        "L-PRO-cp-goal-recommends-OPT-cp-goal",
+        "L-PRO-cp-option-addresses-DEC-cp-option",
+        "L-PRO-cp-option-recommends-OPT-cp-transfer",
+        "L-PRO-cp-verify-addresses-DEC-cp-verify",
+        "L-PRO-cp-verify-recommends-OPT-cp-verify",
+        "L-REV-cp-monthly-revisits-DEC-cp-option",
+        "L-VER-cp-close-constraint-verifies-O-action-cb716fc7dd7b",
+        "L-VER-cp-close-goal-verifies-O-action-4dd513683008",
+        "L-VER-cp-close-option-verifies-O-action-b75f97ea2fb2",
+        "L-VER-cp-close-verify-verifies-O-action-18aeb6ff8b34",
+        "L-VER-cp-outreach-verifies-ACT-cp-outreach"
+      ],
+      "source_object_ids": [
+        "ACT-cp-outreach",
+        "DEC-cp-constraint",
+        "DEC-cp-goal",
+        "DEC-cp-option",
+        "DEC-cp-verify",
+        "O-action-18aeb6ff8b34",
+        "O-action-4dd513683008",
+        "O-action-b75f97ea2fb2",
+        "O-action-cb716fc7dd7b",
+        "O-project-objective",
+        "OPT-cp-constraint",
+        "OPT-cp-goal",
+        "OPT-cp-transfer",
+        "OPT-cp-verify",
+        "PRO-cp-constraint",
+        "PRO-cp-goal",
+        "PRO-cp-option",
+        "PRO-cp-verify",
+        "REV-cp-monthly",
+        "VER-cp-close-constraint",
+        "VER-cp-close-goal",
+        "VER-cp-close-option",
+        "VER-cp-close-verify",
+        "VER-cp-outreach"
+      ],
+      "title": "Source Traceability"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "ID",
+            "Title",
+            "Status",
+            "Priority",
+            "Frontier",
+            "Evidence"
+          ],
+          "rows": [],
+          "type": "table"
+        }
+      ],
+      "id": "blockers",
+      "order": 40,
+      "source_link_ids": [],
+      "source_object_ids": [],
+      "title": "Blockers"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "ID",
+            "Source",
+            "Ref",
+            "Status",
+            "Summary"
+          ],
+          "rows": [],
+          "type": "table"
+        }
+      ],
+      "id": "evidence",
+      "order": 60,
+      "source_link_ids": [
+        "L-ACT-cp-outreach-addresses-DEC-cp-option",
+        "L-DEC-cp-constraint-accepts-PRO-cp-constraint",
+        "L-DEC-cp-goal-accepts-PRO-cp-goal",
+        "L-DEC-cp-option-accepts-PRO-cp-option",
+        "L-DEC-cp-verify-accepts-PRO-cp-verify",
+        "L-O-action-18aeb6ff8b34-addresses-DEC-cp-verify",
+        "L-O-action-4dd513683008-addresses-DEC-cp-goal",
+        "L-O-action-b75f97ea2fb2-addresses-DEC-cp-option",
+        "L-O-action-cb716fc7dd7b-addresses-DEC-cp-constraint",
+        "L-PRO-cp-constraint-addresses-DEC-cp-constraint",
+        "L-PRO-cp-constraint-recommends-OPT-cp-constraint",
+        "L-PRO-cp-goal-addresses-DEC-cp-goal",
+        "L-PRO-cp-goal-recommends-OPT-cp-goal",
+        "L-PRO-cp-option-addresses-DEC-cp-option",
+        "L-PRO-cp-option-recommends-OPT-cp-transfer",
+        "L-PRO-cp-verify-addresses-DEC-cp-verify",
+        "L-PRO-cp-verify-recommends-OPT-cp-verify",
+        "L-REV-cp-monthly-revisits-DEC-cp-option",
+        "L-VER-cp-close-constraint-verifies-O-action-cb716fc7dd7b",
+        "L-VER-cp-close-goal-verifies-O-action-4dd513683008",
+        "L-VER-cp-close-option-verifies-O-action-b75f97ea2fb2",
+        "L-VER-cp-close-verify-verifies-O-action-18aeb6ff8b34",
+        "L-VER-cp-outreach-verifies-ACT-cp-outreach"
+      ],
+      "source_object_ids": [],
+      "title": "Evidence"
+    }
+  ],
+  "source": {
+    "diagnostic_types": [
+      "action_plan"
+    ],
+    "link_ids": [
+      "L-ACT-cp-outreach-addresses-DEC-cp-option",
+      "L-DEC-cp-constraint-accepts-PRO-cp-constraint",
+      "L-DEC-cp-goal-accepts-PRO-cp-goal",
+      "L-DEC-cp-option-accepts-PRO-cp-option",
+      "L-DEC-cp-verify-accepts-PRO-cp-verify",
+      "L-O-action-18aeb6ff8b34-addresses-DEC-cp-verify",
+      "L-O-action-4dd513683008-addresses-DEC-cp-goal",
+      "L-O-action-b75f97ea2fb2-addresses-DEC-cp-option",
+      "L-O-action-cb716fc7dd7b-addresses-DEC-cp-constraint",
+      "L-PRO-cp-constraint-addresses-DEC-cp-constraint",
+      "L-PRO-cp-constraint-recommends-OPT-cp-constraint",
+      "L-PRO-cp-goal-addresses-DEC-cp-goal",
+      "L-PRO-cp-goal-recommends-OPT-cp-goal",
+      "L-PRO-cp-option-addresses-DEC-cp-option",
+      "L-PRO-cp-option-recommends-OPT-cp-transfer",
+      "L-PRO-cp-verify-addresses-DEC-cp-verify",
+      "L-PRO-cp-verify-recommends-OPT-cp-verify",
+      "L-REV-cp-monthly-revisits-DEC-cp-option",
+      "L-VER-cp-close-constraint-verifies-O-action-cb716fc7dd7b",
+      "L-VER-cp-close-goal-verifies-O-action-4dd513683008",
+      "L-VER-cp-close-option-verifies-O-action-b75f97ea2fb2",
+      "L-VER-cp-close-verify-verifies-O-action-18aeb6ff8b34",
+      "L-VER-cp-outreach-verifies-ACT-cp-outreach"
+    ],
+    "object_ids": [
+      "ACT-cp-outreach",
+      "DEC-cp-constraint",
+      "DEC-cp-goal",
+      "DEC-cp-option",
+      "DEC-cp-verify",
+      "O-action-18aeb6ff8b34",
+      "O-action-4dd513683008",
+      "O-action-b75f97ea2fb2",
+      "O-action-cb716fc7dd7b",
+      "O-project-objective",
+      "OPT-cp-constraint",
+      "OPT-cp-goal",
+      "OPT-cp-transfer",
+      "OPT-cp-verify",
+      "PRO-cp-constraint",
+      "PRO-cp-goal",
+      "PRO-cp-option",
+      "PRO-cp-verify",
+      "REV-cp-monthly",
+      "VER-cp-close-constraint",
+      "VER-cp-close-goal",
+      "VER-cp-close-option",
+      "VER-cp-close-verify",
+      "VER-cp-outreach"
+    ],
+    "session_ids": [
+      "S-career-plan"
+    ]
+  },
+  "title": "Action Plan",
+  "warnings": []
+}

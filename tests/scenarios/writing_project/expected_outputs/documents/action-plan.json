@@ -1,0 +1,309 @@
+{
+  "audience": "human",
+  "document_id": "DOC-20260429-action-plan",
+  "document_type": "action-plan",
+  "metadata": {
+    "document_profile_id": "generic_action_plan",
+    "domain_pack_digest": "DP-6995c80372d5",
+    "domain_pack_id": "generic",
+    "domain_pack_version": "0.1.0",
+    "readiness": "blocked"
+  },
+  "schema_version": 1,
+  "sections": [
+    {
+      "blocks": [
+        {
+          "items": [
+            "Readiness: blocked",
+            "Action count: 3",
+            "Implementation-ready count: 0"
+          ],
+          "type": "list"
+        },
+        {
+          "items": [
+            "Choose the article direction, action chain, and review gaps."
+          ],
+          "type": "list"
+        }
+      ],
+      "id": "summary",
+      "order": 10,
+      "source_link_ids": [
+        "L-ACT-wp-draft-addresses-DEC-wp-topic",
+        "L-DEC-wp-goal-accepts-PRO-wp-goal",
+        "L-DEC-wp-topic-accepts-PRO-wp-topic",
+        "L-O-action-3de88c1af187-addresses-DEC-wp-goal",
+        "L-O-action-8ba4e6b7c729-addresses-DEC-wp-topic",
+        "L-PRO-wp-goal-addresses-DEC-wp-goal",
+        "L-PRO-wp-goal-recommends-OPT-wp-goal",
+        "L-PRO-wp-topic-addresses-DEC-wp-topic",
+        "L-PRO-wp-topic-recommends-OPT-wp-evaluation-article",
+        "L-REV-wp-review-revisits-DEC-wp-review"
+      ],
+      "source_object_ids": [
+        "ACT-wp-draft",
+        "DEC-wp-goal",
+        "DEC-wp-review",
+        "DEC-wp-topic",
+        "O-action-3de88c1af187",
+        "O-action-8ba4e6b7c729",
+        "O-project-objective",
+        "OPT-wp-evaluation-article",
+        "OPT-wp-goal",
+        "PRO-wp-goal",
+        "PRO-wp-topic",
+        "REV-wp-review"
+      ],
+      "title": "Summary"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "ID",
+            "Name",
+            "Decision ID",
+            "Status",
+            "Priority",
+            "Ready",
+            "Gate",
+            "Next Step"
+          ],
+          "rows": [],
+          "type": "table"
+        }
+      ],
+      "id": "implementation-ready-actions",
+      "order": 20,
+      "source_link_ids": [],
+      "source_object_ids": [],
+      "title": "Implementation-Ready Actions"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "ID",
+            "Name",
+            "Decision ID",
+            "Status",
+            "Priority",
+            "Ready",
+            "Gate",
+            "Next Step"
+          ],
+          "rows": [
+            [
+              "O-action-8ba4e6b7c729",
+              "Article topic",
+              "DEC-wp-topic",
+              "active",
+              "P0",
+              false,
+              "needs_approval",
+              "Drive Article topic to completion."
+            ],
+            [
+              "ACT-wp-draft",
+              "Draft evaluation suite article",
+              "DEC-wp-topic",
+              "active",
+              "P0",
+              false,
+              "needs_approval",
+              "Draft the article outline and first section."
+            ],
+            [
+              "O-action-3de88c1af187",
+              "Writing goal",
+              "DEC-wp-goal",
+              "active",
+              "P0",
+              false,
+              "needs_approval",
+              "Drive Writing goal to completion."
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "actions",
+      "order": 30,
+      "source_link_ids": [
+        "L-ACT-wp-draft-addresses-DEC-wp-topic",
+        "L-O-action-3de88c1af187-addresses-DEC-wp-goal",
+        "L-O-action-8ba4e6b7c729-addresses-DEC-wp-topic"
+      ],
+      "source_object_ids": [
+        "ACT-wp-draft",
+        "DEC-wp-goal",
+        "DEC-wp-topic",
+        "O-action-3de88c1af187",
+        "O-action-8ba4e6b7c729"
+      ],
+      "title": "Actions"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "ID",
+            "Title",
+            "Status",
+            "Priority",
+            "Evidence"
+          ],
+          "rows": [],
+          "type": "table"
+        }
+      ],
+      "id": "risks",
+      "order": 50,
+      "source_link_ids": [],
+      "source_object_ids": [],
+      "title": "Risks"
+    },
+    {
+      "blocks": [
+        {
+          "items": [
+            "Sessions: S-writing-project",
+            "Objects: O-action-3de88c1af187, O-action-8ba4e6b7c729, ACT-wp-draft, DEC-wp-review, DEC-wp-goal, DEC-wp-topic, REV-wp-review, O-project-objective, PRO-wp-goal, PRO-wp-topic, OPT-wp-goal, OPT-wp-evaluation-article",
+            "Links: L-O-action-3de88c1af187-addresses-DEC-wp-goal, L-O-action-8ba4e6b7c729-addresses-DEC-wp-topic, L-DEC-wp-goal-accepts-PRO-wp-goal, L-PRO-wp-goal-addresses-DEC-wp-goal, L-ACT-wp-draft-addresses-DEC-wp-topic, L-DEC-wp-topic-accepts-PRO-wp-topic, L-PRO-wp-topic-addresses-DEC-wp-topic, L-REV-wp-review-revisits-DEC-wp-review, L-PRO-wp-goal-recommends-OPT-wp-goal, L-PRO-wp-topic-recommends-OPT-wp-evaluation-article"
+          ],
+          "type": "list"
+        }
+      ],
+      "id": "source-traceability",
+      "order": 70,
+      "source_link_ids": [
+        "L-ACT-wp-draft-addresses-DEC-wp-topic",
+        "L-DEC-wp-goal-accepts-PRO-wp-goal",
+        "L-DEC-wp-topic-accepts-PRO-wp-topic",
+        "L-O-action-3de88c1af187-addresses-DEC-wp-goal",
+        "L-O-action-8ba4e6b7c729-addresses-DEC-wp-topic",
+        "L-PRO-wp-goal-addresses-DEC-wp-goal",
+        "L-PRO-wp-goal-recommends-OPT-wp-goal",
+        "L-PRO-wp-topic-addresses-DEC-wp-topic",
+        "L-PRO-wp-topic-recommends-OPT-wp-evaluation-article",
+        "L-REV-wp-review-revisits-DEC-wp-review"
+      ],
+      "source_object_ids": [
+        "ACT-wp-draft",
+        "DEC-wp-goal",
+        "DEC-wp-review",
+        "DEC-wp-topic",
+        "O-action-3de88c1af187",
+        "O-action-8ba4e6b7c729",
+        "O-project-objective",
+        "OPT-wp-evaluation-article",
+        "OPT-wp-goal",
+        "PRO-wp-goal",
+        "PRO-wp-topic",
+        "REV-wp-review"
+      ],
+      "title": "Source Traceability"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "ID",
+            "Title",
+            "Status",
+            "Priority",
+            "Frontier",
+            "Evidence"
+          ],
+          "rows": [
+            [
+              "DEC-wp-review",
+              "Review method",
+              "unresolved",
+              "P0",
+              "now",
+              ""
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "blockers",
+      "order": 40,
+      "source_link_ids": [],
+      "source_object_ids": [
+        "DEC-wp-review"
+      ],
+      "title": "Blockers"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "ID",
+            "Source",
+            "Ref",
+            "Status",
+            "Summary"
+          ],
+          "rows": [],
+          "type": "table"
+        }
+      ],
+      "id": "evidence",
+      "order": 60,
+      "source_link_ids": [
+        "L-ACT-wp-draft-addresses-DEC-wp-topic",
+        "L-DEC-wp-goal-accepts-PRO-wp-goal",
+        "L-DEC-wp-topic-accepts-PRO-wp-topic",
+        "L-O-action-3de88c1af187-addresses-DEC-wp-goal",
+        "L-O-action-8ba4e6b7c729-addresses-DEC-wp-topic",
+        "L-PRO-wp-goal-addresses-DEC-wp-goal",
+        "L-PRO-wp-goal-recommends-OPT-wp-goal",
+        "L-PRO-wp-topic-addresses-DEC-wp-topic",
+        "L-PRO-wp-topic-recommends-OPT-wp-evaluation-article",
+        "L-REV-wp-review-revisits-DEC-wp-review"
+      ],
+      "source_object_ids": [],
+      "title": "Evidence"
+    }
+  ],
+  "source": {
+    "diagnostic_types": [
+      "action_plan"
+    ],
+    "link_ids": [
+      "L-ACT-wp-draft-addresses-DEC-wp-topic",
+      "L-DEC-wp-goal-accepts-PRO-wp-goal",
+      "L-DEC-wp-topic-accepts-PRO-wp-topic",
+      "L-O-action-3de88c1af187-addresses-DEC-wp-goal",
+      "L-O-action-8ba4e6b7c729-addresses-DEC-wp-topic",
+      "L-PRO-wp-goal-addresses-DEC-wp-goal",
+      "L-PRO-wp-goal-recommends-OPT-wp-goal",
+      "L-PRO-wp-topic-addresses-DEC-wp-topic",
+      "L-PRO-wp-topic-recommends-OPT-wp-evaluation-article",
+      "L-REV-wp-review-revisits-DEC-wp-review"
+    ],
+    "object_ids": [
+      "ACT-wp-draft",
+      "DEC-wp-goal",
+      "DEC-wp-review",
+      "DEC-wp-topic",
+      "O-action-3de88c1af187",
+      "O-action-8ba4e6b7c729",
+      "O-project-objective",
+      "OPT-wp-evaluation-article",
+      "OPT-wp-goal",
+      "PRO-wp-goal",
+      "PRO-wp-topic",
+      "REV-wp-review"
+    ],
+    "session_ids": [
+      "S-writing-project"
+    ]
+  },
+  "title": "Action Plan",
+  "warnings": []
+}

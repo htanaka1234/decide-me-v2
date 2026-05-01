@@ -1,0 +1,320 @@
+{
+  "results": [
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [
+        "action_verification_gap"
+      ],
+      "approval_required": true,
+      "approval_satisfied": false,
+      "approval_threshold": "none",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [
+          "action_verification_gap"
+        ],
+        "approval_threshold": "none",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [],
+        "domain_safety_rules": [],
+        "evidence": [],
+        "evidence_coverage": "insufficient",
+        "object_id": "ACT-wp-draft",
+        "object_type": "action",
+        "reversibility": "reversible",
+        "risk_tier": "none",
+        "risks": [],
+        "source_link_ids": [],
+        "verification_gap": {
+          "gap_reason": "missing_verification",
+          "gap_severity": "medium",
+          "related_link_ids": []
+        },
+        "warning_reasons": [
+          "insufficient_evidence"
+        ]
+      },
+      "domain_requirements": [],
+      "domain_safety_rules": [],
+      "evidence": [],
+      "evidence_coverage": "insufficient",
+      "gate_digest": "SG-f596b2a45384",
+      "gate_status": "needs_approval",
+      "object_id": "ACT-wp-draft",
+      "object_type": "action",
+      "reversibility": "reversible",
+      "risk_tier": "none",
+      "risks": [],
+      "source_link_ids": [],
+      "status": "active",
+      "title": "Draft evaluation suite article",
+      "warning_reasons": [
+        "insufficient_evidence"
+      ]
+    },
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [],
+      "approval_required": false,
+      "approval_satisfied": false,
+      "approval_threshold": "none",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [],
+        "approval_threshold": "none",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [],
+        "domain_safety_rules": [],
+        "evidence": [],
+        "evidence_coverage": "insufficient",
+        "object_id": "DEC-wp-goal",
+        "object_type": "decision",
+        "reversibility": "reversible",
+        "risk_tier": "none",
+        "risks": [],
+        "source_link_ids": [],
+        "verification_gap": null,
+        "warning_reasons": [
+          "insufficient_evidence"
+        ]
+      },
+      "domain_requirements": [],
+      "domain_safety_rules": [],
+      "evidence": [],
+      "evidence_coverage": "insufficient",
+      "gate_digest": "SG-0eca200536dd",
+      "gate_status": "passed",
+      "object_id": "DEC-wp-goal",
+      "object_type": "decision",
+      "reversibility": "reversible",
+      "risk_tier": "none",
+      "risks": [],
+      "source_link_ids": [],
+      "status": "accepted",
+      "title": "Writing goal",
+      "warning_reasons": [
+        "insufficient_evidence"
+      ]
+    },
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [],
+      "approval_required": false,
+      "approval_satisfied": false,
+      "approval_threshold": "none",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [],
+        "approval_threshold": "none",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [],
+        "domain_safety_rules": [],
+        "evidence": [],
+        "evidence_coverage": "insufficient",
+        "object_id": "DEC-wp-review",
+        "object_type": "decision",
+        "reversibility": "reversible",
+        "risk_tier": "none",
+        "risks": [],
+        "source_link_ids": [],
+        "verification_gap": null,
+        "warning_reasons": [
+          "insufficient_evidence"
+        ]
+      },
+      "domain_requirements": [],
+      "domain_safety_rules": [],
+      "evidence": [],
+      "evidence_coverage": "insufficient",
+      "gate_digest": "SG-609fdcd1ad0b",
+      "gate_status": "passed",
+      "object_id": "DEC-wp-review",
+      "object_type": "decision",
+      "reversibility": "reversible",
+      "risk_tier": "none",
+      "risks": [],
+      "source_link_ids": [],
+      "status": "unresolved",
+      "title": "Review method",
+      "warning_reasons": [
+        "insufficient_evidence"
+      ]
+    },
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [],
+      "approval_required": false,
+      "approval_satisfied": false,
+      "approval_threshold": "none",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [],
+        "approval_threshold": "none",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [],
+        "domain_safety_rules": [],
+        "evidence": [],
+        "evidence_coverage": "insufficient",
+        "object_id": "DEC-wp-topic",
+        "object_type": "decision",
+        "reversibility": "reversible",
+        "risk_tier": "none",
+        "risks": [],
+        "source_link_ids": [],
+        "verification_gap": null,
+        "warning_reasons": [
+          "insufficient_evidence"
+        ]
+      },
+      "domain_requirements": [],
+      "domain_safety_rules": [],
+      "evidence": [],
+      "evidence_coverage": "insufficient",
+      "gate_digest": "SG-31b1eaa42ca3",
+      "gate_status": "passed",
+      "object_id": "DEC-wp-topic",
+      "object_type": "decision",
+      "reversibility": "reversible",
+      "risk_tier": "none",
+      "risks": [],
+      "source_link_ids": [],
+      "status": "accepted",
+      "title": "Article topic",
+      "warning_reasons": [
+        "insufficient_evidence"
+      ]
+    },
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [
+        "action_verification_gap"
+      ],
+      "approval_required": true,
+      "approval_satisfied": false,
+      "approval_threshold": "none",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [
+          "action_verification_gap"
+        ],
+        "approval_threshold": "none",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [],
+        "domain_safety_rules": [],
+        "evidence": [],
+        "evidence_coverage": "insufficient",
+        "object_id": "O-action-3de88c1af187",
+        "object_type": "action",
+        "reversibility": "reversible",
+        "risk_tier": "none",
+        "risks": [],
+        "source_link_ids": [],
+        "verification_gap": {
+          "gap_reason": "missing_verification",
+          "gap_severity": "medium",
+          "related_link_ids": []
+        },
+        "warning_reasons": [
+          "insufficient_evidence"
+        ]
+      },
+      "domain_requirements": [],
+      "domain_safety_rules": [],
+      "evidence": [],
+      "evidence_coverage": "insufficient",
+      "gate_digest": "SG-f12a1503e6b7",
+      "gate_status": "needs_approval",
+      "object_id": "O-action-3de88c1af187",
+      "object_type": "action",
+      "reversibility": "reversible",
+      "risk_tier": "none",
+      "risks": [],
+      "source_link_ids": [],
+      "status": "active",
+      "title": "Writing goal",
+      "warning_reasons": [
+        "insufficient_evidence"
+      ]
+    },
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [
+        "action_verification_gap"
+      ],
+      "approval_required": true,
+      "approval_satisfied": false,
+      "approval_threshold": "none",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [
+          "action_verification_gap"
+        ],
+        "approval_threshold": "none",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [],
+        "domain_safety_rules": [],
+        "evidence": [],
+        "evidence_coverage": "insufficient",
+        "object_id": "O-action-8ba4e6b7c729",
+        "object_type": "action",
+        "reversibility": "reversible",
+        "risk_tier": "none",
+        "risks": [],
+        "source_link_ids": [],
+        "verification_gap": {
+          "gap_reason": "missing_verification",
+          "gap_severity": "medium",
+          "related_link_ids": []
+        },
+        "warning_reasons": [
+          "insufficient_evidence"
+        ]
+      },
+      "domain_requirements": [],
+      "domain_safety_rules": [],
+      "evidence": [],
+      "evidence_coverage": "insufficient",
+      "gate_digest": "SG-b73b1d4b9c13",
+      "gate_status": "needs_approval",
+      "object_id": "O-action-8ba4e6b7c729",
+      "object_type": "action",
+      "reversibility": "reversible",
+      "risk_tier": "none",
+      "risks": [],
+      "source_link_ids": [],
+      "status": "active",
+      "title": "Article topic",
+      "warning_reasons": [
+        "insufficient_evidence"
+      ]
+    }
+  ],
+  "schema_version": 1,
+  "summary": {
+    "approval_required_count": 3,
+    "blocking_count": 0,
+    "by_gate_status": {
+      "needs_approval": 3,
+      "passed": 3
+    },
+    "evaluated_count": 6
+  }
+}

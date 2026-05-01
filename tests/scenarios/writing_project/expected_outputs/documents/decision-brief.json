@@ -1,0 +1,474 @@
+{
+  "audience": "human",
+  "document_id": "DOC-20260429-decision-brief",
+  "document_type": "decision-brief",
+  "metadata": {
+    "document_profile_id": "generic_decision_brief",
+    "domain_pack_digest": "DP-6995c80372d5",
+    "domain_pack_id": "generic",
+    "domain_pack_version": "0.1.0"
+  },
+  "schema_version": 1,
+  "sections": [
+    {
+      "blocks": [
+        {
+          "columns": [
+            "Field",
+            "Value"
+          ],
+          "rows": [
+            [
+              "Name",
+              "Demo writing project"
+            ],
+            [
+              "Objective",
+              "Plan a concise technical article with unresolved review work visible."
+            ],
+            [
+              "Current Milestone",
+              "Article outline and review plan"
+            ],
+            [
+              "Project Head",
+              "ad91fae0287f94726ed946ac6582197bdc28093e066873e6d02bdd48cd4ded8d"
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "project",
+      "order": 10,
+      "source_link_ids": [],
+      "source_object_ids": [],
+      "title": "Project"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "ID",
+            "Type",
+            "Title",
+            "Status",
+            "Statement"
+          ],
+          "rows": [
+            [
+              "O-project-objective",
+              "objective",
+              "Article outline and review plan",
+              "active",
+              "Plan a concise technical article with unresolved review work visible."
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "purpose-principles-constraints",
+      "order": 20,
+      "source_link_ids": [],
+      "source_object_ids": [
+        "O-project-objective"
+      ],
+      "title": "Purpose / Principles / Constraints"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "ID",
+            "Title",
+            "Status",
+            "Priority",
+            "Frontier",
+            "Summary"
+          ],
+          "rows": [
+            [
+              "DEC-wp-goal",
+              "Writing goal",
+              "accepted",
+              "P0",
+              "now",
+              "Write a concise technical article"
+            ],
+            [
+              "DEC-wp-review",
+              "Review method",
+              "unresolved",
+              "P0",
+              "now",
+              "Decide who should review the draft and how feedback will be verified."
+            ],
+            [
+              "DEC-wp-topic",
+              "Article topic",
+              "accepted",
+              "P0",
+              "now",
+              "Use an evaluation-suite article"
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "current-decisions",
+      "order": 30,
+      "source_link_ids": [
+        "L-ACT-wp-draft-addresses-DEC-wp-topic",
+        "L-DEC-wp-goal-accepts-PRO-wp-goal",
+        "L-DEC-wp-topic-accepts-PRO-wp-topic",
+        "L-O-action-3de88c1af187-addresses-DEC-wp-goal",
+        "L-O-action-8ba4e6b7c729-addresses-DEC-wp-topic",
+        "L-PRO-wp-goal-addresses-DEC-wp-goal",
+        "L-PRO-wp-topic-addresses-DEC-wp-topic",
+        "L-REV-wp-review-revisits-DEC-wp-review"
+      ],
+      "source_object_ids": [
+        "DEC-wp-goal",
+        "DEC-wp-review",
+        "DEC-wp-topic"
+      ],
+      "title": "Current Decisions"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "Evidence ID",
+            "Source",
+            "Ref",
+            "Confidence",
+            "Freshness",
+            "Summary"
+          ],
+          "rows": [],
+          "type": "table"
+        },
+        {
+          "columns": [
+            "Assumption ID",
+            "Statement",
+            "Confidence",
+            "Expires At",
+            "Owner"
+          ],
+          "rows": [],
+          "type": "table"
+        },
+        {
+          "columns": [
+            "Input ID",
+            "Reason",
+            "Until"
+          ],
+          "rows": [],
+          "type": "table"
+        }
+      ],
+      "id": "evidence-and-assumptions",
+      "order": 40,
+      "source_link_ids": [],
+      "source_object_ids": [],
+      "title": "Evidence and Assumptions"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "Risk ID",
+            "Statement",
+            "Risk Tier",
+            "Reversibility",
+            "Approval Threshold",
+            "Mitigated By"
+          ],
+          "rows": [],
+          "type": "table"
+        },
+        {
+          "columns": [
+            "Object ID",
+            "Gate Status",
+            "Risk Tier",
+            "Reversibility",
+            "Approval Required",
+            "Blocking Reasons"
+          ],
+          "rows": [
+            [
+              "ACT-wp-draft",
+              "needs_approval",
+              "none",
+              "reversible",
+              true,
+              ""
+            ],
+            [
+              "DEC-wp-goal",
+              "passed",
+              "none",
+              "reversible",
+              false,
+              ""
+            ],
+            [
+              "DEC-wp-review",
+              "passed",
+              "none",
+              "reversible",
+              false,
+              ""
+            ],
+            [
+              "DEC-wp-topic",
+              "passed",
+              "none",
+              "reversible",
+              false,
+              ""
+            ],
+            [
+              "O-action-3de88c1af187",
+              "needs_approval",
+              "none",
+              "reversible",
+              true,
+              ""
+            ],
+            [
+              "O-action-8ba4e6b7c729",
+              "needs_approval",
+              "none",
+              "reversible",
+              true,
+              ""
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "risks-and-safety",
+      "order": 50,
+      "source_link_ids": [
+        "L-ACT-wp-draft-addresses-DEC-wp-topic",
+        "L-DEC-wp-goal-accepts-PRO-wp-goal",
+        "L-DEC-wp-topic-accepts-PRO-wp-topic",
+        "L-O-action-3de88c1af187-addresses-DEC-wp-goal",
+        "L-O-action-8ba4e6b7c729-addresses-DEC-wp-topic",
+        "L-PRO-wp-goal-addresses-DEC-wp-goal",
+        "L-PRO-wp-topic-addresses-DEC-wp-topic",
+        "L-REV-wp-review-revisits-DEC-wp-review"
+      ],
+      "source_object_ids": [
+        "ACT-wp-draft",
+        "DEC-wp-goal",
+        "DEC-wp-review",
+        "DEC-wp-topic",
+        "O-action-3de88c1af187",
+        "O-action-8ba4e6b7c729"
+      ],
+      "title": "Risks and Safety"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "Action ID",
+            "Title",
+            "Status",
+            "Responsibility",
+            "Ready",
+            "Next Step"
+          ],
+          "rows": [
+            [
+              "ACT-wp-draft",
+              "Draft evaluation suite article",
+              "active",
+              "author",
+              true,
+              "Draft the article outline and first section."
+            ],
+            [
+              "O-action-3de88c1af187",
+              "Writing goal",
+              "active",
+              "other",
+              false,
+              "Drive Writing goal to completion."
+            ],
+            [
+              "O-action-8ba4e6b7c729",
+              "Article topic",
+              "active",
+              "other",
+              false,
+              "Drive Article topic to completion."
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "columns": [
+            "Action ID",
+            "Gap Severity",
+            "Gap Reason"
+          ],
+          "rows": [
+            [
+              "ACT-wp-draft",
+              "medium",
+              "missing_verification"
+            ],
+            [
+              "O-action-3de88c1af187",
+              "medium",
+              "missing_verification"
+            ],
+            [
+              "O-action-8ba4e6b7c729",
+              "medium",
+              "missing_verification"
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "actions-and-verification",
+      "order": 60,
+      "source_link_ids": [
+        "L-ACT-wp-draft-addresses-DEC-wp-topic",
+        "L-O-action-3de88c1af187-addresses-DEC-wp-goal",
+        "L-O-action-8ba4e6b7c729-addresses-DEC-wp-topic"
+      ],
+      "source_object_ids": [
+        "ACT-wp-draft",
+        "O-action-3de88c1af187",
+        "O-action-8ba4e6b7c729"
+      ],
+      "title": "Actions and Verification"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "Trigger ID",
+            "Title",
+            "Type",
+            "Due At",
+            "Status",
+            "Condition"
+          ],
+          "rows": [
+            [
+              "REV-wp-review",
+              "Draft review checkpoint",
+              "time",
+              "2026-04-28T00:00:00Z",
+              "due",
+              "No reviewer assigned for the draft by the checkpoint."
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "revisit-triggers",
+      "order": 70,
+      "source_link_ids": [
+        "L-REV-wp-review-revisits-DEC-wp-review"
+      ],
+      "source_object_ids": [
+        "DEC-wp-review",
+        "REV-wp-review"
+      ],
+      "title": "Revisit Triggers"
+    },
+    {
+      "blocks": [
+        {
+          "items": [
+            "Sessions: S-writing-project",
+            "Objects: ACT-wp-draft, DEC-wp-goal, DEC-wp-review, DEC-wp-topic, O-action-3de88c1af187, O-action-8ba4e6b7c729, O-project-objective, OPT-wp-evaluation-article, OPT-wp-goal, PRO-wp-goal, PRO-wp-topic, REV-wp-review",
+            "Links: L-ACT-wp-draft-addresses-DEC-wp-topic, L-DEC-wp-goal-accepts-PRO-wp-goal, L-DEC-wp-topic-accepts-PRO-wp-topic, L-O-action-3de88c1af187-addresses-DEC-wp-goal, L-O-action-8ba4e6b7c729-addresses-DEC-wp-topic, L-PRO-wp-goal-addresses-DEC-wp-goal, L-PRO-wp-goal-recommends-OPT-wp-goal, L-PRO-wp-topic-addresses-DEC-wp-topic, L-PRO-wp-topic-recommends-OPT-wp-evaluation-article, L-REV-wp-review-revisits-DEC-wp-review"
+          ],
+          "type": "list"
+        }
+      ],
+      "id": "source-traceability",
+      "order": 80,
+      "source_link_ids": [
+        "L-ACT-wp-draft-addresses-DEC-wp-topic",
+        "L-DEC-wp-goal-accepts-PRO-wp-goal",
+        "L-DEC-wp-topic-accepts-PRO-wp-topic",
+        "L-O-action-3de88c1af187-addresses-DEC-wp-goal",
+        "L-O-action-8ba4e6b7c729-addresses-DEC-wp-topic",
+        "L-PRO-wp-goal-addresses-DEC-wp-goal",
+        "L-PRO-wp-goal-recommends-OPT-wp-goal",
+        "L-PRO-wp-topic-addresses-DEC-wp-topic",
+        "L-PRO-wp-topic-recommends-OPT-wp-evaluation-article",
+        "L-REV-wp-review-revisits-DEC-wp-review"
+      ],
+      "source_object_ids": [
+        "ACT-wp-draft",
+        "DEC-wp-goal",
+        "DEC-wp-review",
+        "DEC-wp-topic",
+        "O-action-3de88c1af187",
+        "O-action-8ba4e6b7c729",
+        "O-project-objective",
+        "OPT-wp-evaluation-article",
+        "OPT-wp-goal",
+        "PRO-wp-goal",
+        "PRO-wp-topic",
+        "REV-wp-review"
+      ],
+      "title": "Source Traceability"
+    }
+  ],
+  "source": {
+    "diagnostic_types": [
+      "assumption_register",
+      "evidence_register",
+      "revisit_due",
+      "risk_register",
+      "safety_gates",
+      "stale_assumptions",
+      "stale_evidence",
+      "verification_gaps"
+    ],
+    "link_ids": [
+      "L-ACT-wp-draft-addresses-DEC-wp-topic",
+      "L-DEC-wp-goal-accepts-PRO-wp-goal",
+      "L-DEC-wp-topic-accepts-PRO-wp-topic",
+      "L-O-action-3de88c1af187-addresses-DEC-wp-goal",
+      "L-O-action-8ba4e6b7c729-addresses-DEC-wp-topic",
+      "L-PRO-wp-goal-addresses-DEC-wp-goal",
+      "L-PRO-wp-topic-addresses-DEC-wp-topic",
+      "L-REV-wp-review-revisits-DEC-wp-review",
+      "L-PRO-wp-goal-recommends-OPT-wp-goal",
+      "L-PRO-wp-topic-recommends-OPT-wp-evaluation-article"
+    ],
+    "object_ids": [
+      "O-project-objective",
+      "DEC-wp-goal",
+      "DEC-wp-review",
+      "DEC-wp-topic",
+      "ACT-wp-draft",
+      "O-action-3de88c1af187",
+      "O-action-8ba4e6b7c729",
+      "REV-wp-review",
+      "OPT-wp-evaluation-article",
+      "OPT-wp-goal",
+      "PRO-wp-goal",
+      "PRO-wp-topic"
+    ],
+    "session_ids": [
+      "S-writing-project"
+    ]
+  },
+  "title": "Decision Brief",
+  "warnings": []
+}

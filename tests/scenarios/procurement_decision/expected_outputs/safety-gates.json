@@ -1,0 +1,1008 @@
+{
+  "results": [
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [
+        "domain_required_evidence_missing"
+      ],
+      "approval_required": true,
+      "approval_satisfied": false,
+      "approval_threshold": "none",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [
+          "domain_required_evidence_missing"
+        ],
+        "approval_threshold": "none",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [
+          {
+            "decision_type": "candidate_selection",
+            "domain_evidence_type": "vendor_materials",
+            "evidence_source": "external",
+            "freshness_required": "current",
+            "label": "Vendor materials",
+            "min_confidence": "medium",
+            "pack_id": "procurement",
+            "reason": "Candidate selection requires Vendor materials.",
+            "required_evidence_id": "vendor_materials",
+            "satisfied": false,
+            "satisfied_by_object_ids": []
+          },
+          {
+            "decision_type": "candidate_selection",
+            "domain_evidence_type": "requirements",
+            "evidence_source": "docs",
+            "freshness_required": "current",
+            "label": "Requirements brief",
+            "min_confidence": "medium",
+            "pack_id": "procurement",
+            "reason": "Requirements brief is linked to Candidate selection.",
+            "required_evidence_id": "requirements_brief",
+            "satisfied": true,
+            "satisfied_by_object_ids": [
+              "EVID-pd-requirements"
+            ]
+          }
+        ],
+        "domain_safety_rules": [],
+        "evidence": [
+          {
+            "confidence": "high",
+            "domain_evidence_type": "requirements",
+            "evidence_requirement_id": "requirements_brief",
+            "freshness": "current",
+            "is_stale": false,
+            "link_id": "L-EVID-pd-requirements-supports-DEC-pd-candidates",
+            "object_id": "EVID-pd-requirements",
+            "observed_at": "2026-04-29T00:19:00Z",
+            "relation": "supports",
+            "source": "docs",
+            "source_ref": "docs/procurement-requirements.md",
+            "status": "active",
+            "summary": "Requirements brief defines must-have and target needs.",
+            "valid_until": null
+          }
+        ],
+        "evidence_coverage": "sufficient",
+        "object_id": "DEC-pd-candidates",
+        "object_type": "decision",
+        "reversibility": "reversible",
+        "risk_tier": "none",
+        "risks": [],
+        "source_link_ids": [
+          "L-EVID-pd-requirements-supports-DEC-pd-candidates"
+        ],
+        "verification_gap": null,
+        "warning_reasons": []
+      },
+      "domain_requirements": [
+        {
+          "decision_type": "candidate_selection",
+          "domain_evidence_type": "vendor_materials",
+          "evidence_source": "external",
+          "freshness_required": "current",
+          "label": "Vendor materials",
+          "min_confidence": "medium",
+          "pack_id": "procurement",
+          "reason": "Candidate selection requires Vendor materials.",
+          "required_evidence_id": "vendor_materials",
+          "satisfied": false,
+          "satisfied_by_object_ids": []
+        },
+        {
+          "decision_type": "candidate_selection",
+          "domain_evidence_type": "requirements",
+          "evidence_source": "docs",
+          "freshness_required": "current",
+          "label": "Requirements brief",
+          "min_confidence": "medium",
+          "pack_id": "procurement",
+          "reason": "Requirements brief is linked to Candidate selection.",
+          "required_evidence_id": "requirements_brief",
+          "satisfied": true,
+          "satisfied_by_object_ids": [
+            "EVID-pd-requirements"
+          ]
+        }
+      ],
+      "domain_safety_rules": [],
+      "evidence": [
+        {
+          "confidence": "high",
+          "domain_evidence_type": "requirements",
+          "evidence_requirement_id": "requirements_brief",
+          "freshness": "current",
+          "is_stale": false,
+          "link_id": "L-EVID-pd-requirements-supports-DEC-pd-candidates",
+          "object_id": "EVID-pd-requirements",
+          "observed_at": "2026-04-29T00:19:00Z",
+          "relation": "supports",
+          "source": "docs",
+          "source_ref": "docs/procurement-requirements.md",
+          "status": "active",
+          "summary": "Requirements brief defines must-have and target needs.",
+          "valid_until": null
+        }
+      ],
+      "evidence_coverage": "sufficient",
+      "gate_digest": "SG-2dd687a3af32",
+      "gate_status": "needs_approval",
+      "object_id": "DEC-pd-candidates",
+      "object_type": "decision",
+      "reversibility": "reversible",
+      "risk_tier": "none",
+      "risks": [],
+      "source_link_ids": [
+        "L-EVID-pd-requirements-supports-DEC-pd-candidates"
+      ],
+      "status": "accepted",
+      "title": "Candidate selection",
+      "warning_reasons": []
+    },
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [],
+      "approval_required": false,
+      "approval_satisfied": false,
+      "approval_threshold": "none",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [],
+        "approval_threshold": "none",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [
+          {
+            "decision_type": "evaluation_criteria",
+            "domain_evidence_type": "requirements",
+            "evidence_source": "docs",
+            "freshness_required": "current",
+            "label": "Requirements brief",
+            "min_confidence": "medium",
+            "pack_id": "procurement",
+            "reason": "Requirements brief is linked to Evaluation criteria.",
+            "required_evidence_id": "requirements_brief",
+            "satisfied": true,
+            "satisfied_by_object_ids": [
+              "EVID-pd-requirements"
+            ]
+          },
+          {
+            "decision_type": "evaluation_criteria",
+            "domain_evidence_type": "budget",
+            "evidence_source": "docs",
+            "freshness_required": "current",
+            "label": "Budget context",
+            "min_confidence": "medium",
+            "pack_id": "procurement",
+            "reason": "Budget context is linked to Evaluation criteria.",
+            "required_evidence_id": "budget_context",
+            "satisfied": true,
+            "satisfied_by_object_ids": [
+              "EVID-pd-budget"
+            ]
+          }
+        ],
+        "domain_safety_rules": [],
+        "evidence": [
+          {
+            "confidence": "medium",
+            "domain_evidence_type": "budget",
+            "evidence_requirement_id": "budget_context",
+            "freshness": "current",
+            "is_stale": false,
+            "link_id": "L-EVID-pd-budget-supports-DEC-pd-criteria",
+            "object_id": "EVID-pd-budget",
+            "observed_at": "2026-04-29T00:19:30Z",
+            "relation": "supports",
+            "source": "docs",
+            "source_ref": "docs/budget.md",
+            "status": "active",
+            "summary": "Budget context supports the selected annual spend range.",
+            "valid_until": null
+          },
+          {
+            "confidence": "high",
+            "domain_evidence_type": "requirements",
+            "evidence_requirement_id": "requirements_brief",
+            "freshness": "current",
+            "is_stale": false,
+            "link_id": "L-EVID-pd-requirements-supports-DEC-pd-criteria",
+            "object_id": "EVID-pd-requirements",
+            "observed_at": "2026-04-29T00:19:00Z",
+            "relation": "supports",
+            "source": "docs",
+            "source_ref": "docs/procurement-requirements.md",
+            "status": "active",
+            "summary": "Requirements brief defines must-have and target needs.",
+            "valid_until": null
+          }
+        ],
+        "evidence_coverage": "sufficient",
+        "object_id": "DEC-pd-criteria",
+        "object_type": "decision",
+        "reversibility": "partially_reversible",
+        "risk_tier": "none",
+        "risks": [],
+        "source_link_ids": [
+          "L-EVID-pd-budget-supports-DEC-pd-criteria",
+          "L-EVID-pd-requirements-supports-DEC-pd-criteria"
+        ],
+        "verification_gap": null,
+        "warning_reasons": [
+          "partially_reversible_change"
+        ]
+      },
+      "domain_requirements": [
+        {
+          "decision_type": "evaluation_criteria",
+          "domain_evidence_type": "requirements",
+          "evidence_source": "docs",
+          "freshness_required": "current",
+          "label": "Requirements brief",
+          "min_confidence": "medium",
+          "pack_id": "procurement",
+          "reason": "Requirements brief is linked to Evaluation criteria.",
+          "required_evidence_id": "requirements_brief",
+          "satisfied": true,
+          "satisfied_by_object_ids": [
+            "EVID-pd-requirements"
+          ]
+        },
+        {
+          "decision_type": "evaluation_criteria",
+          "domain_evidence_type": "budget",
+          "evidence_source": "docs",
+          "freshness_required": "current",
+          "label": "Budget context",
+          "min_confidence": "medium",
+          "pack_id": "procurement",
+          "reason": "Budget context is linked to Evaluation criteria.",
+          "required_evidence_id": "budget_context",
+          "satisfied": true,
+          "satisfied_by_object_ids": [
+            "EVID-pd-budget"
+          ]
+        }
+      ],
+      "domain_safety_rules": [],
+      "evidence": [
+        {
+          "confidence": "medium",
+          "domain_evidence_type": "budget",
+          "evidence_requirement_id": "budget_context",
+          "freshness": "current",
+          "is_stale": false,
+          "link_id": "L-EVID-pd-budget-supports-DEC-pd-criteria",
+          "object_id": "EVID-pd-budget",
+          "observed_at": "2026-04-29T00:19:30Z",
+          "relation": "supports",
+          "source": "docs",
+          "source_ref": "docs/budget.md",
+          "status": "active",
+          "summary": "Budget context supports the selected annual spend range.",
+          "valid_until": null
+        },
+        {
+          "confidence": "high",
+          "domain_evidence_type": "requirements",
+          "evidence_requirement_id": "requirements_brief",
+          "freshness": "current",
+          "is_stale": false,
+          "link_id": "L-EVID-pd-requirements-supports-DEC-pd-criteria",
+          "object_id": "EVID-pd-requirements",
+          "observed_at": "2026-04-29T00:19:00Z",
+          "relation": "supports",
+          "source": "docs",
+          "source_ref": "docs/procurement-requirements.md",
+          "status": "active",
+          "summary": "Requirements brief defines must-have and target needs.",
+          "valid_until": null
+        }
+      ],
+      "evidence_coverage": "sufficient",
+      "gate_digest": "SG-07a198718330",
+      "gate_status": "passed",
+      "object_id": "DEC-pd-criteria",
+      "object_type": "decision",
+      "reversibility": "partially_reversible",
+      "risk_tier": "none",
+      "risks": [],
+      "source_link_ids": [
+        "L-EVID-pd-budget-supports-DEC-pd-criteria",
+        "L-EVID-pd-requirements-supports-DEC-pd-criteria"
+      ],
+      "status": "accepted",
+      "title": "Evaluation criteria",
+      "warning_reasons": [
+        "partially_reversible_change"
+      ]
+    },
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [
+        "domain_required_evidence_missing",
+        "external_review_required",
+        "high_risk_tier"
+      ],
+      "approval_required": true,
+      "approval_satisfied": false,
+      "approval_threshold": "external_review",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [
+          "domain_required_evidence_missing",
+          "external_review_required",
+          "high_risk_tier"
+        ],
+        "approval_threshold": "external_review",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [
+          {
+            "decision_type": "final_selection",
+            "domain_evidence_type": "comparison",
+            "evidence_source": "docs",
+            "freshness_required": "current",
+            "label": "Comparison table",
+            "min_confidence": "medium",
+            "pack_id": "procurement",
+            "reason": "Comparison table is linked to Final selection.",
+            "required_evidence_id": "comparison_table",
+            "satisfied": true,
+            "satisfied_by_object_ids": [
+              "EVID-pd-comparison"
+            ]
+          },
+          {
+            "decision_type": "final_selection",
+            "domain_evidence_type": "budget",
+            "evidence_source": "docs",
+            "freshness_required": "current",
+            "label": "Budget context",
+            "min_confidence": "medium",
+            "pack_id": "procurement",
+            "reason": "Budget context is linked to Final selection.",
+            "required_evidence_id": "budget_context",
+            "satisfied": true,
+            "satisfied_by_object_ids": [
+              "EVID-pd-budget"
+            ]
+          },
+          {
+            "decision_type": "final_selection",
+            "domain_evidence_type": "contract_terms",
+            "evidence_source": "external",
+            "freshness_required": "current",
+            "label": "Contract terms",
+            "min_confidence": "medium",
+            "pack_id": "procurement",
+            "reason": "Final selection requires Contract terms.",
+            "required_evidence_id": "contract_terms",
+            "satisfied": false,
+            "satisfied_by_object_ids": []
+          }
+        ],
+        "domain_safety_rules": [
+          {
+            "approval_threshold": "external_review",
+            "matched_risk_object_ids": [
+              "RISK-pd-contract"
+            ],
+            "matched_risk_types": [
+              "contract_constraint"
+            ],
+            "pack_id": "procurement",
+            "reason": "Contract and data-processing risks require external review before final selection.",
+            "rule_id": "contract_external_review"
+          },
+          {
+            "approval_threshold": "human_review",
+            "matched_risk_object_ids": [
+              "RISK-pd-lock-in"
+            ],
+            "matched_risk_types": [
+              "vendor_lock_in"
+            ],
+            "pack_id": "procurement",
+            "reason": "High-spend, single-vendor, and exit-risk decisions require human review.",
+            "rule_id": "spend_and_exit_review"
+          }
+        ],
+        "evidence": [
+          {
+            "confidence": "medium",
+            "domain_evidence_type": "budget",
+            "evidence_requirement_id": "budget_context",
+            "freshness": "current",
+            "is_stale": false,
+            "link_id": "L-EVID-pd-budget-supports-DEC-pd-final",
+            "object_id": "EVID-pd-budget",
+            "observed_at": "2026-04-29T00:19:30Z",
+            "relation": "supports",
+            "source": "docs",
+            "source_ref": "docs/budget.md",
+            "status": "active",
+            "summary": "Budget context supports the selected annual spend range.",
+            "valid_until": null
+          },
+          {
+            "confidence": "medium",
+            "domain_evidence_type": "comparison",
+            "evidence_requirement_id": "comparison_table",
+            "freshness": "current",
+            "is_stale": false,
+            "link_id": "L-EVID-pd-comparison-supports-DEC-pd-final",
+            "object_id": "EVID-pd-comparison",
+            "observed_at": "2026-04-29T00:19:45Z",
+            "relation": "supports",
+            "source": "docs",
+            "source_ref": "docs/vendor-comparison.md",
+            "status": "active",
+            "summary": "Comparison table supports selecting Vendor A.",
+            "valid_until": null
+          }
+        ],
+        "evidence_coverage": "sufficient",
+        "object_id": "DEC-pd-final",
+        "object_type": "decision",
+        "reversibility": "partially_reversible",
+        "risk_tier": "high",
+        "risks": [
+          {
+            "approval_threshold": "external_review",
+            "domain_risk_type": "contract_constraint",
+            "likelihood": "medium",
+            "link_id": "L-RISK-pd-contract-challenges-DEC-pd-final",
+            "mitigation_object_ids": [],
+            "object_id": "RISK-pd-contract",
+            "relation": "challenges",
+            "reversibility": "partially_reversible",
+            "risk_tier": "high",
+            "severity": "high",
+            "statement": "Unreviewed contract terms may constrain exit or data handling.",
+            "status": "active"
+          },
+          {
+            "approval_threshold": "human_review",
+            "domain_risk_type": "vendor_lock_in",
+            "likelihood": "medium",
+            "link_id": "L-RISK-pd-lock-in-challenges-DEC-pd-final",
+            "mitigation_object_ids": [],
+            "object_id": "RISK-pd-lock-in",
+            "relation": "challenges",
+            "reversibility": "partially_reversible",
+            "risk_tier": "high",
+            "severity": "high",
+            "statement": "Vendor A creates switching-cost and lock-in risk.",
+            "status": "active"
+          }
+        ],
+        "source_link_ids": [
+          "L-EVID-pd-budget-supports-DEC-pd-final",
+          "L-EVID-pd-comparison-supports-DEC-pd-final",
+          "L-RISK-pd-contract-challenges-DEC-pd-final",
+          "L-RISK-pd-lock-in-challenges-DEC-pd-final"
+        ],
+        "verification_gap": null,
+        "warning_reasons": [
+          "partially_reversible_change"
+        ]
+      },
+      "domain_requirements": [
+        {
+          "decision_type": "final_selection",
+          "domain_evidence_type": "comparison",
+          "evidence_source": "docs",
+          "freshness_required": "current",
+          "label": "Comparison table",
+          "min_confidence": "medium",
+          "pack_id": "procurement",
+          "reason": "Comparison table is linked to Final selection.",
+          "required_evidence_id": "comparison_table",
+          "satisfied": true,
+          "satisfied_by_object_ids": [
+            "EVID-pd-comparison"
+          ]
+        },
+        {
+          "decision_type": "final_selection",
+          "domain_evidence_type": "budget",
+          "evidence_source": "docs",
+          "freshness_required": "current",
+          "label": "Budget context",
+          "min_confidence": "medium",
+          "pack_id": "procurement",
+          "reason": "Budget context is linked to Final selection.",
+          "required_evidence_id": "budget_context",
+          "satisfied": true,
+          "satisfied_by_object_ids": [
+            "EVID-pd-budget"
+          ]
+        },
+        {
+          "decision_type": "final_selection",
+          "domain_evidence_type": "contract_terms",
+          "evidence_source": "external",
+          "freshness_required": "current",
+          "label": "Contract terms",
+          "min_confidence": "medium",
+          "pack_id": "procurement",
+          "reason": "Final selection requires Contract terms.",
+          "required_evidence_id": "contract_terms",
+          "satisfied": false,
+          "satisfied_by_object_ids": []
+        }
+      ],
+      "domain_safety_rules": [
+        {
+          "approval_threshold": "external_review",
+          "matched_risk_object_ids": [
+            "RISK-pd-contract"
+          ],
+          "matched_risk_types": [
+            "contract_constraint"
+          ],
+          "pack_id": "procurement",
+          "reason": "Contract and data-processing risks require external review before final selection.",
+          "rule_id": "contract_external_review"
+        },
+        {
+          "approval_threshold": "human_review",
+          "matched_risk_object_ids": [
+            "RISK-pd-lock-in"
+          ],
+          "matched_risk_types": [
+            "vendor_lock_in"
+          ],
+          "pack_id": "procurement",
+          "reason": "High-spend, single-vendor, and exit-risk decisions require human review.",
+          "rule_id": "spend_and_exit_review"
+        }
+      ],
+      "evidence": [
+        {
+          "confidence": "medium",
+          "domain_evidence_type": "budget",
+          "evidence_requirement_id": "budget_context",
+          "freshness": "current",
+          "is_stale": false,
+          "link_id": "L-EVID-pd-budget-supports-DEC-pd-final",
+          "object_id": "EVID-pd-budget",
+          "observed_at": "2026-04-29T00:19:30Z",
+          "relation": "supports",
+          "source": "docs",
+          "source_ref": "docs/budget.md",
+          "status": "active",
+          "summary": "Budget context supports the selected annual spend range.",
+          "valid_until": null
+        },
+        {
+          "confidence": "medium",
+          "domain_evidence_type": "comparison",
+          "evidence_requirement_id": "comparison_table",
+          "freshness": "current",
+          "is_stale": false,
+          "link_id": "L-EVID-pd-comparison-supports-DEC-pd-final",
+          "object_id": "EVID-pd-comparison",
+          "observed_at": "2026-04-29T00:19:45Z",
+          "relation": "supports",
+          "source": "docs",
+          "source_ref": "docs/vendor-comparison.md",
+          "status": "active",
+          "summary": "Comparison table supports selecting Vendor A.",
+          "valid_until": null
+        }
+      ],
+      "evidence_coverage": "sufficient",
+      "gate_digest": "SG-75812541f9aa",
+      "gate_status": "needs_approval",
+      "object_id": "DEC-pd-final",
+      "object_type": "decision",
+      "reversibility": "partially_reversible",
+      "risk_tier": "high",
+      "risks": [
+        {
+          "approval_threshold": "external_review",
+          "domain_risk_type": "contract_constraint",
+          "likelihood": "medium",
+          "link_id": "L-RISK-pd-contract-challenges-DEC-pd-final",
+          "mitigation_object_ids": [],
+          "object_id": "RISK-pd-contract",
+          "relation": "challenges",
+          "reversibility": "partially_reversible",
+          "risk_tier": "high",
+          "severity": "high",
+          "statement": "Unreviewed contract terms may constrain exit or data handling.",
+          "status": "active"
+        },
+        {
+          "approval_threshold": "human_review",
+          "domain_risk_type": "vendor_lock_in",
+          "likelihood": "medium",
+          "link_id": "L-RISK-pd-lock-in-challenges-DEC-pd-final",
+          "mitigation_object_ids": [],
+          "object_id": "RISK-pd-lock-in",
+          "relation": "challenges",
+          "reversibility": "partially_reversible",
+          "risk_tier": "high",
+          "severity": "high",
+          "statement": "Vendor A creates switching-cost and lock-in risk.",
+          "status": "active"
+        }
+      ],
+      "source_link_ids": [
+        "L-EVID-pd-budget-supports-DEC-pd-final",
+        "L-EVID-pd-comparison-supports-DEC-pd-final",
+        "L-RISK-pd-contract-challenges-DEC-pd-final",
+        "L-RISK-pd-lock-in-challenges-DEC-pd-final"
+      ],
+      "status": "accepted",
+      "title": "Final vendor selection",
+      "warning_reasons": [
+        "partially_reversible_change"
+      ]
+    },
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [],
+      "approval_required": false,
+      "approval_satisfied": false,
+      "approval_threshold": "none",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [],
+        "approval_threshold": "none",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [
+          {
+            "decision_type": "requirement_definition",
+            "domain_evidence_type": "requirements",
+            "evidence_source": "docs",
+            "freshness_required": "current",
+            "label": "Requirements brief",
+            "min_confidence": "medium",
+            "pack_id": "procurement",
+            "reason": "Requirements brief is linked to Requirement definition.",
+            "required_evidence_id": "requirements_brief",
+            "satisfied": true,
+            "satisfied_by_object_ids": [
+              "EVID-pd-requirements"
+            ]
+          }
+        ],
+        "domain_safety_rules": [],
+        "evidence": [
+          {
+            "confidence": "high",
+            "domain_evidence_type": "requirements",
+            "evidence_requirement_id": "requirements_brief",
+            "freshness": "current",
+            "is_stale": false,
+            "link_id": "L-EVID-pd-requirements-supports-DEC-pd-requirements",
+            "object_id": "EVID-pd-requirements",
+            "observed_at": "2026-04-29T00:19:00Z",
+            "relation": "supports",
+            "source": "docs",
+            "source_ref": "docs/procurement-requirements.md",
+            "status": "active",
+            "summary": "Requirements brief defines must-have and target needs.",
+            "valid_until": null
+          }
+        ],
+        "evidence_coverage": "sufficient",
+        "object_id": "DEC-pd-requirements",
+        "object_type": "decision",
+        "reversibility": "partially_reversible",
+        "risk_tier": "none",
+        "risks": [],
+        "source_link_ids": [
+          "L-EVID-pd-requirements-supports-DEC-pd-requirements"
+        ],
+        "verification_gap": null,
+        "warning_reasons": [
+          "partially_reversible_change"
+        ]
+      },
+      "domain_requirements": [
+        {
+          "decision_type": "requirement_definition",
+          "domain_evidence_type": "requirements",
+          "evidence_source": "docs",
+          "freshness_required": "current",
+          "label": "Requirements brief",
+          "min_confidence": "medium",
+          "pack_id": "procurement",
+          "reason": "Requirements brief is linked to Requirement definition.",
+          "required_evidence_id": "requirements_brief",
+          "satisfied": true,
+          "satisfied_by_object_ids": [
+            "EVID-pd-requirements"
+          ]
+        }
+      ],
+      "domain_safety_rules": [],
+      "evidence": [
+        {
+          "confidence": "high",
+          "domain_evidence_type": "requirements",
+          "evidence_requirement_id": "requirements_brief",
+          "freshness": "current",
+          "is_stale": false,
+          "link_id": "L-EVID-pd-requirements-supports-DEC-pd-requirements",
+          "object_id": "EVID-pd-requirements",
+          "observed_at": "2026-04-29T00:19:00Z",
+          "relation": "supports",
+          "source": "docs",
+          "source_ref": "docs/procurement-requirements.md",
+          "status": "active",
+          "summary": "Requirements brief defines must-have and target needs.",
+          "valid_until": null
+        }
+      ],
+      "evidence_coverage": "sufficient",
+      "gate_digest": "SG-0d24c70c6614",
+      "gate_status": "passed",
+      "object_id": "DEC-pd-requirements",
+      "object_type": "decision",
+      "reversibility": "partially_reversible",
+      "risk_tier": "none",
+      "risks": [],
+      "source_link_ids": [
+        "L-EVID-pd-requirements-supports-DEC-pd-requirements"
+      ],
+      "status": "accepted",
+      "title": "Requirements definition",
+      "warning_reasons": [
+        "partially_reversible_change"
+      ]
+    },
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [
+        "action_verification_gap"
+      ],
+      "approval_required": true,
+      "approval_satisfied": false,
+      "approval_threshold": "none",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [
+          "action_verification_gap"
+        ],
+        "approval_threshold": "none",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [],
+        "domain_safety_rules": [],
+        "evidence": [],
+        "evidence_coverage": "insufficient",
+        "object_id": "O-action-1eebb47b2426",
+        "object_type": "action",
+        "reversibility": "partially_reversible",
+        "risk_tier": "none",
+        "risks": [],
+        "source_link_ids": [],
+        "verification_gap": {
+          "gap_reason": "missing_verification",
+          "gap_severity": "medium",
+          "related_link_ids": []
+        },
+        "warning_reasons": [
+          "insufficient_evidence",
+          "partially_reversible_change"
+        ]
+      },
+      "domain_requirements": [],
+      "domain_safety_rules": [],
+      "evidence": [],
+      "evidence_coverage": "insufficient",
+      "gate_digest": "SG-5b876c17ba63",
+      "gate_status": "needs_approval",
+      "object_id": "O-action-1eebb47b2426",
+      "object_type": "action",
+      "reversibility": "partially_reversible",
+      "risk_tier": "none",
+      "risks": [],
+      "source_link_ids": [],
+      "status": "active",
+      "title": "Evaluation criteria",
+      "warning_reasons": [
+        "insufficient_evidence",
+        "partially_reversible_change"
+      ]
+    },
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [
+        "action_verification_gap"
+      ],
+      "approval_required": true,
+      "approval_satisfied": false,
+      "approval_threshold": "none",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [
+          "action_verification_gap"
+        ],
+        "approval_threshold": "none",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [],
+        "domain_safety_rules": [],
+        "evidence": [],
+        "evidence_coverage": "insufficient",
+        "object_id": "O-action-4f256876bf9d",
+        "object_type": "action",
+        "reversibility": "reversible",
+        "risk_tier": "none",
+        "risks": [],
+        "source_link_ids": [],
+        "verification_gap": {
+          "gap_reason": "missing_verification",
+          "gap_severity": "medium",
+          "related_link_ids": []
+        },
+        "warning_reasons": [
+          "insufficient_evidence"
+        ]
+      },
+      "domain_requirements": [],
+      "domain_safety_rules": [],
+      "evidence": [],
+      "evidence_coverage": "insufficient",
+      "gate_digest": "SG-4d02eb43c5a3",
+      "gate_status": "needs_approval",
+      "object_id": "O-action-4f256876bf9d",
+      "object_type": "action",
+      "reversibility": "reversible",
+      "risk_tier": "none",
+      "risks": [],
+      "source_link_ids": [],
+      "status": "active",
+      "title": "Candidate selection",
+      "warning_reasons": [
+        "insufficient_evidence"
+      ]
+    },
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [
+        "action_verification_gap"
+      ],
+      "approval_required": true,
+      "approval_satisfied": false,
+      "approval_threshold": "none",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [
+          "action_verification_gap"
+        ],
+        "approval_threshold": "none",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [],
+        "domain_safety_rules": [],
+        "evidence": [],
+        "evidence_coverage": "insufficient",
+        "object_id": "O-action-84541d235359",
+        "object_type": "action",
+        "reversibility": "partially_reversible",
+        "risk_tier": "none",
+        "risks": [],
+        "source_link_ids": [],
+        "verification_gap": {
+          "gap_reason": "missing_verification",
+          "gap_severity": "medium",
+          "related_link_ids": []
+        },
+        "warning_reasons": [
+          "insufficient_evidence",
+          "partially_reversible_change"
+        ]
+      },
+      "domain_requirements": [],
+      "domain_safety_rules": [],
+      "evidence": [],
+      "evidence_coverage": "insufficient",
+      "gate_digest": "SG-0a3b9bb71336",
+      "gate_status": "needs_approval",
+      "object_id": "O-action-84541d235359",
+      "object_type": "action",
+      "reversibility": "partially_reversible",
+      "risk_tier": "none",
+      "risks": [],
+      "source_link_ids": [],
+      "status": "active",
+      "title": "Requirements definition",
+      "warning_reasons": [
+        "insufficient_evidence",
+        "partially_reversible_change"
+      ]
+    },
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [
+        "action_verification_gap"
+      ],
+      "approval_required": true,
+      "approval_satisfied": false,
+      "approval_threshold": "none",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [
+          "action_verification_gap"
+        ],
+        "approval_threshold": "none",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [],
+        "domain_safety_rules": [],
+        "evidence": [],
+        "evidence_coverage": "insufficient",
+        "object_id": "O-action-bdd443373302",
+        "object_type": "action",
+        "reversibility": "partially_reversible",
+        "risk_tier": "none",
+        "risks": [],
+        "source_link_ids": [],
+        "verification_gap": {
+          "gap_reason": "missing_verification",
+          "gap_severity": "medium",
+          "related_link_ids": []
+        },
+        "warning_reasons": [
+          "insufficient_evidence",
+          "partially_reversible_change"
+        ]
+      },
+      "domain_requirements": [],
+      "domain_safety_rules": [],
+      "evidence": [],
+      "evidence_coverage": "insufficient",
+      "gate_digest": "SG-a5501730e66d",
+      "gate_status": "needs_approval",
+      "object_id": "O-action-bdd443373302",
+      "object_type": "action",
+      "reversibility": "partially_reversible",
+      "risk_tier": "none",
+      "risks": [],
+      "source_link_ids": [],
+      "status": "active",
+      "title": "Final vendor selection",
+      "warning_reasons": [
+        "insufficient_evidence",
+        "partially_reversible_change"
+      ]
+    }
+  ],
+  "schema_version": 1,
+  "summary": {
+    "approval_required_count": 6,
+    "blocking_count": 0,
+    "by_gate_status": {
+      "needs_approval": 6,
+      "passed": 2
+    },
+    "evaluated_count": 8
+  }
+}
