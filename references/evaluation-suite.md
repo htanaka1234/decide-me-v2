@@ -318,6 +318,18 @@ change:
 PYTHONPATH=. python3 scripts/evaluate_scenarios.py --scenarios tests/scenarios --update-snapshots
 ```
 
+## Completion Gate
+
+Phase 10 completion is guarded by a final integration check:
+
+```bash
+PYTHONPATH=. python3 -m unittest tests.integration.test_phase10_completion_gate -v
+```
+
+The gate proves that at least six committed scenarios are discovered, all runner evaluations pass,
+all committed snapshots match, the initial generic/software/research/procurement coverage remains
+present, and the expected output baselines exist for every declared document.
+
 ## Distribution boundary
 
 The evaluation contracts and this reference are bundled with the Skill because `schemas/` and
