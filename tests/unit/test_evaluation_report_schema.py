@@ -145,6 +145,7 @@ def _valid_report() -> dict:
                 "action_count": 2,
                 "implementation_ready_count": 1,
                 "blocker_count": 0,
+                "unresolved_conflict_count": 0,
                 "passed": True,
             },
             "document_readability": {

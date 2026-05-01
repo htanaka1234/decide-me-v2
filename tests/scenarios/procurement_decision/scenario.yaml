@@ -52,6 +52,12 @@ evaluation:
       - contract_terms
   expected_conflicts:
     count: 0
+  expected_plan_executability:
+    readiness: conditional
+    min_implementation_ready_count: 0
+    min_action_count: 4
+    max_blocker_count: 0
+    require_no_unresolved_conflicts: true
   expected_documents:
     - type: comparison-table
       format: json

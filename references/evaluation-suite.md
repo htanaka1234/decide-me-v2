@@ -96,6 +96,7 @@ evaluation:
     min_implementation_ready_count: 1
     min_action_count: 1
     max_blocker_count: 0
+    require_no_unresolved_conflicts: true
   expected_revisit_quality:
     stale_assumptions:
       mode: exact
@@ -146,11 +147,15 @@ for document, register, gate, conflict, and snapshot checks.
 
 Plan executability is diagnostic-only unless `expected_plan_executability` is present. When present,
 the suite checks action-plan readiness, implementation-ready action count, and any configured total
-action or blocker bounds. Revisit quality is diagnostic-only unless `expected_revisit_quality` is
-present; when present, stale assumptions, stale evidence, verification gaps, and due revisits are
-checked independently. When document `require_source_traceability` is true, the compiled document
-must carry non-empty source object and link traceability, and a `source-traceability` section must
-be non-empty when the document type emits that section.
+action or blocker bounds. `require_no_unresolved_conflicts` defaults to `true` whenever plan
+expectations are present; unresolved semantic conflicts fail the plan metric even if the raw action
+plan output is otherwise `ready`. Conflict-detection scenarios should usually omit plan
+executability expectations, or explicitly set this guard to `false` only when they are intentionally
+testing raw action-plan output in isolation. Revisit quality is diagnostic-only unless
+`expected_revisit_quality` is present; when present, stale assumptions, stale evidence, verification
+gaps, and due revisits are checked independently. When document `require_source_traceability` is
+true, the compiled document must carry non-empty source object and link traceability, and a
+`source-traceability` section must be non-empty when the document type emits that section.
 
 ## Evaluation report
 
@@ -194,6 +199,7 @@ The report is a schema-shaped JSON object with deterministic timestamps. Runners
       "action_count": 2,
       "implementation_ready_count": 1,
       "blocker_count": 0,
+      "unresolved_conflict_count": 0,
       "passed": true
     },
     "document_readability": {

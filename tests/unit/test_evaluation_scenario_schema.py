@@ -141,6 +141,7 @@ class EvaluationScenarioSchemaTests(unittest.TestCase):
             "min_implementation_ready_count": 1,
             "min_action_count": 2,
             "max_blocker_count": 0,
+            "require_no_unresolved_conflicts": True,
         }
         payload["evaluation"]["expected_revisit_quality"] = {
             "stale_assumptions": {"mode": "exact", "count": 0},
@@ -173,6 +174,14 @@ class EvaluationScenarioSchemaTests(unittest.TestCase):
             "readiness": "ready",
             "min_implementation_ready_count": 0,
             "max_blocker_count": -1,
+        }
+        invalid_payloads.append(payload)
+
+        payload = _valid_scenario()
+        payload["evaluation"]["expected_plan_executability"] = {
+            "readiness": "ready",
+            "min_implementation_ready_count": 0,
+            "require_no_unresolved_conflicts": "yes",
         }
         invalid_payloads.append(payload)
 

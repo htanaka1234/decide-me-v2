@@ -291,6 +291,37 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
             self.assertIn("evidence_coverage", {item["metric"] for item in report["failures"]})
             self.assertIn("protocol_or_project_brief", report["metrics"]["evidence_coverage"]["missing_ids"])
 
+    def test_invalidated_evidence_does_not_satisfy_linked_coverage(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "scenario"
+            work = Path(tmp) / "work"
+            payload = _valid_scenario()
+            payload["domain_pack"] = "research"
+            payload["evaluation"]["expected_decision_coverage"] = {
+                "required_domain_decision_types": ["research_question"],
+                "required_status_counts": [
+                    {"status": "accepted", "mode": "exact", "count": 1},
+                ],
+            }
+            payload["evaluation"]["expected_evidence_coverage"] = {
+                "min_supporting_evidence": 1,
+                "required_evidence_requirement_ids": ["protocol_or_project_brief"],
+            }
+            _write_scenario_fixture(
+                root,
+                payload,
+                seed_events=_research_seed_events_with_invalidated_linked_evidence("S-generic-minimal"),
+            )
+            scenario = load_scenario(root / "scenario.yaml")
+            runtime = build_scenario_runtime(scenario, work)
+
+            report = run_scenario_evaluation(scenario, runtime)
+
+            self.assertEqual([], validate_evaluation_report(report))
+            self.assertEqual("failed", report["status"])
+            self.assertIn("evidence_coverage", {item["metric"] for item in report["failures"]})
+            self.assertIn("protocol_or_project_brief", report["metrics"]["evidence_coverage"]["missing_ids"])
+
     def test_safety_gate_negative_expectations_pass_and_fail(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "scenario"
@@ -336,6 +367,33 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
                 "forbidden_approval_threshold:human_review",
                 failing_report["metrics"]["risk_coverage"]["missing_ids"],
             )
+
+    def test_invalidated_risk_does_not_satisfy_risk_coverage(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "scenario"
+            work = Path(tmp) / "work"
+            payload = _valid_scenario()
+            payload["evaluation"]["expected_risks"] = {
+                "required_domain_risk_types": ["review_required"],
+                "required_risk_tiers": ["high"],
+                "min_high_or_critical_risks": 1,
+            }
+            _write_scenario_fixture(
+                root,
+                payload,
+                seed_events=_seed_events_with_human_review_risk("S-generic-minimal", status="invalidated"),
+            )
+            scenario = load_scenario(root / "scenario.yaml")
+            runtime = build_scenario_runtime(scenario, work)
+
+            report = run_scenario_evaluation(scenario, runtime)
+
+            self.assertEqual([], validate_evaluation_report(report))
+            self.assertEqual("failed", report["status"])
+            self.assertIn("risk_coverage", {item["metric"] for item in report["failures"]})
+            missing = report["metrics"]["risk_coverage"]["missing_ids"]
+            self.assertIn("review_required", missing)
+            self.assertIn("risk_tier:high", missing)
 
     def test_document_source_traceability_expectation_passes_and_fails(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -446,6 +504,105 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
             self.assertEqual("failed", report["status"])
             self.assertGreater(report["metrics"]["plan_executability"]["blocker_count"], 0)
             self.assertIn("plan_executability", {item["metric"] for item in report["failures"]})
+
+    def test_plan_executability_fails_when_required_to_have_no_unresolved_conflicts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "scenario"
+            payload = _valid_scenario()
+            payload["scenario_id"] = "plan_conflict_guard"
+            payload["sessions"] = [
+                {
+                    "session_id": "S-conflict-a",
+                    "context": "Accept the baseline option.",
+                    "seed_events": "events-a.jsonl",
+                    "close": True,
+                },
+                {
+                    "session_id": "S-conflict-b",
+                    "context": "Accept a conflicting option.",
+                    "seed_events": "events-b.jsonl",
+                    "close": True,
+                },
+            ]
+            payload["evaluation"]["expected_decision_coverage"] = {
+                "required_domain_decision_types": ["choose_option"],
+                "required_status_counts": [
+                    {"status": "accepted", "mode": "min", "count": 1},
+                ],
+            }
+            payload["evaluation"]["expected_conflicts"] = {
+                "count": 1,
+                "required_conflict_types": ["decision-accepted-proposal-mismatch"],
+            }
+            payload["evaluation"]["expected_plan_executability"] = {
+                "readiness": "ready",
+                "min_implementation_ready_count": 0,
+                "min_action_count": 1,
+                "max_blocker_count": 0,
+                "require_no_unresolved_conflicts": True,
+            }
+            _write_scenario_fixture(
+                root,
+                payload,
+                seed_events={
+                    "events-a.jsonl": _conflicting_proposal_seed(
+                        "S-conflict-a",
+                        variant="a",
+                        include_decision=True,
+                    ),
+                    "events-b.jsonl": _conflicting_proposal_seed(
+                        "S-conflict-b",
+                        variant="b",
+                        include_decision=False,
+                    ),
+                },
+            )
+            scenario = load_scenario(root / "scenario.yaml")
+            runtime = build_scenario_runtime(scenario, Path(tmp) / "work-conflict")
+
+            report = run_scenario_evaluation(scenario, runtime)
+
+            self.assertEqual([], validate_evaluation_report(report))
+            self.assertEqual("failed", report["status"])
+            self.assertTrue(report["metrics"]["conflict_detection"]["passed"])
+            self.assertFalse(report["metrics"]["plan_executability"]["passed"])
+            self.assertEqual(1, report["metrics"]["plan_executability"]["unresolved_conflict_count"])
+            self.assertIn("plan_executability", {item["metric"] for item in report["failures"]})
+
+            opting_out = deepcopy(payload)
+            opting_out["evaluation"]["expected_plan_executability"][
+                "require_no_unresolved_conflicts"
+            ] = False
+            _write_scenario_fixture(
+                root,
+                opting_out,
+                seed_events={
+                    "events-a.jsonl": _conflicting_proposal_seed(
+                        "S-conflict-a",
+                        variant="a",
+                        include_decision=True,
+                    ),
+                    "events-b.jsonl": _conflicting_proposal_seed(
+                        "S-conflict-b",
+                        variant="b",
+                        include_decision=False,
+                    ),
+                },
+            )
+            opting_out_scenario = load_scenario(root / "scenario.yaml")
+            opting_out_runtime = build_scenario_runtime(
+                opting_out_scenario,
+                Path(tmp) / "work-conflict-opt-out",
+            )
+
+            opting_out_report = run_scenario_evaluation(opting_out_scenario, opting_out_runtime)
+
+            self.assertEqual([], validate_evaluation_report(opting_out_report))
+            self.assertTrue(opting_out_report["metrics"]["plan_executability"]["passed"])
+            self.assertEqual(
+                1,
+                opting_out_report["metrics"]["plan_executability"]["unresolved_conflict_count"],
+            )
 
     def test_plan_executability_expectation_fails_without_closed_sessions(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -718,6 +875,78 @@ def _seed_events(session_id: str) -> list[dict]:
     ]
 
 
+def _conflicting_proposal_seed(
+    session_id: str,
+    *,
+    variant: str,
+    include_decision: bool,
+) -> list[dict]:
+    created_at = f"2026-04-29T00:21:0{0 if variant == 'a' else 1}Z"
+    decision_id = "DEC-conflict-choice"
+    proposal_id = f"PRO-conflict-{variant}"
+    option_id = f"OPT-conflict-{variant}"
+    events: list[dict] = []
+    if include_decision:
+        events.append(
+            _object_event(
+                f"E-conflict-{variant}-decision",
+                decision_id,
+                "decision",
+                "accepted",
+                "Choose a shared option.",
+                _generic_decision_metadata(),
+                created_at,
+            )
+        )
+    events.extend(
+        [
+            _object_event(
+                f"E-conflict-{variant}-proposal",
+                proposal_id,
+                "proposal",
+                "accepted",
+                f"Use option {variant.upper()}.",
+                {"origin_session_id": session_id},
+                created_at,
+            ),
+            _object_event(
+                f"E-conflict-{variant}-option",
+                option_id,
+                "option",
+                "active",
+                f"Option {variant.upper()}.",
+                {},
+                created_at,
+            ),
+            _link_event(
+                f"E-conflict-{variant}-link-addresses",
+                f"L-{proposal_id}-addresses-{decision_id}",
+                proposal_id,
+                "addresses",
+                decision_id,
+                created_at,
+            ),
+            _link_event(
+                f"E-conflict-{variant}-link-accepts",
+                f"L-{decision_id}-accepts-{proposal_id}",
+                decision_id,
+                "accepts",
+                proposal_id,
+                created_at,
+            ),
+            _link_event(
+                f"E-conflict-{variant}-link-recommends",
+                f"L-{proposal_id}-recommends-{option_id}",
+                proposal_id,
+                "recommends",
+                option_id,
+                created_at,
+            ),
+        ]
+    )
+    return events
+
+
 def _unresolved_decision_seed(event_id: str, decision_id: str) -> list[dict]:
     metadata = _generic_decision_metadata()
     metadata["priority"] = "P0"
@@ -800,7 +1029,27 @@ def _research_seed_events_with_unlinked_evidence(session_id: str) -> list[dict]:
     ]
 
 
-def _seed_events_with_human_review_risk(session_id: str) -> list[dict]:
+def _research_seed_events_with_invalidated_linked_evidence(session_id: str) -> list[dict]:
+    events = _research_seed_events_with_unlinked_evidence(session_id)
+    for event in events:
+        obj = event.get("payload", {}).get("object")
+        if obj and obj.get("id") == "EVID-project-brief":
+            obj["status"] = "invalidated"
+            obj["body"] = "Invalidated project brief is linked but must not satisfy coverage."
+    events.append(
+        _link_event(
+            "E-seed-invalidated-evidence-link",
+            "L-EVID-project-brief-supports-DEC-research-question",
+            "EVID-project-brief",
+            "supports",
+            "DEC-research-question",
+            "2026-04-29T00:20:31Z",
+        )
+    )
+    return events
+
+
+def _seed_events_with_human_review_risk(session_id: str, *, status: str = "active") -> list[dict]:
     created_at = "2026-04-29T00:20:30Z"
     pack = load_builtin_packs()["generic"]
     return [
@@ -809,7 +1058,7 @@ def _seed_events_with_human_review_risk(session_id: str) -> list[dict]:
             "E-seed-risk",
             "RISK-high-review",
             "risk",
-            "active",
+            status,
             "The option needs human review.",
             {
                 "statement": "The option needs human review.",

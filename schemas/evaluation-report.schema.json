@@ -357,6 +357,7 @@
         "action_count",
         "implementation_ready_count",
         "blocker_count",
+        "unresolved_conflict_count",
         "passed"
       ],
       "properties": {
@@ -374,6 +375,9 @@
           "$ref": "#/$defs/non_negative_integer"
         },
         "blocker_count": {
+          "$ref": "#/$defs/non_negative_integer"
+        },
+        "unresolved_conflict_count": {
           "$ref": "#/$defs/non_negative_integer"
         },
         "passed": {

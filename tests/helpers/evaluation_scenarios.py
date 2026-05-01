@@ -784,12 +784,21 @@ def _scenario_conflicts(runtime: ScenarioRuntime, bundle: dict[str, Any]) -> lis
     return [by_id[conflict_id] for conflict_id in sorted(by_id)]
 
 
+def _unresolved_conflicts(conflicts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        conflict
+        for conflict in conflicts
+        if conflict.get("requires_resolution", conflict.get("status") not in {"resolved", "suppressed"})
+    ]
+
+
 def _plan_executability_metric(
     scenario: EvaluationScenario,
     runtime: ScenarioRuntime,
     bundle: dict[str, Any],
     failures: list[dict[str, Any]],
 ) -> dict[str, Any]:
+    unresolved_conflict_count = len(_unresolved_conflicts(_scenario_conflicts(runtime, bundle)))
     closed_sessions = [
         bundle["sessions"][session_id]
         for session_id in runtime.closed_session_ids
@@ -804,7 +813,10 @@ def _plan_executability_metric(
                     "Plan executability requires at least one closed session.",
                     "$.metrics.plan_executability",
                     expected=expected,
-                    actual={"closed_session_count": 0},
+                    actual={
+                        "closed_session_count": 0,
+                        "unresolved_conflict_count": unresolved_conflict_count,
+                    },
                 )
             )
             return {
@@ -812,6 +824,7 @@ def _plan_executability_metric(
                 "action_count": 0,
                 "implementation_ready_count": 0,
                 "blocker_count": 0,
+                "unresolved_conflict_count": unresolved_conflict_count,
                 "passed": False,
             }
         return {
@@ -819,6 +832,7 @@ def _plan_executability_metric(
             "action_count": 0,
             "implementation_ready_count": 0,
             "blocker_count": 0,
+            "unresolved_conflict_count": unresolved_conflict_count,
             "passed": True,
         }
     try:
@@ -842,6 +856,7 @@ def _plan_executability_metric(
             "action_count": 0,
             "implementation_ready_count": 0,
             "blocker_count": 0,
+            "unresolved_conflict_count": unresolved_conflict_count,
             "passed": False,
         }
     readiness = action_plan["readiness"]
@@ -861,6 +876,8 @@ def _plan_executability_metric(
         max_blocker_count = expected.get("max_blocker_count")
         if max_blocker_count is not None and blocker_count > max_blocker_count:
             expectation_failures.append(f"blocker_max:{max_blocker_count}")
+        if expected.get("require_no_unresolved_conflicts", True) and unresolved_conflict_count:
+            expectation_failures.append("unresolved_conflicts:0")
         if expectation_failures:
             failures.append(
                 _failure(
@@ -873,6 +890,7 @@ def _plan_executability_metric(
                         "action_count": action_count,
                         "implementation_ready_count": implementation_ready_count,
                         "blocker_count": blocker_count,
+                        "unresolved_conflict_count": unresolved_conflict_count,
                         "failed_expectations": expectation_failures,
                     },
                 )
@@ -882,6 +900,7 @@ def _plan_executability_metric(
         "action_count": action_count,
         "implementation_ready_count": implementation_ready_count,
         "blocker_count": blocker_count,
+        "unresolved_conflict_count": unresolved_conflict_count,
         "passed": not expectation_failures,
     }
 

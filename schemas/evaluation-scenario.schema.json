@@ -392,6 +392,9 @@
         },
         "max_blocker_count": {
           "$ref": "#/$defs/non_negative_integer"
+        },
+        "require_no_unresolved_conflicts": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false
