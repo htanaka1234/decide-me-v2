@@ -1,0 +1,44 @@
+schema_version: 1
+scenario_id: software_refactor
+label: Software refactor planning
+domain_pack: software
+project:
+  name: Demo software project
+  objective: Refactor the billing integration without disrupting releases.
+  current_milestone: Refactor approach and verification plan
+sessions:
+  - session_id: S-software-refactor-base
+    context: Choose the baseline billing refactor architecture and verification plan.
+    seed_events: events.jsonl
+    close: true
+  - session_id: S-software-refactor-alt
+    context: Record a conflicting architecture proposal from a later refactor discussion.
+    seed_events: events_alt.jsonl
+    close: true
+evaluation:
+  now: "2026-04-29T00:00:00Z"
+  expected_decision_coverage:
+    required_domain_decision_types:
+      - architecture_choice
+      - verification_strategy
+    required_status_counts:
+      - status: accepted
+        mode: min
+        count: 2
+  expected_questions:
+    max_questions: 0
+    forbidden_repeated_decision_types:
+      - architecture_choice
+  expected_evidence_coverage:
+    min_supporting_evidence: 2
+    required_evidence_requirement_ids:
+      - codebase_context
+      - test_coverage
+  expected_risks:
+    required_domain_risk_types: []
+    min_high_or_critical_risks: 0
+  expected_conflicts:
+    count: 1
+    required_conflict_types:
+      - decision-accepted-proposal-mismatch
+  expected_documents: []

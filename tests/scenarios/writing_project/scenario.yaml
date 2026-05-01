@@ -1,0 +1,75 @@
+schema_version: 1
+scenario_id: writing_project
+label: Writing project
+domain_pack: generic
+project:
+  name: Demo writing project
+  objective: Plan a concise technical article with unresolved review work visible.
+  current_milestone: Article outline and review plan
+sessions:
+  - session_id: S-writing-project
+    context: Choose the article direction, action chain, and review gaps.
+    seed_events: events.jsonl
+    close: true
+evaluation:
+  now: "2026-04-29T00:00:00Z"
+  expected_decision_coverage:
+    required_domain_decision_types:
+      - clarify_goal
+      - choose_option
+      - plan_verification
+    required_status_counts:
+      - status: accepted
+        mode: min
+        count: 2
+      - status: unresolved
+        mode: min
+        count: 1
+  expected_questions:
+    max_questions: 1
+    forbidden_repeated_decision_types: []
+  expected_evidence_coverage:
+    min_supporting_evidence: 0
+    required_evidence_requirement_ids: []
+  expected_risks:
+    required_domain_risk_types: []
+    min_high_or_critical_risks: 0
+  expected_conflicts:
+    count: 0
+  expected_revisit_quality:
+    stale_assumptions:
+      mode: exact
+      count: 0
+    stale_evidence:
+      mode: exact
+      count: 0
+    verification_gaps:
+      mode: min
+      count: 1
+    due_revisits:
+      mode: exact
+      count: 1
+  expected_documents:
+    - type: review-memo
+      format: json
+      required_sections:
+        - review-summary
+        - required-decisions
+        - verification-gaps
+        - revisit-due
+    - type: decision-brief
+      format: json
+      required_sections:
+        - project
+        - current-decisions
+        - actions-and-verification
+        - revisit-triggers
+        - source-traceability
+      require_source_traceability: true
+    - type: action-plan
+      format: json
+      required_sections:
+        - summary
+        - actions
+        - source-traceability
+      require_source_traceability: true

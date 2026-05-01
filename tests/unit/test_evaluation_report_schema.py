@@ -142,15 +142,22 @@ def _valid_report() -> dict:
             },
             "plan_executability": {
                 "readiness": "conditional",
+                "action_count": 2,
                 "implementation_ready_count": 1,
+                "blocker_count": 0,
+                "unresolved_conflict_count": 0,
                 "passed": True,
             },
             "document_readability": {
                 "required_sections_present": True,
                 "empty_required_sections": [],
+                "missing_source_traceability": [],
                 "passed": True,
             },
             "revisit_quality": {
+                "stale_assumption_count": 0,
+                "stale_evidence_count": 0,
+                "verification_gap_count": 1,
                 "due_revisit_count": 1,
                 "passed": True,
             },

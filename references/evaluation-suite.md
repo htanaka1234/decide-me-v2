@@ -83,16 +83,33 @@ evaluation:
     required_approval_thresholds:
       - human_review
     min_approval_required_count: 1
+    max_approval_required_count: 2
     required_insufficient_evidence_ids:
       - data_dictionary
+    forbidden_rule_ids: []
+    forbidden_approval_thresholds:
+      - external_review
   expected_conflicts:
     count: 0
   expected_plan_executability:
     readiness: conditional
     min_implementation_ready_count: 1
+    min_action_count: 1
+    max_blocker_count: 0
+    require_no_unresolved_conflicts: true
   expected_revisit_quality:
-    mode: min
-    count: 1
+    stale_assumptions:
+      mode: exact
+      count: 0
+    stale_evidence:
+      mode: exact
+      count: 0
+    verification_gaps:
+      mode: min
+      count: 1
+    due_revisits:
+      mode: min
+      count: 1
   expected_documents:
     - type: research-plan
       format: json
@@ -117,17 +134,27 @@ fixture-only aliases such as `answered_by_codebase`.
 
 Risk expectations describe risk objects and risk tiers. Safety Gate expectations are separate and
 describe gate outputs such as applied domain safety rules, approval thresholds, approval-required
-counts, and missing domain evidence requirements. Runner code should match these expectations
-against the projected runtime, register outputs, Safety Gate diagnostics, and document models.
+counts, and missing domain evidence requirements. They may also express negative expectations with
+`max_approval_required_count`, `forbidden_rule_ids`, and `forbidden_approval_thresholds`; generic
+low-risk scenarios should use these fields to prove that domain-specific or approval-required gates
+do not misfire. Runner code should match these expectations against the projected runtime, register
+outputs, Safety Gate diagnostics, and document models.
 
 Question efficiency is evaluated by running `advance_session()` against a temporary pre-close copy
 of the scenario runtime. `probe_session_ids` defaults to all scenario sessions and `advance_steps`
 defaults to `1`; the probe copy may be mutated, but the main evaluation runtime must remain stable
 for document, register, gate, conflict, and snapshot checks.
 
-Plan executability and revisit quality are diagnostic-only unless `expected_plan_executability` or
-`expected_revisit_quality` is present. When document `require_source_traceability` is true, the
-compiled document must carry non-empty source object and link traceability, and a
+Plan executability is diagnostic-only unless `expected_plan_executability` is present. When present,
+the suite checks action-plan readiness, implementation-ready action count, and any configured total
+action or blocker bounds. `require_no_unresolved_conflicts` defaults to `true` whenever plan
+expectations are present; unresolved semantic conflicts fail the plan metric even if the raw action
+plan output is otherwise `ready`. Conflict-detection scenarios should usually omit plan
+executability expectations, or explicitly set this guard to `false` only when they are intentionally
+testing raw action-plan output in isolation. Revisit quality is diagnostic-only unless
+`expected_revisit_quality` is present; when present, stale assumptions, stale evidence, verification
+gaps, and due revisits are checked independently. When document `require_source_traceability` is
+true, the compiled document must carry non-empty source object and link traceability, and a
 `source-traceability` section must be non-empty when the document type emits that section.
 
 ## Evaluation report
@@ -169,15 +196,22 @@ The report is a schema-shaped JSON object with deterministic timestamps. Runners
     },
     "plan_executability": {
       "readiness": "conditional",
+      "action_count": 2,
       "implementation_ready_count": 1,
+      "blocker_count": 0,
+      "unresolved_conflict_count": 0,
       "passed": true
     },
     "document_readability": {
       "required_sections_present": true,
       "empty_required_sections": [],
+      "missing_source_traceability": [],
       "passed": true
     },
     "revisit_quality": {
+      "stale_assumption_count": 0,
+      "stale_evidence_count": 0,
+      "verification_gap_count": 1,
       "due_revisit_count": 1,
       "passed": true
     }

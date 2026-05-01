@@ -105,6 +105,14 @@ documents:
     required_sections:
       - summary
       - risks
+  - document_type: review-memo
+    default: true
+    profile_id: generic_review_memo
+    required_sections:
+      - review-summary
+      - required-decisions
+      - verification-gaps
+      - revisit-due
 interview:
   domain_hints: []
   question_templates:

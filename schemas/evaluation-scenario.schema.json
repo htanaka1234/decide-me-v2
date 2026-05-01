@@ -359,8 +359,17 @@
         "min_approval_required_count": {
           "$ref": "#/$defs/non_negative_integer"
         },
+        "max_approval_required_count": {
+          "$ref": "#/$defs/non_negative_integer"
+        },
         "required_insufficient_evidence_ids": {
           "$ref": "#/$defs/identifier_array"
+        },
+        "forbidden_rule_ids": {
+          "$ref": "#/$defs/identifier_array"
+        },
+        "forbidden_approval_thresholds": {
+          "$ref": "#/$defs/approval_threshold_array"
         }
       },
       "additionalProperties": false
@@ -377,11 +386,44 @@
         },
         "min_implementation_ready_count": {
           "$ref": "#/$defs/non_negative_integer"
+        },
+        "min_action_count": {
+          "$ref": "#/$defs/non_negative_integer"
+        },
+        "max_blocker_count": {
+          "$ref": "#/$defs/non_negative_integer"
+        },
+        "require_no_unresolved_conflicts": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false
     },
     "expected_revisit_quality": {
+      "type": "object",
+      "required": [
+        "stale_assumptions",
+        "stale_evidence",
+        "verification_gaps",
+        "due_revisits"
+      ],
+      "properties": {
+        "stale_assumptions": {
+          "$ref": "#/$defs/count_expectation"
+        },
+        "stale_evidence": {
+          "$ref": "#/$defs/count_expectation"
+        },
+        "verification_gaps": {
+          "$ref": "#/$defs/count_expectation"
+        },
+        "due_revisits": {
+          "$ref": "#/$defs/count_expectation"
+        }
+      },
+      "additionalProperties": false
+    },
+    "count_expectation": {
       "type": "object",
       "required": [
         "mode",
