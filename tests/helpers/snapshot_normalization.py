@@ -42,14 +42,23 @@ def stable_json(value: Any) -> str:
 
 def normalize_markdown_snapshot(value: str) -> str:
     text = _normalize_newlines(value)
-    matches = list(MARKER_START_RE.finditer(text))
-    if len(matches) == 1:
-        start = matches[0].end()
-        if start < len(text) and text[start] == "\n":
-            start += 1
-        end = text.find(MARKER_END, start)
-        if end != -1:
-            text = text[start:end]
+    start_matches = list(MARKER_START_RE.finditer(text))
+    end_matches = list(re.finditer(re.escape(MARKER_END), text))
+    if not start_matches and not end_matches:
+        return text.strip() + "\n"
+    if len(start_matches) != 1:
+        raise ValueError("markdown snapshot must contain exactly one decide-me generated start marker")
+    if len(end_matches) != 1:
+        raise ValueError("markdown snapshot must contain exactly one decide-me generated end marker")
+    start_marker = start_matches[0]
+    end_marker = end_matches[0]
+    if end_marker.start() < start_marker.end():
+        raise ValueError("markdown snapshot generated end marker appears before start marker")
+
+    start = start_marker.end()
+    if start < len(text) and text[start] == "\n":
+        start += 1
+    text = text[start:end_marker.start()]
     return text.strip() + "\n"
 
 

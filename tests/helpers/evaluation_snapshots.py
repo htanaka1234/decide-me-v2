@@ -29,7 +29,7 @@ def collect_evaluation_snapshots(
     bundle = load_runtime(runtime_paths(runtime.ai_dir))
     project_state = bundle["project_state"]
     snapshots = {
-        "project-state.selected.json": stable_json(project_state),
+        "project-state.json": stable_json(project_state),
         "evaluation-report.json": stable_json(report),
         "safety-gates.json": stable_json(
             build_safety_gate_report(

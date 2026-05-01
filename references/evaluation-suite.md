@@ -261,7 +261,7 @@ scenario clock.
 
 Step 5 stores committed baselines under each scenario's `expected_outputs/` directory:
 
-- `project-state.selected.json`
+- `project-state.json` (the normalized full project-state projection)
 - `evaluation-report.json`
 - `safety-gates.json`
 - `risk-register.json`
@@ -269,9 +269,12 @@ Step 5 stores committed baselines under each scenario's `expected_outputs/` dire
 - `documents/<document-type>.md` or `.csv` when the scenario asks for Markdown or CSV output
 
 Markdown snapshots compare only the generated region when `decide-me` markers are present, ignoring
-marker attributes and human-authored notes outside the region. CSV snapshots preserve the header and
-sort data rows deterministically. Normal tests never update baselines automatically; explicit
-snapshot update support belongs to the Step 6 scenario runner.
+marker attributes and human-authored notes outside the region. Malformed marker blocks are invalid
+snapshots and should fail normalization. JSON object keys named `project_head` are treated as
+volatile, but rendered Markdown lines such as `Project head: ...` remain in snapshots because
+scenario event streams are deterministic and the rendered line is part of the document contract. CSV
+snapshots preserve the header and sort data rows deterministically. Normal tests never update
+baselines automatically; explicit snapshot update support belongs to the Step 6 scenario runner.
 
 ## Distribution boundary
 

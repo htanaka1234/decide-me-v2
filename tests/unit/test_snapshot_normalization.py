@@ -64,6 +64,42 @@ keep this outside snapshots
             normalize_markdown_snapshot(first),
         )
 
+    def test_normalize_markdown_snapshot_rejects_malformed_generated_markers(self) -> None:
+        cases = {
+            "missing_start": "# Review\n<!-- decide-me:generated:end -->\n",
+            "missing_end": "<!-- decide-me:generated:start document_type=review-memo project_head=PH-1 -->\n# Review\n",
+            "multiple_start": (
+                "<!-- decide-me:generated:start document_type=review-memo project_head=PH-1 -->\n"
+                "# Review\n"
+                "<!-- decide-me:generated:start document_type=review-memo project_head=PH-1 -->\n"
+                "<!-- decide-me:generated:end -->\n"
+            ),
+            "multiple_end": (
+                "<!-- decide-me:generated:start document_type=review-memo project_head=PH-1 -->\n"
+                "# Review\n"
+                "<!-- decide-me:generated:end -->\n"
+                "<!-- decide-me:generated:end -->\n"
+            ),
+            "end_before_start": (
+                "<!-- decide-me:generated:end -->\n"
+                "<!-- decide-me:generated:start document_type=review-memo project_head=PH-1 -->\n"
+            ),
+        }
+        for name, markdown in cases.items():
+            with self.subTest(name=name):
+                with self.assertRaises(ValueError):
+                    normalize_markdown_snapshot(markdown)
+
+    def test_normalize_markdown_snapshot_keeps_rendered_project_head(self) -> None:
+        markdown = """<!-- decide-me:generated:start document_type=review-memo project_head=PH-1 -->
+# Review
+
+Project head: PH-1
+<!-- decide-me:generated:end -->
+"""
+
+        self.assertIn("Project head: PH-1", normalize_markdown_snapshot(markdown))
+
     def test_normalize_csv_snapshot_preserves_header_and_sorts_rows(self) -> None:
         self.assertEqual(
             "id,value\nA,1\nB,2\n",
