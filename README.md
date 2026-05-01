@@ -347,17 +347,31 @@ Run the full test suite with:
 PYTHONPATH=. python3 -m unittest discover -v
 ```
 
+Run the Phase 10 evaluation scenarios with committed snapshots:
+
+```bash
+PYTHONPATH=. python3 -m unittest tests.integration.test_evaluation_scenarios -v
+PYTHONPATH=. python3 scripts/evaluate_scenarios.py --scenarios tests/scenarios --format json
+```
+
+Update evaluation snapshots only when the scenario behavior change is intentional:
+
+```bash
+PYTHONPATH=. python3 scripts/evaluate_scenarios.py --scenarios tests/scenarios --update-snapshots
+```
+
 ## Project layout
 
 - `SKILL.md`: public Skill entrypoint
 - `references/`: protocol, lifecycle, taxonomy, event model, domain packs, plan generation,
-  output contract, document compiler behavior, and examples
+  output contract, document compiler behavior, evaluation suite behavior, and examples
 - `schemas/`: JSON contracts for events and projections
 - `templates/`: plan, ADR, structured ADR, GitHub issue, traceability, verification gap, domain
   document, and agent instruction export templates
 - `decide_me/`: runtime implementation
 - `scripts/decide_me.py`: deterministic CLI
+- `scripts/evaluate_scenarios.py`: development-only Phase 10 evaluation runner
 - `requirements.txt`: runtime dependency declarations, including PyYAML for declarative pack YAML
   loading
 - `requirements-dev.txt`: development-only dependencies for schema validation tests
-- `tests/`: unit and integration coverage
+- `tests/`: unit, integration, and Phase 10 scenario coverage

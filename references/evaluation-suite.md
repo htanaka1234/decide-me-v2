@@ -297,6 +297,27 @@ only for scenarios whose evaluation report passes; failed evaluations are never 
 baselines. Text output is intended for local scanning. JSON output reports aggregate status plus
 per-scenario evaluation, snapshot, failure, mismatch, and update counts for automation.
 
+## Maintainer commands
+
+Use the scenario integration test for committed snapshot drift:
+
+```bash
+PYTHONPATH=. python3 -m unittest tests.integration.test_evaluation_scenarios -v
+```
+
+Use the development runner when iterating locally or when automation needs a JSON summary:
+
+```bash
+PYTHONPATH=. python3 scripts/evaluate_scenarios.py --scenarios tests/scenarios --format json
+```
+
+Snapshot updates are never automatic in tests. Refresh baselines only after reviewing the behavior
+change:
+
+```bash
+PYTHONPATH=. python3 scripts/evaluate_scenarios.py --scenarios tests/scenarios --update-snapshots
+```
+
 ## Distribution boundary
 
 The evaluation contracts and this reference are bundled with the Skill because `schemas/` and
