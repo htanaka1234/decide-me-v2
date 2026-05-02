@@ -363,16 +363,16 @@
       "metadata": {
         "domain_criteria": [
           "clarity",
-          "relevance"
+          "maintainability"
         ],
-        "domain_decision_type": "clarify_goal",
-        "domain_pack_digest": "DP-6995c80372d5",
-        "domain_pack_id": "generic",
+        "domain_decision_type": "purpose_definition",
+        "domain_pack_digest": "DP-7dcc1f75c2cd",
+        "domain_pack_id": "writing",
         "domain_pack_version": "0.1.0",
         "frontier": "now",
         "priority": "P0",
         "resolvable_by": "human",
-        "reversibility": "reversible"
+        "reversibility": "hard-to-reverse"
       },
       "source_event_ids": [
         "E-wp-001"
@@ -388,15 +388,15 @@
       "id": "DEC-wp-review",
       "metadata": {
         "domain_criteria": [
-          "verifiability",
-          "feasibility"
+          "reviewability",
+          "factual_accuracy"
         ],
-        "domain_decision_type": "plan_verification",
-        "domain_pack_digest": "DP-6995c80372d5",
-        "domain_pack_id": "generic",
+        "domain_decision_type": "review_strategy",
+        "domain_pack_digest": "DP-7dcc1f75c2cd",
+        "domain_pack_id": "writing",
         "domain_pack_version": "0.1.0",
         "frontier": "now",
-        "priority": "P0",
+        "priority": "P1",
         "resolvable_by": "human",
         "reversibility": "reversible"
       },
@@ -414,15 +414,16 @@
       "id": "DEC-wp-topic",
       "metadata": {
         "domain_criteria": [
-          "fitness",
-          "tradeoff_visibility"
+          "clarity",
+          "audience_fit",
+          "reviewability"
         ],
-        "domain_decision_type": "choose_option",
-        "domain_pack_digest": "DP-6995c80372d5",
-        "domain_pack_id": "generic",
+        "domain_decision_type": "outline_strategy",
+        "domain_pack_digest": "DP-7dcc1f75c2cd",
+        "domain_pack_id": "writing",
         "domain_pack_version": "0.1.0",
         "frontier": "now",
-        "priority": "P0",
+        "priority": "P1",
         "resolvable_by": "human",
         "reversibility": "reversible"
       },
@@ -451,7 +452,7 @@
         "priority": "P0",
         "resolvable_by": "human",
         "responsibility": "other",
-        "reversibility": "reversible"
+        "reversibility": "hard-to-reverse"
       },
       "source_event_ids": [
         "E-eval-writing_project-close-0001-c0ed39c4-0001"
@@ -475,7 +476,7 @@
         "kind": "choice",
         "next_step": "Drive Article topic to completion.",
         "origin_session_id": "S-writing-project",
-        "priority": "P0",
+        "priority": "P1",
         "resolvable_by": "human",
         "responsibility": "other",
         "reversibility": "reversible"

@@ -76,6 +76,10 @@ is not produced by the selected document builder. Phase 9 profiles currently pro
 required-section ordering; richer pack-specific sections and columns are added in the document
 builders separately.
 
+The `sections` array order is the display order. Section `order` values are builder-origin
+metadata used for stable diagnostics and fallback sorting; they are not re-numbered after a domain
+pack profile reorders sections.
+
 Document exports also evaluate embedded Safety Gate diagnostics with the domain registry loaded, so
 domain pack required evidence and safety rules are reflected in document diagnostics when source
 objects carry pack metadata.

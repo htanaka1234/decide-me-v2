@@ -116,31 +116,33 @@
         "evidence_coverage": "insufficient",
         "object_id": "DEC-cp-goal",
         "object_type": "decision",
-        "reversibility": "reversible",
+        "reversibility": "partially_reversible",
         "risk_tier": "none",
         "risks": [],
         "source_link_ids": [],
         "verification_gap": null,
         "warning_reasons": [
-          "insufficient_evidence"
+          "insufficient_evidence",
+          "partially_reversible_change"
         ]
       },
       "domain_requirements": [],
       "domain_safety_rules": [],
       "evidence": [],
       "evidence_coverage": "insufficient",
-      "gate_digest": "SG-a830e9d873ed",
+      "gate_digest": "SG-92974b967f46",
       "gate_status": "passed",
       "object_id": "DEC-cp-goal",
       "object_type": "decision",
-      "reversibility": "reversible",
+      "reversibility": "partially_reversible",
       "risk_tier": "none",
       "risks": [],
       "source_link_ids": [],
       "status": "accepted",
       "title": "Career goal",
       "warning_reasons": [
-        "insufficient_evidence"
+        "insufficient_evidence",
+        "partially_reversible_change"
       ]
     },
     {

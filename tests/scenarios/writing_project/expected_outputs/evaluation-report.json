@@ -28,14 +28,14 @@
     },
     "plan_executability": {
       "action_count": 3,
-      "blocker_count": 1,
+      "blocker_count": 0,
       "implementation_ready_count": 0,
       "passed": true,
-      "readiness": "blocked",
+      "readiness": "conditional",
       "unresolved_conflict_count": 0
     },
     "question_efficiency": {
-      "asked_count": 1,
+      "asked_count": 0,
       "max_allowed": 1,
       "passed": true,
       "repeated_forbidden_decision_types": []

@@ -1,7 +1,7 @@
 schema_version: 1
 scenario_id: career_plan
 label: Career plan
-domain_pack: generic
+domain_pack: personal_planning
 project:
   name: Demo career project
   objective: Choose the next career move with visible tradeoffs and follow-up checks.
@@ -15,10 +15,10 @@ evaluation:
   now: "2026-04-29T00:00:00Z"
   expected_decision_coverage:
     required_domain_decision_types:
-      - clarify_goal
-      - choose_option
-      - resolve_constraint
-      - plan_verification
+      - goal_definition
+      - option_selection
+      - constraint_definition
+      - review_plan
     required_status_counts:
       - status: accepted
         mode: min
