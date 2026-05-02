@@ -14,7 +14,41 @@ from decide_me.domains.model import DomainPack, domain_pack_from_dict
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PACKS_DIR = REPO_ROOT / "decide_me" / "domains" / "packs"
-EXPECTED_PACK_IDS = {"generic", "software", "research", "procurement"}
+EXPECTED_PACK_IDS = {
+    "generic",
+    "software",
+    "research",
+    "procurement",
+    "operations",
+    "personal_planning",
+    "writing",
+}
+OPERATIONS_DECISION_TYPE_IDS = {
+    "process_definition",
+    "bottleneck_identification",
+    "control_design",
+    "escalation_policy",
+    "monitoring_plan",
+    "improvement_plan",
+}
+PERSONAL_PLANNING_DECISION_TYPE_IDS = {
+    "goal_definition",
+    "constraint_definition",
+    "option_selection",
+    "prioritization",
+    "schedule_strategy",
+    "resource_allocation",
+    "review_plan",
+}
+WRITING_DECISION_TYPE_IDS = {
+    "audience_definition",
+    "purpose_definition",
+    "scope_definition",
+    "outline_strategy",
+    "evidence_strategy",
+    "review_strategy",
+    "publication_plan",
+}
 RESEARCH_DECISION_TYPE_IDS = {
     "research_question",
     "study_design",
@@ -131,6 +165,57 @@ class DomainPackBuiltinPacksTests(unittest.TestCase):
             ("comparison-table", "procurement_comparison"),
             _document_profiles(pack["documents"]),
         )
+
+    def test_operations_pack_matches_phase9_mvp_content(self) -> None:
+        pack = _load_packs()["operations"]
+
+        self.assertEqual(OPERATIONS_DECISION_TYPE_IDS, _ids(pack["decision_types"]))
+        self.assertEqual(
+            {
+                "process_drift",
+                "unclear_ownership",
+                "operational_overload",
+                "single_point_of_failure",
+                "monitoring_gap",
+            },
+            _ids(pack["risk_types"]),
+        )
+        self.assertIn(("risk-register", "operations_risk_register"), _document_profiles(pack["documents"]))
+
+    def test_personal_planning_pack_matches_phase9_mvp_content(self) -> None:
+        pack = _load_packs()["personal_planning"]
+
+        self.assertEqual(PERSONAL_PLANNING_DECISION_TYPE_IDS, _ids(pack["decision_types"]))
+        self.assertEqual(
+            {
+                "unrealistic_plan",
+                "insufficient_time",
+                "hidden_dependency",
+                "high_switching_cost",
+                "delayed_feedback",
+            },
+            _ids(pack["risk_types"]),
+        )
+        self.assertIn(
+            ("action-plan", "personal_planning_action_plan"),
+            _document_profiles(pack["documents"]),
+        )
+
+    def test_writing_pack_matches_phase9_mvp_content(self) -> None:
+        pack = _load_packs()["writing"]
+
+        self.assertEqual(WRITING_DECISION_TYPE_IDS, _ids(pack["decision_types"]))
+        self.assertEqual(
+            {
+                "unclear_audience",
+                "scope_creep",
+                "unsupported_claims",
+                "inconsistent_structure",
+                "publication_delay",
+            },
+            _ids(pack["risk_types"]),
+        )
+        self.assertIn(("review-memo", "writing_review_memo"), _document_profiles(pack["documents"]))
 
     def test_software_pack_preserves_key_hints(self) -> None:
         pack = _load_packs()["software"]

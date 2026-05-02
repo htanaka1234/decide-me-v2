@@ -23,7 +23,18 @@ class DomainPackCliTests(unittest.TestCase):
             shown = _run_json("show-domain-pack", "--ai-dir", str(ai_dir), "--pack-id", "research")
 
         self.assertEqual("ok", listed["status"])
-        self.assertEqual({"generic", "software", "research", "procurement"}, _pack_ids(listed["packs"]))
+        self.assertEqual(
+            {
+                "generic",
+                "software",
+                "research",
+                "procurement",
+                "operations",
+                "personal_planning",
+                "writing",
+            },
+            _pack_ids(listed["packs"]),
+        )
         research_entry = next(item for item in listed["packs"] if item["pack_id"] == "research")
         research_pack = load_builtin_packs()["research"]
         self.assertEqual(domain_pack_digest(research_pack), research_entry["digest"])
@@ -47,10 +58,12 @@ class DomainPackCliTests(unittest.TestCase):
                 ("primary endpoint and missing data", "research", "data"),
                 ("vendor, contract, budget, comparison", "procurement", "ops"),
                 ("API/auth endpoint database", "software", "technical"),
+                ("escalation handoff", "operations", "ops"),
+                ("career role schedule", "personal_planning", "other"),
+                ("article outline and reviewer", "writing", "other"),
                 ("general planning note", "generic", "other"),
                 ("planning session", "generic", "other"),
                 ("support plan", "generic", "other"),
-                ("copy editing", "generic", "other"),
                 ("data report", "generic", "other"),
             )
             inferred = [

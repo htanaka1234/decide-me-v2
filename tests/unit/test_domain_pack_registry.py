@@ -28,7 +28,15 @@ from decide_me.domains import (
 from decide_me.store import _domain_pack_metadata_issues
 
 
-EXPECTED_BUILTINS = {"generic", "software", "research", "procurement"}
+EXPECTED_BUILTINS = {
+    "generic",
+    "software",
+    "research",
+    "procurement",
+    "operations",
+    "personal_planning",
+    "writing",
+}
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -292,6 +300,9 @@ class DomainPackRegistryTests(unittest.TestCase):
             ("cohort", "research"),
             ("vendor", "procurement"),
             ("contract", "procurement"),
+            ("escalation handoff", "operations"),
+            ("career role schedule", "personal_planning"),
+            ("article outline and reviewer", "writing"),
             ("endpoint", "generic"),
             ("decision option risk evidence verification", "generic"),
             ("", "generic"),

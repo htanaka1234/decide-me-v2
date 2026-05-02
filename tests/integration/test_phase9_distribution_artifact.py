@@ -31,6 +31,9 @@ class Phase9DistributionArtifactTests(unittest.TestCase):
             "decide-me/decide_me/domains/packs/software.yaml",
             "decide-me/decide_me/domains/packs/research.yaml",
             "decide-me/decide_me/domains/packs/procurement.yaml",
+            "decide-me/decide_me/domains/packs/operations.yaml",
+            "decide-me/decide_me/domains/packs/personal_planning.yaml",
+            "decide-me/decide_me/domains/packs/writing.yaml",
             "decide-me/schemas/domain-pack.schema.json",
             "decide-me/references/domain-packs.md",
             "decide-me/templates/documents/action-plan.md",
@@ -110,7 +113,15 @@ class Phase9DistributionArtifactTests(unittest.TestCase):
 
         self.assertEqual("ok", listed["status"])
         self.assertEqual(
-            ["generic", "procurement", "research", "software"],
+            [
+                "generic",
+                "operations",
+                "personal_planning",
+                "procurement",
+                "research",
+                "software",
+                "writing",
+            ],
             [item["pack_id"] for item in listed["packs"]],
         )
         self.assertEqual("ok", shown["status"])

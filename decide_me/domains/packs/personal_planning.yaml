@@ -1,0 +1,196 @@
+schema_version: 1
+pack_id: personal_planning
+version: 0.1.0
+label: Personal Planning
+description: Personal planning decision support for career, household, learning, and personal execution planning.
+aliases:
+  - personal planning
+  - career planning
+  - household planning
+  - learning plan
+default_core_domain: other
+decision_types:
+  - id: goal_definition
+    label: Goal definition
+    object_type: decision
+    layer: purpose
+    kind: choice
+    default_priority: P0
+    default_reversibility: hard-to-reverse
+    criteria:
+      - feasibility
+      - opportunity_value
+      - sustainability
+    required_evidence: []
+  - id: constraint_definition
+    label: Constraint definition
+    object_type: decision
+    layer: constraint
+    kind: constraint
+    default_priority: P0
+    default_reversibility: hard-to-reverse
+    criteria:
+      - feasibility
+      - time_fit
+      - cost
+    required_evidence: []
+  - id: option_selection
+    label: Option selection
+    object_type: decision
+    layer: strategy
+    kind: choice
+    default_priority: P1
+    default_reversibility: reversible
+    criteria:
+      - opportunity_value
+      - cost
+      - reversibility
+    required_evidence: []
+  - id: prioritization
+    label: Prioritization
+    object_type: decision
+    layer: strategy
+    kind: choice
+    default_priority: P1
+    default_reversibility: reversible
+    criteria:
+      - opportunity_value
+      - time_fit
+      - sustainability
+    required_evidence: []
+  - id: schedule_strategy
+    label: Schedule strategy
+    object_type: decision
+    layer: execution
+    kind: choice
+    default_priority: P1
+    default_reversibility: reversible
+    criteria:
+      - time_fit
+      - feasibility
+      - sustainability
+    required_evidence: []
+  - id: resource_allocation
+    label: Resource allocation
+    object_type: decision
+    layer: execution
+    kind: choice
+    default_priority: P1
+    default_reversibility: reversible
+    criteria:
+      - cost
+      - feasibility
+      - opportunity_value
+    required_evidence: []
+  - id: review_plan
+    label: Review plan
+    object_type: decision
+    layer: review
+    kind: choice
+    default_priority: P2
+    default_reversibility: reversible
+    criteria:
+      - sustainability
+      - reversibility
+      - time_fit
+    required_evidence: []
+criteria:
+  - id: feasibility
+    label: Feasibility
+    description: Whether the plan can be executed with available time, energy, resources, and constraints.
+  - id: opportunity_value
+    label: Opportunity value
+    description: Whether the option creates enough personal value to justify the effort.
+  - id: cost
+    label: Cost
+    description: Whether money, time, attention, and switching costs are acceptable.
+  - id: reversibility
+    label: Reversibility
+    description: Whether the decision can be changed without excessive loss or disruption.
+  - id: time_fit
+    label: Time fit
+    description: Whether the plan fits the available schedule and timing constraints.
+  - id: sustainability
+    label: Sustainability
+    description: Whether the plan can be maintained without creating avoidable overload.
+evidence_requirements: []
+risk_types:
+  - id: unrealistic_plan
+    label: Unrealistic plan
+    default_risk_tier: medium
+    default_approval_threshold: explicit_acceptance
+  - id: insufficient_time
+    label: Insufficient time
+    default_risk_tier: medium
+    default_approval_threshold: explicit_acceptance
+  - id: hidden_dependency
+    label: Hidden dependency
+    default_risk_tier: medium
+    default_approval_threshold: explicit_acceptance
+  - id: high_switching_cost
+    label: High switching cost
+    default_risk_tier: high
+    default_approval_threshold: human_review
+  - id: delayed_feedback
+    label: Delayed feedback
+    default_risk_tier: low
+    default_approval_threshold: none
+safety_rules:
+  - id: high_switching_cost_review
+    applies_when:
+      risk_types:
+        - high_switching_cost
+    approval_threshold: human_review
+    reason: High switching cost personal plans require explicit review before commitment.
+documents:
+  - document_type: decision-brief
+    default: true
+    profile_id: personal_planning_decision_brief
+    required_sections:
+      - project
+      - purpose-principles-constraints
+      - current-decisions
+      - evidence-and-assumptions
+      - actions-and-verification
+      - revisit-triggers
+      - source-traceability
+  - document_type: action-plan
+    default: true
+    profile_id: personal_planning_action_plan
+    required_sections:
+      - summary
+      - implementation-ready-actions
+      - actions
+      - blockers
+      - risks
+      - source-traceability
+  - document_type: review-memo
+    default: true
+    profile_id: personal_planning_review_memo
+    required_sections:
+      - review-summary
+      - required-decisions
+      - verification-gaps
+      - revisit-due
+interview:
+  domain_hints:
+    - career
+    - household
+    - learning
+    - habit
+    - personal goal
+    - next role
+    - interview preparation
+    - weekend plan
+    - chore
+    - schedule
+    - routine
+    - priority
+  question_templates:
+    goal_definition: What personal goal should this plan support?
+    constraint_definition: Which constraint most shapes the plan?
+    option_selection: Which option should be selected?
+    prioritization: What should be prioritized first?
+    schedule_strategy: How should the plan fit the available schedule?
+    resource_allocation: What time, money, or attention should be allocated?
+    review_plan: How should progress be reviewed?
