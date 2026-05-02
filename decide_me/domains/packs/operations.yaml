@@ -1,0 +1,193 @@
+schema_version: 1
+pack_id: operations
+version: 0.1.0
+label: Operations
+description: Operations decision support for processes, workflows, incidents, controls, monitoring, and continuous improvement.
+aliases:
+  - operations
+  - operational planning
+  - incident operations
+  - process improvement
+default_core_domain: ops
+decision_types:
+  - id: process_definition
+    label: Process definition
+    object_type: decision
+    layer: purpose
+    kind: choice
+    default_priority: P0
+    default_reversibility: hard-to-reverse
+    criteria:
+      - reliability
+      - repeatability
+      - auditability
+    required_evidence: []
+  - id: bottleneck_identification
+    label: Bottleneck identification
+    object_type: decision
+    layer: strategy
+    kind: choice
+    default_priority: P1
+    default_reversibility: reversible
+    criteria:
+      - reliability
+      - operational_burden
+      - recovery_time
+    required_evidence: []
+  - id: control_design
+    label: Control design
+    object_type: decision
+    layer: design
+    kind: choice
+    default_priority: P0
+    default_reversibility: hard-to-reverse
+    criteria:
+      - safety
+      - auditability
+      - repeatability
+    required_evidence: []
+  - id: escalation_policy
+    label: Escalation policy
+    object_type: decision
+    layer: execution
+    kind: choice
+    default_priority: P0
+    default_reversibility: hard-to-reverse
+    criteria:
+      - reliability
+      - recovery_time
+      - safety
+    required_evidence: []
+  - id: monitoring_plan
+    label: Monitoring plan
+    object_type: decision
+    layer: verification
+    kind: choice
+    default_priority: P1
+    default_reversibility: reversible
+    criteria:
+      - reliability
+      - auditability
+      - operational_burden
+    required_evidence: []
+  - id: improvement_plan
+    label: Improvement plan
+    object_type: decision
+    layer: review
+    kind: choice
+    default_priority: P2
+    default_reversibility: reversible
+    criteria:
+      - repeatability
+      - operational_burden
+      - recovery_time
+    required_evidence: []
+criteria:
+  - id: reliability
+    label: Reliability
+    description: Whether the process keeps producing the expected result under normal operating conditions.
+  - id: repeatability
+    label: Repeatability
+    description: Whether different operators can execute the workflow consistently.
+  - id: operational_burden
+    label: Operational burden
+    description: Whether the workflow avoids unnecessary manual effort, interruptions, and coordination load.
+  - id: safety
+    label: Safety
+    description: Whether the process reduces the chance and impact of harmful or irreversible outcomes.
+  - id: auditability
+    label: Auditability
+    description: Whether ownership, approvals, records, and changes can be inspected later.
+  - id: recovery_time
+    label: Recovery time
+    description: Whether the process can detect, escalate, and recover from failures fast enough.
+evidence_requirements: []
+risk_types:
+  - id: process_drift
+    label: Process drift
+    default_risk_tier: medium
+    default_approval_threshold: explicit_acceptance
+  - id: unclear_ownership
+    label: Unclear ownership
+    default_risk_tier: medium
+    default_approval_threshold: explicit_acceptance
+  - id: operational_overload
+    label: Operational overload
+    default_risk_tier: high
+    default_approval_threshold: human_review
+  - id: single_point_of_failure
+    label: Single point of failure
+    default_risk_tier: high
+    default_approval_threshold: human_review
+  - id: monitoring_gap
+    label: Monitoring gap
+    default_risk_tier: high
+    default_approval_threshold: human_review
+safety_rules:
+  - id: operational_resilience_review
+    applies_when:
+      risk_types:
+        - operational_overload
+        - single_point_of_failure
+        - monitoring_gap
+    approval_threshold: human_review
+    reason: High operational resilience risks require explicit human review before adoption.
+documents:
+  - document_type: decision-brief
+    default: true
+    profile_id: operations_decision_brief
+    required_sections:
+      - project
+      - purpose-principles-constraints
+      - current-decisions
+      - evidence-and-assumptions
+      - risks-and-safety
+      - actions-and-verification
+      - source-traceability
+  - document_type: action-plan
+    default: true
+    profile_id: operations_action_plan
+    required_sections:
+      - summary
+      - implementation-ready-actions
+      - actions
+      - blockers
+      - risks
+      - source-traceability
+  - document_type: risk-register
+    default: true
+    profile_id: operations_risk_register
+    required_sections:
+      - summary
+      - risks
+  - document_type: review-memo
+    default: true
+    profile_id: operations_review_memo
+    required_sections:
+      - review-summary
+      - required-decisions
+      - verification-gaps
+      - revisit-due
+interview:
+  domain_hints:
+    - operations
+    - workflow
+    - process
+    - runbook
+    - incident
+    - escalation
+    - on-call
+    - monitoring
+    - alerting
+    - recovery
+    - handoff
+    - ownership
+    - operator
+    - audit
+  question_templates:
+    process_definition: What operational process should be defined?
+    bottleneck_identification: What bottleneck should be addressed first?
+    control_design: What control should make the process safer or more reliable?
+    escalation_policy: How should escalation work?
+    monitoring_plan: What should be monitored and how?
+    improvement_plan: What improvement should be made next?

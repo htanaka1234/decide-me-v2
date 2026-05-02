@@ -10,7 +10,7 @@ and `domain_decision_type`.
 
 ## Built-in packs
 
-The distribution includes four built-in packs:
+The distribution includes seven built-in packs:
 
 - `generic`: fallback policy for unresolved or legacy sessions. It is intentionally weak and does
   not add safety requirements.
@@ -21,6 +21,12 @@ The distribution includes four built-in packs:
 - `procurement`: procurement pack for requirements, budget limits, candidate selection,
   evaluation criteria, comparison, vendor risk, contract/security review, final selection, and
   implementation planning.
+- `operations`: operations pack for process definition, bottleneck identification, controls,
+  escalation, monitoring, and improvement planning.
+- `personal_planning`: personal planning pack for career, household, learning, scheduling,
+  prioritization, resource allocation, and review planning.
+- `writing`: writing pack for audience, purpose, scope, outline, evidence, review, and
+  publication planning.
 
 User-defined packs may be placed under `.ai/decide-me/domain-packs/` as `.yaml`, `.yml`, or
 `.json`. YAML loading uses the runtime dependency declared in `requirements.txt` (`PyYAML>=6.0`).

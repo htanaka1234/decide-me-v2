@@ -1,0 +1,189 @@
+schema_version: 1
+pack_id: writing
+version: 0.1.0
+label: Writing
+description: Writing decision support for audience, purpose, scope, outline, evidence, review, and publication planning.
+aliases:
+  - writing
+  - editorial
+  - article planning
+  - publication planning
+default_core_domain: other
+decision_types:
+  - id: audience_definition
+    label: Audience definition
+    object_type: decision
+    layer: purpose
+    kind: choice
+    default_priority: P0
+    default_reversibility: hard-to-reverse
+    criteria:
+      - audience_fit
+      - clarity
+    required_evidence: []
+  - id: purpose_definition
+    label: Purpose definition
+    object_type: decision
+    layer: purpose
+    kind: choice
+    default_priority: P0
+    default_reversibility: hard-to-reverse
+    criteria:
+      - clarity
+      - maintainability
+    required_evidence: []
+  - id: scope_definition
+    label: Scope definition
+    object_type: decision
+    layer: constraint
+    kind: constraint
+    default_priority: P0
+    default_reversibility: hard-to-reverse
+    criteria:
+      - clarity
+      - maintainability
+    required_evidence: []
+  - id: outline_strategy
+    label: Outline strategy
+    object_type: decision
+    layer: design
+    kind: choice
+    default_priority: P1
+    default_reversibility: reversible
+    criteria:
+      - clarity
+      - audience_fit
+      - reviewability
+    required_evidence: []
+  - id: evidence_strategy
+    label: Evidence strategy
+    object_type: decision
+    layer: verification
+    kind: choice
+    default_priority: P1
+    default_reversibility: reversible
+    criteria:
+      - factual_accuracy
+      - reviewability
+    required_evidence: []
+  - id: review_strategy
+    label: Review strategy
+    object_type: decision
+    layer: review
+    kind: choice
+    default_priority: P1
+    default_reversibility: reversible
+    criteria:
+      - reviewability
+      - factual_accuracy
+    required_evidence: []
+  - id: publication_plan
+    label: Publication plan
+    object_type: decision
+    layer: execution
+    kind: choice
+    default_priority: P2
+    default_reversibility: reversible
+    criteria:
+      - audience_fit
+      - maintainability
+    required_evidence: []
+criteria:
+  - id: clarity
+    label: Clarity
+    description: Whether the writing decision makes the argument, scope, or next step easy to understand.
+  - id: audience_fit
+    label: Audience fit
+    description: Whether the content matches the intended reader's needs, vocabulary, and expectations.
+  - id: factual_accuracy
+    label: Factual accuracy
+    description: Whether claims can be supported by reliable evidence and checked before publication.
+  - id: maintainability
+    label: Maintainability
+    description: Whether the content can be revised, reused, or updated without excessive effort.
+  - id: reviewability
+    label: Reviewability
+    description: Whether reviewers can evaluate structure, claims, and readiness with clear criteria.
+evidence_requirements: []
+risk_types:
+  - id: unclear_audience
+    label: Unclear audience
+    default_risk_tier: medium
+    default_approval_threshold: explicit_acceptance
+  - id: scope_creep
+    label: Scope creep
+    default_risk_tier: medium
+    default_approval_threshold: explicit_acceptance
+  - id: unsupported_claims
+    label: Unsupported claims
+    default_risk_tier: high
+    default_approval_threshold: human_review
+  - id: inconsistent_structure
+    label: Inconsistent structure
+    default_risk_tier: medium
+    default_approval_threshold: explicit_acceptance
+  - id: publication_delay
+    label: Publication delay
+    default_risk_tier: low
+    default_approval_threshold: none
+safety_rules:
+  - id: factual_review
+    applies_when:
+      risk_types:
+        - unsupported_claims
+    approval_threshold: human_review
+    reason: Unsupported claims require explicit factual review before publication.
+documents:
+  - document_type: decision-brief
+    default: true
+    profile_id: writing_decision_brief
+    required_sections:
+      - project
+      - purpose-principles-constraints
+      - current-decisions
+      - evidence-and-assumptions
+      - actions-and-verification
+      - revisit-triggers
+      - source-traceability
+  - document_type: action-plan
+    default: true
+    profile_id: writing_action_plan
+    required_sections:
+      - summary
+      - implementation-ready-actions
+      - actions
+      - blockers
+      - evidence
+      - source-traceability
+  - document_type: review-memo
+    default: true
+    profile_id: writing_review_memo
+    required_sections:
+      - review-summary
+      - required-decisions
+      - verification-gaps
+      - revisit-due
+interview:
+  domain_hints:
+    - article
+    - blog post
+    - draft
+    - outline
+    - manuscript
+    - editorial
+    - publication
+    - publish
+    - reviewer
+    - review memo
+    - fact check
+    - claims
+    - audience
+    - reader
+  question_templates:
+    audience_definition: Who is the writing for?
+    purpose_definition: What should this writing accomplish?
+    scope_definition: What is in scope and out of scope for this piece?
+    outline_strategy: What outline or structure should guide the draft?
+    evidence_strategy: What evidence strategy should support the claims?
+    review_strategy: How should the draft be reviewed?
+    publication_plan: How should the writing be published or delivered?

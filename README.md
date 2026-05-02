@@ -286,7 +286,8 @@ reference. Common maintainer operations include:
 
 - `list-sessions`, `show-session`, and `resume-session`
 - `list-domain-packs` and `show-domain-pack` to inspect available declarative domain packs
-- `create-session --domain-pack research|procurement|software|generic` to explicitly select a pack;
+- `create-session --domain-pack research|procurement|software|operations|personal_planning|writing|generic`
+  to explicitly select a pack;
   omitted packs are inferred from context and unresolved contexts fall back to `generic`
 - `list-sessions --domain-pack <id>` to filter sessions by stored pack metadata; sessions created
   before pack metadata are displayed as `generic`
