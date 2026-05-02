@@ -22,6 +22,9 @@ EXPECTED_SCENARIOS = {
     "software_refactor",
     "writing_project",
 }
+# These are the committed Phase 10 baseline scenarios, not a partial allow-list.
+# Adding exploratory scenarios under tests/scenarios intentionally requires updating
+# both EXPECTED_SCENARIOS and EXPECTED_SCENARIO_PACKS.
 EXPECTED_SCENARIO_PACKS = {
     "career_plan": "personal_planning",
     "household_project": "personal_planning",
