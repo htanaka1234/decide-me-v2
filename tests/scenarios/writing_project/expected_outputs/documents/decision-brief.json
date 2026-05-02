@@ -3,9 +3,9 @@
   "document_id": "DOC-20260429-decision-brief",
   "document_type": "decision-brief",
   "metadata": {
-    "document_profile_id": "generic_decision_brief",
-    "domain_pack_digest": "DP-6995c80372d5",
-    "domain_pack_id": "generic",
+    "document_profile_id": "writing_decision_brief",
+    "domain_pack_digest": "DP-7dcc1f75c2cd",
+    "domain_pack_id": "writing",
     "domain_pack_version": "0.1.0"
   },
   "schema_version": 1,
@@ -32,7 +32,7 @@
             ],
             [
               "Project Head",
-              "ad91fae0287f94726ed946ac6582197bdc28093e066873e6d02bdd48cd4ded8d"
+              "047bce68c171d938b608a4abe58da40cf65a9758a4fb97e64d947091be46f24d"
             ]
           ],
           "type": "table"
@@ -98,7 +98,7 @@
               "DEC-wp-review",
               "Review method",
               "unresolved",
-              "P0",
+              "P1",
               "now",
               "Decide who should review the draft and how feedback will be verified."
             ],
@@ -106,7 +106,7 @@
               "DEC-wp-topic",
               "Article topic",
               "accepted",
-              "P0",
+              "P1",
               "now",
               "Use an evaluation-suite article"
             ]
@@ -173,104 +173,6 @@
       "source_link_ids": [],
       "source_object_ids": [],
       "title": "Evidence and Assumptions"
-    },
-    {
-      "blocks": [
-        {
-          "columns": [
-            "Risk ID",
-            "Statement",
-            "Risk Tier",
-            "Reversibility",
-            "Approval Threshold",
-            "Mitigated By"
-          ],
-          "rows": [],
-          "type": "table"
-        },
-        {
-          "columns": [
-            "Object ID",
-            "Gate Status",
-            "Risk Tier",
-            "Reversibility",
-            "Approval Required",
-            "Blocking Reasons"
-          ],
-          "rows": [
-            [
-              "ACT-wp-draft",
-              "needs_approval",
-              "none",
-              "reversible",
-              true,
-              ""
-            ],
-            [
-              "DEC-wp-goal",
-              "passed",
-              "none",
-              "reversible",
-              false,
-              ""
-            ],
-            [
-              "DEC-wp-review",
-              "passed",
-              "none",
-              "reversible",
-              false,
-              ""
-            ],
-            [
-              "DEC-wp-topic",
-              "passed",
-              "none",
-              "reversible",
-              false,
-              ""
-            ],
-            [
-              "O-action-3de88c1af187",
-              "needs_approval",
-              "none",
-              "reversible",
-              true,
-              ""
-            ],
-            [
-              "O-action-8ba4e6b7c729",
-              "needs_approval",
-              "none",
-              "reversible",
-              true,
-              ""
-            ]
-          ],
-          "type": "table"
-        }
-      ],
-      "id": "risks-and-safety",
-      "order": 50,
-      "source_link_ids": [
-        "L-ACT-wp-draft-addresses-DEC-wp-topic",
-        "L-DEC-wp-goal-accepts-PRO-wp-goal",
-        "L-DEC-wp-topic-accepts-PRO-wp-topic",
-        "L-O-action-3de88c1af187-addresses-DEC-wp-goal",
-        "L-O-action-8ba4e6b7c729-addresses-DEC-wp-topic",
-        "L-PRO-wp-goal-addresses-DEC-wp-goal",
-        "L-PRO-wp-topic-addresses-DEC-wp-topic",
-        "L-REV-wp-review-revisits-DEC-wp-review"
-      ],
-      "source_object_ids": [
-        "ACT-wp-draft",
-        "DEC-wp-goal",
-        "DEC-wp-review",
-        "DEC-wp-topic",
-        "O-action-3de88c1af187",
-        "O-action-8ba4e6b7c729"
-      ],
-      "title": "Risks and Safety"
     },
     {
       "blocks": [
@@ -426,6 +328,104 @@
         "REV-wp-review"
       ],
       "title": "Source Traceability"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "Risk ID",
+            "Statement",
+            "Risk Tier",
+            "Reversibility",
+            "Approval Threshold",
+            "Mitigated By"
+          ],
+          "rows": [],
+          "type": "table"
+        },
+        {
+          "columns": [
+            "Object ID",
+            "Gate Status",
+            "Risk Tier",
+            "Reversibility",
+            "Approval Required",
+            "Blocking Reasons"
+          ],
+          "rows": [
+            [
+              "ACT-wp-draft",
+              "needs_approval",
+              "none",
+              "reversible",
+              true,
+              ""
+            ],
+            [
+              "DEC-wp-goal",
+              "passed",
+              "none",
+              "partially_reversible",
+              false,
+              ""
+            ],
+            [
+              "DEC-wp-review",
+              "passed",
+              "none",
+              "reversible",
+              false,
+              ""
+            ],
+            [
+              "DEC-wp-topic",
+              "passed",
+              "none",
+              "reversible",
+              false,
+              ""
+            ],
+            [
+              "O-action-3de88c1af187",
+              "needs_approval",
+              "none",
+              "partially_reversible",
+              true,
+              ""
+            ],
+            [
+              "O-action-8ba4e6b7c729",
+              "needs_approval",
+              "none",
+              "reversible",
+              true,
+              ""
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "risks-and-safety",
+      "order": 50,
+      "source_link_ids": [
+        "L-ACT-wp-draft-addresses-DEC-wp-topic",
+        "L-DEC-wp-goal-accepts-PRO-wp-goal",
+        "L-DEC-wp-topic-accepts-PRO-wp-topic",
+        "L-O-action-3de88c1af187-addresses-DEC-wp-goal",
+        "L-O-action-8ba4e6b7c729-addresses-DEC-wp-topic",
+        "L-PRO-wp-goal-addresses-DEC-wp-goal",
+        "L-PRO-wp-topic-addresses-DEC-wp-topic",
+        "L-REV-wp-review-revisits-DEC-wp-review"
+      ],
+      "source_object_ids": [
+        "ACT-wp-draft",
+        "DEC-wp-goal",
+        "DEC-wp-review",
+        "DEC-wp-topic",
+        "O-action-3de88c1af187",
+        "O-action-8ba4e6b7c729"
+      ],
+      "title": "Risks and Safety"
     }
   ],
   "source": {

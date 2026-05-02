@@ -22,6 +22,14 @@ EXPECTED_SCENARIOS = {
     "software_refactor",
     "writing_project",
 }
+EXPECTED_SCENARIO_PACKS = {
+    "career_plan": "personal_planning",
+    "household_project": "personal_planning",
+    "procurement_decision": "procurement",
+    "research_protocol": "research",
+    "software_refactor": "software",
+    "writing_project": "writing",
+}
 
 
 class EvaluationScenarioFixtureTests(unittest.TestCase):
@@ -45,6 +53,16 @@ class EvaluationScenarioFixtureTests(unittest.TestCase):
                     report = run_scenario_evaluation(scenario, runtime)
 
                     assert_evaluation_report_matches_expectations(self, scenario, report)
+
+    def test_initial_scenarios_use_specific_domain_packs(self) -> None:
+        scenario_paths = sorted(SCENARIOS_DIR.glob("*/scenario.yaml"))
+
+        actual = {
+            path.parent.name: load_scenario(path).domain_pack
+            for path in scenario_paths
+        }
+
+        self.assertEqual(EXPECTED_SCENARIO_PACKS, actual)
 
 
 if __name__ == "__main__":

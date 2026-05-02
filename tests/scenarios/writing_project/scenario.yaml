@@ -1,7 +1,7 @@
 schema_version: 1
 scenario_id: writing_project
 label: Writing project
-domain_pack: generic
+domain_pack: writing
 project:
   name: Demo writing project
   objective: Plan a concise technical article with unresolved review work visible.
@@ -15,9 +15,9 @@ evaluation:
   now: "2026-04-29T00:00:00Z"
   expected_decision_coverage:
     required_domain_decision_types:
-      - clarify_goal
-      - choose_option
-      - plan_verification
+      - purpose_definition
+      - outline_strategy
+      - review_strategy
     required_status_counts:
       - status: accepted
         mode: min

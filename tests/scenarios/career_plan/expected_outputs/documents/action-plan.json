@@ -3,9 +3,9 @@
   "document_id": "DOC-20260429-action-plan",
   "document_type": "action-plan",
   "metadata": {
-    "document_profile_id": "generic_action_plan",
-    "domain_pack_digest": "DP-6995c80372d5",
-    "domain_pack_id": "generic",
+    "document_profile_id": "personal_planning_action_plan",
+    "domain_pack_digest": "DP-b9a01ba2f169",
+    "domain_pack_id": "personal_planning",
     "domain_pack_version": "0.1.0",
     "readiness": "ready"
   },
@@ -271,6 +271,27 @@
             "Title",
             "Status",
             "Priority",
+            "Frontier",
+            "Evidence"
+          ],
+          "rows": [],
+          "type": "table"
+        }
+      ],
+      "id": "blockers",
+      "order": 40,
+      "source_link_ids": [],
+      "source_object_ids": [],
+      "title": "Blockers"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "ID",
+            "Title",
+            "Status",
+            "Priority",
             "Evidence"
           ],
           "rows": [],
@@ -348,27 +369,6 @@
         "VER-cp-outreach"
       ],
       "title": "Source Traceability"
-    },
-    {
-      "blocks": [
-        {
-          "columns": [
-            "ID",
-            "Title",
-            "Status",
-            "Priority",
-            "Frontier",
-            "Evidence"
-          ],
-          "rows": [],
-          "type": "table"
-        }
-      ],
-      "id": "blockers",
-      "order": 40,
-      "source_link_ids": [],
-      "source_object_ids": [],
-      "title": "Blockers"
     },
     {
       "blocks": [

@@ -326,12 +326,13 @@
       "id": "DEC-hp-option",
       "metadata": {
         "domain_criteria": [
-          "fitness",
-          "tradeoff_visibility"
+          "opportunity_value",
+          "cost",
+          "reversibility"
         ],
-        "domain_decision_type": "choose_option",
-        "domain_pack_digest": "DP-6995c80372d5",
-        "domain_pack_id": "generic",
+        "domain_decision_type": "option_selection",
+        "domain_pack_digest": "DP-b9a01ba2f169",
+        "domain_pack_id": "personal_planning",
         "domain_pack_version": "0.1.0",
         "frontier": "now",
         "priority": "P1",

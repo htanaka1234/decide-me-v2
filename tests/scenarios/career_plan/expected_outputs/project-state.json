@@ -764,11 +764,12 @@
       "metadata": {
         "domain_criteria": [
           "feasibility",
-          "risk_awareness"
+          "time_fit",
+          "cost"
         ],
-        "domain_decision_type": "resolve_constraint",
-        "domain_pack_digest": "DP-6995c80372d5",
-        "domain_pack_id": "generic",
+        "domain_decision_type": "constraint_definition",
+        "domain_pack_digest": "DP-b9a01ba2f169",
+        "domain_pack_id": "personal_planning",
         "domain_pack_version": "0.1.0",
         "frontier": "now",
         "priority": "P0",
@@ -789,17 +790,18 @@
       "id": "DEC-cp-goal",
       "metadata": {
         "domain_criteria": [
-          "clarity",
-          "relevance"
+          "feasibility",
+          "opportunity_value",
+          "sustainability"
         ],
-        "domain_decision_type": "clarify_goal",
-        "domain_pack_digest": "DP-6995c80372d5",
-        "domain_pack_id": "generic",
+        "domain_decision_type": "goal_definition",
+        "domain_pack_digest": "DP-b9a01ba2f169",
+        "domain_pack_id": "personal_planning",
         "domain_pack_version": "0.1.0",
         "frontier": "now",
         "priority": "P0",
         "resolvable_by": "human",
-        "reversibility": "reversible"
+        "reversibility": "hard-to-reverse"
       },
       "source_event_ids": [
         "E-cp-002"
@@ -815,15 +817,16 @@
       "id": "DEC-cp-option",
       "metadata": {
         "domain_criteria": [
-          "fitness",
-          "tradeoff_visibility"
+          "opportunity_value",
+          "cost",
+          "reversibility"
         ],
-        "domain_decision_type": "choose_option",
-        "domain_pack_digest": "DP-6995c80372d5",
-        "domain_pack_id": "generic",
+        "domain_decision_type": "option_selection",
+        "domain_pack_digest": "DP-b9a01ba2f169",
+        "domain_pack_id": "personal_planning",
         "domain_pack_version": "0.1.0",
         "frontier": "now",
-        "priority": "P0",
+        "priority": "P1",
         "resolvable_by": "human",
         "reversibility": "reversible"
       },
@@ -841,15 +844,16 @@
       "id": "DEC-cp-verify",
       "metadata": {
         "domain_criteria": [
-          "verifiability",
-          "feasibility"
+          "sustainability",
+          "reversibility",
+          "time_fit"
         ],
-        "domain_decision_type": "plan_verification",
-        "domain_pack_digest": "DP-6995c80372d5",
-        "domain_pack_id": "generic",
+        "domain_decision_type": "review_plan",
+        "domain_pack_digest": "DP-b9a01ba2f169",
+        "domain_pack_id": "personal_planning",
         "domain_pack_version": "0.1.0",
         "frontier": "now",
-        "priority": "P1",
+        "priority": "P2",
         "resolvable_by": "human",
         "reversibility": "reversible"
       },

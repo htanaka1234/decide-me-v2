@@ -3,11 +3,11 @@
   "document_id": "DOC-20260429-action-plan",
   "document_type": "action-plan",
   "metadata": {
-    "document_profile_id": "generic_action_plan",
-    "domain_pack_digest": "DP-6995c80372d5",
-    "domain_pack_id": "generic",
+    "document_profile_id": "writing_action_plan",
+    "domain_pack_digest": "DP-7dcc1f75c2cd",
+    "domain_pack_id": "writing",
     "domain_pack_version": "0.1.0",
-    "readiness": "blocked"
+    "readiness": "conditional"
   },
   "schema_version": 1,
   "sections": [
@@ -15,7 +15,7 @@
       "blocks": [
         {
           "items": [
-            "Readiness: blocked",
+            "Readiness: conditional",
             "Action count: 3",
             "Implementation-ready count: 0"
           ],
@@ -96,16 +96,6 @@
           ],
           "rows": [
             [
-              "O-action-8ba4e6b7c729",
-              "Article topic",
-              "DEC-wp-topic",
-              "active",
-              "P0",
-              false,
-              "needs_approval",
-              "Drive Article topic to completion."
-            ],
-            [
               "ACT-wp-draft",
               "Draft evaluation suite article",
               "DEC-wp-topic",
@@ -124,6 +114,16 @@
               false,
               "needs_approval",
               "Drive Writing goal to completion."
+            ],
+            [
+              "O-action-8ba4e6b7c729",
+              "Article topic",
+              "DEC-wp-topic",
+              "active",
+              "P1",
+              false,
+              "needs_approval",
+              "Drive Article topic to completion."
             ]
           ],
           "type": "table"
@@ -153,24 +153,56 @@
             "Title",
             "Status",
             "Priority",
+            "Frontier",
             "Evidence"
           ],
           "rows": [],
           "type": "table"
         }
       ],
-      "id": "risks",
-      "order": 50,
+      "id": "blockers",
+      "order": 40,
       "source_link_ids": [],
       "source_object_ids": [],
-      "title": "Risks"
+      "title": "Blockers"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "ID",
+            "Source",
+            "Ref",
+            "Status",
+            "Summary"
+          ],
+          "rows": [],
+          "type": "table"
+        }
+      ],
+      "id": "evidence",
+      "order": 60,
+      "source_link_ids": [
+        "L-ACT-wp-draft-addresses-DEC-wp-topic",
+        "L-DEC-wp-goal-accepts-PRO-wp-goal",
+        "L-DEC-wp-topic-accepts-PRO-wp-topic",
+        "L-O-action-3de88c1af187-addresses-DEC-wp-goal",
+        "L-O-action-8ba4e6b7c729-addresses-DEC-wp-topic",
+        "L-PRO-wp-goal-addresses-DEC-wp-goal",
+        "L-PRO-wp-goal-recommends-OPT-wp-goal",
+        "L-PRO-wp-topic-addresses-DEC-wp-topic",
+        "L-PRO-wp-topic-recommends-OPT-wp-evaluation-article",
+        "L-REV-wp-review-revisits-DEC-wp-review"
+      ],
+      "source_object_ids": [],
+      "title": "Evidence"
     },
     {
       "blocks": [
         {
           "items": [
             "Sessions: S-writing-project",
-            "Objects: O-action-3de88c1af187, O-action-8ba4e6b7c729, ACT-wp-draft, DEC-wp-review, DEC-wp-goal, DEC-wp-topic, REV-wp-review, O-project-objective, PRO-wp-goal, PRO-wp-topic, OPT-wp-goal, OPT-wp-evaluation-article",
+            "Objects: O-action-3de88c1af187, O-action-8ba4e6b7c729, ACT-wp-draft, DEC-wp-goal, DEC-wp-topic, DEC-wp-review, REV-wp-review, O-project-objective, PRO-wp-goal, PRO-wp-topic, OPT-wp-goal, OPT-wp-evaluation-article",
             "Links: L-O-action-3de88c1af187-addresses-DEC-wp-goal, L-O-action-8ba4e6b7c729-addresses-DEC-wp-topic, L-DEC-wp-goal-accepts-PRO-wp-goal, L-PRO-wp-goal-addresses-DEC-wp-goal, L-ACT-wp-draft-addresses-DEC-wp-topic, L-DEC-wp-topic-accepts-PRO-wp-topic, L-PRO-wp-topic-addresses-DEC-wp-topic, L-REV-wp-review-revisits-DEC-wp-review, L-PRO-wp-goal-recommends-OPT-wp-goal, L-PRO-wp-topic-recommends-OPT-wp-evaluation-article"
           ],
           "type": "list"
@@ -214,60 +246,17 @@
             "Title",
             "Status",
             "Priority",
-            "Frontier",
             "Evidence"
-          ],
-          "rows": [
-            [
-              "DEC-wp-review",
-              "Review method",
-              "unresolved",
-              "P0",
-              "now",
-              ""
-            ]
-          ],
-          "type": "table"
-        }
-      ],
-      "id": "blockers",
-      "order": 40,
-      "source_link_ids": [],
-      "source_object_ids": [
-        "DEC-wp-review"
-      ],
-      "title": "Blockers"
-    },
-    {
-      "blocks": [
-        {
-          "columns": [
-            "ID",
-            "Source",
-            "Ref",
-            "Status",
-            "Summary"
           ],
           "rows": [],
           "type": "table"
         }
       ],
-      "id": "evidence",
-      "order": 60,
-      "source_link_ids": [
-        "L-ACT-wp-draft-addresses-DEC-wp-topic",
-        "L-DEC-wp-goal-accepts-PRO-wp-goal",
-        "L-DEC-wp-topic-accepts-PRO-wp-topic",
-        "L-O-action-3de88c1af187-addresses-DEC-wp-goal",
-        "L-O-action-8ba4e6b7c729-addresses-DEC-wp-topic",
-        "L-PRO-wp-goal-addresses-DEC-wp-goal",
-        "L-PRO-wp-goal-recommends-OPT-wp-goal",
-        "L-PRO-wp-topic-addresses-DEC-wp-topic",
-        "L-PRO-wp-topic-recommends-OPT-wp-evaluation-article",
-        "L-REV-wp-review-revisits-DEC-wp-review"
-      ],
+      "id": "risks",
+      "order": 50,
+      "source_link_ids": [],
       "source_object_ids": [],
-      "title": "Evidence"
+      "title": "Risks"
     }
   ],
   "source": {

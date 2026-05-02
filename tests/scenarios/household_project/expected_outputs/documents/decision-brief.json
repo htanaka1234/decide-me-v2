@@ -3,9 +3,9 @@
   "document_id": "DOC-20260429-decision-brief",
   "document_type": "decision-brief",
   "metadata": {
-    "document_profile_id": "generic_decision_brief",
-    "domain_pack_digest": "DP-6995c80372d5",
-    "domain_pack_id": "generic",
+    "document_profile_id": "personal_planning_decision_brief",
+    "domain_pack_digest": "DP-b9a01ba2f169",
+    "domain_pack_id": "personal_planning",
     "domain_pack_version": "0.1.0"
   },
   "schema_version": 1,
@@ -32,7 +32,7 @@
             ],
             [
               "Project Head",
-              "9ce82db812883c6b2dc9e3733d35bba0bba09f205c45bb698c62418a0b806cdd"
+              "784c6abc306dfa2fd468effb09c34442494b5bde0fbc84686497869f5faaf593"
             ]
           ],
           "type": "table"
@@ -153,77 +153,6 @@
       "source_link_ids": [],
       "source_object_ids": [],
       "title": "Evidence and Assumptions"
-    },
-    {
-      "blocks": [
-        {
-          "columns": [
-            "Risk ID",
-            "Statement",
-            "Risk Tier",
-            "Reversibility",
-            "Approval Threshold",
-            "Mitigated By"
-          ],
-          "rows": [],
-          "type": "table"
-        },
-        {
-          "columns": [
-            "Object ID",
-            "Gate Status",
-            "Risk Tier",
-            "Reversibility",
-            "Approval Required",
-            "Blocking Reasons"
-          ],
-          "rows": [
-            [
-              "ACT-hp-reset",
-              "passed",
-              "none",
-              "reversible",
-              false,
-              ""
-            ],
-            [
-              "DEC-hp-option",
-              "passed",
-              "none",
-              "reversible",
-              false,
-              ""
-            ],
-            [
-              "O-action-a2d391016881",
-              "passed",
-              "none",
-              "reversible",
-              false,
-              ""
-            ]
-          ],
-          "type": "table"
-        }
-      ],
-      "id": "risks-and-safety",
-      "order": 50,
-      "source_link_ids": [
-        "L-ACT-hp-reset-addresses-DEC-hp-option",
-        "L-DEC-hp-option-accepts-PRO-hp-option",
-        "L-O-action-a2d391016881-addresses-DEC-hp-option",
-        "L-PRO-hp-option-addresses-DEC-hp-option",
-        "L-REV-hp-due-revisits-DEC-hp-option",
-        "L-REV-hp-future-revisits-DEC-hp-option",
-        "L-VER-hp-close-option-verifies-O-action-a2d391016881",
-        "L-VER-hp-reset-verifies-ACT-hp-reset"
-      ],
-      "source_object_ids": [
-        "ACT-hp-reset",
-        "DEC-hp-option",
-        "O-action-a2d391016881"
-      ],
-      "title": "Risks and Safety"
     },
     {
       "blocks": [
@@ -366,6 +295,77 @@
         "VER-hp-reset"
       ],
       "title": "Source Traceability"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "Risk ID",
+            "Statement",
+            "Risk Tier",
+            "Reversibility",
+            "Approval Threshold",
+            "Mitigated By"
+          ],
+          "rows": [],
+          "type": "table"
+        },
+        {
+          "columns": [
+            "Object ID",
+            "Gate Status",
+            "Risk Tier",
+            "Reversibility",
+            "Approval Required",
+            "Blocking Reasons"
+          ],
+          "rows": [
+            [
+              "ACT-hp-reset",
+              "passed",
+              "none",
+              "reversible",
+              false,
+              ""
+            ],
+            [
+              "DEC-hp-option",
+              "passed",
+              "none",
+              "reversible",
+              false,
+              ""
+            ],
+            [
+              "O-action-a2d391016881",
+              "passed",
+              "none",
+              "reversible",
+              false,
+              ""
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "risks-and-safety",
+      "order": 50,
+      "source_link_ids": [
+        "L-ACT-hp-reset-addresses-DEC-hp-option",
+        "L-DEC-hp-option-accepts-PRO-hp-option",
+        "L-O-action-a2d391016881-addresses-DEC-hp-option",
+        "L-PRO-hp-option-addresses-DEC-hp-option",
+        "L-REV-hp-due-revisits-DEC-hp-option",
+        "L-REV-hp-future-revisits-DEC-hp-option",
+        "L-VER-hp-close-option-verifies-O-action-a2d391016881",
+        "L-VER-hp-reset-verifies-ACT-hp-reset"
+      ],
+      "source_object_ids": [
+        "ACT-hp-reset",
+        "DEC-hp-option",
+        "O-action-a2d391016881"
+      ],
+      "title": "Risks and Safety"
     }
   ],
   "source": {

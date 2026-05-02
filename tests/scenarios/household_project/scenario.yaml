@@ -1,7 +1,7 @@
 schema_version: 1
 scenario_id: household_project
 label: Household project
-domain_pack: generic
+domain_pack: personal_planning
 project:
   name: Demo household project
   objective: Choose a lightweight weekend organization plan.
@@ -15,7 +15,7 @@ evaluation:
   now: "2026-04-29T00:00:00Z"
   expected_decision_coverage:
     required_domain_decision_types:
-      - choose_option
+      - option_selection
     required_status_counts:
       - status: accepted
         mode: min
