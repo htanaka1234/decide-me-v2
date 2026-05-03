@@ -550,7 +550,7 @@ def _risk_policy_result(
     policy = {**DEFAULT_RISK_POLICY[risk_tier], **domain_policy.get(risk_tier, {})}
     required_actions = set(policy.get("required_actions", [])) if blocking_reasons or approval_required else set()
     automatic_adoption = _automatic_adoption_status(blocking_reasons, approval_required)
-    approval = policy["approval"]
+    approval = _effective_policy_approval(policy["approval"], risk_tier, approval_reasons, approval_required)
     if approval_required:
         required_actions.add("record_safety_approval")
     if "challenged_evidence" in blocking_reasons:
@@ -584,6 +584,31 @@ def _automatic_adoption_status(
     if approval_required:
         return "requires_approval"
     return "allowed"
+
+
+def _effective_policy_approval(
+    policy_approval: str,
+    risk_tier: str,
+    approval_reasons: list[str],
+    approval_required: bool,
+) -> str:
+    if risk_tier == "critical":
+        return "external_review_or_block"
+    if "high_risk_tier" in approval_reasons:
+        return _stricter_policy_approval(policy_approval, "explicit_with_rationale")
+    if approval_required:
+        return _stricter_policy_approval(policy_approval, "explicit")
+    return policy_approval
+
+
+def _stricter_policy_approval(left: str, right: str) -> str:
+    rank = {
+        "optional": 0,
+        "explicit": 1,
+        "explicit_with_rationale": 2,
+        "external_review_or_block": 3,
+    }
+    return left if rank[left] >= rank[right] else right
 
 
 def _risk_policy_reason(

@@ -144,7 +144,7 @@ class SafetyGateTests(unittest.TestCase):
         self.assertTrue(result["approval_required"])
         self.assertEqual("needs_approval", result["gate_status"])
         self.assertEqual(["external_review_required"], result["approval_reasons"])
-        self.assertEqual("optional", result["risk_policy"]["approval"])
+        self.assertEqual("explicit", result["risk_policy"]["approval"])
         self.assertEqual("approval_threshold_requires_review", result["risk_policy"]["reason"])
         self.assertEqual(["record_safety_approval"], result["risk_policy"]["required_actions"])
 
@@ -240,6 +240,30 @@ class SafetyGateTests(unittest.TestCase):
         )
         self.assertEqual("allowed", override["automatic_adoption"])
         self.assertEqual([], override["required_actions"])
+
+    def test_high_policy_override_cannot_display_optional_when_gate_requires_approval(self) -> None:
+        registry, metadata = _policy_registry(
+            {
+                "high": {
+                    "approval": "optional",
+                    "automatic_adoption": "allowed",
+                    "required_actions": [],
+                }
+            }
+        )
+
+        result = evaluate_safety_gate(
+            _policy_project_state(metadata, risk_tier="high"),
+            "D-policy",
+            domain_registry=registry,
+        )
+
+        self.assertTrue(result["approval_required"])
+        self.assertEqual("needs_approval", result["gate_status"])
+        self.assertEqual(["high_risk_tier"], result["approval_reasons"])
+        self.assertEqual("explicit_with_rationale", result["risk_policy"]["approval"])
+        self.assertEqual("requires_approval", result["risk_policy"]["automatic_adoption"])
+        self.assertEqual(["record_safety_approval"], result["risk_policy"]["required_actions"])
 
     def test_risk_policy_changes_gate_digest_when_policy_is_safety_relevant(self) -> None:
         baseline_registry, baseline_metadata = _policy_registry()
@@ -494,7 +518,7 @@ def _policy_registry(risk_policy: dict | None = None) -> tuple[DomainRegistry, d
     return DomainRegistry({"generic": builtins["generic"], pack.pack_id: pack}), metadata
 
 
-def _policy_project_state(pack_metadata: dict) -> dict:
+def _policy_project_state(pack_metadata: dict, *, risk_tier: str = "medium") -> dict:
     decision_metadata = {
         "priority": "P0",
         "frontier": "now",
@@ -508,7 +532,7 @@ def _policy_project_state(pack_metadata: dict) -> dict:
             _object(
                 "R-policy",
                 "risk",
-                metadata=risk_metadata(risk_tier="medium", approval_threshold="none"),
+                metadata=risk_metadata(risk_tier=risk_tier, approval_threshold="none"),
             ),
         ],
         links=[

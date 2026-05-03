@@ -26,7 +26,7 @@
         "object_type": "action",
         "reversibility": "reversible",
         "risk_policy": {
-          "approval": "optional",
+          "approval": "explicit",
           "automatic_adoption": "requires_approval",
           "reason": "approval_threshold_requires_review",
           "required_actions": [
@@ -50,13 +50,13 @@
       "domain_safety_rules": [],
       "evidence": [],
       "evidence_coverage": "insufficient",
-      "gate_digest": "SG-855bea856658",
+      "gate_digest": "SG-031adf2f56e1",
       "gate_status": "needs_approval",
       "object_id": "ACT-wp-draft",
       "object_type": "action",
       "reversibility": "reversible",
       "risk_policy": {
-        "approval": "optional",
+        "approval": "explicit",
         "automatic_adoption": "requires_approval",
         "reason": "approval_threshold_requires_review",
         "required_actions": [
@@ -284,7 +284,7 @@
         "object_type": "action",
         "reversibility": "partially_reversible",
         "risk_policy": {
-          "approval": "optional",
+          "approval": "explicit",
           "automatic_adoption": "requires_approval",
           "reason": "approval_threshold_requires_review",
           "required_actions": [
@@ -309,13 +309,13 @@
       "domain_safety_rules": [],
       "evidence": [],
       "evidence_coverage": "insufficient",
-      "gate_digest": "SG-9e3e290a2889",
+      "gate_digest": "SG-0a7db20aa394",
       "gate_status": "needs_approval",
       "object_id": "O-action-3de88c1af187",
       "object_type": "action",
       "reversibility": "partially_reversible",
       "risk_policy": {
-        "approval": "optional",
+        "approval": "explicit",
         "automatic_adoption": "requires_approval",
         "reason": "approval_threshold_requires_review",
         "required_actions": [
@@ -359,7 +359,7 @@
         "object_type": "action",
         "reversibility": "reversible",
         "risk_policy": {
-          "approval": "optional",
+          "approval": "explicit",
           "automatic_adoption": "requires_approval",
           "reason": "approval_threshold_requires_review",
           "required_actions": [
@@ -383,13 +383,13 @@
       "domain_safety_rules": [],
       "evidence": [],
       "evidence_coverage": "insufficient",
-      "gate_digest": "SG-620ec60e752d",
+      "gate_digest": "SG-dc842697e769",
       "gate_status": "needs_approval",
       "object_id": "O-action-8ba4e6b7c729",
       "object_type": "action",
       "reversibility": "reversible",
       "risk_policy": {
-        "approval": "optional",
+        "approval": "explicit",
         "automatic_adoption": "requires_approval",
         "reason": "approval_threshold_requires_review",
         "required_actions": [
