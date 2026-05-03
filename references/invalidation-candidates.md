@@ -1,14 +1,14 @@
 # Invalidation Candidates
 
-Phase 6-4 adds read-only invalidation candidate generation on top of impact analysis. It answers:
-given an upstream change and the affected objects found by Phase 6-3, which objects should a
-human review, revalidate, revise, invalidate, supersede, verify, or update next?
+Phase 6-4 adds invalidation candidate generation on top of impact analysis. It answers: given an
+upstream change and the affected objects found by Phase 6-3, which objects should a human review,
+revalidate, revise, invalidate, supersede, verify, or update next?
 
-Invalidation candidates are recommendations only. This diagnostic does not mutate runtime state,
-does not write events, does not change object status, and does not create `invalidates` or
-`supersedes` links. Step 5 materializes deterministic event specs for candidates that can be
-represented mechanically and pass the existing event/projection validators, but approval,
-candidate acceptance, and event application remain out of scope.
+Candidate generation is read-only. It does not mutate runtime state, write events, change object
+status, or create `invalidates` or `supersedes` links. Some candidates contain deterministic
+`proposed_events` specs for changes that can be represented mechanically and pass the existing
+event/projection validators. Applying those specs is a separate explicit approval workflow through
+`apply-invalidation-candidate`.
 
 ## API
 
@@ -53,6 +53,32 @@ The command prints `generate_invalidation_candidates()` output as JSON and remai
 `proposed_events` may contain event specs, but no candidates are accepted and no
 `object_status_changed`, `object_updated`, `object_recorded`, or `object_linked` events are
 emitted.
+
+Use `apply-invalidation-candidate` to dry-run or explicitly apply a materialized candidate:
+
+```bash
+python3 scripts/decide_me.py apply-invalidation-candidate \
+  --ai-dir .ai/decide-me \
+  --object-id DEC-001 \
+  --change-kind invalidated \
+  --candidate-id IC-... \
+  --session-id S-...
+```
+
+Without `--approve`, the command is dry-run only and writes no events. With `--approve`, the
+candidate is regenerated from the current projection, the selected candidate must still exist and
+have materialized `proposed_events`, and the command writes through the normal `transact()` path.
+Medium and high severity applies require `--reason`. High severity candidates also require
+`--safety-approval-id`, and that artifact must satisfy the current Safety Gate digest before the
+candidate can become events. When the target object's Safety Gate does not otherwise require
+approval, create the artifact explicitly with
+`approve-safety-gate --candidate-apply-approval`; this records approval for the high severity
+candidate application without changing the gate's own `approval_required` result. Critical severity
+candidates are not applyable in this Phase 6 workflow; they require external review or must remain
+blocked for the Phase 7 Safety Gate policy. If the target Safety Gate is blocked, apply fails. If
+the gate needs approval, `--safety-approval-id` must name an active approval artifact that satisfies
+the current gate digest. Manual candidates such as `review`, `revalidate`, `revise`, and
+`update_revisit_trigger` are not applied automatically.
 
 ## Output
 
@@ -101,12 +127,15 @@ final decision that satisfies the current `invalidated_by.decision_id` contract.
 ID, candidate kind, and source link ID so repeated runs can compare candidate sets without treating
 them as persisted runtime state.
 
-## Future Apply Guard
+## Apply Guard
 
-Phase 7 does not add `apply-invalidation-candidate`. If that workflow is added later, it must
-evaluate the safety gate for the candidate target before writing events. Blocked gates must stop the
-apply. Gates that need approval must require a matching safety approval artifact before proposed
-events are wrapped into a normal transaction.
+`apply-invalidation-candidate` is intentionally conservative. It does not trust candidate payloads
+from a previous CLI response; it regenerates candidates from the current projection and looks up the
+requested `candidate_id`. Missing candidates are treated as unknown or stale. Event application
+uses normal transaction validation, projection validation, and the runtime write lock. Dry-runs
+also validate an explicitly supplied `--session-id` so a later approved apply will target the same
+open session. Applied results include both the original candidate `proposed_events` and committed
+event summaries with `tx_id`, `tx_index`, `event_id`, `event_type`, and `session_id` for audit.
 
 ## Classification
 

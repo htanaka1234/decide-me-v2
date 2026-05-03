@@ -10,7 +10,11 @@ from jsonschema import Draft202012Validator
 from decide_me.constants import DECISION_STACK_LAYERS, LINK_RELATIONS, OBJECT_TYPES
 from decide_me.events import build_event
 from decide_me.impact_analysis import CHANGE_KINDS
-from decide_me.invalidation_candidates import CANDIDATE_KINDS, generate_invalidation_candidates
+from decide_me.invalidation_candidates import (
+    CANDIDATE_KINDS,
+    _validate_candidate_application,
+    generate_invalidation_candidates,
+)
 from decide_me.projections import apply_events_to_bundle, rebuild_projections
 from decide_me.validate import validate_projection_bundle
 
@@ -574,6 +578,32 @@ class InvalidationCandidatesTests(unittest.TestCase):
         self.assertEqual(LINK_RELATIONS, set(schema["$defs"]["link_relation"]["enum"]))
         self.assertEqual(DECISION_STACK_LAYERS, set(schema["$defs"]["decision_stack_layer"]["enum"]))
 
+    def test_high_severity_apply_requires_safety_approval_even_when_gate_passes(self) -> None:
+        with self.assertRaisesRegex(ValueError, "safety approval artifact is required for high severity candidate"):
+            _validate_candidate_application(
+                _apply_candidate(severity="high"),
+                _safety_gate(gate_status="passed", approval_artifact_ids=[]),
+                reason="Apply high severity invalidation.",
+                safety_approval_id=None,
+            )
+
+    def test_high_severity_apply_accepts_current_gate_approval_artifact(self) -> None:
+        _validate_candidate_application(
+            _apply_candidate(severity="high"),
+            _safety_gate(gate_status="passed", approval_artifact_ids=["ART-001"]),
+            reason="Apply high severity invalidation.",
+            safety_approval_id="ART-001",
+        )
+
+    def test_critical_severity_apply_is_blocked_in_pr3(self) -> None:
+        with self.assertRaisesRegex(ValueError, "critical severity candidate requires external review"):
+            _validate_candidate_application(
+                _apply_candidate(severity="critical"),
+                _safety_gate(gate_status="passed", approval_artifact_ids=["ART-001"]),
+                reason="Apply critical invalidation.",
+                safety_approval_id="ART-001",
+            )
+
 
 def _decision_project_state(*, status: str) -> dict:
     return _project_state(
@@ -583,6 +613,45 @@ def _decision_project_state(*, status: str) -> dict:
         ],
         edges=[_edge("L-constraint-constrains-decision", "CON-privacy", "constrains", "D-auth")],
     )
+
+
+def _apply_candidate(*, severity: str) -> dict:
+    return {
+        "candidate_id": "IC-test-high",
+        "candidate_kind": "invalidate",
+        "target_object_id": "ACT-test",
+        "target_object_type": "action",
+        "severity": severity,
+        "requires_human_approval": True,
+        "materialization_status": "materialized",
+        "proposed_events": [
+            {
+                "event_id": "E-test-1",
+                "event_type": "object_status_changed",
+                "ts": "2025-01-01T00:00:00Z",
+                "payload": {
+                    "object_id": "ACT-test",
+                    "from_status": "planned",
+                    "to_status": "invalidated",
+                    "reason": "test",
+                    "changed_at": "2025-01-01T00:00:00Z",
+                },
+            }
+        ],
+    }
+
+
+def _safety_gate(*, gate_status: str, approval_artifact_ids: list[str]) -> dict:
+    return {
+        "gate_status": gate_status,
+        "gate_digest": "gate-test",
+        "risk_tier": "high",
+        "approval_required": bool(approval_artifact_ids),
+        "approval_satisfied": bool(approval_artifact_ids) and gate_status == "passed",
+        "approval_artifact_ids": approval_artifact_ids,
+        "blocking_reasons": [],
+        "approval_reasons": [],
+    }
 
 
 def _supersede_bundle() -> dict:

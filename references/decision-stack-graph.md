@@ -174,11 +174,14 @@ node payloads for the requested layer, and excludes invalidated nodes unless
 `include_invalidated=True` is passed.
 
 Phase 6-3 adds read-only impact analysis on top of these helpers. Phase 6-4 adds read-only
-invalidation candidates derived from that impact report. Phase 6-5 exposes these diagnostics
-through CLI commands and derived Markdown impact reports. These diagnostics do not cascade
-invalidation, create links, change object status, accept candidates, or run approval workflows.
-Step 5 lets invalidation candidates include deterministic `proposed_events` event specs. The
-diagnostic still does not apply those specs or persist candidate lifecycle state.
+candidate generation derived from that impact report. Phase 6-5 exposes these diagnostics through
+CLI commands and derived Markdown impact reports. Candidate generation and impact reports do not
+cascade invalidation, create links, change object status, accept candidates, or run approval
+workflows. Materialized invalidation candidates may be applied only through the explicit
+`apply-invalidation-candidate --approve` workflow, which regenerates the candidate, evaluates the
+Safety Gate, requires a safety approval artifact for high severity candidates, supports explicit
+candidate apply approvals when the target gate is otherwise approval-free, blocks critical severity
+candidates for external review, and writes through the normal transaction path.
 
 Phase 7 preparation adds read-only register projections for evidence, assumptions, and risks.
 The register commands aggregate typed metadata and relation ids from `project_state.objects` and

@@ -29,7 +29,7 @@ from decide_me.exports import (
 from decide_me.graph_traversal import bounded_subgraph, build_graph_index
 from decide_me.impact_analysis import CHANGE_KINDS, analyze_impact
 from decide_me.interview import advance_session, handle_reply
-from decide_me.invalidation_candidates import generate_invalidation_candidates
+from decide_me.invalidation_candidates import apply_invalidation_candidate, generate_invalidation_candidates
 from decide_me.lifecycle import close_session, create_session, list_sessions, resume_session, show_session
 from decide_me.planner import generate_plan
 from decide_me.protocol import resolve_decision_supersession
@@ -190,6 +190,23 @@ def main(argv: list[str] | None = None) -> int:
     show_invalidation_candidates.add_argument("--include-low-severity", action="store_true")
     show_invalidation_candidates.add_argument("--include-invalidated", action="store_true")
 
+    apply_invalidation = subparsers.add_parser(
+        "apply-invalidation-candidate",
+        help="dry-run or explicitly apply a materialized invalidation candidate",
+    )
+    apply_invalidation.add_argument("--ai-dir", required=True)
+    apply_invalidation.add_argument("--object-id", required=True)
+    apply_invalidation.add_argument("--change-kind", required=True, choices=sorted(CHANGE_KINDS))
+    apply_invalidation.add_argument("--candidate-id", required=True)
+    apply_invalidation.add_argument("--session-id")
+    apply_invalidation.add_argument("--max-depth", type=int)
+    apply_invalidation.add_argument("--include-low-severity", action="store_true")
+    apply_invalidation.add_argument("--include-invalidated", action="store_true")
+    apply_invalidation.add_argument("--approve", action="store_true")
+    apply_invalidation.add_argument("--actor")
+    apply_invalidation.add_argument("--reason")
+    apply_invalidation.add_argument("--safety-approval-id")
+
     show_decision_stack = subparsers.add_parser(
         "show-decision-stack",
         help="show a bounded Decision Stack Graph around an object",
@@ -242,6 +259,11 @@ def main(argv: list[str] | None = None) -> int:
     approve_gate.add_argument("--approved-by", required=True)
     approve_gate.add_argument("--reason", required=True)
     approve_gate.add_argument("--expires-at")
+    approve_gate.add_argument(
+        "--candidate-apply-approval",
+        action="store_true",
+        help="record an approval artifact for high severity invalidation candidate application even if the gate does not otherwise require approval",
+    )
 
     show_approvals = subparsers.add_parser(
         "show-safety-approvals",
@@ -514,6 +536,23 @@ def main(argv: list[str] | None = None) -> int:
                     include_invalidated=args.include_invalidated,
                 )
             )
+        elif args.command == "apply-invalidation-candidate":
+            _print_json(
+                apply_invalidation_candidate(
+                    args.ai_dir,
+                    object_id=args.object_id,
+                    change_kind=args.change_kind,
+                    candidate_id=args.candidate_id,
+                    session_id=args.session_id,
+                    max_depth=args.max_depth,
+                    include_low_severity=args.include_low_severity,
+                    include_invalidated=args.include_invalidated,
+                    approve=args.approve,
+                    actor=args.actor,
+                    reason=args.reason,
+                    safety_approval_id=args.safety_approval_id,
+                )
+            )
         elif args.command == "show-decision-stack":
             bundle = load_runtime(runtime_paths(args.ai_dir))
             index = build_graph_index(bundle["project_state"])
@@ -562,6 +601,7 @@ def main(argv: list[str] | None = None) -> int:
                     approved_by=args.approved_by,
                     reason=args.reason,
                     expires_at=args.expires_at,
+                    candidate_apply_approval=args.candidate_apply_approval,
                 )
             )
         elif args.command == "show-safety-approvals":

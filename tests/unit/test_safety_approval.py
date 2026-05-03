@@ -200,6 +200,28 @@ class SafetyApprovalTests(unittest.TestCase):
                 expires_at="2026-04-27T00:00:00Z",
             )
 
+    def test_candidate_apply_approval_can_be_recorded_when_gate_does_not_require_approval(self) -> None:
+        project_state = _project_state(objects=[_object("D-001", "decision")], links=[])
+        before = evaluate_safety_gate(project_state, "D-001")
+
+        specs = build_safety_approval_event_specs(
+            project_state,
+            "S-001",
+            "D-001",
+            gate_result=before,
+            approved_by="reviewer",
+            reason="Approve high severity invalidation candidate application.",
+            approved_at="2026-04-28T00:00:00Z",
+            candidate_apply_approval=True,
+        )
+
+        self.assertFalse(before["approval_required"])
+        self.assertEqual("passed", before["gate_status"])
+        self.assertEqual(["object_recorded", "object_linked"], [spec["event_type"] for spec in specs])
+        artifact = specs[0]["payload"]["object"]
+        self.assertEqual("explicit_acceptance", artifact["metadata"]["approval_level"])
+        self.assertEqual(before["gate_digest"], artifact["metadata"]["gate_digest"])
+
 
 def _approval_required_state() -> dict:
     return _project_state(

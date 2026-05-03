@@ -43,6 +43,7 @@ class Phase6DistributionArtifactTests(unittest.TestCase):
         env["PYTHONPATH"] = str(skill_dir)
 
         self.artifact.run_packaged_cli("show-impact", "--help")
+        self.artifact.run_packaged_cli("apply-invalidation-candidate", "--help")
         subprocess.run(
             [
                 sys.executable,
