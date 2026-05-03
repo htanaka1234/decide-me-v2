@@ -121,10 +121,11 @@ Runtime invariants:
   and the normal hot-path read cache.
 - `runtime-index.json` checkpoints projection freshness; refresh it with `compact-runtime` only
   after it verifies projections against the event log, or regenerate it with `rebuild-projections`.
-- Decision Stack Graph impact analysis, invalidation candidates, bounded stack graph views, and
-  impact report exports are read-only diagnostics. They must not emit events, change object
-  status, create invalidation or supersession links, accept candidates, or run an approval
-  workflow.
+- Decision Stack Graph impact analysis, invalidation candidate generation, bounded stack graph
+  views, and impact report exports are read-only diagnostics. They must not emit events or change
+  object status. Materialized invalidation candidates may be applied only through the explicit
+  `apply-invalidation-candidate --approve` workflow, which must regenerate the candidate and pass
+  Safety Gate checks before writing events.
 - Human-readable plan, generic document, impact report, ADR, structured ADR, decision register,
   GitHub issue draft, agent instruction, arc42 architecture, traceability matrix, and verification gap files are derived
   exports, not runtime state. Software-oriented exports are allowed, but they must be derived from

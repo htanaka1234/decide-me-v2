@@ -161,10 +161,12 @@ Inspect Decision Stack Graph diagnostics:
 3. Run `python3 scripts/decide_me.py show-decision-stack --ai-dir .ai/decide-me --object-id O-... --upstream-depth 1 --downstream-depth 2`.
 4. Export a human-readable report with `python3 scripts/decide_me.py export-impact-report --ai-dir .ai/decide-me --object-id O-... --change-kind changed --output .ai/decide-me/exports/impact/O-...md`.
 5. Impact report output paths must resolve under `.ai/decide-me/exports/impact/`.
-6. These commands are read-only diagnostics. They do not emit events, change object status, create
-   invalidation or supersession links, accept candidates, or start an approval workflow.
-   Invalidation candidates may include `proposed_events` event specs, but those specs are not
-   applied.
+6. `show-impact`, `show-invalidation-candidates`, `show-decision-stack`, and
+   `export-impact-report` are read-only diagnostics.
+7. To apply a materialized candidate, run
+   `python3 scripts/decide_me.py apply-invalidation-candidate --ai-dir .ai/decide-me --object-id O-... --change-kind changed --candidate-id IC-... --session-id S-... --approve --reason "..."`.
+   Without `--approve`, this command is dry-run only. Applies regenerate the candidate, evaluate the
+   Safety Gate, and write only through the normal event transaction path.
 
 Inspect Phase 7 register inputs:
 
@@ -298,7 +300,8 @@ reference. Common maintainer operations include:
   and `compact-runtime`
 - `benchmark-runtime` with `DECIDE_ME_PERF=1`
 - `show-impact`, `show-invalidation-candidates`, and `show-decision-stack` for read-only Decision
-  Stack Graph diagnostics
+  Stack Graph diagnostics; `apply-invalidation-candidate` for explicit approved application of
+  materialized invalidation candidates
 - `show-evidence-register`, `show-assumption-register`, and `show-risk-register` for read-only
   Phase 7 register inputs
 - `show-safety-gate` and `show-safety-gates` for read-only Phase 7 safety gate diagnostics
