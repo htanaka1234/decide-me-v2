@@ -12,8 +12,10 @@ class PytestMarkerClassificationTests(unittest.TestCase):
     def test_integration_tests_are_marked_integration(self) -> None:
         self.assertEqual(("integration",), markers_for_test_path("tests/integration/test_runtime_flow.py"))
 
-    def test_smoke_tests_are_marked_smoke(self) -> None:
-        self.assertEqual(("smoke",), markers_for_test_path("tests/smoke/test_full_object_runtime_flow.py"))
+    def test_smoke_tests_are_marked_smoke_and_phase_gate(self) -> None:
+        markers = set(markers_for_test_path("tests/smoke/test_full_object_runtime_flow.py"))
+
+        self.assertEqual({"phase_gate", "smoke"}, markers)
 
     def test_evaluation_scenario_integration_is_slow_evaluation_phase_gate(self) -> None:
         markers = set(markers_for_test_path("tests/integration/test_evaluation_scenarios.py"))

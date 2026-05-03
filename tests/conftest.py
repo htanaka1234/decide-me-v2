@@ -40,7 +40,7 @@ def markers_for_test_path(path: str | Path) -> tuple[str, ...]:
     elif normalized.startswith("tests/integration/"):
         markers.add("integration")
     elif normalized.startswith("tests/smoke/"):
-        markers.add("smoke")
+        markers.update({"phase_gate", "smoke"})
 
     if normalized in EVALUATION_TEST_FILES:
         markers.add("evaluation")

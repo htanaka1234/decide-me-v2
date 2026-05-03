@@ -53,6 +53,11 @@ class Phase10GateScriptTests(unittest.TestCase):
         self.assertIn("==> scenario evaluation", result.stdout)
         self.assertIn("scripts/evaluate_scenarios.py --scenarios tests/scenarios --format json", result.stdout)
 
+    def test_github_actions_gate_has_runtime_timeout(self) -> None:
+        workflow = (REPO_ROOT / ".github/workflows/phase10-gate.yml").read_text(encoding="utf-8")
+
+        self.assertIn("timeout-minutes: 5", workflow)
+
 
 if __name__ == "__main__":
     unittest.main()
