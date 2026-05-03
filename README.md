@@ -167,8 +167,9 @@ Inspect Decision Stack Graph diagnostics:
    `python3 scripts/decide_me.py apply-invalidation-candidate --ai-dir .ai/decide-me --object-id O-... --change-kind changed --candidate-id IC-... --session-id S-... --approve --reason "..."`.
    Without `--approve`, this command is dry-run only. Applies regenerate the candidate, evaluate the
    Safety Gate, and write only through the normal event transaction path. High severity candidates
-   require a current `--safety-approval-id`; critical severity candidates are not automatically
-   applyable in this workflow.
+   require a current `--safety-approval-id`; use `approve-safety-gate --candidate-apply-approval`
+   when the target gate is otherwise approval-free. Critical severity candidates are not
+   automatically applyable in this workflow.
 
 Inspect Phase 7 register inputs:
 

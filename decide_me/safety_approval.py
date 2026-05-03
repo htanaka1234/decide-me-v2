@@ -26,6 +26,7 @@ def approve_safety_gate(
     approved_by: str,
     reason: str,
     expires_at: str | None = None,
+    candidate_apply_approval: bool = False,
 ) -> dict[str, Any]:
     approved_by = _require_text(approved_by, "approved_by")
     reason = _require_text(reason, "reason")
@@ -50,7 +51,7 @@ def approve_safety_gate(
         if result["approval_satisfied"]:
             outcome["approval_artifact_ids"] = result["approval_artifact_ids"]
             return []
-        if not result["approval_required"]:
+        if not result["approval_required"] and not candidate_apply_approval:
             raise ValueError(f"safety gate for {object_id} does not require approval")
 
         outcome["approval_artifact_ids"] = [approval_artifact_id(object_id, result["gate_digest"])]
@@ -64,6 +65,7 @@ def approve_safety_gate(
             approved_at=now,
             expires_at=expires_at,
             domain_registry=domain_registry,
+            candidate_apply_approval=candidate_apply_approval,
         )
         return specs
 
@@ -91,6 +93,7 @@ def build_safety_approval_event_specs(
     approved_at: str,
     expires_at: str | None = None,
     domain_registry: DomainRegistry | None = None,
+    candidate_apply_approval: bool = False,
 ) -> list[dict[str, Any]]:
     result = gate_result or evaluate_safety_gate(
         project_state,
@@ -100,7 +103,9 @@ def build_safety_approval_event_specs(
     )
     if result["gate_status"] == "blocked":
         raise ValueError(_blocked_message(result))
-    if result["approval_satisfied"] or not result["approval_required"]:
+    if result["approval_satisfied"]:
+        return []
+    if not result["approval_required"] and not candidate_apply_approval:
         return []
     approval_level = _approval_level_for_threshold(
         result["approval_threshold"],

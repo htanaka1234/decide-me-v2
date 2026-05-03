@@ -70,12 +70,15 @@ candidate is regenerated from the current projection, the selected candidate mus
 have materialized `proposed_events`, and the command writes through the normal `transact()` path.
 Medium and high severity applies require `--reason`. High severity candidates also require
 `--safety-approval-id`, and that artifact must satisfy the current Safety Gate digest before the
-candidate can become events. Critical severity candidates are not applyable in this Phase 6
-workflow; they require external review or must remain blocked for the Phase 7 Safety Gate policy.
-If the target Safety Gate is blocked, apply fails. If the gate needs approval,
-`--safety-approval-id` must name an active approval artifact that satisfies the current gate digest.
-Manual candidates such as `review`, `revalidate`, `revise`, and `update_revisit_trigger` are not
-applied automatically.
+candidate can become events. When the target object's Safety Gate does not otherwise require
+approval, create the artifact explicitly with
+`approve-safety-gate --candidate-apply-approval`; this records approval for the high severity
+candidate application without changing the gate's own `approval_required` result. Critical severity
+candidates are not applyable in this Phase 6 workflow; they require external review or must remain
+blocked for the Phase 7 Safety Gate policy. If the target Safety Gate is blocked, apply fails. If
+the gate needs approval, `--safety-approval-id` must name an active approval artifact that satisfies
+the current gate digest. Manual candidates such as `review`, `revalidate`, `revise`, and
+`update_revisit_trigger` are not applied automatically.
 
 ## Output
 

@@ -259,6 +259,11 @@ def main(argv: list[str] | None = None) -> int:
     approve_gate.add_argument("--approved-by", required=True)
     approve_gate.add_argument("--reason", required=True)
     approve_gate.add_argument("--expires-at")
+    approve_gate.add_argument(
+        "--candidate-apply-approval",
+        action="store_true",
+        help="record an approval artifact for high severity invalidation candidate application even if the gate does not otherwise require approval",
+    )
 
     show_approvals = subparsers.add_parser(
         "show-safety-approvals",
@@ -596,6 +601,7 @@ def main(argv: list[str] | None = None) -> int:
                     approved_by=args.approved_by,
                     reason=args.reason,
                     expires_at=args.expires_at,
+                    candidate_apply_approval=args.candidate_apply_approval,
                 )
             )
         elif args.command == "show-safety-approvals":

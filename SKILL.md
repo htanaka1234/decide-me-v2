@@ -126,7 +126,9 @@ Runtime invariants:
   object status. Materialized invalidation candidates may be applied only through the explicit
   `apply-invalidation-candidate --approve` workflow, which must regenerate the candidate and pass
   Safety Gate checks before writing events. High severity candidates require a safety approval
-  artifact; critical severity candidates require external review or remain blocked.
+  artifact, created with `approve-safety-gate --candidate-apply-approval` when the target gate does
+  not otherwise require approval; critical severity candidates require external review or remain
+  blocked.
 - Human-readable plan, generic document, impact report, ADR, structured ADR, decision register,
   GitHub issue draft, agent instruction, arc42 architecture, traceability matrix, and verification gap files are derived
   exports, not runtime state. Software-oriented exports are allowed, but they must be derived from
