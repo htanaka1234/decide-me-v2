@@ -3,7 +3,8 @@ from __future__ import annotations
 import unittest
 from copy import deepcopy
 
-from decide_me.safety_gate import build_safety_gate_report, evaluate_safety_gate
+from decide_me.safety_approval import approval_artifact_id, approval_link_id
+from decide_me.safety_gate import SAFETY_APPROVAL_ARTIFACT_TYPE, build_safety_gate_report, evaluate_safety_gate
 from tests.helpers.typed_metadata import assumption_metadata, evidence_metadata, risk_metadata
 
 
@@ -91,6 +92,20 @@ class SafetyGateTests(unittest.TestCase):
         self.assertEqual("critical", result["risk_tier"])
         self.assertEqual("blocked", result["gate_status"])
         self.assertIn("critical_risk_tier", result["blocking_reasons"])
+        self.assertEqual(
+            {
+                "risk_tier": "critical",
+                "approval": "external_review_or_block",
+                "automatic_adoption": "blocked",
+                "reason": "critical_risk_requires_external_review",
+                "required_actions": [
+                    "add_external_review_evidence",
+                    "record_safety_approval",
+                    "split_or_defer_decision",
+                ],
+            },
+            result["risk_policy"],
+        )
         self.assertEqual(["R-001", "R-002"], [risk["object_id"] for risk in result["risks"]])
 
     def test_approval_threshold_uses_highest_related_risk_threshold(self) -> None:
@@ -122,6 +137,38 @@ class SafetyGateTests(unittest.TestCase):
         self.assertTrue(result["approval_required"])
         self.assertEqual("needs_approval", result["gate_status"])
         self.assertEqual(["external_review_required"], result["approval_reasons"])
+        self.assertEqual("optional", result["risk_policy"]["approval"])
+        self.assertEqual("approval_threshold_requires_review", result["risk_policy"]["reason"])
+        self.assertEqual(["record_safety_approval"], result["risk_policy"]["required_actions"])
+
+    def test_critical_risk_remains_blocked_even_with_external_review_approval(self) -> None:
+        project_state = _project_state(
+            objects=[
+                _object("D-001", "decision"),
+                _object("E-001", "evidence", metadata=evidence_metadata()),
+                _object(
+                    "R-001",
+                    "risk",
+                    metadata=risk_metadata(risk_tier="critical", approval_threshold="external_review"),
+                ),
+            ],
+            links=[
+                _link("L-E-001-supports-D-001", "E-001", "supports", "D-001"),
+                _link("L-R-001-constrains-D-001", "R-001", "constrains", "D-001"),
+            ],
+        )
+        before = evaluate_safety_gate(project_state, "D-001")
+        artifact_id = approval_artifact_id("D-001", before["gate_digest"])
+        project_state["objects"].append(_approval_artifact(artifact_id, "D-001", before["gate_digest"]))
+        project_state["links"].append(_link(approval_link_id(artifact_id, "D-001"), artifact_id, "addresses", "D-001"))
+
+        result = evaluate_safety_gate(project_state, "D-001")
+
+        self.assertEqual("blocked", result["gate_status"])
+        self.assertTrue(result["approval_satisfied"])
+        self.assertEqual([artifact_id], result["approval_artifact_ids"])
+        self.assertIn("critical_risk_tier", result["blocking_reasons"])
+        self.assertEqual("blocked", result["risk_policy"]["automatic_adoption"])
 
     def test_reversibility_maps_decision_and_risk_constraints(self) -> None:
         irreversible_state = _project_state(
@@ -304,6 +351,30 @@ def _link(link_id: str, source: str, relation: str, target: str) -> dict:
         "rationale": "Safety gate fixture link.",
         "created_at": "2026-04-28T00:00:00Z",
         "source_event_ids": ["E-link"],
+    }
+
+
+def _approval_artifact(artifact_id: str, object_id: str, gate_digest: str) -> dict:
+    return {
+        "id": artifact_id,
+        "type": "artifact",
+        "title": "External review approval",
+        "body": "External reviewer approved, but critical risk still blocks automatic adoption.",
+        "status": "active",
+        "created_at": "2026-04-28T00:00:00Z",
+        "updated_at": None,
+        "source_event_ids": ["E-approval"],
+        "metadata": {
+            "artifact_type": SAFETY_APPROVAL_ARTIFACT_TYPE,
+            "target_object_id": object_id,
+            "gate_digest": gate_digest,
+            "approval_threshold": "external_review",
+            "approval_level": "external_review",
+            "approved_by": "external-reviewer",
+            "approved_at": "2026-04-28T00:00:00Z",
+            "reason": "External review complete.",
+            "expires_at": None,
+        },
     }
 
 

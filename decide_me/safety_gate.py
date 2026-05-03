@@ -28,6 +28,37 @@ APPROVAL_LEVEL_RANK = {
     "human_review": 2,
     "external_review": 3,
 }
+DEFAULT_RISK_POLICY: dict[str, dict[str, Any]] = {
+    "none": {
+        "approval": "optional",
+        "automatic_adoption": "allowed",
+        "required_actions": [],
+    },
+    "low": {
+        "approval": "optional",
+        "automatic_adoption": "allowed",
+        "required_actions": [],
+    },
+    "medium": {
+        "approval": "explicit",
+        "automatic_adoption": "requires_approval",
+        "required_actions": ["record_safety_approval"],
+    },
+    "high": {
+        "approval": "explicit_with_rationale",
+        "automatic_adoption": "requires_approval",
+        "required_actions": ["record_safety_approval"],
+    },
+    "critical": {
+        "approval": "external_review_or_block",
+        "automatic_adoption": "blocked",
+        "required_actions": [
+            "record_safety_approval",
+            "add_external_review_evidence",
+            "split_or_defer_decision",
+        ],
+    },
+}
 _BLOCKING_RISK_TIERS_FOR_INSUFFICIENT_EVIDENCE = {"critical"}
 _APPROVAL_RISK_TIERS_FOR_INSUFFICIENT_EVIDENCE = {"medium", "high"}
 _REVERSIBILITY_RANK = {
@@ -63,7 +94,7 @@ def evaluate_safety_gate(
     evidence = _evidence_items(target, objects_by_id, links, reference=reference)
     assumptions = _assumption_items(target, objects_by_id, links, reference=reference)
     risks = _risk_items(target, objects_by_id, links)
-    domain_requirements, domain_safety_rules = _domain_overlay(
+    domain_requirements, domain_safety_rules, domain_risk_policy = _domain_overlay(
         target,
         evidence,
         risks,
@@ -97,6 +128,13 @@ def evaluate_safety_gate(
     if any(not item["satisfied"] for item in domain_requirements):
         approval_reasons = _sorted_strings([*approval_reasons, "domain_required_evidence_missing"])
     approval_required = bool(approval_reasons)
+    risk_policy = _risk_policy_result(
+        risk_tier,
+        domain_risk_policy,
+        blocking_reasons=blocking_reasons,
+        approval_reasons=approval_reasons,
+        approval_required=approval_required,
+    )
     source_link_ids = _source_link_ids(evidence, assumptions, risks)
     digest_inputs = _digest_inputs(
         target,
@@ -138,6 +176,7 @@ def evaluate_safety_gate(
         "approval_satisfied": approval_satisfied,
         "approval_artifact_ids": approval_artifact_ids,
         "approval_threshold": approval_threshold,
+        "risk_policy": risk_policy,
         "blocking_reasons": blocking_reasons,
         "warning_reasons": warning_reasons,
         "approval_reasons": approval_reasons,
@@ -303,9 +342,9 @@ def _domain_overlay(
     risks: list[dict[str, Any]],
     *,
     domain_registry: DomainRegistry | None,
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, dict[str, Any]]]:
     if domain_registry is None:
-        return [], []
+        return [], [], {}
     from decide_me.domains.apply import build_interview_policy_from_metadata
 
     policy = build_interview_policy_from_metadata(
@@ -314,11 +353,23 @@ def _domain_overlay(
         label=f"object {target['id']}.metadata",
     )
     if policy.is_generic:
-        return [], []
+        return [], [], {}
     return (
         _domain_requirements(policy, target, evidence),
         _domain_safety_rules(policy, risks),
+        _domain_risk_policy(policy),
     )
+
+
+def _domain_risk_policy(policy: InterviewPolicy) -> dict[str, dict[str, Any]]:
+    return {
+        item.risk_tier: {
+            "approval": item.approval,
+            "automatic_adoption": item.automatic_adoption,
+            "required_actions": list(item.required_actions),
+        }
+        for item in getattr(policy.pack, "risk_policy", ())
+    }
 
 
 def _domain_requirements(
@@ -484,6 +535,51 @@ def _approval_reasons(
     elif approval_threshold == "explicit_acceptance":
         reasons.append("explicit_acceptance_required")
     return _sorted_strings(reasons)
+
+
+def _risk_policy_result(
+    risk_tier: str,
+    domain_policy: dict[str, dict[str, Any]],
+    *,
+    blocking_reasons: list[str],
+    approval_reasons: list[str],
+    approval_required: bool,
+) -> dict[str, Any]:
+    policy = {**DEFAULT_RISK_POLICY[risk_tier], **domain_policy.get(risk_tier, {})}
+    required_actions = list(policy.get("required_actions", []))
+    if approval_required and "record_safety_approval" not in required_actions:
+        required_actions.append("record_safety_approval")
+    if "challenged_evidence" in blocking_reasons and "resolve_challenge_evidence" not in required_actions:
+        required_actions.append("resolve_challenge_evidence")
+    if "insufficient_evidence" in blocking_reasons and "add_or_refresh_evidence" not in required_actions:
+        required_actions.append("add_or_refresh_evidence")
+    if "completed_action_verification_gap" in blocking_reasons and "add_verification_evidence" not in required_actions:
+        required_actions.append("add_verification_evidence")
+    return {
+        "risk_tier": risk_tier,
+        "approval": policy["approval"],
+        "automatic_adoption": policy["automatic_adoption"],
+        "reason": _risk_policy_reason(risk_tier, blocking_reasons, approval_reasons),
+        "required_actions": _sorted_strings(required_actions),
+    }
+
+
+def _risk_policy_reason(
+    risk_tier: str,
+    blocking_reasons: list[str],
+    approval_reasons: list[str],
+) -> str:
+    if risk_tier == "critical":
+        return "critical_risk_requires_external_review"
+    if blocking_reasons:
+        return "blocking_condition_requires_resolution"
+    if "high_risk_tier" in approval_reasons:
+        return "high_risk_requires_explicit_approval"
+    if "medium_risk_tier" in approval_reasons or "insufficient_evidence_requires_approval" in approval_reasons:
+        return "medium_risk_requires_explicit_approval"
+    if approval_reasons:
+        return "approval_threshold_requires_review"
+    return "risk_policy_allows_adoption"
 
 
 def _warning_reasons(

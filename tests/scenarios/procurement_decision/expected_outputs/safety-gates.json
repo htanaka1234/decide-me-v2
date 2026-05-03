@@ -134,6 +134,15 @@
       "object_id": "DEC-pd-candidates",
       "object_type": "decision",
       "reversibility": "reversible",
+      "risk_policy": {
+        "approval": "optional",
+        "automatic_adoption": "allowed",
+        "reason": "approval_threshold_requires_review",
+        "required_actions": [
+          "record_safety_approval"
+        ],
+        "risk_tier": "none"
+      },
       "risk_tier": "none",
       "risks": [],
       "source_link_ids": [
@@ -312,6 +321,13 @@
       "object_id": "DEC-pd-criteria",
       "object_type": "decision",
       "reversibility": "partially_reversible",
+      "risk_policy": {
+        "approval": "optional",
+        "automatic_adoption": "allowed",
+        "reason": "risk_policy_allows_adoption",
+        "required_actions": [],
+        "risk_tier": "none"
+      },
       "risk_tier": "none",
       "risks": [],
       "source_link_ids": [
@@ -608,6 +624,15 @@
       "object_id": "DEC-pd-final",
       "object_type": "decision",
       "reversibility": "partially_reversible",
+      "risk_policy": {
+        "approval": "explicit_with_rationale",
+        "automatic_adoption": "requires_approval",
+        "reason": "high_risk_requires_explicit_approval",
+        "required_actions": [
+          "record_safety_approval"
+        ],
+        "risk_tier": "high"
+      },
       "risk_tier": "high",
       "risks": [
         {
@@ -757,6 +782,13 @@
       "object_id": "DEC-pd-requirements",
       "object_type": "decision",
       "reversibility": "partially_reversible",
+      "risk_policy": {
+        "approval": "optional",
+        "automatic_adoption": "allowed",
+        "reason": "risk_policy_allows_adoption",
+        "required_actions": [],
+        "risk_tier": "none"
+      },
       "risk_tier": "none",
       "risks": [],
       "source_link_ids": [
@@ -815,6 +847,15 @@
       "object_id": "O-action-1eebb47b2426",
       "object_type": "action",
       "reversibility": "partially_reversible",
+      "risk_policy": {
+        "approval": "optional",
+        "automatic_adoption": "allowed",
+        "reason": "approval_threshold_requires_review",
+        "required_actions": [
+          "record_safety_approval"
+        ],
+        "risk_tier": "none"
+      },
       "risk_tier": "none",
       "risks": [],
       "source_link_ids": [],
@@ -871,6 +912,15 @@
       "object_id": "O-action-4f256876bf9d",
       "object_type": "action",
       "reversibility": "reversible",
+      "risk_policy": {
+        "approval": "optional",
+        "automatic_adoption": "allowed",
+        "reason": "approval_threshold_requires_review",
+        "required_actions": [
+          "record_safety_approval"
+        ],
+        "risk_tier": "none"
+      },
       "risk_tier": "none",
       "risks": [],
       "source_link_ids": [],
@@ -927,6 +977,15 @@
       "object_id": "O-action-84541d235359",
       "object_type": "action",
       "reversibility": "partially_reversible",
+      "risk_policy": {
+        "approval": "optional",
+        "automatic_adoption": "allowed",
+        "reason": "approval_threshold_requires_review",
+        "required_actions": [
+          "record_safety_approval"
+        ],
+        "risk_tier": "none"
+      },
       "risk_tier": "none",
       "risks": [],
       "source_link_ids": [],
@@ -984,6 +1043,15 @@
       "object_id": "O-action-bdd443373302",
       "object_type": "action",
       "reversibility": "partially_reversible",
+      "risk_policy": {
+        "approval": "optional",
+        "automatic_adoption": "allowed",
+        "reason": "approval_threshold_requires_review",
+        "required_actions": [
+          "record_safety_approval"
+        ],
+        "risk_tier": "none"
+      },
       "risk_tier": "none",
       "risks": [],
       "source_link_ids": [],

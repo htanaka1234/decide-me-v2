@@ -24,6 +24,25 @@ class DomainPackSchemaTests(unittest.TestCase):
     def test_accepts_research_like_pack_payload(self) -> None:
         self.assertEqual([], list(self.validator.iter_errors(_valid_pack())))
 
+    def test_accepts_optional_risk_policy_override(self) -> None:
+        payload = _valid_pack()
+        payload["risk_policy"] = {
+            "critical": {
+                "approval": "external_review_or_block",
+                "automatic_adoption": "blocked",
+                "required_actions": [
+                    "add_external_review_evidence",
+                    "split_or_defer_decision",
+                ],
+            }
+        }
+
+        pack = domain_pack_from_dict(payload)
+
+        self.assertEqual([], list(self.validator.iter_errors(payload)))
+        self.assertEqual("critical", pack.risk_policy[0].risk_tier)
+        self.assertEqual("external_review_or_block", pack.risk_policy[0].approval)
+
     def test_rejects_invalid_pack_ids(self) -> None:
         for pack_id in ("Research", "research-plan", "9research"):
             with self.subTest(pack_id=pack_id):
@@ -61,6 +80,9 @@ class DomainPackSchemaTests(unittest.TestCase):
             (["evidence_requirements", 0, "evidence_source"], "database"),
             (["risk_types", 0, "default_risk_tier"], "severe"),
             (["risk_types", 0, "default_approval_threshold"], "automatic"),
+            (["risk_policy", "critical", "approval"], "committee"),
+            (["risk_policy", "critical", "automatic_adoption"], "automatic"),
+            (["risk_policy", "critical", "required_actions", 0], "unknown_action"),
             (["documents", 0, "document_type"], "protocol"),
             (["evidence_requirements", 0, "min_confidence"], "certain"),
             (["evidence_requirements", 0, "freshness_required"], "fresh"),
@@ -87,6 +109,9 @@ class DomainPackSchemaTests(unittest.TestCase):
             (["risk_types", 0, "default_risk_tier"], ["high"]),
             (["risk_types", 0, "default_approval_threshold"], {"value": "external_review"}),
             (["safety_rules", 0, "approval_threshold"], ["external_review"]),
+            (["risk_policy", "critical", "approval"], ["external_review_or_block"]),
+            (["risk_policy", "critical", "automatic_adoption"], {"value": "blocked"}),
+            (["risk_policy", "critical", "required_actions"], ["unknown_action"]),
             (["documents", 0, "document_type"], {"value": "research-plan"}),
         )
         for path, value in cases:
@@ -248,6 +273,16 @@ def _valid_pack() -> dict:
                 "reason": "Human-subjects decisions require external review.",
             }
         ],
+        "risk_policy": {
+            "critical": {
+                "approval": "external_review_or_block",
+                "automatic_adoption": "blocked",
+                "required_actions": [
+                    "add_external_review_evidence",
+                    "split_or_defer_decision",
+                ],
+            }
+        },
         "documents": [
             {
                 "document_type": "research-plan",

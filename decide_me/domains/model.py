@@ -157,6 +157,30 @@ class SafetyRuleSpec:
 
 
 @dataclass(frozen=True)
+class RiskPolicySpec:
+    risk_tier: str
+    approval: str
+    automatic_adoption: str
+    required_actions: tuple[str, ...]
+
+    @classmethod
+    def from_dict(cls, risk_tier: str, raw: dict[str, Any]) -> RiskPolicySpec:
+        return cls(
+            risk_tier=risk_tier,
+            approval=raw["approval"],
+            automatic_adoption=raw["automatic_adoption"],
+            required_actions=_tuple(raw["required_actions"]),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "approval": self.approval,
+            "automatic_adoption": self.automatic_adoption,
+            "required_actions": list(self.required_actions),
+        }
+
+
+@dataclass(frozen=True)
 class DocumentSpec:
     document_type: str
     default: bool
@@ -214,11 +238,12 @@ class DomainPack:
     evidence_requirements: tuple[EvidenceRequirementSpec, ...]
     risk_types: tuple[RiskTypeSpec, ...]
     safety_rules: tuple[SafetyRuleSpec, ...]
+    risk_policy: tuple[RiskPolicySpec, ...]
     documents: tuple[DocumentSpec, ...]
     interview: InterviewSpec
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "schema_version": self.schema_version,
             "pack_id": self.pack_id,
             "version": self.version,
@@ -234,6 +259,9 @@ class DomainPack:
             "documents": [item.to_dict() for item in self.documents],
             "interview": self.interview.to_dict(),
         }
+        if self.risk_policy:
+            payload["risk_policy"] = {item.risk_tier: item.to_dict() for item in self.risk_policy}
+        return payload
 
 
 def domain_pack_from_dict(raw: dict[str, Any]) -> DomainPack:
@@ -253,6 +281,10 @@ def domain_pack_from_dict(raw: dict[str, Any]) -> DomainPack:
         ),
         risk_types=tuple(RiskTypeSpec.from_dict(item) for item in raw["risk_types"]),
         safety_rules=tuple(SafetyRuleSpec.from_dict(item) for item in raw["safety_rules"]),
+        risk_policy=tuple(
+            RiskPolicySpec.from_dict(risk_tier, item)
+            for risk_tier, item in sorted(raw.get("risk_policy", {}).items())
+        ),
         documents=tuple(DocumentSpec.from_dict(item) for item in raw["documents"]),
         interview=InterviewSpec.from_dict(raw["interview"]),
     )

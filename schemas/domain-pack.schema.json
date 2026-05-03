@@ -77,6 +77,9 @@
       },
       "uniqueItems": true
     },
+    "risk_policy": {
+      "$ref": "#/$defs/risk_policy"
+    },
     "documents": {
       "type": "array",
       "items": {
@@ -199,6 +202,41 @@
         "medium",
         "high",
         "critical"
+      ]
+    },
+    "risk_policy_tier": {
+      "enum": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "risk_policy_approval": {
+      "enum": [
+        "optional",
+        "explicit",
+        "explicit_with_rationale",
+        "external_review_or_block"
+      ]
+    },
+    "risk_policy_automatic_adoption": {
+      "enum": [
+        "allowed",
+        "requires_approval",
+        "blocked"
+      ]
+    },
+    "risk_policy_required_action": {
+      "enum": [
+        "record_safety_approval",
+        "add_external_review_evidence",
+        "split_or_defer_decision",
+        "reject_or_rework_decision",
+        "resolve_challenge_evidence",
+        "add_or_refresh_evidence",
+        "add_verification_evidence"
       ]
     },
     "approval_threshold": {
@@ -381,6 +419,40 @@
         }
       },
       "additionalProperties": false
+    },
+    "risk_policy_item": {
+      "type": "object",
+      "required": [
+        "approval",
+        "automatic_adoption",
+        "required_actions"
+      ],
+      "properties": {
+        "approval": {
+          "$ref": "#/$defs/risk_policy_approval"
+        },
+        "automatic_adoption": {
+          "$ref": "#/$defs/risk_policy_automatic_adoption"
+        },
+        "required_actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/risk_policy_required_action"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "risk_policy": {
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/$defs/risk_policy_tier"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/risk_policy_item"
+      },
+      "minProperties": 1
     },
     "document": {
       "type": "object",

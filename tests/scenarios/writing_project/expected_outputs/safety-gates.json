@@ -46,6 +46,15 @@
       "object_id": "ACT-wp-draft",
       "object_type": "action",
       "reversibility": "reversible",
+      "risk_policy": {
+        "approval": "optional",
+        "automatic_adoption": "allowed",
+        "reason": "approval_threshold_requires_review",
+        "required_actions": [
+          "record_safety_approval"
+        ],
+        "risk_tier": "none"
+      },
       "risk_tier": "none",
       "risks": [],
       "source_link_ids": [],
@@ -94,6 +103,13 @@
       "object_id": "DEC-wp-goal",
       "object_type": "decision",
       "reversibility": "partially_reversible",
+      "risk_policy": {
+        "approval": "optional",
+        "automatic_adoption": "allowed",
+        "reason": "risk_policy_allows_adoption",
+        "required_actions": [],
+        "risk_tier": "none"
+      },
       "risk_tier": "none",
       "risks": [],
       "source_link_ids": [],
@@ -142,6 +158,13 @@
       "object_id": "DEC-wp-review",
       "object_type": "decision",
       "reversibility": "reversible",
+      "risk_policy": {
+        "approval": "optional",
+        "automatic_adoption": "allowed",
+        "reason": "risk_policy_allows_adoption",
+        "required_actions": [],
+        "risk_tier": "none"
+      },
       "risk_tier": "none",
       "risks": [],
       "source_link_ids": [],
@@ -189,6 +212,13 @@
       "object_id": "DEC-wp-topic",
       "object_type": "decision",
       "reversibility": "reversible",
+      "risk_policy": {
+        "approval": "optional",
+        "automatic_adoption": "allowed",
+        "reason": "risk_policy_allows_adoption",
+        "required_actions": [],
+        "risk_tier": "none"
+      },
       "risk_tier": "none",
       "risks": [],
       "source_link_ids": [],
@@ -245,6 +275,15 @@
       "object_id": "O-action-3de88c1af187",
       "object_type": "action",
       "reversibility": "partially_reversible",
+      "risk_policy": {
+        "approval": "optional",
+        "automatic_adoption": "allowed",
+        "reason": "approval_threshold_requires_review",
+        "required_actions": [
+          "record_safety_approval"
+        ],
+        "risk_tier": "none"
+      },
       "risk_tier": "none",
       "risks": [],
       "source_link_ids": [],
@@ -301,6 +340,15 @@
       "object_id": "O-action-8ba4e6b7c729",
       "object_type": "action",
       "reversibility": "reversible",
+      "risk_policy": {
+        "approval": "optional",
+        "automatic_adoption": "allowed",
+        "reason": "approval_threshold_requires_review",
+        "required_actions": [
+          "record_safety_approval"
+        ],
+        "risk_tier": "none"
+      },
       "risk_tier": "none",
       "risks": [],
       "source_link_ids": [],

@@ -41,9 +41,11 @@ TOP_LEVEL_KEYS = {
     "evidence_requirements",
     "risk_types",
     "safety_rules",
+    "risk_policy",
     "documents",
     "interview",
 }
+REQUIRED_TOP_LEVEL_KEYS = TOP_LEVEL_KEYS - {"risk_policy"}
 DECISION_TYPE_KEYS = {
     "id",
     "label",
@@ -72,6 +74,23 @@ RISK_TYPE_KEYS = {
 }
 SAFETY_RULE_KEYS = {"id", "applies_when", "approval_threshold", "reason"}
 SAFETY_RULE_CONDITION_KEYS = {"risk_types"}
+RISK_POLICY_KEYS = {"approval", "automatic_adoption", "required_actions"}
+RISK_POLICY_APPROVAL_VALUES = {
+    "optional",
+    "explicit",
+    "explicit_with_rationale",
+    "external_review_or_block",
+}
+RISK_POLICY_AUTOMATIC_ADOPTION_VALUES = {"allowed", "requires_approval", "blocked"}
+RISK_POLICY_REQUIRED_ACTION_VALUES = {
+    "record_safety_approval",
+    "add_external_review_evidence",
+    "split_or_defer_decision",
+    "reject_or_rework_decision",
+    "resolve_challenge_evidence",
+    "add_or_refresh_evidence",
+    "add_verification_evidence",
+}
 DOCUMENT_KEYS = {"document_type", "default", "profile_id", "required_sections"}
 INTERVIEW_KEYS = {"domain_hints", "question_templates"}
 
@@ -82,7 +101,7 @@ class DomainPackValidationError(ValueError):
 
 def validate_domain_pack_payload(raw: dict[str, Any]) -> None:
     payload = _require_dict(raw, "domain_pack")
-    _require_keys(payload, TOP_LEVEL_KEYS, "domain_pack")
+    _require_keys(payload, REQUIRED_TOP_LEVEL_KEYS, "domain_pack")
     _reject_unknown_keys(payload, TOP_LEVEL_KEYS, "domain_pack")
     if type(payload.get("schema_version")) is not int:
         raise DomainPackValidationError("domain_pack.schema_version must be an integer")
@@ -125,6 +144,8 @@ def validate_domain_pack_payload(raw: dict[str, Any]) -> None:
         "domain_pack.safety_rules",
         _validate_safety_rule,
     )
+    if "risk_policy" in payload:
+        _validate_risk_policy(payload["risk_policy"], "domain_pack.risk_policy")
     documents = _validate_spec_list(
         payload.get("documents"),
         "domain_pack.documents",
@@ -213,6 +234,28 @@ def _validate_safety_rule(item: dict[str, Any], label: str) -> None:
         raise DomainPackValidationError(f"{label}.applies_when.risk_types must not be empty")
     _require_enum(item.get("approval_threshold"), APPROVAL_THRESHOLD_VALUES, f"{label}.approval_threshold")
     _require_non_empty_string(item.get("reason"), f"{label}.reason")
+
+
+def _validate_risk_policy(value: Any, label: str) -> None:
+    item = _require_dict(value, label)
+    if not item:
+        raise DomainPackValidationError(f"{label} must not be empty when provided")
+    for risk_tier, policy in item.items():
+        _require_enum(risk_tier, RISK_TIER_VALUES | {"none"}, f"{label} key")
+        policy_item = _require_dict(policy, f"{label}.{risk_tier}")
+        _require_keys(policy_item, RISK_POLICY_KEYS, f"{label}.{risk_tier}")
+        _reject_unknown_keys(policy_item, RISK_POLICY_KEYS, f"{label}.{risk_tier}")
+        _require_enum(policy_item.get("approval"), RISK_POLICY_APPROVAL_VALUES, f"{label}.{risk_tier}.approval")
+        _require_enum(
+            policy_item.get("automatic_adoption"),
+            RISK_POLICY_AUTOMATIC_ADOPTION_VALUES,
+            f"{label}.{risk_tier}.automatic_adoption",
+        )
+        _require_enum_list(
+            policy_item.get("required_actions"),
+            RISK_POLICY_REQUIRED_ACTION_VALUES,
+            f"{label}.{risk_tier}.required_actions",
+        )
 
 
 def _validate_document(item: dict[str, Any], label: str) -> None:
@@ -377,6 +420,13 @@ def _require_section_id_list(value: Any, label: str) -> None:
 def _require_enum(value: Any, allowed: set[str], label: str) -> None:
     if not isinstance(value, str) or value not in allowed:
         raise DomainPackValidationError(f"{label} must be one of: {', '.join(sorted(allowed))}")
+
+
+def _require_enum_list(value: Any, allowed: set[str], label: str) -> None:
+    items = _require_list(value, label)
+    for index, item in enumerate(items):
+        _require_enum(item, allowed, f"{label}[{index}]")
+    _reject_duplicate_scalars(items, label)
 
 
 def _reject_duplicate_scalars(items: list[Any], label: str) -> None:

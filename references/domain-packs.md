@@ -86,7 +86,10 @@ valid domain-neutral runtime objects.
 Safety Gate evaluation reads decision, evidence, and risk pack metadata when a registry is
 provided. Required evidence from `decision_types[].required_evidence` appears in
 `domain_requirements`; matching pack safety rules appear in `domain_safety_rules`; both contribute
-to the gate digest. Pack-free and `generic` objects keep the core Safety Gate behavior.
+to the gate digest. Packs may also provide an optional `risk_policy` override for a risk tier's
+approval posture, automatic adoption policy, and required actions. Pack-free and `generic` objects
+keep the core Safety Gate behavior, where critical risk blocks automatic adoption even if an
+approval artifact exists.
 
 For Phase 9, runtime objects and sessions store `domain_pack_id`, `domain_pack_version`, and `domain_pack_digest` together. Runtime validation and pack-aware evaluation compare those stored values with the currently loaded pack and fail fast on version or digest mismatch. Historical pack replay by digest is future work; until then, stale pack metadata is treated as a validation or evaluation error rather than silently reinterpreting past decisions with the current pack.
 

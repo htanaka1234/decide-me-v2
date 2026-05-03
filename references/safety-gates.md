@@ -68,6 +68,7 @@ Single-object evaluation returns a safety gate result:
 - `reversibility`: `unknown`, `reversible`, `partially_reversible`, or `irreversible`
 - `evidence_coverage`: `sufficient`, `insufficient`, or `challenged`
 - `approval_required`, `approval_satisfied`, `approval_artifact_ids`, and `approval_threshold`
+- `risk_policy`: the effective domain-neutral or pack-overridden policy for the current risk tier
 - `gate_digest` and `digest_inputs`
 - `blocking_reasons`, `warning_reasons`, and `approval_reasons`
 - `evidence`, `assumptions`, `risks`, and `source_link_ids`
@@ -114,3 +115,18 @@ approval is required, or when a current approval artifact matches the gate diges
 
 Insufficient evidence is tier-sensitive: `none` and `low` risk produce warnings, `medium` and
 `high` risk require approval, and `critical` risk is blocked. Challenge evidence is always blocked.
+
+## Risk Policy
+
+The domain-neutral default policy is:
+
+- `low`: approval is optional.
+- `medium`: explicit approval is required when the gate has approval reasons.
+- `high`: explicit approval with rationale is required.
+- `critical`: automatic adoption is blocked; explicit approval alone is insufficient.
+
+For `critical` risk, `risk_policy.reason` is `critical_risk_requires_external_review`,
+`risk_policy.automatic_adoption` is `blocked`, and the required actions are to record a safety
+approval, add external review evidence, and split or defer the decision. A domain pack may override
+the policy text and required actions with an optional `risk_policy` section, but it cannot bypass
+ordinary blocking reasons such as challenged evidence or an invalidated target.

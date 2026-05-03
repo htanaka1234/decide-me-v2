@@ -38,6 +38,13 @@
       "object_id": "ACT-hp-reset",
       "object_type": "action",
       "reversibility": "reversible",
+      "risk_policy": {
+        "approval": "optional",
+        "automatic_adoption": "allowed",
+        "reason": "risk_policy_allows_adoption",
+        "required_actions": [],
+        "risk_tier": "none"
+      },
       "risk_tier": "none",
       "risks": [],
       "source_link_ids": [],
@@ -85,6 +92,13 @@
       "object_id": "DEC-hp-option",
       "object_type": "decision",
       "reversibility": "reversible",
+      "risk_policy": {
+        "approval": "optional",
+        "automatic_adoption": "allowed",
+        "reason": "risk_policy_allows_adoption",
+        "required_actions": [],
+        "risk_tier": "none"
+      },
       "risk_tier": "none",
       "risks": [],
       "source_link_ids": [],
@@ -132,6 +146,13 @@
       "object_id": "O-action-a2d391016881",
       "object_type": "action",
       "reversibility": "reversible",
+      "risk_policy": {
+        "approval": "optional",
+        "automatic_adoption": "allowed",
+        "reason": "risk_policy_allows_adoption",
+        "required_actions": [],
+        "risk_tier": "none"
+      },
       "risk_tier": "none",
       "risks": [],
       "source_link_ids": [],
