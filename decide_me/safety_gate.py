@@ -41,8 +41,8 @@ DEFAULT_RISK_POLICY: dict[str, dict[str, Any]] = {
     },
     "medium": {
         "approval": "explicit",
-        "automatic_adoption": "requires_approval",
-        "required_actions": ["record_safety_approval"],
+        "automatic_adoption": "allowed",
+        "required_actions": [],
     },
     "high": {
         "approval": "explicit_with_rationale",
@@ -56,6 +56,7 @@ DEFAULT_RISK_POLICY: dict[str, dict[str, Any]] = {
             "record_safety_approval",
             "add_external_review_evidence",
             "split_or_defer_decision",
+            "reject_or_rework_decision",
         ],
     },
 }
@@ -150,6 +151,7 @@ def evaluate_safety_gate(
         risks=risks,
         domain_requirements=domain_requirements,
         domain_safety_rules=domain_safety_rules,
+        risk_policy=risk_policy,
         verification_gap=verification_gap,
         source_link_ids=source_link_ids,
     )
@@ -546,22 +548,42 @@ def _risk_policy_result(
     approval_required: bool,
 ) -> dict[str, Any]:
     policy = {**DEFAULT_RISK_POLICY[risk_tier], **domain_policy.get(risk_tier, {})}
-    required_actions = list(policy.get("required_actions", []))
-    if approval_required and "record_safety_approval" not in required_actions:
-        required_actions.append("record_safety_approval")
-    if "challenged_evidence" in blocking_reasons and "resolve_challenge_evidence" not in required_actions:
-        required_actions.append("resolve_challenge_evidence")
-    if "insufficient_evidence" in blocking_reasons and "add_or_refresh_evidence" not in required_actions:
-        required_actions.append("add_or_refresh_evidence")
-    if "completed_action_verification_gap" in blocking_reasons and "add_verification_evidence" not in required_actions:
-        required_actions.append("add_verification_evidence")
+    required_actions = set(policy.get("required_actions", [])) if blocking_reasons or approval_required else set()
+    automatic_adoption = _automatic_adoption_status(blocking_reasons, approval_required)
+    approval = policy["approval"]
+    if approval_required:
+        required_actions.add("record_safety_approval")
+    if "challenged_evidence" in blocking_reasons:
+        required_actions.add("resolve_challenge_evidence")
+    if "insufficient_evidence" in blocking_reasons:
+        required_actions.add("add_or_refresh_evidence")
+    if "completed_action_verification_gap" in blocking_reasons:
+        required_actions.add("add_verification_evidence")
+    if risk_tier == "critical":
+        approval = "external_review_or_block"
+        automatic_adoption = "blocked"
+        required_actions.add("record_safety_approval")
+        required_actions.add("add_external_review_evidence")
+        required_actions.add("split_or_defer_decision")
+        required_actions.add("reject_or_rework_decision")
     return {
         "risk_tier": risk_tier,
-        "approval": policy["approval"],
-        "automatic_adoption": policy["automatic_adoption"],
+        "approval": approval,
+        "automatic_adoption": automatic_adoption,
         "reason": _risk_policy_reason(risk_tier, blocking_reasons, approval_reasons),
         "required_actions": _sorted_strings(required_actions),
     }
+
+
+def _automatic_adoption_status(
+    blocking_reasons: list[str],
+    approval_required: bool,
+) -> str:
+    if blocking_reasons:
+        return "blocked"
+    if approval_required:
+        return "requires_approval"
+    return "allowed"
 
 
 def _risk_policy_reason(
@@ -629,6 +651,7 @@ def _digest_inputs(
     risks: list[dict[str, Any]],
     domain_requirements: list[dict[str, Any]],
     domain_safety_rules: list[dict[str, Any]],
+    risk_policy: dict[str, Any],
     verification_gap: dict[str, Any] | None,
     source_link_ids: list[str],
 ) -> dict[str, Any]:
@@ -647,6 +670,7 @@ def _digest_inputs(
         "risks": [_digest_item(item) for item in risks],
         "domain_requirements": [_digest_item(item) for item in domain_requirements],
         "domain_safety_rules": [_digest_item(item) for item in domain_safety_rules],
+        "risk_policy": _digest_item(risk_policy),
         "verification_gap": verification_gap,
         "source_link_ids": source_link_ids,
     }

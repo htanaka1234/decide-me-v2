@@ -43,6 +43,20 @@ class DomainPackSchemaTests(unittest.TestCase):
         self.assertEqual("critical", pack.risk_policy[0].risk_tier)
         self.assertEqual("external_review_or_block", pack.risk_policy[0].approval)
 
+    def test_domain_pack_risk_policy_cannot_allow_critical_automatic_adoption(self) -> None:
+        cases = (
+            ("approval", "optional", "critical.approval"),
+            ("automatic_adoption", "allowed", "critical.automatic_adoption"),
+        )
+        for key, value, message in cases:
+            with self.subTest(key=key):
+                payload = _valid_pack()
+                payload["risk_policy"]["critical"][key] = value
+
+                self.assertTrue(list(self.validator.iter_errors(payload)))
+                with self.assertRaisesRegex(DomainPackValidationError, message):
+                    validate_domain_pack_payload(payload)
+
     def test_rejects_invalid_pack_ids(self) -> None:
         for pack_id in ("Research", "research-plan", "9research"):
             with self.subTest(pack_id=pack_id):

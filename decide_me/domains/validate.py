@@ -256,6 +256,15 @@ def _validate_risk_policy(value: Any, label: str) -> None:
             RISK_POLICY_REQUIRED_ACTION_VALUES,
             f"{label}.{risk_tier}.required_actions",
         )
+        if risk_tier == "critical":
+            if policy_item["approval"] != "external_review_or_block":
+                raise DomainPackValidationError(
+                    f"{label}.critical.approval must be external_review_or_block"
+                )
+            if policy_item["automatic_adoption"] != "blocked":
+                raise DomainPackValidationError(
+                    f"{label}.critical.automatic_adoption must be blocked"
+                )
 
 
 def _validate_document(item: dict[str, Any], label: str) -> None:

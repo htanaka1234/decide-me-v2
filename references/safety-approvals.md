@@ -46,8 +46,8 @@ Blocked gates cannot be satisfied by approval. This is especially important for 
 an external-review approval artifact can be recorded for audit, but automatic adoption remains
 blocked until the decision is split, deferred, rejected, or reworked. Gates that need approval
 become `passed` only when a matching current approval artifact exists. If evidence, assumptions,
-risks, or safety-relevant links change, the gate digest changes and the old approval no longer
-satisfies the gate.
+risks, safety-relevant links, or the effective risk policy change, the gate digest changes and the
+old approval no longer satisfies the gate.
 
 Re-approving the same target and gate digest reuses the deterministic artifact id. If the prior
 artifact is expired, inactive, or missing its `addresses` link, the command refreshes that artifact

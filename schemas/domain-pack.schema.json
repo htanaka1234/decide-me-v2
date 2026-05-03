@@ -449,6 +449,25 @@
       "propertyNames": {
         "$ref": "#/$defs/risk_policy_tier"
       },
+      "properties": {
+        "critical": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/risk_policy_item"
+            },
+            {
+              "properties": {
+                "approval": {
+                  "const": "external_review_or_block"
+                },
+                "automatic_adoption": {
+                  "const": "blocked"
+                }
+              }
+            }
+          ]
+        }
+      },
       "additionalProperties": {
         "$ref": "#/$defs/risk_policy_item"
       },
