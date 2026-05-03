@@ -348,6 +348,25 @@ PYTHONPATH=. python3 -m unittest discover -s tests/smoke -v
 PYTHONPATH=. python3 -m unittest discover -s tests/integration -v
 ```
 
+Pytest is also supported for marked release and maintenance slices:
+
+```bash
+PYTHONPATH=. python3 -m pytest -m "unit" -q
+PYTHONPATH=. python3 -m pytest -m "phase_gate" -q
+PYTHONPATH=. python3 -m pytest -m "evaluation" -q
+PYTHONPATH=. python3 -m pytest -m "integration and not slow" -q
+PYTHONPATH=. python3 -m pytest -m "slow" -q
+```
+
+Run the Phase 10 release-readiness gate with:
+
+```bash
+PYTHONPATH=. python3 scripts/run_phase10_gate.py
+```
+
+The gate runs the `unit or phase_gate` pytest slice and then the committed Phase 10 scenario
+evaluation runner in JSON mode.
+
 Run the full test suite with:
 
 ```bash
@@ -378,6 +397,7 @@ PYTHONPATH=. python3 scripts/evaluate_scenarios.py --scenarios tests/scenarios -
 - `decide_me/`: runtime implementation
 - `scripts/decide_me.py`: deterministic CLI
 - `scripts/evaluate_scenarios.py`: development-only Phase 10 evaluation runner
+- `scripts/run_phase10_gate.py`: CI/local Phase 10 release-readiness gate
 - `requirements.txt`: runtime dependency declarations, including PyYAML for declarative pack YAML
   loading
 - `requirements-dev.txt`: development-only dependencies for schema validation tests
