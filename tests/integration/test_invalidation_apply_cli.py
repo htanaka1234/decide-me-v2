@@ -41,7 +41,36 @@ class InvalidationApplyCliTests(unittest.TestCase):
             self.assertFalse(result["approved"])
             self.assertEqual(candidate["candidate_id"], result["candidate_id"])
             self.assertEqual(["E-043f3fe15492-01", "E-043f3fe15492-02"], _event_ids(result["proposed_events"]))
+            self.assertEqual([], result["committed_events"])
             self.assertEqual(before_events, event_hash_snapshot(ai_dir))
+            self.assertEqual(before_runtime, runtime_state_snapshot(ai_dir))
+
+    def test_apply_candidate_dry_run_validates_explicit_session_id(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = build_impact_runtime(Path(tmp))
+            candidate = _candidate(ai_dir, "add_verification")
+            before_runtime = runtime_state_snapshot(ai_dir)
+
+            result = run_cli(
+                "apply-invalidation-candidate",
+                "--ai-dir",
+                str(ai_dir),
+                "--object-id",
+                "DEC-001",
+                "--change-kind",
+                "invalidated",
+                "--max-depth",
+                "1",
+                "--include-low-severity",
+                "--candidate-id",
+                candidate["candidate_id"],
+                "--session-id",
+                "S-missing",
+                check=False,
+            )
+
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn("unknown session_id: S-missing", result.stderr)
             self.assertEqual(before_runtime, runtime_state_snapshot(ai_dir))
 
     def test_apply_candidate_requires_reason_and_safety_approval_when_gate_needs_approval(self) -> None:
@@ -145,6 +174,11 @@ class InvalidationApplyCliTests(unittest.TestCase):
         self.assertEqual("applied", result["status"])
         self.assertTrue(result["approved"])
         self.assertEqual(["E-043f3fe15492-01", "E-043f3fe15492-02"], result["event_ids"])
+        self.assertEqual(result["event_ids"], _event_ids(result["committed_events"]))
+        self.assertEqual(["object_recorded", "object_linked"], _event_types(result["committed_events"]))
+        self.assertEqual([session_id, session_id], _event_sessions(result["committed_events"]))
+        self.assertTrue(all(event["tx_id"] for event in result["committed_events"]))
+        self.assertEqual([1, 2], [event["tx_index"] for event in result["committed_events"]])
         self.assertTrue(any(path.startswith("events/") for path in changed))
         self.assertIn("VER-043f3fe15492", project_state)
         self.assertIn("L-VER-043f3fe15492-verifies-ACT-001", project_state)
@@ -212,6 +246,14 @@ def _open_session_id(ai_dir: Path) -> str:
 
 def _event_ids(specs: list[dict]) -> list[str]:
     return [spec["event_id"] for spec in specs]
+
+
+def _event_types(specs: list[dict]) -> list[str]:
+    return [spec["event_type"] for spec in specs]
+
+
+def _event_sessions(specs: list[dict]) -> list[str]:
+    return [spec["session_id"] for spec in specs]
 
 
 if __name__ == "__main__":

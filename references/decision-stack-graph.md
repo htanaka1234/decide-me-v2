@@ -179,7 +179,8 @@ CLI commands and derived Markdown impact reports. Candidate generation and impac
 cascade invalidation, create links, change object status, accept candidates, or run approval
 workflows. Materialized invalidation candidates may be applied only through the explicit
 `apply-invalidation-candidate --approve` workflow, which regenerates the candidate, evaluates the
-Safety Gate, and writes through the normal transaction path.
+Safety Gate, requires a safety approval artifact for high severity candidates, blocks critical
+severity candidates for external review, and writes through the normal transaction path.
 
 Phase 7 preparation adds read-only register projections for evidence, assumptions, and risks.
 The register commands aggregate typed metadata and relation ids from `project_state.objects` and

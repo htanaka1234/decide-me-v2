@@ -104,6 +104,7 @@ def apply_invalidation_candidate(
 
     if not approve:
         bundle = load_runtime(runtime_paths(ai_dir))
+        dry_run_session_id = _select_apply_session(bundle, session_id) if session_id is not None else None
         report = generate_invalidation_candidates(
             bundle["project_state"],
             object_id,
@@ -124,7 +125,7 @@ def apply_invalidation_candidate(
             gate,
             approved=False,
             event_ids=[],
-            session_id=session_id,
+            session_id=dry_run_session_id,
             reason=reason,
             actor=actor,
         )
@@ -180,6 +181,7 @@ def apply_invalidation_candidate(
         session_id=outcome.get("session_id"),
         reason=reason,
         actor=actor,
+        committed_events=_event_summaries(events),
         gate_before=outcome.get("gate_before"),
     )
 
@@ -600,8 +602,20 @@ def _validate_candidate_application(
             f"invalidation candidate {candidate['candidate_id']} cannot be applied automatically; "
             f"materialization_status={candidate['materialization_status']}"
         )
+    if candidate["severity"] == "critical":
+        raise ValueError("critical severity candidate requires external review or must be blocked")
     if candidate["severity"] in _REASON_REQUIRED_SEVERITIES and reason is None:
         raise ValueError(f"reason is required to apply {candidate['severity']} severity candidate")
+    if candidate["severity"] == "high":
+        if not safety_approval_id:
+            raise ValueError(
+                f"safety approval artifact is required for high severity candidate {candidate['candidate_id']}"
+            )
+        if safety_approval_id not in gate["approval_artifact_ids"]:
+            raise ValueError(
+                f"safety approval artifact {safety_approval_id} does not satisfy current gate "
+                f"{gate['gate_digest']}"
+            )
     if gate["gate_status"] == "blocked":
         joined = ", ".join(gate["blocking_reasons"]) or "blocked"
         raise ValueError(f"safety gate blocks candidate target {candidate['target_object_id']}: {joined}")
@@ -695,6 +709,7 @@ def _apply_result(
     session_id: str | None,
     reason: str | None,
     actor: str | None,
+    committed_events: list[dict[str, Any]] | None = None,
     gate_before: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     result = {
@@ -711,6 +726,7 @@ def _apply_result(
         "actor": actor,
         "reason": reason,
         "event_ids": event_ids,
+        "committed_events": committed_events or [],
         "proposed_events": candidate["proposed_events"],
         "safety_gate": {
             "gate_status": gate["gate_status"],
@@ -735,6 +751,19 @@ def _apply_result(
             "approval_reasons": gate_before["approval_reasons"],
         }
     return result
+
+
+def _event_summaries(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "tx_id": event.get("tx_id"),
+            "tx_index": event.get("tx_index"),
+            "event_id": event["event_id"],
+            "event_type": event["event_type"],
+            "session_id": event.get("session_id"),
+        }
+        for event in events
+    ]
 
 
 def _require_text(value: str | None, label: str) -> str:

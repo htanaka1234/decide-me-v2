@@ -68,10 +68,14 @@ python3 scripts/decide_me.py apply-invalidation-candidate \
 Without `--approve`, the command is dry-run only and writes no events. With `--approve`, the
 candidate is regenerated from the current projection, the selected candidate must still exist and
 have materialized `proposed_events`, and the command writes through the normal `transact()` path.
-Medium and high severity applies require `--reason`. If the target Safety Gate is blocked, apply
-fails. If the gate needs approval, `--safety-approval-id` must name an active approval artifact that
-satisfies the current gate digest. Manual candidates such as `review`, `revalidate`, `revise`, and
-`update_revisit_trigger` are not applied automatically.
+Medium and high severity applies require `--reason`. High severity candidates also require
+`--safety-approval-id`, and that artifact must satisfy the current Safety Gate digest before the
+candidate can become events. Critical severity candidates are not applyable in this Phase 6
+workflow; they require external review or must remain blocked for the Phase 7 Safety Gate policy.
+If the target Safety Gate is blocked, apply fails. If the gate needs approval,
+`--safety-approval-id` must name an active approval artifact that satisfies the current gate digest.
+Manual candidates such as `review`, `revalidate`, `revise`, and `update_revisit_trigger` are not
+applied automatically.
 
 ## Output
 
@@ -125,7 +129,10 @@ them as persisted runtime state.
 `apply-invalidation-candidate` is intentionally conservative. It does not trust candidate payloads
 from a previous CLI response; it regenerates candidates from the current projection and looks up the
 requested `candidate_id`. Missing candidates are treated as unknown or stale. Event application
-uses normal transaction validation, projection validation, and the runtime write lock.
+uses normal transaction validation, projection validation, and the runtime write lock. Dry-runs
+also validate an explicitly supplied `--session-id` so a later approved apply will target the same
+open session. Applied results include both the original candidate `proposed_events` and committed
+event summaries with `tx_id`, `tx_index`, `event_id`, `event_type`, and `session_id` for audit.
 
 ## Classification
 
