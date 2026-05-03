@@ -299,6 +299,15 @@ per-scenario evaluation, snapshot, failure, mismatch, and update counts for auto
 
 ## Maintainer commands
 
+Use the Phase 10 release-readiness gate for CI and local final checks:
+
+```bash
+PYTHONPATH=. python3 scripts/run_phase10_gate.py
+```
+
+The gate runs the pytest `unit or phase_gate` slice first, then runs the committed scenario
+evaluation runner in JSON mode. The corresponding GitHub Actions workflow is `.github/workflows/phase10-gate.yml`.
+
 Use the scenario integration test for committed snapshot drift:
 
 ```bash
@@ -316,6 +325,16 @@ change:
 
 ```bash
 PYTHONPATH=. python3 scripts/evaluate_scenarios.py --scenarios tests/scenarios --update-snapshots
+```
+
+Pytest markers are assigned automatically during collection:
+
+```bash
+PYTHONPATH=. python3 -m pytest -m "unit" -q
+PYTHONPATH=. python3 -m pytest -m "phase_gate" -q
+PYTHONPATH=. python3 -m pytest -m "evaluation" -q
+PYTHONPATH=. python3 -m pytest -m "integration and not slow" -q
+PYTHONPATH=. python3 -m pytest -m "slow" -q
 ```
 
 ## Distribution boundary

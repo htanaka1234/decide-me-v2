@@ -87,6 +87,10 @@
   `PYTHONPATH=. python3 scripts/evaluate_scenarios.py --scenarios tests/scenarios --format json`.
   Snapshot updates require the explicit `--update-snapshots` flag and should be committed only for
   intentional evaluation-output changes.
+- Run the Phase 10 release-readiness gate with
+  `PYTHONPATH=. python3 scripts/run_phase10_gate.py`.
+- Pytest marker slices are available for `unit`, `integration`, `evaluation`, `slow`,
+  `phase_gate`, and `smoke`.
 - Use `python3 scripts/decide_me.py --help` for the command reference.
 - Common runtime commands include `bootstrap`, `create-session`, `list-sessions`,
   `show-session`, `resume-session`, `advance-session`, `handle-reply`, `close-session`,
