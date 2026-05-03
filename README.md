@@ -193,6 +193,8 @@ Inspect Phase 7 safety gates:
    valid only for the current `gate_digest`; approval writes require an existing mutable session.
 7. Evidence-based resolution records evidence but leaves the decision open when the projected gate
    needs approval. Approve the current digest, then retry the evidence resolution.
+8. Critical risk blocks automatic adoption. Explicit approval alone is not sufficient; the gate
+   reports required actions for external review, splitting/deferment, or rejection/rework.
 
 Inspect Phase 7 stale diagnostics:
 
@@ -307,7 +309,8 @@ reference. Common maintainer operations include:
   materialized invalidation candidates
 - `show-evidence-register`, `show-assumption-register`, and `show-risk-register` for read-only
   Phase 7 register inputs
-- `show-safety-gate` and `show-safety-gates` for read-only Phase 7 safety gate diagnostics
+- `show-safety-gate` and `show-safety-gates` for read-only Phase 7 safety gate diagnostics,
+  including the effective risk policy for high and critical risk
 - `show-stale-assumptions`, `show-stale-evidence`, `show-verification-gaps`, and
   `show-revisit-due` for read-only Phase 7 stale diagnostics
 - `export-impact-report` to write a derived Markdown impact report without changing runtime state

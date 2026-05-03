@@ -68,6 +68,7 @@ Single-object evaluation returns a safety gate result:
 - `reversibility`: `unknown`, `reversible`, `partially_reversible`, or `irreversible`
 - `evidence_coverage`: `sufficient`, `insufficient`, or `challenged`
 - `approval_required`, `approval_satisfied`, `approval_artifact_ids`, and `approval_threshold`
+- `risk_policy`: the effective domain-neutral or pack-overridden policy for the current risk tier
 - `gate_digest` and `digest_inputs`
 - `blocking_reasons`, `warning_reasons`, and `approval_reasons`
 - `evidence`, `assumptions`, `risks`, and `source_link_ids`
@@ -113,4 +114,26 @@ approval is required, or when a current approval artifact matches the gate diges
 `needs_approval`.
 
 Insufficient evidence is tier-sensitive: `none` and `low` risk produce warnings, `medium` and
-`high` risk require approval, and `critical` risk is blocked. Challenge evidence is always blocked.
+`high` risk require approval when approval reasons are present, and `critical` risk is blocked.
+Challenge evidence is always blocked.
+
+## Risk Policy
+
+The domain-neutral default policy is:
+
+- `low`: approval is optional.
+- `medium`: explicit approval is required when the gate has approval reasons.
+- `high`: explicit approval with rationale is required.
+- `critical`: automatic adoption is blocked; explicit approval alone is insufficient.
+
+`risk_policy` is part of `gate_digest`, so approval artifacts are tied to the policy in effect at
+the time they were recorded. `risk_policy.approval` and `risk_policy.automatic_adoption` are
+effective gate outputs, not bypass paths. When the gate requires approval, the displayed approval
+posture cannot be weaker than `explicit`; high-risk approval cannot be weaker than
+`explicit_with_rationale`. Blocking reasons make automatic adoption `blocked`, approval reasons make
+it `requires_approval`, and otherwise it is `allowed`. For `critical` risk, `risk_policy.reason` is
+`critical_risk_requires_external_review`, `risk_policy.automatic_adoption` is `blocked`, and the
+required actions are to record a safety approval, add external review evidence, split or defer the
+decision, and reject or rework it when appropriate. A domain pack may override policy text and
+required actions with an optional `risk_policy` section, but it cannot allow critical automatic
+adoption or bypass ordinary blocking reasons such as challenged evidence or an invalidated target.

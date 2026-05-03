@@ -42,6 +42,9 @@ class SafetyGateSchemaTests(unittest.TestCase):
             (evaluate_safety_gate(_valid_project_state(), "D-001"), ["risk_tier"], "severe"),
             (evaluate_safety_gate(_valid_project_state(), "D-001"), ["evidence_coverage"], "partial"),
             (evaluate_safety_gate(_valid_project_state(), "D-001"), ["approval_threshold"], "auto"),
+            (evaluate_safety_gate(_valid_project_state(), "D-001"), ["risk_policy", "approval"], "committee"),
+            (evaluate_safety_gate(_valid_project_state(), "D-001"), ["risk_policy", "automatic_adoption"], "auto"),
+            (evaluate_safety_gate(_valid_project_state(), "D-001"), ["risk_policy", "reason"], "unknown_reason"),
         )
         for payload, path, value in cases:
             with self.subTest(path=path):

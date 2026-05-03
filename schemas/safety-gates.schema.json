@@ -111,6 +111,42 @@
         "domain_required_evidence_missing"
       ]
     },
+    "risk_policy_approval": {
+      "enum": [
+        "optional",
+        "explicit",
+        "explicit_with_rationale",
+        "external_review_or_block"
+      ]
+    },
+    "risk_policy_automatic_adoption": {
+      "enum": [
+        "allowed",
+        "requires_approval",
+        "blocked"
+      ]
+    },
+    "risk_policy_reason": {
+      "enum": [
+        "critical_risk_requires_external_review",
+        "blocking_condition_requires_resolution",
+        "high_risk_requires_explicit_approval",
+        "medium_risk_requires_explicit_approval",
+        "approval_threshold_requires_review",
+        "risk_policy_allows_adoption"
+      ]
+    },
+    "risk_policy_required_action": {
+      "enum": [
+        "record_safety_approval",
+        "add_external_review_evidence",
+        "split_or_defer_decision",
+        "reject_or_rework_decision",
+        "resolve_challenge_evidence",
+        "add_or_refresh_evidence",
+        "add_verification_evidence"
+      ]
+    },
     "confidence": {
       "enum": [
         "low",
@@ -455,6 +491,38 @@
       },
       "additionalProperties": false
     },
+    "risk_policy": {
+      "type": "object",
+      "required": [
+        "risk_tier",
+        "approval",
+        "automatic_adoption",
+        "reason",
+        "required_actions"
+      ],
+      "properties": {
+        "risk_tier": {
+          "$ref": "#/$defs/risk_tier"
+        },
+        "approval": {
+          "$ref": "#/$defs/risk_policy_approval"
+        },
+        "automatic_adoption": {
+          "$ref": "#/$defs/risk_policy_automatic_adoption"
+        },
+        "reason": {
+          "$ref": "#/$defs/risk_policy_reason"
+        },
+        "required_actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/risk_policy_required_action"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
     "safety_gate_result": {
       "type": "object",
       "required": [
@@ -471,6 +539,7 @@
         "approval_satisfied",
         "approval_artifact_ids",
         "approval_threshold",
+        "risk_policy",
         "blocking_reasons",
         "warning_reasons",
         "approval_reasons",
@@ -526,6 +595,9 @@
         },
         "approval_threshold": {
           "$ref": "#/$defs/approval_threshold"
+        },
+        "risk_policy": {
+          "$ref": "#/$defs/risk_policy"
         },
         "blocking_reasons": {
           "type": "array",

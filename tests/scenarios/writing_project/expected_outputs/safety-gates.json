@@ -25,6 +25,15 @@
         "object_id": "ACT-wp-draft",
         "object_type": "action",
         "reversibility": "reversible",
+        "risk_policy": {
+          "approval": "explicit",
+          "automatic_adoption": "requires_approval",
+          "reason": "approval_threshold_requires_review",
+          "required_actions": [
+            "record_safety_approval"
+          ],
+          "risk_tier": "none"
+        },
         "risk_tier": "none",
         "risks": [],
         "source_link_ids": [],
@@ -41,11 +50,20 @@
       "domain_safety_rules": [],
       "evidence": [],
       "evidence_coverage": "insufficient",
-      "gate_digest": "SG-f596b2a45384",
+      "gate_digest": "SG-031adf2f56e1",
       "gate_status": "needs_approval",
       "object_id": "ACT-wp-draft",
       "object_type": "action",
       "reversibility": "reversible",
+      "risk_policy": {
+        "approval": "explicit",
+        "automatic_adoption": "requires_approval",
+        "reason": "approval_threshold_requires_review",
+        "required_actions": [
+          "record_safety_approval"
+        ],
+        "risk_tier": "none"
+      },
       "risk_tier": "none",
       "risks": [],
       "source_link_ids": [],
@@ -76,6 +94,13 @@
         "object_id": "DEC-wp-goal",
         "object_type": "decision",
         "reversibility": "partially_reversible",
+        "risk_policy": {
+          "approval": "optional",
+          "automatic_adoption": "allowed",
+          "reason": "risk_policy_allows_adoption",
+          "required_actions": [],
+          "risk_tier": "none"
+        },
         "risk_tier": "none",
         "risks": [],
         "source_link_ids": [],
@@ -89,11 +114,18 @@
       "domain_safety_rules": [],
       "evidence": [],
       "evidence_coverage": "insufficient",
-      "gate_digest": "SG-a5b87a87c4d4",
+      "gate_digest": "SG-d7dd5b286d55",
       "gate_status": "passed",
       "object_id": "DEC-wp-goal",
       "object_type": "decision",
       "reversibility": "partially_reversible",
+      "risk_policy": {
+        "approval": "optional",
+        "automatic_adoption": "allowed",
+        "reason": "risk_policy_allows_adoption",
+        "required_actions": [],
+        "risk_tier": "none"
+      },
       "risk_tier": "none",
       "risks": [],
       "source_link_ids": [],
@@ -125,6 +157,13 @@
         "object_id": "DEC-wp-review",
         "object_type": "decision",
         "reversibility": "reversible",
+        "risk_policy": {
+          "approval": "optional",
+          "automatic_adoption": "allowed",
+          "reason": "risk_policy_allows_adoption",
+          "required_actions": [],
+          "risk_tier": "none"
+        },
         "risk_tier": "none",
         "risks": [],
         "source_link_ids": [],
@@ -137,11 +176,18 @@
       "domain_safety_rules": [],
       "evidence": [],
       "evidence_coverage": "insufficient",
-      "gate_digest": "SG-609fdcd1ad0b",
+      "gate_digest": "SG-30bb1b02f789",
       "gate_status": "passed",
       "object_id": "DEC-wp-review",
       "object_type": "decision",
       "reversibility": "reversible",
+      "risk_policy": {
+        "approval": "optional",
+        "automatic_adoption": "allowed",
+        "reason": "risk_policy_allows_adoption",
+        "required_actions": [],
+        "risk_tier": "none"
+      },
       "risk_tier": "none",
       "risks": [],
       "source_link_ids": [],
@@ -172,6 +218,13 @@
         "object_id": "DEC-wp-topic",
         "object_type": "decision",
         "reversibility": "reversible",
+        "risk_policy": {
+          "approval": "optional",
+          "automatic_adoption": "allowed",
+          "reason": "risk_policy_allows_adoption",
+          "required_actions": [],
+          "risk_tier": "none"
+        },
         "risk_tier": "none",
         "risks": [],
         "source_link_ids": [],
@@ -184,11 +237,18 @@
       "domain_safety_rules": [],
       "evidence": [],
       "evidence_coverage": "insufficient",
-      "gate_digest": "SG-31b1eaa42ca3",
+      "gate_digest": "SG-4882f5093084",
       "gate_status": "passed",
       "object_id": "DEC-wp-topic",
       "object_type": "decision",
       "reversibility": "reversible",
+      "risk_policy": {
+        "approval": "optional",
+        "automatic_adoption": "allowed",
+        "reason": "risk_policy_allows_adoption",
+        "required_actions": [],
+        "risk_tier": "none"
+      },
       "risk_tier": "none",
       "risks": [],
       "source_link_ids": [],
@@ -223,6 +283,15 @@
         "object_id": "O-action-3de88c1af187",
         "object_type": "action",
         "reversibility": "partially_reversible",
+        "risk_policy": {
+          "approval": "explicit",
+          "automatic_adoption": "requires_approval",
+          "reason": "approval_threshold_requires_review",
+          "required_actions": [
+            "record_safety_approval"
+          ],
+          "risk_tier": "none"
+        },
         "risk_tier": "none",
         "risks": [],
         "source_link_ids": [],
@@ -240,11 +309,20 @@
       "domain_safety_rules": [],
       "evidence": [],
       "evidence_coverage": "insufficient",
-      "gate_digest": "SG-13ffe44c4ac9",
+      "gate_digest": "SG-0a7db20aa394",
       "gate_status": "needs_approval",
       "object_id": "O-action-3de88c1af187",
       "object_type": "action",
       "reversibility": "partially_reversible",
+      "risk_policy": {
+        "approval": "explicit",
+        "automatic_adoption": "requires_approval",
+        "reason": "approval_threshold_requires_review",
+        "required_actions": [
+          "record_safety_approval"
+        ],
+        "risk_tier": "none"
+      },
       "risk_tier": "none",
       "risks": [],
       "source_link_ids": [],
@@ -280,6 +358,15 @@
         "object_id": "O-action-8ba4e6b7c729",
         "object_type": "action",
         "reversibility": "reversible",
+        "risk_policy": {
+          "approval": "explicit",
+          "automatic_adoption": "requires_approval",
+          "reason": "approval_threshold_requires_review",
+          "required_actions": [
+            "record_safety_approval"
+          ],
+          "risk_tier": "none"
+        },
         "risk_tier": "none",
         "risks": [],
         "source_link_ids": [],
@@ -296,11 +383,20 @@
       "domain_safety_rules": [],
       "evidence": [],
       "evidence_coverage": "insufficient",
-      "gate_digest": "SG-b73b1d4b9c13",
+      "gate_digest": "SG-dc842697e769",
       "gate_status": "needs_approval",
       "object_id": "O-action-8ba4e6b7c729",
       "object_type": "action",
       "reversibility": "reversible",
+      "risk_policy": {
+        "approval": "explicit",
+        "automatic_adoption": "requires_approval",
+        "reason": "approval_threshold_requires_review",
+        "required_actions": [
+          "record_safety_approval"
+        ],
+        "risk_tier": "none"
+      },
       "risk_tier": "none",
       "risks": [],
       "source_link_ids": [],
