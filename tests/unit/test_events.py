@@ -4,6 +4,7 @@ import unittest
 
 from decide_me.events import EventValidationError, build_event, validate_event
 from tests.helpers.legacy_term_policy import LEGACY_EVENT_TYPE_TERMS, LEGACY_PROJECT_STATE_TERMS
+from tests.helpers.typed_metadata import assumption_metadata, evidence_metadata, risk_metadata
 
 
 class EventTests(unittest.TestCase):
@@ -40,6 +41,70 @@ class EventTests(unittest.TestCase):
 
         with self.assertRaisesRegex(EventValidationError, "metadata"):
             _event(event_type="object_recorded", payload={"object": obj})
+
+    def test_object_recorded_rejects_malformed_evidence_metadata(self) -> None:
+        metadata = evidence_metadata(confidence="certain")
+
+        with self.assertRaisesRegex(EventValidationError, "evidence object EV-001.metadata.confidence"):
+            _event(
+                event_type="object_recorded",
+                payload={
+                    "object": _object(
+                        "EV-001",
+                        event_id="E-test-1",
+                        object_type="evidence",
+                        metadata=metadata,
+                    )
+                },
+            )
+
+    def test_object_recorded_rejects_malformed_assumption_metadata(self) -> None:
+        metadata = assumption_metadata(invalidates_if_false=["D-001", "D-001"])
+
+        with self.assertRaisesRegex(EventValidationError, "assumption object ASM-001.metadata.invalidates_if_false"):
+            _event(
+                event_type="object_recorded",
+                payload={
+                    "object": _object(
+                        "ASM-001",
+                        event_id="E-test-1",
+                        object_type="assumption",
+                        metadata=metadata,
+                    )
+                },
+            )
+
+    def test_object_recorded_rejects_malformed_risk_metadata(self) -> None:
+        metadata = risk_metadata(risk_tier="severe")
+
+        with self.assertRaisesRegex(EventValidationError, "risk object RISK-001.metadata.risk_tier"):
+            _event(
+                event_type="object_recorded",
+                payload={
+                    "object": _object(
+                        "RISK-001",
+                        event_id="E-test-1",
+                        object_type="risk",
+                        metadata=metadata,
+                    )
+                },
+            )
+
+    def test_object_recorded_rejects_malformed_safety_approval_metadata(self) -> None:
+        metadata = _safety_approval_metadata(approval_level="explicit_acceptance")
+
+        with self.assertRaisesRegex(EventValidationError, "artifact object ART-001.metadata.approval_level"):
+            _event(
+                event_type="object_recorded",
+                payload={
+                    "object": _object(
+                        "ART-001",
+                        event_id="E-test-1",
+                        object_type="artifact",
+                        metadata=metadata,
+                    )
+                },
+            )
 
     def test_object_updated_rejects_runtime_managed_patch_fields(self) -> None:
         for field in ("id", "type", "status", "links"):
@@ -238,17 +303,23 @@ def _event(*, event_type: str, payload: dict, session_id: str = "S-001") -> dict
     )
 
 
-def _object(object_id: str, *, event_id: str) -> dict:
+def _object(
+    object_id: str,
+    *,
+    event_id: str,
+    object_type: str = "decision",
+    metadata: dict | None = None,
+) -> dict:
     return {
         "id": object_id,
-        "type": "decision",
+        "type": object_type,
         "title": "Choose auth",
         "body": "Pick the MVP auth shape.",
-        "status": "unresolved",
+        "status": "unresolved" if object_type == "decision" else "active",
         "created_at": "2026-04-23T12:00:00Z",
         "updated_at": None,
         "source_event_ids": [event_id],
-        "metadata": {},
+        "metadata": {} if metadata is None else metadata,
     }
 
 
@@ -285,6 +356,22 @@ def _classification_payload() -> dict:
         "source_refs": [],
         "updated_at": "2026-04-23T12:00:00Z",
     }
+
+
+def _safety_approval_metadata(**overrides: str | None) -> dict:
+    metadata = {
+        "artifact_type": "safety_gate_approval",
+        "target_object_id": "D-001",
+        "gate_digest": "SG-123456789abc",
+        "approval_threshold": "human_review",
+        "approval_level": "human_review",
+        "approved_by": "reviewer",
+        "approved_at": "2026-04-23T12:00:00Z",
+        "reason": "Approved for test coverage.",
+        "expires_at": None,
+    }
+    metadata.update(overrides)
+    return metadata
 
 
 if __name__ == "__main__":

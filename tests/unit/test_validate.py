@@ -93,6 +93,52 @@ class EventLogValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(StateValidationError, "duplicate object_recorded id: O-dup"):
             validate_event_log(events)
 
+    def test_rejects_object_updated_that_makes_typed_metadata_invalid(self) -> None:
+        events = [
+            *_base_events(),
+            _event(3, "S-001", "object_recorded", {"object": _object("RISK-001", "E-test-3", object_type="risk")}),
+            _event(4, "S-001", "object_updated", {"object_id": "RISK-001", "patch": {"metadata": {"risk_tier": "severe"}}}),
+        ]
+
+        with self.assertRaisesRegex(StateValidationError, "risk object RISK-001.metadata.risk_tier"):
+            validate_event_log(events)
+
+    def test_status_and_metadata_updates_validate_after_complete_transaction(self) -> None:
+        events = [
+            *_base_events(),
+            _event(3, "S-001", "object_recorded", {"object": _object("D-001", "E-test-3")}),
+            _event(
+                4,
+                "S-001",
+                "object_status_changed",
+                _status("D-001", "unresolved", "invalidated", 4),
+                tx_id="T-invalidates",
+                tx_index=1,
+                tx_size=2,
+            ),
+            _event(
+                5,
+                "S-001",
+                "object_updated",
+                {
+                    "object_id": "D-001",
+                    "patch": {
+                        "metadata": {
+                            "invalidated_by": {
+                                "decision_id": "D-root",
+                                "invalidated_at": "2026-04-23T12:05:00Z",
+                            }
+                        }
+                    },
+                },
+                tx_id="T-invalidates",
+                tx_index=2,
+                tx_size=2,
+            ),
+        ]
+
+        validate_event_log(events)
+
     def test_rejects_missing_object_references(self) -> None:
         cases = [
             _event(3, "S-001", "object_updated", {"object_id": "O-missing", "patch": {"title": "No"}}),
@@ -211,11 +257,20 @@ def _base_events() -> list[dict]:
     ]
 
 
-def _event(sequence: int, session_id: str, event_type: str, payload: dict, *, tx_id: str | None = None) -> dict:
+def _event(
+    sequence: int,
+    session_id: str,
+    event_type: str,
+    payload: dict,
+    *,
+    tx_id: str | None = None,
+    tx_index: int = 1,
+    tx_size: int = 1,
+) -> dict:
     return build_event(
         tx_id=tx_id or f"T-test-{sequence}",
-        tx_index=1,
-        tx_size=1,
+        tx_index=tx_index,
+        tx_size=tx_size,
         event_id=f"E-test-{sequence}",
         session_id=session_id,
         event_type=event_type,

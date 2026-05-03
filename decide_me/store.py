@@ -16,6 +16,7 @@ from decide_me.events import build_event, new_tx_id, utc_now, validate_event
 from decide_me.projections import apply_events_to_bundle, project_head_after_event, rebuild_projections
 from decide_me.validate import (
     StateValidationError,
+    validate_event_object_metadata,
     validate_event_log,
     validate_event_log_structure,
     validate_projection_bundle,
@@ -618,6 +619,10 @@ def transact(
         built_events = canonicalize_events(built_events)
         _validate_incremental_session_scope(current_bundle, built_events)
         _validate_incremental_events(runtime_index, built_events)
+        validate_event_object_metadata(
+            built_events,
+            initial_objects=current_bundle["project_state"]["objects"],
+        )
         new_bundle = apply_events_to_bundle(deepcopy(current_bundle), built_events)
         validate_projection_bundle(new_bundle)
         _write_transaction(paths, built_events)
