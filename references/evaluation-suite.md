@@ -307,6 +307,8 @@ PYTHONPATH=. python3 scripts/run_phase10_gate.py
 
 The gate runs the pytest `unit or phase_gate` slice first, then runs the committed scenario
 evaluation runner in JSON mode. The corresponding GitHub Actions workflow is `.github/workflows/phase10-gate.yml`.
+Schema validation tests use `jsonschema` with `referencing.Registry` resources for local `$ref`
+resolution and avoid the deprecated resolver path from older `jsonschema` usage.
 
 Use the scenario integration test for committed snapshot drift:
 
@@ -348,3 +350,6 @@ the installable Skill package:
 - include: `schemas/evaluation-report.schema.json`
 - exclude: `tests/scenarios/**`
 - exclude: `scripts/evaluate_scenarios.py`
+- exclude: `__pycache__/**`
+- exclude: `*.pyc`
+- exclude: `*.pyo`

@@ -21,6 +21,25 @@ runtime state or intermediate APIs. Contract changes should update runtime code,
 schemas, documentation, and tests together; invalid old state should fail
 clearly rather than being silently adapted through compatibility layers.
 
+## Phase 10 completion boundary
+
+Phase 10 completes the MVP runtime stack built across Phases 5 through 10:
+
+- Phase 5: domain-neutral object/link event model and rebuildable projections
+- Phase 6: Decision Stack Graph, read-only impact diagnostics, and explicit invalidation apply
+- Phase 7: typed Evidence/Risk/Assumption metadata, Safety Gate, stale diagnostics, and approvals
+- Phase 8: Document Compiler and derived exports
+- Phase 9: built-in and user-defined Domain Packs
+- Phase 10: committed scenario Evaluation Suite and release-readiness gate
+
+The runtime source of truth is the transaction event log. `project-state.json`, session JSON,
+register outputs, document models, indexes, and exports are derived and must be rebuildable.
+Invalidation is never applied automatically: candidates are generated from current projections and
+only become events after explicit approval through the transaction path. High and critical risk
+are controlled by Safety Gate policy; critical risk blocks automatic adoption and requires external
+review, split/defer, or reject/rework handling. Domain-specific vocabulary belongs in Domain Packs,
+not new core object types. At Phase 10, `action` is the executable WorkUnit equivalent.
+
 ## What this Skill is for
 
 Use decide-me when the problem is not "write the code now" yet. It is for the
@@ -346,6 +365,9 @@ requirements include the runtime requirements:
 ```bash
 python3 -m pip install -r requirements-dev.txt
 ```
+
+Schema contract tests use `jsonschema` with the `referencing` registry API for local `$ref`
+resolution. They intentionally avoid the deprecated resolver path from older `jsonschema` usage.
 
 Run the focused suites with:
 

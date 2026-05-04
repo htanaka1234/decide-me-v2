@@ -38,6 +38,8 @@ class Phase10DistributionArtifactTests(unittest.TestCase):
         self.assertFalse(any("/.ai/" in name or name.startswith("decide-me/.ai/") for name in names))
         self.assertFalse(any("/.git/" in name or name.startswith("decide-me/.git/") for name in names))
         self.assertFalse(any("/dist/" in name or name.startswith("decide-me/dist/") for name in names))
+        self.assertFalse(any(_has_path_part(name, "__pycache__") for name in names))
+        self.assertFalse(any(name.endswith((".pyc", ".pyo")) for name in names))
 
     def test_distribution_reference_documents_phase10_boundary(self) -> None:
         reference = self.artifact.read_text("decide-me/references/evaluation-suite.md")
@@ -48,6 +50,9 @@ class Phase10DistributionArtifactTests(unittest.TestCase):
             "include: `schemas/evaluation-report.schema.json`",
             "exclude: `tests/scenarios/**`",
             "exclude: `scripts/evaluate_scenarios.py`",
+            "exclude: `__pycache__/**`",
+            "exclude: `*.pyc`",
+            "exclude: `*.pyo`",
         ]:
             with self.subTest(expected=expected):
                 self.assertIn(expected, reference)
