@@ -147,7 +147,11 @@ def _action_table(rows: list[list[Any]]) -> dict[str, Any]:
         [
             "ID",
             "Name",
-            "Decision ID",
+            "Type",
+            "Source Decisions",
+            "Required Inputs",
+            "Outputs",
+            "Verification",
             "Status",
             "Priority",
             "Ready",
@@ -167,7 +171,20 @@ def _action_rows_and_trace(
     for item in actions:
         action_id = item.get("id")
         decision_id = item.get("decision_id")
-        row_object_ids = stable_unique([value for value in (action_id, decision_id) if value])
+        source_decision_refs = item.get("source_decision_refs", [])
+        verification_refs = item.get("verification_refs", [])
+        row_object_ids = stable_unique(
+            [
+                value
+                for value in [
+                    action_id,
+                    decision_id,
+                    *source_decision_refs,
+                    *verification_refs,
+                ]
+                if value
+            ]
+        )
         row_trace = Trace()
         row_trace.add_objects(row_object_ids)
         row_trace.add_links(_links_between(context, row_object_ids))
@@ -176,7 +193,11 @@ def _action_rows_and_trace(
             [
                 action_id,
                 item.get("name"),
-                decision_id,
+                item.get("action_type"),
+                _render_refs(source_decision_refs or ([decision_id] if decision_id else [])),
+                _render_refs(item.get("required_inputs", [])),
+                _render_refs(item.get("outputs", [])),
+                _render_refs(verification_refs),
                 item.get("status"),
                 item.get("priority"),
                 item.get("implementation_ready"),
@@ -186,6 +207,10 @@ def _action_rows_and_trace(
         )
         trace.merge(row_trace)
     return rows, trace
+
+
+def _render_refs(values: list[str]) -> str:
+    return ", ".join(values)
 
 
 def _decision_like_rows_and_trace(

@@ -100,7 +100,8 @@ Runtime invariants:
   derived Decision Stack Graph.
 - Close summaries store reference sets in `close_summary.object_ids` and
   `close_summary.link_ids`. Human-readable close text is display output only.
-- Plan output uses `action_plan.actions` and `action_plan.implementation_ready_actions`.
+- Plan output uses `action_plan.actions` and `action_plan.implementation_ready_actions`; action
+  objects are the Phase 10 executable WorkUnit equivalent.
 - Legacy `.ai/decide-me/event-log.jsonl` runtimes are not migrated automatically; rebootstrap
   or recreate them from exports produced by the previous runtime before using this version.
 - `transaction_rejected` events record user-selected transaction rejection; rejected transaction

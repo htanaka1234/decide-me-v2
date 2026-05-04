@@ -387,7 +387,6 @@ def _require_source_event_ids(value: Any, label: str) -> None:
             raise StateValidationError(f"{label} contains duplicate event ids")
         seen.add(event_id)
 
-
 def validate_session_state(session_state: dict[str, Any]) -> None:
     _require_keys(
         session_state,

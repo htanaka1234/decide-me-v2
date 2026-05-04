@@ -7,6 +7,7 @@ from decide_me.events import build_event as runtime_build_event
 from decide_me.projections import build_decision_stack_graph, default_project_state, rebuild_projections
 from decide_me.validate import StateValidationError, validate_project_state, validate_projection_bundle
 from tests.helpers.typed_metadata import (
+    action_metadata,
     assumption_metadata,
     evidence_metadata,
     revisit_trigger_metadata,
@@ -226,6 +227,9 @@ class ProjectStateValidationTests(unittest.TestCase):
             ("assumption", assumption_metadata(expires_at="not-a-timestamp"), "metadata.expires_at"),
             ("risk", risk_metadata(risk_tier="severe"), "metadata.risk_tier"),
             ("risk", risk_metadata(mitigation_object_ids=["A-001", "A-001"]), "duplicate values"),
+            ("action", action_metadata(action_type="bad-action"), "metadata.action_type"),
+            ("action", action_metadata(required_inputs=["D-001", "D-001"]), "duplicate values"),
+            ("action", action_metadata(implementation_ready="yes"), "metadata.implementation_ready"),
             ("verification", verification_metadata(result="unknown"), "metadata.result"),
             ("verification", verification_metadata(verified_at="not-a-timestamp"), "metadata.verified_at"),
             ("revisit_trigger", revisit_trigger_metadata(trigger_type="manual"), "metadata.trigger_type"),
@@ -453,6 +457,7 @@ def _typed_metadata_cases() -> list[tuple[str, dict]]:
         ("evidence", evidence_metadata()),
         ("assumption", assumption_metadata()),
         ("risk", risk_metadata()),
+        ("action", action_metadata()),
         ("verification", verification_metadata()),
         ("revisit_trigger", revisit_trigger_metadata(target_object_ids=["D-001"])),
     ]

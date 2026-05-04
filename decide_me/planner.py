@@ -5,6 +5,7 @@ import json
 from copy import deepcopy
 from typing import Any
 
+from decide_me.constants import ACTION_TYPE_VALUES
 from decide_me.events import utc_now
 from decide_me.exports import export_plan
 from decide_me.safety_gate import evaluate_safety_gate
@@ -412,6 +413,18 @@ def _action_item(
     declared_implementation_ready = bool(metadata.get("implementation_ready"))
     safety_gate = _safety_gate_summary(project_state, action_id)
     implementation_ready = declared_implementation_ready and safety_gate["gate_status"] == "passed"
+    verification_refs = stable_unique(
+        [
+            *_metadata_string_list(metadata, "verification_refs"),
+            *_verification_ids_for_action(project_state, close_summary, action_id),
+        ]
+    )
+    source_decision_refs = stable_unique(
+        [
+            *_metadata_string_list(metadata, "source_decision_refs"),
+            *([decision_id] if decision_id else []),
+        ]
+    )
     evidence_ids: list[str] = []
     evidence_source = metadata.get("evidence_source")
     if decision_id:
@@ -426,7 +439,12 @@ def _action_item(
         "responsibility": metadata.get("responsibility"),
         "priority": metadata.get("priority"),
         "status": action.get("status"),
+        "action_type": _action_type(metadata),
         "kind": metadata.get("kind"),
+        "required_inputs": _metadata_string_list(metadata, "required_inputs"),
+        "outputs": _metadata_string_list(metadata, "outputs"),
+        "verification_refs": verification_refs,
+        "source_decision_refs": source_decision_refs,
         "resolvable_by": metadata.get("resolvable_by"),
         "reversibility": metadata.get("reversibility"),
         "declared_implementation_ready": declared_implementation_ready,
@@ -437,6 +455,43 @@ def _action_item(
         "evidence_ids": evidence_ids,
         "next_step": metadata.get("next_step"),
     }
+
+
+def _metadata_string_list(metadata: dict[str, Any], key: str) -> list[str]:
+    value = metadata.get(key, [])
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str) and item]
+
+
+def _action_type(metadata: dict[str, Any]) -> str | None:
+    action_type = metadata.get("action_type")
+    if isinstance(action_type, str) and action_type:
+        return action_type
+    kind = metadata.get("kind")
+    if kind == "choice":
+        return "decision"
+    if kind == "implementation":
+        return "execution"
+    if isinstance(kind, str) and kind in ACTION_TYPE_VALUES:
+        return kind
+    return None
+
+
+def _verification_ids_for_action(
+    project_state: dict[str, Any],
+    close_summary: dict[str, Any],
+    action_id: str,
+) -> list[str]:
+    by_id = _objects_by_id(project_state)
+    verification_ids = []
+    for link in _summary_links(project_state, close_summary):
+        if link.get("relation") != "verifies":
+            continue
+        source_id = link.get("source_object_id")
+        if link.get("target_object_id") == action_id and by_id.get(source_id, {}).get("type") == "verification":
+            verification_ids.append(source_id)
+    return stable_unique(verification_ids)
 
 
 def _addressed_decision_id(
@@ -592,6 +647,9 @@ def _merge_actions(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
         preferred["evidence_backed"] = bool(current.get("evidence_backed") or item.get("evidence_backed"))
         preferred["evidence_source"] = current.get("evidence_source") or item.get("evidence_source")
         preferred["next_step"] = preferred.get("next_step") or current.get("next_step") or item.get("next_step")
+        preferred["action_type"] = preferred.get("action_type") or current.get("action_type") or item.get("action_type")
+        for key in ("required_inputs", "outputs", "verification_refs", "source_decision_refs"):
+            preferred[key] = stable_unique([*current.get(key, []), *item.get(key, [])])
         merged[key] = preferred
     return sorted(merged.values(), key=_action_sort_key)
 

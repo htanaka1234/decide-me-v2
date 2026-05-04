@@ -79,7 +79,7 @@ class ObjectSchemaTests(unittest.TestCase):
         self.assertEqual("date-time", self.schema["properties"]["updated_at"]["format"])
 
     def test_accepts_typed_metadata_contracts(self) -> None:
-        for object_type in ("evidence", "assumption", "risk", "verification", "revisit_trigger"):
+        for object_type in ("evidence", "assumption", "risk", "action", "verification", "revisit_trigger"):
             with self.subTest(object_type=object_type):
                 self.validator.validate(_valid_object(object_type))
 
@@ -114,6 +114,9 @@ class ObjectSchemaTests(unittest.TestCase):
             ("evidence", "confidence", "certain"),
             ("assumption", "invalidates_if_false", [None]),
             ("risk", "approval_threshold", "auto"),
+            ("action", "action_type", "bad-action"),
+            ("action", "implementation_ready", "yes"),
+            ("action", "required_inputs", ["D-001", "D-001"]),
             ("verification", "verified_at", 123),
             ("revisit_trigger", "trigger_type", "manual"),
             ("artifact", "gate_digest", "bad"),

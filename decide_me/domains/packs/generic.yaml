@@ -76,6 +76,16 @@ criteria:
     description: Whether success can be checked with a concrete signal.
 evidence_requirements: []
 risk_types: []
+action_types:
+  - research
+  - analysis
+  - writing
+  - communication
+  - execution
+  - review
+  - verification
+  - monitoring
+  - decision
 safety_rules: []
 documents:
   - document_type: decision-brief

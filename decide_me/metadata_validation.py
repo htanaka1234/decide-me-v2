@@ -291,9 +291,11 @@ class _MetadataValidator:
         self._require_optional_timestamp(metadata.get("expires_at"), f"{label}.expires_at")
 
     def _validate_action(self, metadata: dict[str, Any], label: str) -> None:
-        for key in ("decision_id", "origin_session_id", "next_step", "responsibility", "kind", "action_type"):
+        for key in ("decision_id", "origin_session_id", "next_step", "responsibility", "kind"):
             if key in metadata:
                 self._require_optional_non_empty_string(metadata.get(key), f"{label}.{key}")
+        if "action_type" in metadata:
+            self._require_domain_pack_identifier(metadata["action_type"], f"{label}.action_type")
         if "implementation_ready" in metadata and not isinstance(metadata["implementation_ready"], bool):
             self._error(f"{label}.implementation_ready must be a boolean")
         if "evidence_backed" in metadata and not isinstance(metadata["evidence_backed"], bool):

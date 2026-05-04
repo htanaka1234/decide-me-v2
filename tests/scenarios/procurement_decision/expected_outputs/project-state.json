@@ -708,7 +708,7 @@
           "support_quality"
         ],
         "domain_decision_type": "candidate_selection",
-        "domain_pack_digest": "DP-2583792220b4",
+        "domain_pack_digest": "DP-5625e865f82e",
         "domain_pack_id": "procurement",
         "domain_pack_version": "0.1.0",
         "frontier": "now",
@@ -735,7 +735,7 @@
           "security_compliance"
         ],
         "domain_decision_type": "evaluation_criteria",
-        "domain_pack_digest": "DP-2583792220b4",
+        "domain_pack_digest": "DP-5625e865f82e",
         "domain_pack_id": "procurement",
         "domain_pack_version": "0.1.0",
         "frontier": "now",
@@ -763,7 +763,7 @@
           "vendor_viability"
         ],
         "domain_decision_type": "final_selection",
-        "domain_pack_digest": "DP-2583792220b4",
+        "domain_pack_digest": "DP-5625e865f82e",
         "domain_pack_id": "procurement",
         "domain_pack_version": "0.1.0",
         "frontier": "now",
@@ -789,7 +789,7 @@
           "implementation_feasibility"
         ],
         "domain_decision_type": "requirement_definition",
-        "domain_pack_digest": "DP-2583792220b4",
+        "domain_pack_digest": "DP-5625e865f82e",
         "domain_pack_id": "procurement",
         "domain_pack_version": "0.1.0",
         "frontier": "now",
@@ -812,7 +812,7 @@
       "metadata": {
         "confidence": "medium",
         "domain_evidence_type": "budget",
-        "domain_pack_digest": "DP-2583792220b4",
+        "domain_pack_digest": "DP-5625e865f82e",
         "domain_pack_id": "procurement",
         "domain_pack_version": "0.1.0",
         "evidence_requirement_id": "budget_context",
@@ -838,7 +838,7 @@
       "metadata": {
         "confidence": "medium",
         "domain_evidence_type": "comparison",
-        "domain_pack_digest": "DP-2583792220b4",
+        "domain_pack_digest": "DP-5625e865f82e",
         "domain_pack_id": "procurement",
         "domain_pack_version": "0.1.0",
         "evidence_requirement_id": "comparison_table",
@@ -864,7 +864,7 @@
       "metadata": {
         "confidence": "high",
         "domain_evidence_type": "requirements",
-        "domain_pack_digest": "DP-2583792220b4",
+        "domain_pack_digest": "DP-5625e865f82e",
         "domain_pack_id": "procurement",
         "domain_pack_version": "0.1.0",
         "evidence_requirement_id": "requirements_brief",
@@ -1148,7 +1148,7 @@
       "id": "RISK-pd-contract",
       "metadata": {
         "approval_threshold": "external_review",
-        "domain_pack_digest": "DP-2583792220b4",
+        "domain_pack_digest": "DP-5625e865f82e",
         "domain_pack_id": "procurement",
         "domain_pack_version": "0.1.0",
         "domain_risk_type": "contract_constraint",
@@ -1173,7 +1173,7 @@
       "id": "RISK-pd-lock-in",
       "metadata": {
         "approval_threshold": "human_review",
-        "domain_pack_digest": "DP-2583792220b4",
+        "domain_pack_digest": "DP-5625e865f82e",
         "domain_pack_id": "procurement",
         "domain_pack_version": "0.1.0",
         "domain_risk_type": "vendor_lock_in",

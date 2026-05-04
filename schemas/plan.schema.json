@@ -166,6 +166,25 @@
           "type": "string",
           "minLength": 1
         },
+        "action_type": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "required_inputs": {
+          "$ref": "#/$defs/idList"
+        },
+        "outputs": {
+          "$ref": "#/$defs/idList"
+        },
+        "verification_refs": {
+          "$ref": "#/$defs/idList"
+        },
+        "source_decision_refs": {
+          "$ref": "#/$defs/idList"
+        },
         "safety_gate": {
           "$ref": "#/$defs/actionSafetyGate"
         }

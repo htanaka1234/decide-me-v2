@@ -135,6 +135,16 @@ risk_types:
     label: Delayed feedback
     default_risk_tier: low
     default_approval_threshold: none
+action_types:
+  - research
+  - analysis
+  - writing
+  - communication
+  - execution
+  - review
+  - verification
+  - monitoring
+  - decision
 safety_rules:
   - id: high_switching_cost_review
     applies_when:

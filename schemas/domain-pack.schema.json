@@ -15,6 +15,7 @@
     "criteria",
     "evidence_requirements",
     "risk_types",
+    "action_types",
     "safety_rules",
     "documents",
     "interview"
@@ -69,6 +70,9 @@
         "$ref": "#/$defs/risk_type"
       },
       "uniqueItems": true
+    },
+    "action_types": {
+      "$ref": "#/$defs/identifier_array"
     },
     "safety_rules": {
       "type": "array",

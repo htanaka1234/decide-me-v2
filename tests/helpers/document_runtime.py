@@ -167,9 +167,13 @@ def _events(session_id: str) -> list[dict[str, Any]]:
             "Implement export-document.",
             {
                 "decision_id": "DEC-001",
+                "action_type": "execution",
                 "responsibility": "runtime",
                 "priority": "P0",
                 "implementation_ready": True,
+                "required_inputs": ["DocumentModel contract", "DEC-001"],
+                "outputs": ["export-document command"],
+                "source_decision_refs": ["DEC-001"],
                 "next_step": "Ship the compiler.",
             },
         ),

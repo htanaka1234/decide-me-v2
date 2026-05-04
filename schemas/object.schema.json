@@ -133,6 +133,22 @@
       "if": {
         "properties": {
           "type": {
+            "const": "action"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "metadata": {
+            "$ref": "#/$defs/action_metadata"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
             "const": "verification"
           }
         }
@@ -211,6 +227,10 @@
         "minLength": 1
       },
       "uniqueItems": true
+    },
+    "action_type": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$"
     },
     "evidence_metadata": {
       "type": "object",
@@ -365,6 +385,30 @@
             "human_review",
             "external_review"
           ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "action_metadata": {
+      "type": "object",
+      "properties": {
+        "action_type": {
+          "$ref": "#/$defs/action_type"
+        },
+        "implementation_ready": {
+          "type": "boolean"
+        },
+        "required_inputs": {
+          "$ref": "#/$defs/string_array"
+        },
+        "outputs": {
+          "$ref": "#/$defs/string_array"
+        },
+        "verification_refs": {
+          "$ref": "#/$defs/string_array"
+        },
+        "source_decision_refs": {
+          "$ref": "#/$defs/string_array"
         }
       },
       "additionalProperties": true
