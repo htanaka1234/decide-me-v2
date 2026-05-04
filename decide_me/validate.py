@@ -3,30 +3,19 @@ from __future__ import annotations
 import json
 import re
 from collections import defaultdict
+from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from decide_me.constants import (
-    ACCEPTED_VIA_VALUES,
-    APPROVAL_LEVEL_VALUES,
-    APPROVAL_THRESHOLD_VALUES,
     DECISION_STACK_LAYERS,
     DOMAIN_VALUES,
-    EVIDENCE_FRESHNESS_VALUES,
-    EVIDENCE_SOURCES,
     LINK_RELATIONS,
-    METADATA_CONFIDENCE_VALUES,
     OBJECT_TYPES,
-    REVISIT_TRIGGER_TYPE_VALUES,
-    RISK_LIKELIHOOD_VALUES,
-    RISK_REVERSIBILITY_VALUES,
-    RISK_SEVERITY_VALUES,
-    RISK_TIER_VALUES,
-    VERIFICATION_METHOD_VALUES,
-    VERIFICATION_RESULT_VALUES,
 )
 from decide_me.events import EVENT_TYPES, validate_event
+from decide_me.metadata_validation import assert_valid_object_metadata
 from decide_me.object_views import active_proposal_view, proposal_decision_id, proposal_option, related_decision_ids
 from decide_me.projections import (
     PROJECT_STATE_SCHEMA_VERSION,
@@ -44,17 +33,6 @@ from decide_me.taxonomy import taxonomy_by_id
 
 OPEN_DECISION_STATUSES = {"unresolved", "proposed", "blocked"}
 FINAL_INVALIDATING_STATUSES = {"accepted", "resolved-by-evidence"}
-ALL_DECISION_STATUSES = OPEN_DECISION_STATUSES | {
-    "accepted",
-    "deferred",
-    "resolved-by-evidence",
-    "invalidated",
-}
-PRIORITIES = {"P0", "P1", "P2"}
-FRONTIERS = {"now", "later", "discovered-later", "deferred"}
-KINDS = {"choice", "constraint", "risk", "dependency"}
-RESOLVABLE_BY = {"human", "codebase", "docs", "tests", "external"}
-REVERSIBILITY = {"reversible", "hard-to-reverse", "irreversible", "unknown"}
 SESSION_LIFECYCLE_STATUSES = {"active", "closed"}
 TAXONOMY_AXES = {"domain", "abstraction_level", "tag"}
 TAXONOMY_STATUSES = {"active", "replaced"}
@@ -66,8 +44,6 @@ SYSTEM_EVENT_TYPES = {
 DOMAIN_PACK_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 DOMAIN_PACK_DIGEST_PATTERN = re.compile(r"^DP-[0-9a-f]{12}$")
 PACK_METADATA_KEYS = ("domain_pack_id", "domain_pack_version", "domain_pack_digest")
-_APPROVAL_LEVEL_RANK = {"explicit_acceptance": 1, "human_review": 2, "external_review": 3}
-_APPROVAL_THRESHOLD_RANK = {"none": 0, **_APPROVAL_LEVEL_RANK}
 SESSION_SCOPED_EVENT_TYPES = {
     "session_created",
     "session_resumed",
@@ -243,21 +219,13 @@ def validate_project_state(project_state: dict[str, Any]) -> None:
         _require_optional_timestamp(obj.get("updated_at"), f"object {obj['id']}.updated_at")
         _require_source_event_ids(obj.get("source_event_ids"), f"object {obj['id']}.source_event_ids")
         metadata = _require_dict(obj.get("metadata"), f"object {obj['id']}.metadata")
-        _validate_object_metadata_layer(obj, metadata)
-        if obj["type"] == "decision":
-            _validate_decision_object_metadata(obj)
-        elif obj["type"] == "evidence":
-            _validate_evidence_object_metadata(obj)
-        elif obj["type"] == "assumption":
-            _validate_assumption_object_metadata(obj)
-        elif obj["type"] == "risk":
-            _validate_risk_object_metadata(obj)
-        elif obj["type"] == "verification":
-            _validate_verification_object_metadata(obj)
-        elif obj["type"] == "revisit_trigger":
-            _validate_revisit_trigger_object_metadata(obj)
-        elif obj["type"] == "artifact":
-            _validate_artifact_object_metadata(obj)
+        assert_valid_object_metadata(
+            obj["type"],
+            metadata,
+            object_id=obj["id"],
+            status=obj["status"],
+            error_cls=StateValidationError,
+        )
         if obj["id"] in object_ids:
             raise StateValidationError(f"duplicate object id: {obj['id']}")
         object_ids.add(obj["id"])
@@ -358,12 +326,6 @@ def _validate_object_link_contracts(objects: list[dict[str, Any]], links: list[d
                     raise StateValidationError(f"decision {decision['id']} is supported by non-evidence object")
 
 
-def _validate_object_metadata_layer(obj: dict[str, Any], metadata: dict[str, Any]) -> None:
-    if "layer" not in metadata:
-        return
-    _require_enum(metadata["layer"], DECISION_STACK_LAYERS, f"object {obj['id']}.metadata.layer")
-
-
 def _validate_protocol(protocol: Any) -> None:
     protocol_payload = _require_dict(protocol, "project_state.protocol")
     _require_keys(
@@ -424,245 +386,6 @@ def _require_source_event_ids(value: Any, label: str) -> None:
         if event_id in seen:
             raise StateValidationError(f"{label} contains duplicate event ids")
         seen.add(event_id)
-
-
-def _validate_decision_object_metadata(decision: dict[str, Any]) -> None:
-    metadata = decision["metadata"]
-    if decision["status"] not in ALL_DECISION_STATUSES:
-        raise StateValidationError(f"unsupported decision status: {decision['status']}")
-    for key, allowed in (
-        ("priority", PRIORITIES),
-        ("frontier", FRONTIERS),
-        ("kind", KINDS),
-        ("domain", DOMAIN_VALUES),
-        ("resolvable_by", RESOLVABLE_BY),
-        ("reversibility", REVERSIBILITY),
-    ):
-        if key in metadata:
-            _require_enum(metadata[key], allowed, f"decision object {decision['id']}.metadata.{key}")
-    if "agent_relevant" in metadata and metadata["agent_relevant"] is not None:
-        if not isinstance(metadata["agent_relevant"], bool):
-            raise StateValidationError(
-                f"decision object {decision['id']}.metadata.agent_relevant must be a boolean or null"
-            )
-    if "notes" in metadata:
-        _require_list(metadata["notes"], f"decision object {decision['id']}.metadata.notes")
-    _validate_decision_domain_pack_metadata(decision)
-    invalidated_by = metadata.get("invalidated_by")
-    if decision["status"] == "invalidated":
-        invalidated = _require_dict(invalidated_by, f"decision object {decision['id']}.metadata.invalidated_by")
-        _require_non_empty_string(
-            invalidated.get("decision_id"),
-            f"decision object {decision['id']}.metadata.invalidated_by.decision_id",
-        )
-        _require_timestamp(
-            invalidated.get("invalidated_at"),
-            f"decision object {decision['id']}.metadata.invalidated_by.invalidated_at",
-        )
-    elif invalidated_by is not None:
-        raise StateValidationError(f"non-invalidated decision object {decision['id']} must not carry invalidated_by")
-
-
-def _validate_decision_domain_pack_metadata(decision: dict[str, Any]) -> None:
-    metadata = decision["metadata"]
-    label = f"decision object {decision['id']}.metadata"
-    _validate_object_domain_pack_identity(
-        metadata,
-        label,
-        detail_keys=("domain_decision_type", "domain_criteria"),
-        detail_label="domain decision metadata",
-    )
-    if "domain_decision_type" in metadata:
-        _require_non_empty_string(metadata["domain_decision_type"], f"{label}.domain_decision_type")
-        if not DOMAIN_PACK_ID_PATTERN.fullmatch(metadata["domain_decision_type"]):
-            raise StateValidationError(f"{label}.domain_decision_type must match ^[a-z][a-z0-9_]*$")
-    if "domain_criteria" in metadata:
-        _require_string_list(metadata["domain_criteria"], f"{label}.domain_criteria")
-
-
-def _validate_object_domain_pack_identity(
-    metadata: dict[str, Any],
-    label: str,
-    *,
-    detail_keys: tuple[str, ...],
-    detail_label: str,
-) -> None:
-    present = [key for key in PACK_METADATA_KEYS if key in metadata]
-    has_domain_details = any(key in metadata for key in detail_keys)
-    if present and len(present) != len(PACK_METADATA_KEYS):
-        missing = sorted(set(PACK_METADATA_KEYS) - set(present))
-        raise StateValidationError(f"{label} has incomplete domain pack metadata; missing: {', '.join(missing)}")
-    if has_domain_details and not present:
-        raise StateValidationError(f"{label} {detail_label} requires domain pack metadata")
-    if "domain_pack_id" in metadata:
-        _require_non_empty_string(metadata["domain_pack_id"], f"{label}.domain_pack_id")
-        if not DOMAIN_PACK_ID_PATTERN.fullmatch(metadata["domain_pack_id"]):
-            raise StateValidationError(f"{label}.domain_pack_id must match ^[a-z][a-z0-9_]*$")
-    if "domain_pack_version" in metadata:
-        _require_non_empty_string(metadata["domain_pack_version"], f"{label}.domain_pack_version")
-    if "domain_pack_digest" in metadata:
-        _require_non_empty_string(metadata["domain_pack_digest"], f"{label}.domain_pack_digest")
-        if not DOMAIN_PACK_DIGEST_PATTERN.fullmatch(metadata["domain_pack_digest"]):
-            raise StateValidationError(f"{label}.domain_pack_digest must match ^DP-[0-9a-f]{{12}}$")
-
-
-def _validate_evidence_object_metadata(obj: dict[str, Any]) -> None:
-    metadata = obj["metadata"]
-    label = f"evidence object {obj['id']}.metadata"
-    _require_keys(
-        metadata,
-        ("source", "source_ref", "summary", "confidence", "freshness", "observed_at", "valid_until"),
-        label,
-    )
-    _require_enum(metadata.get("source"), EVIDENCE_SOURCES, f"{label}.source")
-    _require_non_empty_string(metadata.get("source_ref"), f"{label}.source_ref")
-    _require_non_empty_string(metadata.get("summary"), f"{label}.summary")
-    _require_enum(metadata.get("confidence"), METADATA_CONFIDENCE_VALUES, f"{label}.confidence")
-    _require_enum(metadata.get("freshness"), EVIDENCE_FRESHNESS_VALUES, f"{label}.freshness")
-    _require_optional_timestamp(metadata.get("observed_at"), f"{label}.observed_at")
-    _require_optional_timestamp(metadata.get("valid_until"), f"{label}.valid_until")
-    _validate_object_domain_pack_identity(
-        metadata,
-        label,
-        detail_keys=("domain_evidence_type", "evidence_requirement_id"),
-        detail_label="domain evidence metadata",
-    )
-    for key in ("domain_evidence_type", "evidence_requirement_id"):
-        if key in metadata:
-            _require_non_empty_string(metadata[key], f"{label}.{key}")
-            if not DOMAIN_PACK_ID_PATTERN.fullmatch(metadata[key]):
-                raise StateValidationError(f"{label}.{key} must match ^[a-z][a-z0-9_]*$")
-
-
-def _validate_assumption_object_metadata(obj: dict[str, Any]) -> None:
-    metadata = obj["metadata"]
-    label = f"assumption object {obj['id']}.metadata"
-    _require_keys(
-        metadata,
-        ("statement", "confidence", "validation", "invalidates_if_false", "expires_at", "owner"),
-        label,
-    )
-    _require_non_empty_string(metadata.get("statement"), f"{label}.statement")
-    _require_enum(metadata.get("confidence"), METADATA_CONFIDENCE_VALUES, f"{label}.confidence")
-    _require_optional_non_empty_string(metadata.get("validation"), f"{label}.validation")
-    _require_string_list(metadata.get("invalidates_if_false"), f"{label}.invalidates_if_false")
-    _require_optional_timestamp(metadata.get("expires_at"), f"{label}.expires_at")
-    _require_optional_non_empty_string(metadata.get("owner"), f"{label}.owner")
-
-
-def _validate_risk_object_metadata(obj: dict[str, Any]) -> None:
-    metadata = obj["metadata"]
-    label = f"risk object {obj['id']}.metadata"
-    _require_keys(
-        metadata,
-        (
-            "statement",
-            "severity",
-            "likelihood",
-            "risk_tier",
-            "reversibility",
-            "mitigation_object_ids",
-            "approval_threshold",
-        ),
-        label,
-    )
-    _require_non_empty_string(metadata.get("statement"), f"{label}.statement")
-    _require_enum(metadata.get("severity"), RISK_SEVERITY_VALUES, f"{label}.severity")
-    _require_enum(metadata.get("likelihood"), RISK_LIKELIHOOD_VALUES, f"{label}.likelihood")
-    _require_enum(metadata.get("risk_tier"), RISK_TIER_VALUES, f"{label}.risk_tier")
-    _require_enum(metadata.get("reversibility"), RISK_REVERSIBILITY_VALUES, f"{label}.reversibility")
-    _require_string_list(metadata.get("mitigation_object_ids"), f"{label}.mitigation_object_ids")
-    _require_enum(metadata.get("approval_threshold"), APPROVAL_THRESHOLD_VALUES, f"{label}.approval_threshold")
-    _validate_object_domain_pack_identity(
-        metadata,
-        label,
-        detail_keys=("domain_risk_type",),
-        detail_label="domain risk metadata",
-    )
-    if "domain_risk_type" in metadata:
-        _require_non_empty_string(metadata["domain_risk_type"], f"{label}.domain_risk_type")
-        if not DOMAIN_PACK_ID_PATTERN.fullmatch(metadata["domain_risk_type"]):
-            raise StateValidationError(f"{label}.domain_risk_type must match ^[a-z][a-z0-9_]*$")
-
-
-def _validate_verification_object_metadata(obj: dict[str, Any]) -> None:
-    metadata = obj["metadata"]
-    label = f"verification object {obj['id']}.metadata"
-    _require_keys(metadata, ("method", "expected_result", "verified_at", "result"), label)
-    _require_enum(metadata.get("method"), VERIFICATION_METHOD_VALUES, f"{label}.method")
-    _require_non_empty_string(metadata.get("expected_result"), f"{label}.expected_result")
-    _require_optional_timestamp(metadata.get("verified_at"), f"{label}.verified_at")
-    _require_enum(metadata.get("result"), VERIFICATION_RESULT_VALUES, f"{label}.result")
-
-
-def _validate_revisit_trigger_object_metadata(obj: dict[str, Any]) -> None:
-    metadata = obj["metadata"]
-    label = f"revisit_trigger object {obj['id']}.metadata"
-    _require_keys(metadata, ("trigger_type", "condition", "due_at", "target_object_ids"), label)
-    _require_enum(metadata.get("trigger_type"), REVISIT_TRIGGER_TYPE_VALUES, f"{label}.trigger_type")
-    _require_non_empty_string(metadata.get("condition"), f"{label}.condition")
-    _require_optional_timestamp(metadata.get("due_at"), f"{label}.due_at")
-    _require_string_list(metadata.get("target_object_ids"), f"{label}.target_object_ids")
-    if not metadata["target_object_ids"]:
-        raise StateValidationError(f"{label}.target_object_ids must not be empty")
-
-
-def _validate_artifact_object_metadata(obj: dict[str, Any]) -> None:
-    metadata = obj["metadata"]
-    if metadata.get("artifact_type") != "safety_gate_approval":
-        return
-    label = f"artifact object {obj['id']}.metadata"
-    _require_keys(
-        metadata,
-        (
-            "artifact_type",
-            "target_object_id",
-            "gate_digest",
-            "approval_threshold",
-            "approval_level",
-            "approved_by",
-            "approved_at",
-            "reason",
-            "expires_at",
-        ),
-        label,
-    )
-    allowed = {
-        "artifact_type",
-        "target_object_id",
-        "gate_digest",
-        "approval_threshold",
-        "approval_level",
-        "approved_by",
-        "approved_at",
-        "reason",
-        "expires_at",
-        "layer",
-    }
-    unknown = sorted(set(metadata) - allowed)
-    if unknown:
-        raise StateValidationError(f"{label} contains unsupported keys: {', '.join(unknown)}")
-    _require_non_empty_string(metadata.get("target_object_id"), f"{label}.target_object_id")
-    gate_digest = metadata.get("gate_digest")
-    _require_non_empty_string(gate_digest, f"{label}.gate_digest")
-    if not str(gate_digest).startswith("SG-"):
-        raise StateValidationError(f"{label}.gate_digest must start with SG-")
-    approval_threshold = metadata.get("approval_threshold")
-    approval_level = metadata.get("approval_level")
-    _require_enum(approval_threshold, APPROVAL_THRESHOLD_VALUES, f"{label}.approval_threshold")
-    _require_enum(approval_level, APPROVAL_LEVEL_VALUES, f"{label}.approval_level")
-    if _APPROVAL_LEVEL_RANK[approval_level] < _APPROVAL_THRESHOLD_RANK[approval_threshold]:
-        raise StateValidationError(f"{label}.approval_level does not satisfy approval_threshold")
-    _require_non_empty_string(metadata.get("approved_by"), f"{label}.approved_by")
-    _require_timestamp(metadata.get("approved_at"), f"{label}.approved_at")
-    _require_non_empty_string(metadata.get("reason"), f"{label}.reason")
-    _require_optional_timestamp(metadata.get("expires_at"), f"{label}.expires_at")
-
-
-def _validate_decision_status_payload(decision: dict[str, Any]) -> None:
-    status = decision["status"]
-    if status not in ALL_DECISION_STATUSES:
-        raise StateValidationError(f"unsupported decision status: {status}")
 
 
 def validate_session_state(session_state: dict[str, Any]) -> None:
@@ -1155,6 +878,104 @@ def _close_summary_readiness(close_summary: dict[str, Any]) -> str:
     return "ready"
 
 
+def validate_event_object_metadata(
+    events: list[dict[str, Any]],
+    *,
+    initial_objects: list[dict[str, Any]] | None = None,
+) -> None:
+    """Validate typed object metadata after replaying object mutations.
+
+    `object_recorded` metadata is self-contained and is also checked by
+    validate_event(). `object_updated` metadata is stateful: a patch can only be
+    validated against the current object projection, so callers must use this
+    replay validator, validate_event_log(), or transact() for semantic metadata
+    validation of update events.
+    """
+    objects_by_id: dict[str, dict[str, Any]] = {}
+    for obj in initial_objects or []:
+        if isinstance(obj, dict) and obj.get("id"):
+            objects_by_id[str(obj["id"])] = deepcopy(obj)
+
+    pending_object_ids: set[str] = set()
+    current_tx_id: str | None = None
+
+    def flush_pending() -> None:
+        for object_id in sorted(pending_object_ids):
+            obj = objects_by_id[object_id]
+            metadata = _require_dict(obj.get("metadata"), f"object {object_id}.metadata")
+            assert_valid_object_metadata(
+                str(obj.get("type")),
+                metadata,
+                object_id=object_id,
+                status=str(obj.get("status")) if obj.get("status") is not None else None,
+                error_cls=StateValidationError,
+            )
+        pending_object_ids.clear()
+
+    for event in events:
+        tx_id = event["tx_id"]
+        if current_tx_id is None:
+            current_tx_id = tx_id
+        elif tx_id != current_tx_id:
+            flush_pending()
+            current_tx_id = tx_id
+
+        event_type = event["event_type"]
+        payload = event["payload"]
+        if event_type == "project_initialized":
+            project = payload["project"]
+            objects_by_id.setdefault(
+                "O-project-objective",
+                {
+                    "id": "O-project-objective",
+                    "type": "objective",
+                    "status": "active",
+                    "metadata": {
+                        "project_name": project["name"],
+                        "stop_rule": project["stop_rule"],
+                    },
+                },
+            )
+            pending_object_ids.add("O-project-objective")
+        elif event_type == "object_recorded":
+            obj = deepcopy(payload["object"])
+            objects_by_id[obj["id"]] = obj
+            pending_object_ids.add(obj["id"])
+        elif event_type == "object_updated":
+            object_id = payload["object_id"]
+            obj = objects_by_id.get(object_id)
+            if obj is None:
+                raise StateValidationError(f"object_updated references unknown object {object_id}")
+            _apply_object_patch_for_metadata_validation(obj, payload["patch"])
+            pending_object_ids.add(object_id)
+        elif event_type == "object_status_changed":
+            object_id = payload["object_id"]
+            obj = objects_by_id.get(object_id)
+            if obj is None:
+                raise StateValidationError(f"object_status_changed references unknown object {object_id}")
+            obj["status"] = payload["to_status"]
+            pending_object_ids.add(object_id)
+
+    flush_pending()
+
+
+def _apply_object_patch_for_metadata_validation(obj: dict[str, Any], patch: dict[str, Any]) -> None:
+    for key in ("title", "body"):
+        if key in patch:
+            obj[key] = deepcopy(patch[key])
+    if "metadata" in patch:
+        metadata = obj.setdefault("metadata", {})
+        _deep_update_for_metadata_validation(metadata, patch["metadata"])
+
+
+def _deep_update_for_metadata_validation(target: dict[str, Any], patch: dict[str, Any]) -> None:
+    for key, value in patch.items():
+        if isinstance(value, dict) and isinstance(target.get(key), dict):
+            _deep_update_for_metadata_validation(target[key], value)
+        else:
+            target[key] = deepcopy(value)
+
+
 def validate_event_log(events: list[dict[str, Any]]) -> None:
     validate_event_log_structure(events)
     if not events:
@@ -1306,6 +1127,7 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
             session_status[event["session_id"]] = "closed"
     if pending_close_summary_session_id is not None:
         raise StateValidationError("close_summary_generated must be followed by matching session_closed")
+    validate_event_object_metadata(events)
 
 
 def validate_event_log_structure(events: list[dict[str, Any]]) -> None:

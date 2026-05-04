@@ -7,6 +7,7 @@ from typing import Any
 from uuid import uuid4
 
 from decide_me.constants import DOMAIN_VALUES, LINK_RELATIONS, OBJECT_TYPES
+from decide_me.metadata_validation import assert_valid_object_metadata
 
 PLAN_STATUSES = {"action-plan", "conflicts"}
 OBJECT_KEYS = {
@@ -219,7 +220,14 @@ def _validate_object_payload(obj: dict[str, Any], label: str) -> None:
     if obj.get("updated_at") is not None:
         _require_timestamp(obj.get("updated_at"), f"{label}.updated_at")
     _require_source_event_ids(obj.get("source_event_ids"), f"{label}.source_event_ids")
-    _require_dict(obj.get("metadata"), f"{label}.metadata")
+    metadata = _require_dict(obj.get("metadata"), f"{label}.metadata")
+    assert_valid_object_metadata(
+        str(obj.get("type")),
+        metadata,
+        object_id=str(obj.get("id")),
+        status=str(obj.get("status")),
+        error_cls=EventValidationError,
+    )
 
 
 def _validate_session_classification(classification: dict[str, Any], label: str) -> None:
