@@ -382,6 +382,7 @@ def _pack_payload(pack_id: str) -> dict[str, Any]:
         ],
         "evidence_requirements": [],
         "risk_types": [],
+        "action_types": ["execution"],
         "safety_rules": [],
         "documents": [
             {

@@ -249,6 +249,10 @@ The runtime lives under `.ai/decide-me/`.
 - Close summaries store object and link reference sets in `close_summary.object_ids` and
   `close_summary.link_ids`; generated plans consume those references and emit
   `action_plan.actions` plus `action_plan.implementation_ready_actions`.
+- At Phase 10, an `action` object is the executable WorkUnit equivalent. There is no separate
+  `work_unit` object type; WorkUnit attributes live in optional action metadata such as
+  `action_type`, `required_inputs`, `outputs`, `verification_refs`, and
+  `source_decision_refs`.
 - `runtime-index.json` checkpoints the current projection head, event count,
   rejected transaction IDs, last event sort key, and projection file manifest.
 - `session-graph-cache.json` may cache full inferred session graph output by

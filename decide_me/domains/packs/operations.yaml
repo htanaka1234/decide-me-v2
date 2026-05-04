@@ -123,6 +123,16 @@ risk_types:
     label: Monitoring gap
     default_risk_tier: high
     default_approval_threshold: human_review
+action_types:
+  - research
+  - analysis
+  - writing
+  - communication
+  - execution
+  - review
+  - verification
+  - monitoring
+  - decision
 safety_rules:
   - id: operational_resilience_review
     applies_when:

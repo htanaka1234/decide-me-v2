@@ -4,7 +4,7 @@
   "document_type": "decision-brief",
   "metadata": {
     "document_profile_id": "personal_planning_decision_brief",
-    "domain_pack_digest": "DP-b9a01ba2f169",
+    "domain_pack_digest": "DP-4eef05c61bf7",
     "domain_pack_id": "personal_planning",
     "domain_pack_version": "0.1.0"
   },
@@ -32,7 +32,7 @@
             ],
             [
               "Project Head",
-              "784c6abc306dfa2fd468effb09c34442494b5bde0fbc84686497869f5faaf593"
+              "e7959b9ec88f6b8e22dda063242fbf3c048f8335f8f5b5226e9918256de63b5e"
             ]
           ],
           "type": "table"

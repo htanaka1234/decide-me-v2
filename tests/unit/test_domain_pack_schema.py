@@ -97,6 +97,7 @@ class DomainPackSchemaTests(unittest.TestCase):
             (["risk_policy", "critical", "approval"], "committee"),
             (["risk_policy", "critical", "automatic_adoption"], "automatic"),
             (["risk_policy", "critical", "required_actions", 0], "unknown_action"),
+            (["action_types", 0], "bad-action"),
             (["documents", 0, "document_type"], "protocol"),
             (["evidence_requirements", 0, "min_confidence"], "certain"),
             (["evidence_requirements", 0, "freshness_required"], "fresh"),
@@ -126,6 +127,7 @@ class DomainPackSchemaTests(unittest.TestCase):
             (["risk_policy", "critical", "approval"], ["external_review_or_block"]),
             (["risk_policy", "critical", "automatic_adoption"], {"value": "blocked"}),
             (["risk_policy", "critical", "required_actions"], ["unknown_action"]),
+            (["action_types"], ["research", "bad-action"]),
             (["documents", 0, "document_type"], {"value": "research-plan"}),
         )
         for path, value in cases:
@@ -278,6 +280,17 @@ def _valid_pack() -> dict:
                 "default_risk_tier": "high",
                 "default_approval_threshold": "external_review",
             }
+        ],
+        "action_types": [
+            "research",
+            "analysis",
+            "writing",
+            "communication",
+            "execution",
+            "review",
+            "verification",
+            "monitoring",
+            "decision",
         ],
         "safety_rules": [
             {

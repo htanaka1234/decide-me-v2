@@ -579,7 +579,7 @@
           "feasibility"
         ],
         "domain_decision_type": "cohort_definition",
-        "domain_pack_digest": "DP-61aa75a006ad",
+        "domain_pack_digest": "DP-b96ad8fa13ce",
         "domain_pack_id": "research",
         "domain_pack_version": "0.1.0",
         "frontier": "now",
@@ -606,7 +606,7 @@
           "data_availability"
         ],
         "domain_decision_type": "primary_endpoint",
-        "domain_pack_digest": "DP-61aa75a006ad",
+        "domain_pack_digest": "DP-b96ad8fa13ce",
         "domain_pack_id": "research",
         "domain_pack_version": "0.1.0",
         "frontier": "now",
@@ -633,7 +633,7 @@
           "reproducibility"
         ],
         "domain_decision_type": "missing_data_strategy",
-        "domain_pack_digest": "DP-61aa75a006ad",
+        "domain_pack_digest": "DP-b96ad8fa13ce",
         "domain_pack_id": "research",
         "domain_pack_version": "0.1.0",
         "frontier": "now",
@@ -660,7 +660,7 @@
           "feasibility"
         ],
         "domain_decision_type": "research_question",
-        "domain_pack_digest": "DP-61aa75a006ad",
+        "domain_pack_digest": "DP-b96ad8fa13ce",
         "domain_pack_id": "research",
         "domain_pack_version": "0.1.0",
         "frontier": "now",
@@ -683,7 +683,7 @@
       "metadata": {
         "confidence": "high",
         "domain_evidence_type": "data_dictionary",
-        "domain_pack_digest": "DP-61aa75a006ad",
+        "domain_pack_digest": "DP-b96ad8fa13ce",
         "domain_pack_id": "research",
         "domain_pack_version": "0.1.0",
         "evidence_requirement_id": "data_dictionary",
@@ -709,7 +709,7 @@
       "metadata": {
         "confidence": "high",
         "domain_evidence_type": "protocol",
-        "domain_pack_digest": "DP-61aa75a006ad",
+        "domain_pack_digest": "DP-b96ad8fa13ce",
         "domain_pack_id": "research",
         "domain_pack_version": "0.1.0",
         "evidence_requirement_id": "protocol_or_project_brief",
@@ -922,7 +922,7 @@
       "id": "RISK-rp-endpoint",
       "metadata": {
         "approval_threshold": "human_review",
-        "domain_pack_digest": "DP-61aa75a006ad",
+        "domain_pack_digest": "DP-b96ad8fa13ce",
         "domain_pack_id": "research",
         "domain_pack_version": "0.1.0",
         "domain_risk_type": "unclear_endpoint",
@@ -947,7 +947,7 @@
       "id": "RISK-rp-missing",
       "metadata": {
         "approval_threshold": "explicit_acceptance",
-        "domain_pack_digest": "DP-61aa75a006ad",
+        "domain_pack_digest": "DP-b96ad8fa13ce",
         "domain_pack_id": "research",
         "domain_pack_version": "0.1.0",
         "domain_risk_type": "missing_data",

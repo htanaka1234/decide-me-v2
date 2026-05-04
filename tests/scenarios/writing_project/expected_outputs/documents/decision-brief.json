@@ -4,7 +4,7 @@
   "document_type": "decision-brief",
   "metadata": {
     "document_profile_id": "writing_decision_brief",
-    "domain_pack_digest": "DP-7dcc1f75c2cd",
+    "domain_pack_digest": "DP-ea12fbc7343e",
     "domain_pack_id": "writing",
     "domain_pack_version": "0.1.0"
   },
@@ -32,7 +32,7 @@
             ],
             [
               "Project Head",
-              "047bce68c171d938b608a4abe58da40cf65a9758a4fb97e64d947091be46f24d"
+              "64356a97897f99422e9500d6943c0f3125f45212c8b1d4dd8272ceed398b212f"
             ]
           ],
           "type": "table"

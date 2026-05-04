@@ -68,6 +68,25 @@ def risk_metadata(
     }
 
 
+def action_metadata(
+    *,
+    action_type: str = "execution",
+    implementation_ready: bool = True,
+    required_inputs: list[str] | None = None,
+    outputs: list[str] | None = None,
+    verification_refs: list[str] | None = None,
+    source_decision_refs: list[str] | None = None,
+) -> dict[str, Any]:
+    return {
+        "action_type": action_type,
+        "implementation_ready": implementation_ready,
+        "required_inputs": deepcopy(["requirements brief"] if required_inputs is None else required_inputs),
+        "outputs": deepcopy(["implementation patch"] if outputs is None else outputs),
+        "verification_refs": deepcopy(["VER-001"] if verification_refs is None else verification_refs),
+        "source_decision_refs": deepcopy(["D-001"] if source_decision_refs is None else source_decision_refs),
+    }
+
+
 def verification_metadata(
     *,
     method: str = "test",
@@ -105,6 +124,8 @@ def metadata_for_object_type(object_type: str) -> dict[str, Any]:
         return assumption_metadata()
     if object_type == "risk":
         return risk_metadata()
+    if object_type == "action":
+        return action_metadata()
     if object_type == "verification":
         return verification_metadata()
     if object_type == "revisit_trigger":

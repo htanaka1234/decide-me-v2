@@ -237,6 +237,7 @@ class DomainPack:
     criteria: tuple[CriteriaSpec, ...]
     evidence_requirements: tuple[EvidenceRequirementSpec, ...]
     risk_types: tuple[RiskTypeSpec, ...]
+    action_types: tuple[str, ...]
     safety_rules: tuple[SafetyRuleSpec, ...]
     risk_policy: tuple[RiskPolicySpec, ...]
     documents: tuple[DocumentSpec, ...]
@@ -255,6 +256,7 @@ class DomainPack:
             "criteria": [item.to_dict() for item in self.criteria],
             "evidence_requirements": [item.to_dict() for item in self.evidence_requirements],
             "risk_types": [item.to_dict() for item in self.risk_types],
+            "action_types": list(self.action_types),
             "safety_rules": [item.to_dict() for item in self.safety_rules],
             "documents": [item.to_dict() for item in self.documents],
             "interview": self.interview.to_dict(),
@@ -280,6 +282,7 @@ def domain_pack_from_dict(raw: dict[str, Any]) -> DomainPack:
             EvidenceRequirementSpec.from_dict(item) for item in raw["evidence_requirements"]
         ),
         risk_types=tuple(RiskTypeSpec.from_dict(item) for item in raw["risk_types"]),
+        action_types=_tuple(raw["action_types"]),
         safety_rules=tuple(SafetyRuleSpec.from_dict(item) for item in raw["safety_rules"]),
         risk_policy=tuple(
             RiskPolicySpec.from_dict(risk_tier, item)

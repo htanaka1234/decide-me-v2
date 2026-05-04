@@ -183,8 +183,11 @@ def _render_actions(values: list[dict[str, Any]]) -> str:
     rendered = []
     for value in values:
         labels = []
-        if value.get("decision_id"):
-            labels.append(value["decision_id"])
+        if value.get("action_type"):
+            labels.append(f"type {value['action_type']}")
+        source_decisions = value.get("source_decision_refs") or ([value["decision_id"]] if value.get("decision_id") else [])
+        if source_decisions:
+            labels.append("decisions " + ", ".join(source_decisions))
         if value.get("priority"):
             labels.append(value["priority"])
         if value.get("implementation_ready"):
@@ -198,6 +201,12 @@ def _render_actions(values: list[dict[str, Any]]) -> str:
         next_step = value.get("next_step")
         if next_step and next_step != details[0]:
             details.append(f"Next: {next_step}")
+        if value.get("required_inputs"):
+            details.append("Inputs: " + ", ".join(value["required_inputs"]))
+        if value.get("outputs"):
+            details.append("Outputs: " + ", ".join(value["outputs"]))
+        if value.get("verification_refs"):
+            details.append("Verification: " + ", ".join(value["verification_refs"]))
         rendered.append(f"- {header}: {' '.join(part for part in details if part).strip()}".rstrip(": "))
     return "\n".join(rendered)
 

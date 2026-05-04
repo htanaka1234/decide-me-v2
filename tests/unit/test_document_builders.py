@@ -214,11 +214,16 @@ class DocumentBuilderTests(unittest.TestCase):
 
             actions = _section(model, "actions")
             action_rows = [row for row in actions["blocks"][0]["rows"] if row[0] == "ACT-001"]
-            self.assertEqual("DEC-001", action_rows[0][2])
+            self.assertEqual("execution", action_rows[0][2])
+            self.assertEqual("DEC-001", action_rows[0][3])
+            self.assertEqual("DocumentModel contract, DEC-001", action_rows[0][4])
+            self.assertEqual("export-document command", action_rows[0][5])
+            self.assertEqual("VER-001", action_rows[0][6])
             self.assertTrue({"ACT-001", "DEC-001"}.issubset(set(actions["source_object_ids"])))
             self.assertIn("L-ACT-001-addresses-DEC-001", actions["source_link_ids"])
             self.assertIn("EVI-001", actions["source_object_ids"])
             self.assertIn("L-EVI-001-supports-ACT-001", actions["source_link_ids"])
+            self.assertIn("VER-001", actions["source_object_ids"])
 
     def test_action_plan_risk_section_sources_include_displayed_evidence(self) -> None:
         with TemporaryDirectory() as tmp:

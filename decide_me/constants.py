@@ -18,6 +18,17 @@ OBJECT_TYPES = {
     "revisit_trigger",
     "artifact",
 }
+ACTION_TYPE_VALUES = {
+    "research",
+    "analysis",
+    "writing",
+    "communication",
+    "execution",
+    "review",
+    "verification",
+    "monitoring",
+    "decision",
+}
 LINK_RELATIONS = {
     "depends_on",
     "supports",

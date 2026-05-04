@@ -23,6 +23,17 @@ EXPECTED_PACK_IDS = {
     "personal_planning",
     "writing",
 }
+EXPECTED_ACTION_TYPES = {
+    "research",
+    "analysis",
+    "writing",
+    "communication",
+    "execution",
+    "review",
+    "verification",
+    "monitoring",
+    "decision",
+}
 OPERATIONS_DECISION_TYPE_IDS = {
     "process_definition",
     "bottleneck_identification",
@@ -125,6 +136,11 @@ class DomainPackBuiltinPacksTests(unittest.TestCase):
 
                 self.assertIsInstance(pack, DomainPack)
                 self.assertEqual(raw, pack.to_dict())
+
+    def test_builtin_packs_declare_action_work_unit_taxonomy(self) -> None:
+        for pack_id, raw in _load_packs().items():
+            with self.subTest(pack_id=pack_id):
+                self.assertEqual(EXPECTED_ACTION_TYPES, set(raw["action_types"]))
 
     def test_research_pack_matches_phase9_mvp_content(self) -> None:
         pack = _load_packs()["research"]

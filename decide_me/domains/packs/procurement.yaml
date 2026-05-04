@@ -254,6 +254,16 @@ risk_types:
     label: Budget overrun
     default_risk_tier: high
     default_approval_threshold: human_review
+action_types:
+  - research
+  - analysis
+  - writing
+  - communication
+  - execution
+  - review
+  - verification
+  - monitoring
+  - decision
 safety_rules:
   - id: contract_external_review
     applies_when:

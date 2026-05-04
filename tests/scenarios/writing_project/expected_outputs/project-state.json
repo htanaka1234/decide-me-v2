@@ -366,7 +366,7 @@
           "maintainability"
         ],
         "domain_decision_type": "purpose_definition",
-        "domain_pack_digest": "DP-7dcc1f75c2cd",
+        "domain_pack_digest": "DP-ea12fbc7343e",
         "domain_pack_id": "writing",
         "domain_pack_version": "0.1.0",
         "frontier": "now",
@@ -392,7 +392,7 @@
           "factual_accuracy"
         ],
         "domain_decision_type": "review_strategy",
-        "domain_pack_digest": "DP-7dcc1f75c2cd",
+        "domain_pack_digest": "DP-ea12fbc7343e",
         "domain_pack_id": "writing",
         "domain_pack_version": "0.1.0",
         "frontier": "now",
@@ -419,7 +419,7 @@
           "reviewability"
         ],
         "domain_decision_type": "outline_strategy",
-        "domain_pack_digest": "DP-7dcc1f75c2cd",
+        "domain_pack_digest": "DP-ea12fbc7343e",
         "domain_pack_id": "writing",
         "domain_pack_version": "0.1.0",
         "frontier": "now",

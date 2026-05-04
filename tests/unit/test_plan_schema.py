@@ -26,6 +26,14 @@ class PlanSchemaTests(unittest.TestCase):
 
         self.assertTrue(errors)
 
+    def test_rejects_invalid_action_type_identifier(self) -> None:
+        payload = _valid_plan()
+        payload["action_plan"]["actions"][0]["action_type"] = "bad-action"
+
+        errors = list(self.validator.iter_errors(payload))
+
+        self.assertTrue(errors)
+
 
 def _valid_plan() -> dict:
     return {
@@ -37,7 +45,16 @@ def _valid_plan() -> dict:
             "readiness": "ready",
             "goals": [],
             "workstreams": [],
-            "actions": [],
+            "actions": [
+                {
+                    "id": "ACT-001",
+                    "action_type": "execution",
+                    "required_inputs": ["D-auth"],
+                    "outputs": ["auth implementation"],
+                    "verification_refs": ["VER-001"],
+                    "source_decision_refs": ["D-auth"],
+                }
+            ],
             "implementation_ready_actions": [],
             "blockers": [],
             "risks": [],

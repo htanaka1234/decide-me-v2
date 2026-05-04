@@ -768,7 +768,7 @@
           "cost"
         ],
         "domain_decision_type": "constraint_definition",
-        "domain_pack_digest": "DP-b9a01ba2f169",
+        "domain_pack_digest": "DP-4eef05c61bf7",
         "domain_pack_id": "personal_planning",
         "domain_pack_version": "0.1.0",
         "frontier": "now",
@@ -795,7 +795,7 @@
           "sustainability"
         ],
         "domain_decision_type": "goal_definition",
-        "domain_pack_digest": "DP-b9a01ba2f169",
+        "domain_pack_digest": "DP-4eef05c61bf7",
         "domain_pack_id": "personal_planning",
         "domain_pack_version": "0.1.0",
         "frontier": "now",
@@ -822,7 +822,7 @@
           "reversibility"
         ],
         "domain_decision_type": "option_selection",
-        "domain_pack_digest": "DP-b9a01ba2f169",
+        "domain_pack_digest": "DP-4eef05c61bf7",
         "domain_pack_id": "personal_planning",
         "domain_pack_version": "0.1.0",
         "frontier": "now",
@@ -849,7 +849,7 @@
           "time_fit"
         ],
         "domain_decision_type": "review_plan",
-        "domain_pack_digest": "DP-b9a01ba2f169",
+        "domain_pack_digest": "DP-4eef05c61bf7",
         "domain_pack_id": "personal_planning",
         "domain_pack_version": "0.1.0",
         "frontier": "now",

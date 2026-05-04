@@ -285,6 +285,16 @@ risk_types:
     label: Reproducibility
     default_risk_tier: medium
     default_approval_threshold: explicit_acceptance
+action_types:
+  - research
+  - analysis
+  - writing
+  - communication
+  - execution
+  - review
+  - verification
+  - monitoring
+  - decision
 safety_rules:
   - id: patient_data_external_review
     applies_when:

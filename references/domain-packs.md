@@ -4,9 +4,10 @@ Domain packs add declarative domain vocabulary and policy overlays without chang
 
 They are YAML or JSON data, not executable plugins. A pack declares domain-specific decision
 types, criteria, evidence requirements, risks, safety rules, document profiles, aliases, and
-interview hints. The core runtime still stores domain-neutral objects and links; pack semantics are
-attached through metadata such as `domain_pack_id`, `domain_pack_version`, `domain_pack_digest`,
-and `domain_decision_type`.
+interview hints. Packs also declare `action_types`, the action taxonomy used when an action is
+treated as the Phase 10 executable WorkUnit equivalent. The core runtime still stores
+domain-neutral objects and links; pack semantics are attached through metadata such as
+`domain_pack_id`, `domain_pack_version`, `domain_pack_digest`, and `domain_decision_type`.
 
 ## Built-in packs
 
@@ -31,6 +32,22 @@ The distribution includes seven built-in packs:
 User-defined packs may be placed under `.ai/decide-me/domain-packs/` as `.yaml`, `.yml`, or
 `.json`. YAML loading uses the runtime dependency declared in `requirements.txt` (`PyYAML>=6.0`).
 They must pass the same strict contract as built-ins. Duplicate pack IDs are rejected.
+
+Existing user-defined packs created before the Phase 10 Action-as-WorkUnit contract update must
+add `action_types`. A minimal compatible value is:
+
+```yaml
+action_types:
+  - research
+  - analysis
+  - writing
+  - communication
+  - execution
+  - review
+  - verification
+  - monitoring
+  - decision
+```
 
 ## CLI surface
 
@@ -74,7 +91,13 @@ Pack validation rejects unknown fields, invalid enum values, duplicate semantic 
 document profiles, multiple defaults for the same document type, unresolved internal references,
 and non-declarative payload shapes. `decision_types[].object_type` is restricted to `decision`;
 domain-specific evidence, risk, action, and artifact classifications live in their own pack fields
-or object metadata.
+or object metadata. `action_types` is declarative taxonomy only; it does not add a new runtime
+object type. Built-in packs share the standard taxonomy (`research`, `analysis`, `writing`,
+`communication`, `execution`, `review`, `verification`, `monitoring`, `decision`), and user packs
+may add identifier-shaped action types when they need domain-specific execution categories. The
+taxonomy is advisory at the core runtime boundary: object and plan validation require
+identifier-shaped `action_type` values, but do not require an action's value to appear in the
+selected pack's `action_types`.
 
 ## Runtime propagation
 

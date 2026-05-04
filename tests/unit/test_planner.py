@@ -28,6 +28,7 @@ class PlannerTests(unittest.TestCase):
                 "L-P-001-recommends-O-001",
                 "L-E-001-supports-D-001",
                 "L-O-action-addresses-D-001",
+                "L-VER-001-verifies-O-action",
             ],
             action_ids=["O-action"],
             evidence_ids=["E-001"],
@@ -55,6 +56,12 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(["O-action"], [item["id"] for item in action_plan["actions"]])
         self.assertEqual(["E-001"], [item["id"] for item in action_plan["evidence"]])
         self.assertEqual("docs/auth.md", action_plan["evidence"][0]["ref"])
+        action = action_plan["actions"][0]
+        self.assertEqual("execution", action["action_type"])
+        self.assertEqual(["design brief"], action["required_inputs"])
+        self.assertEqual(["auth implementation"], action["outputs"])
+        self.assertEqual(["VER-001"], action["verification_refs"])
+        self.assertEqual(["D-001"], action["source_decision_refs"])
         self.assertIn("D-001", action_plan["source_object_ids"])
         self.assertIn("O-action", action_plan["source_object_ids"])
         self.assertIn("L-O-action-addresses-D-001", action_plan["source_link_ids"])
@@ -114,11 +121,15 @@ def _project_state() -> dict:
                 body="Use magic links.",
                 metadata={
                     "decision_id": "D-001",
+                    "action_type": "execution",
                     "responsibility": "technical",
                     "priority": "P0",
                     "implementation_ready": True,
+                    "required_inputs": ["design brief"],
+                    "outputs": ["auth implementation"],
                 },
             ),
+            _object("VER-001", "verification", "Auth verification", metadata={"method": "test"}),
         ],
         "links": [
             _link("L-D-001-accepts-P-001", "D-001", "accepts", "P-001"),
@@ -127,6 +138,7 @@ def _project_state() -> dict:
             _link("L-P-002-recommends-O-002", "P-002", "recommends", "O-002"),
             _link("L-E-001-supports-D-001", "E-001", "supports", "D-001"),
             _link("L-O-action-addresses-D-001", "O-action", "addresses", "D-001"),
+            _link("L-VER-001-verifies-O-action", "VER-001", "verifies", "O-action"),
         ],
     }
 

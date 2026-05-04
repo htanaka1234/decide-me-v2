@@ -40,6 +40,7 @@ TOP_LEVEL_KEYS = {
     "criteria",
     "evidence_requirements",
     "risk_types",
+    "action_types",
     "safety_rules",
     "risk_policy",
     "documents",
@@ -139,6 +140,7 @@ def validate_domain_pack_payload(raw: dict[str, Any]) -> None:
         "domain_pack.risk_types",
         _validate_risk_type,
     )
+    _require_identifier_list(payload.get("action_types"), "domain_pack.action_types")
     safety_rules = _validate_spec_list(
         payload.get("safety_rules"),
         "domain_pack.safety_rules",

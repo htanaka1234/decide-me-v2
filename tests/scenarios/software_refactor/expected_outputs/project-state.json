@@ -519,7 +519,7 @@
           "testability"
         ],
         "domain_decision_type": "architecture_choice",
-        "domain_pack_digest": "DP-25d8332c0ad0",
+        "domain_pack_digest": "DP-03c7ea952955",
         "domain_pack_id": "software",
         "domain_pack_version": "0.1.0",
         "frontier": "now",
@@ -545,7 +545,7 @@
           "delivery_risk"
         ],
         "domain_decision_type": "verification_strategy",
-        "domain_pack_digest": "DP-25d8332c0ad0",
+        "domain_pack_digest": "DP-03c7ea952955",
         "domain_pack_id": "software",
         "domain_pack_version": "0.1.0",
         "frontier": "now",
@@ -568,7 +568,7 @@
       "metadata": {
         "confidence": "high",
         "domain_evidence_type": "implementation",
-        "domain_pack_digest": "DP-25d8332c0ad0",
+        "domain_pack_digest": "DP-03c7ea952955",
         "domain_pack_id": "software",
         "domain_pack_version": "0.1.0",
         "evidence_requirement_id": "codebase_context",
@@ -594,7 +594,7 @@
       "metadata": {
         "confidence": "medium",
         "domain_evidence_type": "tests",
-        "domain_pack_digest": "DP-25d8332c0ad0",
+        "domain_pack_digest": "DP-03c7ea952955",
         "domain_pack_id": "software",
         "domain_pack_version": "0.1.0",
         "evidence_requirement_id": "test_coverage",
