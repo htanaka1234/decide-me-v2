@@ -4,7 +4,13 @@ import unittest
 
 from decide_me.events import EventValidationError, build_event, validate_event
 from tests.helpers.legacy_term_policy import LEGACY_EVENT_TYPE_TERMS, LEGACY_PROJECT_STATE_TERMS
-from tests.helpers.typed_metadata import assumption_metadata, evidence_metadata, risk_metadata
+from tests.helpers.typed_metadata import (
+    assumption_metadata,
+    evidence_metadata,
+    revisit_trigger_metadata,
+    risk_metadata,
+    verification_metadata,
+)
 
 
 class EventTests(unittest.TestCase):
@@ -101,6 +107,54 @@ class EventTests(unittest.TestCase):
                         "ART-001",
                         event_id="E-test-1",
                         object_type="artifact",
+                        metadata=metadata,
+                    )
+                },
+            )
+
+    def test_object_recorded_rejects_malformed_action_metadata(self) -> None:
+        metadata = {"implementation_ready": "yes"}
+
+        with self.assertRaisesRegex(EventValidationError, "action object ACT-001.metadata.implementation_ready"):
+            _event(
+                event_type="object_recorded",
+                payload={
+                    "object": _object(
+                        "ACT-001",
+                        event_id="E-test-1",
+                        object_type="action",
+                        metadata=metadata,
+                    )
+                },
+            )
+
+    def test_object_recorded_rejects_malformed_verification_metadata(self) -> None:
+        metadata = verification_metadata(method="unknown")
+
+        with self.assertRaisesRegex(EventValidationError, "verification object VER-001.metadata.method"):
+            _event(
+                event_type="object_recorded",
+                payload={
+                    "object": _object(
+                        "VER-001",
+                        event_id="E-test-1",
+                        object_type="verification",
+                        metadata=metadata,
+                    )
+                },
+            )
+
+    def test_object_recorded_rejects_empty_revisit_trigger_targets(self) -> None:
+        metadata = revisit_trigger_metadata(target_object_ids=[])
+
+        with self.assertRaisesRegex(EventValidationError, "revisit_trigger object RV-001.metadata.target_object_ids"):
+            _event(
+                event_type="object_recorded",
+                payload={
+                    "object": _object(
+                        "RV-001",
+                        event_id="E-test-1",
+                        object_type="revisit_trigger",
                         metadata=metadata,
                     )
                 },

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from copy import deepcopy
 import unittest
 
 from decide_me.events import build_event
-from decide_me.validate import StateValidationError, validate_event_log
+from decide_me.projections import _deep_update_object
+from decide_me.validate import StateValidationError, _apply_object_patch_for_metadata_validation, validate_event_log
 from tests.helpers.typed_metadata import metadata_for_object_type
 
 
@@ -138,6 +140,30 @@ class EventLogValidationTests(unittest.TestCase):
         ]
 
         validate_event_log(events)
+
+    def test_metadata_validation_patch_merge_matches_projection_patch_merge(self) -> None:
+        obj = _object("D-001", "E-test-3")
+        obj["metadata"] = {
+            "invalidated_by": {
+                "decision_id": "D-old",
+                "invalidated_at": "2026-04-23T12:04:00Z",
+            },
+            "priority": "P1",
+        }
+        patch = {
+            "title": "Updated decision",
+            "metadata": {
+                "invalidated_by": {"decision_id": "D-new"},
+                "priority": "P0",
+            },
+        }
+        projected = deepcopy(obj)
+        replayed = deepcopy(obj)
+
+        _deep_update_object(projected, patch)
+        _apply_object_patch_for_metadata_validation(replayed, patch)
+
+        self.assertEqual(projected, replayed)
 
     def test_rejects_missing_object_references(self) -> None:
         cases = [

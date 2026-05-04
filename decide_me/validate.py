@@ -883,6 +883,14 @@ def validate_event_object_metadata(
     *,
     initial_objects: list[dict[str, Any]] | None = None,
 ) -> None:
+    """Validate typed object metadata after replaying object mutations.
+
+    `object_recorded` metadata is self-contained and is also checked by
+    validate_event(). `object_updated` metadata is stateful: a patch can only be
+    validated against the current object projection, so callers must use this
+    replay validator, validate_event_log(), or transact() for semantic metadata
+    validation of update events.
+    """
     objects_by_id: dict[str, dict[str, Any]] = {}
     for obj in initial_objects or []:
         if isinstance(obj, dict) and obj.get("id"):
