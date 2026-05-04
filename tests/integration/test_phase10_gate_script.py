@@ -58,6 +58,12 @@ class Phase10GateScriptTests(unittest.TestCase):
 
         self.assertIn("timeout-minutes: 5", workflow)
 
+    def test_github_actions_gate_uses_node24_action_versions(self) -> None:
+        workflow = (REPO_ROOT / ".github/workflows/phase10-gate.yml").read_text(encoding="utf-8")
+
+        self.assertIn("uses: actions/checkout@v6", workflow)
+        self.assertIn("uses: actions/setup-python@v6", workflow)
+
 
 if __name__ == "__main__":
     unittest.main()

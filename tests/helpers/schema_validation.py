@@ -4,7 +4,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from jsonschema import Draft202012Validator, RefResolver
+from jsonschema import Draft202012Validator
+from referencing import Registry, Resource
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -26,16 +27,18 @@ def load_project_state_schema_bundle() -> tuple[dict[str, Any], dict[str, Any], 
     )
 
 
+def schema_registry(*schemas: dict[str, Any]) -> Registry:
+    return Registry().with_resources(
+        (schema["$id"], Resource.from_contents(schema))
+        for schema in schemas
+    )
+
+
 def project_state_schema_validator(schema: dict[str, Any] | None = None) -> Draft202012Validator:
     project_schema, object_schema, link_schema = load_project_state_schema_bundle()
     if schema is not None:
         project_schema = schema
-    resolver = RefResolver.from_schema(
+    return Draft202012Validator(
         project_schema,
-        store={
-            project_schema["$id"]: project_schema,
-            object_schema["$id"]: object_schema,
-            link_schema["$id"]: link_schema,
-        },
+        registry=schema_registry(project_schema, object_schema, link_schema),
     )
-    return Draft202012Validator(project_schema, resolver=resolver)
