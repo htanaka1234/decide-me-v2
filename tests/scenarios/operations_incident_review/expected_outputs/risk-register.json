@@ -1,0 +1,63 @@
+{
+  "items": [
+    {
+      "approval_threshold": "human_review",
+      "created_at": "2026-04-29T00:20:12Z",
+      "likelihood": "medium",
+      "mitigated_by_object_ids": [],
+      "mitigation_link_ids": [],
+      "mitigation_object_ids": [
+        "ACT-op-alert-review"
+      ],
+      "object_id": "RISK-op-monitoring-gap",
+      "related_link_ids": [],
+      "reversibility": "partially_reversible",
+      "risk_tier": "high",
+      "severity": "high",
+      "source_event_ids": [
+        "E-op-013"
+      ],
+      "statement": "Missed incident follow-up actions are not monitored daily.",
+      "status": "active",
+      "title": "Incident follow-up monitoring gap",
+      "updated_at": null
+    },
+    {
+      "approval_threshold": "human_review",
+      "created_at": "2026-04-29T00:20:11Z",
+      "likelihood": "medium",
+      "mitigated_by_object_ids": [],
+      "mitigation_link_ids": [],
+      "mitigation_object_ids": [],
+      "object_id": "RISK-op-single-owner",
+      "related_link_ids": [],
+      "reversibility": "partially_reversible",
+      "risk_tier": "high",
+      "severity": "high",
+      "source_event_ids": [
+        "E-op-012"
+      ],
+      "statement": "Only one support lead owns escalation review.",
+      "status": "active",
+      "title": "Single-owner escalation risk",
+      "updated_at": null
+    }
+  ],
+  "register_type": "risk",
+  "schema_version": 1,
+  "summary": {
+    "by_approval_threshold": {
+      "human_review": 2
+    },
+    "by_reversibility": {
+      "partially_reversible": 2
+    },
+    "by_risk_tier": {
+      "high": 2
+    },
+    "by_status": {
+      "active": 2
+    },
+    "item_count": 2
+  }
+}

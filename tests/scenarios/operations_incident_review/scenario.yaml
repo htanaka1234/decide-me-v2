@@ -1,0 +1,87 @@
+schema_version: 1
+scenario_id: operations_incident_review
+label: Operations incident review
+domain_pack: operations
+project:
+  name: Demo operations project
+  objective: Stabilize the support escalation process after a repeated incident.
+  current_milestone: Incident review and control rollout
+sessions:
+  - session_id: S-operations-incident-review
+    context: Define the incident review process, escalation policy, controls, and monitoring follow-up.
+    seed_events: events.jsonl
+    close: true
+evaluation:
+  now: "2026-04-29T00:00:00Z"
+  expected_decision_coverage:
+    required_domain_decision_types:
+      - process_definition
+      - escalation_policy
+      - control_design
+      - monitoring_plan
+    required_status_counts:
+      - status: accepted
+        mode: min
+        count: 4
+  expected_questions:
+    max_questions: 0
+    forbidden_repeated_decision_types:
+      - escalation_policy
+  expected_evidence_coverage:
+    min_supporting_evidence: 2
+    required_evidence_requirement_ids: []
+  expected_risks:
+    required_domain_risk_types:
+      - single_point_of_failure
+      - monitoring_gap
+    required_risk_tiers:
+      - high
+    min_high_or_critical_risks: 2
+  expected_safety_gates:
+    required_rule_ids:
+      - operational_resilience_review
+    required_approval_thresholds:
+      - human_review
+    min_approval_required_count: 1
+    required_insufficient_evidence_ids: []
+  expected_conflicts:
+    count: 0
+  expected_plan_executability:
+    readiness: conditional
+    min_implementation_ready_count: 1
+    min_action_count: 2
+    require_no_unresolved_conflicts: true
+  expected_revisit_quality:
+    stale_assumptions:
+      mode: exact
+      count: 0
+    stale_evidence:
+      mode: exact
+      count: 0
+    verification_gaps:
+      mode: min
+      count: 1
+    due_revisits:
+      mode: exact
+      count: 1
+  expected_documents:
+    - type: action-plan
+      format: json
+      session_ids:
+        - S-operations-incident-review
+      required_sections:
+        - summary
+        - implementation-ready-actions
+        - actions
+        - risks
+        - source-traceability
+      require_source_traceability: true
+    - type: review-memo
+      format: json
+      session_ids:
+        - S-operations-incident-review
+      required_sections:
+        - review-summary
+        - required-decisions
+        - verification-gaps
+        - revisit-due

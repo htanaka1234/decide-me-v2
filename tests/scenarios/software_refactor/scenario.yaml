@@ -41,4 +41,22 @@ evaluation:
     count: 1
     required_conflict_types:
       - decision-accepted-proposal-mismatch
+  expected_plan_executability:
+    readiness: ready
+    min_implementation_ready_count: 1
+    min_action_count: 1
+    require_no_unresolved_conflicts: false
+  expected_revisit_quality:
+    stale_assumptions:
+      mode: exact
+      count: 0
+    stale_evidence:
+      mode: exact
+      count: 0
+    verification_gaps:
+      mode: min
+      count: 1
+    due_revisits:
+      mode: exact
+      count: 0
   expected_documents: []

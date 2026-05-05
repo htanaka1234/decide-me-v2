@@ -1,0 +1,346 @@
+{
+  "audience": "human",
+  "document_id": "DOC-20260429-review-memo",
+  "document_type": "review-memo",
+  "metadata": {
+    "document_profile_id": "operations_review_memo",
+    "domain_pack_digest": "DP-77761e415897",
+    "domain_pack_id": "operations",
+    "domain_pack_version": "0.1.0"
+  },
+  "schema_version": 1,
+  "sections": [
+    {
+      "blocks": [
+        {
+          "columns": [
+            "Metric",
+            "Count"
+          ],
+          "rows": [
+            [
+              "Blocking gates",
+              0
+            ],
+            [
+              "Approval required",
+              7
+            ],
+            [
+              "Stale evidence",
+              0
+            ],
+            [
+              "Expired assumptions",
+              0
+            ],
+            [
+              "Verification gaps",
+              5
+            ],
+            [
+              "Due revisits",
+              1
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "review-summary",
+      "order": 10,
+      "source_link_ids": [
+        "L-EVID-op-alert-log-supports-DEC-op-control",
+        "L-EVID-op-alert-log-supports-DEC-op-monitoring",
+        "L-EVID-op-incident-review-supports-DEC-op-escalation",
+        "L-EVID-op-incident-review-supports-DEC-op-process",
+        "L-REV-op-control-owner-revisits-DEC-op-control",
+        "L-RISK-op-monitoring-gap-constrains-DEC-op-monitoring",
+        "L-RISK-op-single-owner-constrains-DEC-op-escalation"
+      ],
+      "source_object_ids": [
+        "ACT-op-alert-review",
+        "ACT-op-runbook",
+        "DEC-op-control",
+        "DEC-op-escalation",
+        "DEC-op-monitoring",
+        "DEC-op-process",
+        "EVID-op-alert-log",
+        "EVID-op-incident-review",
+        "O-action-33d429198ae8",
+        "O-action-bd78d4debad6",
+        "O-action-cf86cdd617f2",
+        "O-action-e8472fdfcea2",
+        "REV-op-control-owner",
+        "RISK-op-monitoring-gap",
+        "RISK-op-single-owner"
+      ],
+      "title": "Review Summary"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "Object ID",
+            "Title",
+            "Gate Status",
+            "Approval Required",
+            "Blocking Reasons",
+            "Approval Reasons"
+          ],
+          "rows": [
+            [
+              "ACT-op-alert-review",
+              "Add daily escalation-lag review",
+              "needs_approval",
+              true,
+              "",
+              "action_verification_gap, high_risk_tier, human_review_required, insufficient_evidence_requires_approval"
+            ],
+            [
+              "DEC-op-escalation",
+              "Support escalation policy",
+              "needs_approval",
+              true,
+              "",
+              "high_risk_tier, human_review_required"
+            ],
+            [
+              "DEC-op-monitoring",
+              "Escalation monitoring plan",
+              "needs_approval",
+              true,
+              "",
+              "high_risk_tier, human_review_required"
+            ],
+            [
+              "O-action-33d429198ae8",
+              "Escalation monitoring plan",
+              "needs_approval",
+              true,
+              "",
+              "action_verification_gap"
+            ],
+            [
+              "O-action-bd78d4debad6",
+              "Incident control design",
+              "needs_approval",
+              true,
+              "",
+              "action_verification_gap"
+            ],
+            [
+              "O-action-cf86cdd617f2",
+              "Incident review process",
+              "needs_approval",
+              true,
+              "",
+              "action_verification_gap"
+            ],
+            [
+              "O-action-e8472fdfcea2",
+              "Support escalation policy",
+              "needs_approval",
+              true,
+              "",
+              "action_verification_gap"
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "required-decisions",
+      "order": 20,
+      "source_link_ids": [
+        "L-EVID-op-alert-log-supports-DEC-op-control",
+        "L-EVID-op-alert-log-supports-DEC-op-monitoring",
+        "L-EVID-op-incident-review-supports-DEC-op-escalation",
+        "L-EVID-op-incident-review-supports-DEC-op-process",
+        "L-RISK-op-monitoring-gap-constrains-DEC-op-monitoring",
+        "L-RISK-op-single-owner-constrains-DEC-op-escalation"
+      ],
+      "source_object_ids": [
+        "ACT-op-alert-review",
+        "ACT-op-runbook",
+        "DEC-op-control",
+        "DEC-op-escalation",
+        "DEC-op-monitoring",
+        "DEC-op-process",
+        "EVID-op-alert-log",
+        "EVID-op-incident-review",
+        "O-action-33d429198ae8",
+        "O-action-bd78d4debad6",
+        "O-action-cf86cdd617f2",
+        "O-action-e8472fdfcea2",
+        "RISK-op-monitoring-gap",
+        "RISK-op-single-owner"
+      ],
+      "title": "Required Decisions"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "Action ID",
+            "Title",
+            "Gap Severity",
+            "Gap Reason"
+          ],
+          "rows": [
+            [
+              "ACT-op-alert-review",
+              "Add daily escalation-lag review",
+              "medium",
+              "missing_verification"
+            ],
+            [
+              "O-action-33d429198ae8",
+              "Escalation monitoring plan",
+              "medium",
+              "missing_verification"
+            ],
+            [
+              "O-action-bd78d4debad6",
+              "Incident control design",
+              "medium",
+              "missing_verification"
+            ],
+            [
+              "O-action-cf86cdd617f2",
+              "Incident review process",
+              "medium",
+              "missing_verification"
+            ],
+            [
+              "O-action-e8472fdfcea2",
+              "Support escalation policy",
+              "medium",
+              "missing_verification"
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "verification-gaps",
+      "order": 40,
+      "source_link_ids": [],
+      "source_object_ids": [
+        "ACT-op-alert-review",
+        "O-action-33d429198ae8",
+        "O-action-bd78d4debad6",
+        "O-action-cf86cdd617f2",
+        "O-action-e8472fdfcea2"
+      ],
+      "title": "Verification Gaps"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "Trigger ID",
+            "Type",
+            "Due At",
+            "Targets",
+            "Condition"
+          ],
+          "rows": [
+            [
+              "REV-op-control-owner",
+              "time",
+              "2026-04-28T00:00:00Z",
+              "DEC-op-control",
+              "Repeat incident follow-up still has no named backup owner."
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "revisit-due",
+      "order": 50,
+      "source_link_ids": [
+        "L-REV-op-control-owner-revisits-DEC-op-control"
+      ],
+      "source_object_ids": [
+        "DEC-op-control",
+        "REV-op-control-owner"
+      ],
+      "title": "Revisit Due"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "Kind",
+            "Object ID",
+            "Reason",
+            "Timestamp",
+            "Affected Objects"
+          ],
+          "rows": [],
+          "type": "table"
+        }
+      ],
+      "id": "stale-inputs",
+      "order": 30,
+      "source_link_ids": [],
+      "source_object_ids": [],
+      "title": "Stale Inputs"
+    },
+    {
+      "blocks": [
+        {
+          "items": [
+            "Record or refresh required safety approvals.",
+            "Define verification evidence for actions with gaps.",
+            "Revisit due trigger targets and update affected objects."
+          ],
+          "type": "list"
+        }
+      ],
+      "id": "recommended-next-actions",
+      "order": 60,
+      "source_link_ids": [],
+      "source_object_ids": [],
+      "title": "Recommended Next Actions"
+    }
+  ],
+  "source": {
+    "diagnostic_types": [
+      "revisit_due",
+      "safety_gates",
+      "stale_assumptions",
+      "stale_evidence",
+      "verification_gaps"
+    ],
+    "link_ids": [
+      "L-EVID-op-alert-log-supports-DEC-op-control",
+      "L-EVID-op-alert-log-supports-DEC-op-monitoring",
+      "L-EVID-op-incident-review-supports-DEC-op-escalation",
+      "L-EVID-op-incident-review-supports-DEC-op-process",
+      "L-REV-op-control-owner-revisits-DEC-op-control",
+      "L-RISK-op-monitoring-gap-constrains-DEC-op-monitoring",
+      "L-RISK-op-single-owner-constrains-DEC-op-escalation"
+    ],
+    "object_ids": [
+      "ACT-op-alert-review",
+      "ACT-op-runbook",
+      "DEC-op-control",
+      "DEC-op-escalation",
+      "DEC-op-monitoring",
+      "DEC-op-process",
+      "EVID-op-alert-log",
+      "EVID-op-incident-review",
+      "O-action-33d429198ae8",
+      "O-action-bd78d4debad6",
+      "O-action-cf86cdd617f2",
+      "O-action-e8472fdfcea2",
+      "REV-op-control-owner",
+      "RISK-op-monitoring-gap",
+      "RISK-op-single-owner"
+    ],
+    "session_ids": [
+      "S-operations-incident-review"
+    ]
+  },
+  "title": "Review Memo",
+  "warnings": []
+}

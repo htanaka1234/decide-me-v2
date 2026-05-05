@@ -113,6 +113,8 @@ evaluation:
   expected_documents:
     - type: research-plan
       format: json
+      session_ids:
+        - S-research-protocol
       require_source_traceability: true
       required_sections:
         - objective
@@ -156,6 +158,8 @@ testing raw action-plan output in isolation. Revisit quality is diagnostic-only 
 gaps, and due revisits are checked independently. When document `require_source_traceability` is
 true, the compiled document must carry non-empty source object and link traceability, and a
 `source-traceability` section must be non-empty when the document type emits that section.
+`expected_documents[].session_ids` optionally narrows one document assertion to a subset of closed
+scenario sessions; when omitted, the document is compiled from all closed scenario sessions.
 
 ## Evaluation report
 
@@ -305,8 +309,10 @@ Use the Phase 10 release-readiness gate for CI and local final checks:
 PYTHONPATH=. python3 scripts/run_phase10_gate.py
 ```
 
-The gate runs the pytest `unit or phase_gate` slice first, then runs the committed scenario
-evaluation runner in JSON mode. The corresponding GitHub Actions workflow is `.github/workflows/phase10-gate.yml`.
+The gate runs the pytest `phase_gate and not slow` slice first, including an explicit lightweight
+unit contract subset, then runs the committed scenario evaluation runner in JSON mode. Slow
+evaluation snapshot tests are intentionally left for nightly or manual checks. The corresponding
+GitHub Actions workflow is `.github/workflows/phase10-gate.yml`.
 Schema validation tests use `jsonschema` with `referencing.Registry` resources for local `$ref`
 resolution and avoid the deprecated resolver path from older `jsonschema` usage.
 
@@ -333,7 +339,7 @@ Pytest markers are assigned automatically during collection:
 
 ```bash
 PYTHONPATH=. python3 -m pytest -m "unit" -q
-PYTHONPATH=. python3 -m pytest -m "phase_gate" -q
+PYTHONPATH=. python3 -m pytest -m "phase_gate and not slow" -q
 PYTHONPATH=. python3 -m pytest -m "evaluation" -q
 PYTHONPATH=. python3 -m pytest -m "integration and not slow" -q
 PYTHONPATH=. python3 -m pytest -m "slow" -q

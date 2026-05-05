@@ -17,6 +17,7 @@ SCENARIOS_DIR = REPO_ROOT / "tests" / "scenarios"
 EXPECTED_SCENARIOS = {
     "career_plan",
     "household_project",
+    "operations_incident_review",
     "procurement_decision",
     "research_protocol",
     "software_refactor",
@@ -28,6 +29,7 @@ EXPECTED_SCENARIOS = {
 EXPECTED_SCENARIO_PACKS = {
     "career_plan": "personal_planning",
     "household_project": "personal_planning",
+    "operations_incident_review": "operations",
     "procurement_decision": "procurement",
     "research_protocol": "research",
     "software_refactor": "software",

@@ -1,0 +1,524 @@
+{
+  "audience": "human",
+  "document_id": "DOC-20260429-action-plan",
+  "document_type": "action-plan",
+  "metadata": {
+    "document_profile_id": "operations_action_plan",
+    "domain_pack_digest": "DP-77761e415897",
+    "domain_pack_id": "operations",
+    "domain_pack_version": "0.1.0",
+    "readiness": "conditional"
+  },
+  "schema_version": 1,
+  "sections": [
+    {
+      "blocks": [
+        {
+          "items": [
+            "Readiness: conditional",
+            "Action count: 6",
+            "Implementation-ready count: 1"
+          ],
+          "type": "list"
+        },
+        {
+          "items": [
+            "Define the incident review process, escalation policy, controls, and monitoring follow-up."
+          ],
+          "type": "list"
+        }
+      ],
+      "id": "summary",
+      "order": 10,
+      "source_link_ids": [
+        "L-ACT-op-alert-review-addresses-DEC-op-monitoring",
+        "L-ACT-op-runbook-addresses-DEC-op-process",
+        "L-DEC-op-control-accepts-PRO-op-control",
+        "L-DEC-op-escalation-accepts-PRO-op-escalation",
+        "L-DEC-op-monitoring-accepts-PRO-op-monitoring",
+        "L-DEC-op-process-accepts-PRO-op-runbook",
+        "L-EVID-op-alert-log-supports-DEC-op-control",
+        "L-EVID-op-alert-log-supports-DEC-op-monitoring",
+        "L-EVID-op-incident-review-supports-DEC-op-escalation",
+        "L-EVID-op-incident-review-supports-DEC-op-process",
+        "L-O-action-33d429198ae8-addresses-DEC-op-monitoring",
+        "L-O-action-bd78d4debad6-addresses-DEC-op-control",
+        "L-O-action-cf86cdd617f2-addresses-DEC-op-process",
+        "L-O-action-e8472fdfcea2-addresses-DEC-op-escalation",
+        "L-PRO-op-control-addresses-DEC-op-control",
+        "L-PRO-op-control-recommends-OPT-op-control",
+        "L-PRO-op-escalation-addresses-DEC-op-escalation",
+        "L-PRO-op-escalation-recommends-OPT-op-escalation",
+        "L-PRO-op-monitoring-addresses-DEC-op-monitoring",
+        "L-PRO-op-monitoring-recommends-OPT-op-monitoring",
+        "L-PRO-op-runbook-addresses-DEC-op-process",
+        "L-PRO-op-runbook-recommends-OPT-op-runbook",
+        "L-REV-op-control-owner-revisits-DEC-op-control",
+        "L-VER-op-dry-run-verifies-ACT-op-runbook"
+      ],
+      "source_object_ids": [
+        "ACT-op-alert-review",
+        "ACT-op-runbook",
+        "DEC-op-control",
+        "DEC-op-escalation",
+        "DEC-op-monitoring",
+        "DEC-op-process",
+        "EVID-op-alert-log",
+        "EVID-op-incident-review",
+        "O-action-33d429198ae8",
+        "O-action-bd78d4debad6",
+        "O-action-cf86cdd617f2",
+        "O-action-e8472fdfcea2",
+        "O-project-objective",
+        "OPT-op-control",
+        "OPT-op-escalation",
+        "OPT-op-monitoring",
+        "OPT-op-runbook",
+        "PRO-op-control",
+        "PRO-op-escalation",
+        "PRO-op-monitoring",
+        "PRO-op-runbook",
+        "REV-op-control-owner",
+        "RISK-op-monitoring-gap",
+        "RISK-op-single-owner",
+        "VER-op-dry-run"
+      ],
+      "title": "Summary"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "ID",
+            "Name",
+            "Type",
+            "Source Decisions",
+            "Required Inputs",
+            "Outputs",
+            "Verification",
+            "Status",
+            "Priority",
+            "Ready",
+            "Gate",
+            "Next Step"
+          ],
+          "rows": [
+            [
+              "ACT-op-runbook",
+              "Publish incident review runbook",
+              "execution",
+              "DEC-op-process",
+              "EVID-op-incident-review",
+              "",
+              "VER-op-dry-run",
+              "active",
+              "P0",
+              true,
+              "passed",
+              "Publish the runbook and run one tabletop dry run."
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "implementation-ready-actions",
+      "order": 20,
+      "source_link_ids": [
+        "L-ACT-op-runbook-addresses-DEC-op-process",
+        "L-VER-op-dry-run-verifies-ACT-op-runbook"
+      ],
+      "source_object_ids": [
+        "ACT-op-runbook",
+        "DEC-op-process",
+        "VER-op-dry-run"
+      ],
+      "title": "Implementation-Ready Actions"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "ID",
+            "Name",
+            "Type",
+            "Source Decisions",
+            "Required Inputs",
+            "Outputs",
+            "Verification",
+            "Status",
+            "Priority",
+            "Ready",
+            "Gate",
+            "Next Step"
+          ],
+          "rows": [
+            [
+              "ACT-op-runbook",
+              "Publish incident review runbook",
+              "execution",
+              "DEC-op-process",
+              "EVID-op-incident-review",
+              "",
+              "VER-op-dry-run",
+              "active",
+              "P0",
+              true,
+              "passed",
+              "Publish the runbook and run one tabletop dry run."
+            ],
+            [
+              "O-action-bd78d4debad6",
+              "Incident control design",
+              "decision",
+              "DEC-op-control",
+              "",
+              "",
+              "",
+              "active",
+              "P0",
+              false,
+              "needs_approval",
+              "Drive Incident control design to completion."
+            ],
+            [
+              "O-action-cf86cdd617f2",
+              "Incident review process",
+              "decision",
+              "DEC-op-process",
+              "",
+              "",
+              "",
+              "active",
+              "P0",
+              false,
+              "needs_approval",
+              "Drive Incident review process to completion."
+            ],
+            [
+              "O-action-e8472fdfcea2",
+              "Support escalation policy",
+              "decision",
+              "DEC-op-escalation",
+              "",
+              "",
+              "",
+              "active",
+              "P0",
+              false,
+              "needs_approval",
+              "Drive Support escalation policy to completion."
+            ],
+            [
+              "ACT-op-alert-review",
+              "Add daily escalation-lag review",
+              "monitoring",
+              "DEC-op-monitoring",
+              "EVID-op-alert-log",
+              "",
+              "",
+              "active",
+              "P1",
+              false,
+              "needs_approval",
+              "Add daily escalation-lag review after control owner approval."
+            ],
+            [
+              "O-action-33d429198ae8",
+              "Escalation monitoring plan",
+              "decision",
+              "DEC-op-monitoring",
+              "",
+              "",
+              "",
+              "active",
+              "P1",
+              false,
+              "needs_approval",
+              "Drive Escalation monitoring plan to completion."
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "actions",
+      "order": 30,
+      "source_link_ids": [
+        "L-ACT-op-alert-review-addresses-DEC-op-monitoring",
+        "L-ACT-op-runbook-addresses-DEC-op-process",
+        "L-O-action-33d429198ae8-addresses-DEC-op-monitoring",
+        "L-O-action-bd78d4debad6-addresses-DEC-op-control",
+        "L-O-action-cf86cdd617f2-addresses-DEC-op-process",
+        "L-O-action-e8472fdfcea2-addresses-DEC-op-escalation",
+        "L-VER-op-dry-run-verifies-ACT-op-runbook"
+      ],
+      "source_object_ids": [
+        "ACT-op-alert-review",
+        "ACT-op-runbook",
+        "DEC-op-control",
+        "DEC-op-escalation",
+        "DEC-op-monitoring",
+        "DEC-op-process",
+        "O-action-33d429198ae8",
+        "O-action-bd78d4debad6",
+        "O-action-cf86cdd617f2",
+        "O-action-e8472fdfcea2",
+        "RISK-op-monitoring-gap",
+        "VER-op-dry-run"
+      ],
+      "title": "Actions"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "ID",
+            "Title",
+            "Status",
+            "Priority",
+            "Frontier",
+            "Evidence"
+          ],
+          "rows": [],
+          "type": "table"
+        }
+      ],
+      "id": "blockers",
+      "order": 40,
+      "source_link_ids": [],
+      "source_object_ids": [],
+      "title": "Blockers"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "ID",
+            "Title",
+            "Status",
+            "Priority",
+            "Evidence"
+          ],
+          "rows": [
+            [
+              "RISK-op-single-owner",
+              "Single-owner escalation risk",
+              "active",
+              null,
+              ""
+            ],
+            [
+              "RISK-op-monitoring-gap",
+              "Incident follow-up monitoring gap",
+              "active",
+              null,
+              ""
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "risks",
+      "order": 50,
+      "source_link_ids": [],
+      "source_object_ids": [
+        "RISK-op-monitoring-gap",
+        "RISK-op-single-owner"
+      ],
+      "title": "Risks"
+    },
+    {
+      "blocks": [
+        {
+          "items": [
+            "Sessions: S-operations-incident-review",
+            "Objects: O-action-bd78d4debad6, O-action-e8472fdfcea2, O-action-33d429198ae8, O-action-cf86cdd617f2, ACT-op-runbook, ACT-op-alert-review, DEC-op-process, DEC-op-escalation, DEC-op-control, DEC-op-monitoring, EVID-op-incident-review, EVID-op-alert-log, REV-op-control-owner, RISK-op-single-owner, RISK-op-monitoring-gap, VER-op-dry-run, O-project-objective, PRO-op-runbook, PRO-op-escalation, PRO-op-control, PRO-op-monitoring, OPT-op-runbook, OPT-op-escalation, OPT-op-control, OPT-op-monitoring",
+            "Links: L-O-action-bd78d4debad6-addresses-DEC-op-control, L-O-action-e8472fdfcea2-addresses-DEC-op-escalation, L-O-action-33d429198ae8-addresses-DEC-op-monitoring, L-O-action-cf86cdd617f2-addresses-DEC-op-process, L-ACT-op-runbook-addresses-DEC-op-process, L-DEC-op-process-accepts-PRO-op-runbook, L-EVID-op-incident-review-supports-DEC-op-process, L-PRO-op-runbook-addresses-DEC-op-process, L-DEC-op-escalation-accepts-PRO-op-escalation, L-EVID-op-incident-review-supports-DEC-op-escalation, L-PRO-op-escalation-addresses-DEC-op-escalation, L-DEC-op-control-accepts-PRO-op-control, L-EVID-op-alert-log-supports-DEC-op-control, L-PRO-op-control-addresses-DEC-op-control, L-REV-op-control-owner-revisits-DEC-op-control, L-ACT-op-alert-review-addresses-DEC-op-monitoring, L-DEC-op-monitoring-accepts-PRO-op-monitoring, L-EVID-op-alert-log-supports-DEC-op-monitoring, L-PRO-op-monitoring-addresses-DEC-op-monitoring, L-PRO-op-runbook-recommends-OPT-op-runbook, L-PRO-op-escalation-recommends-OPT-op-escalation, L-PRO-op-control-recommends-OPT-op-control, L-PRO-op-monitoring-recommends-OPT-op-monitoring, L-VER-op-dry-run-verifies-ACT-op-runbook"
+          ],
+          "type": "list"
+        }
+      ],
+      "id": "source-traceability",
+      "order": 70,
+      "source_link_ids": [
+        "L-ACT-op-alert-review-addresses-DEC-op-monitoring",
+        "L-ACT-op-runbook-addresses-DEC-op-process",
+        "L-DEC-op-control-accepts-PRO-op-control",
+        "L-DEC-op-escalation-accepts-PRO-op-escalation",
+        "L-DEC-op-monitoring-accepts-PRO-op-monitoring",
+        "L-DEC-op-process-accepts-PRO-op-runbook",
+        "L-EVID-op-alert-log-supports-DEC-op-control",
+        "L-EVID-op-alert-log-supports-DEC-op-monitoring",
+        "L-EVID-op-incident-review-supports-DEC-op-escalation",
+        "L-EVID-op-incident-review-supports-DEC-op-process",
+        "L-O-action-33d429198ae8-addresses-DEC-op-monitoring",
+        "L-O-action-bd78d4debad6-addresses-DEC-op-control",
+        "L-O-action-cf86cdd617f2-addresses-DEC-op-process",
+        "L-O-action-e8472fdfcea2-addresses-DEC-op-escalation",
+        "L-PRO-op-control-addresses-DEC-op-control",
+        "L-PRO-op-control-recommends-OPT-op-control",
+        "L-PRO-op-escalation-addresses-DEC-op-escalation",
+        "L-PRO-op-escalation-recommends-OPT-op-escalation",
+        "L-PRO-op-monitoring-addresses-DEC-op-monitoring",
+        "L-PRO-op-monitoring-recommends-OPT-op-monitoring",
+        "L-PRO-op-runbook-addresses-DEC-op-process",
+        "L-PRO-op-runbook-recommends-OPT-op-runbook",
+        "L-REV-op-control-owner-revisits-DEC-op-control",
+        "L-VER-op-dry-run-verifies-ACT-op-runbook"
+      ],
+      "source_object_ids": [
+        "ACT-op-alert-review",
+        "ACT-op-runbook",
+        "DEC-op-control",
+        "DEC-op-escalation",
+        "DEC-op-monitoring",
+        "DEC-op-process",
+        "EVID-op-alert-log",
+        "EVID-op-incident-review",
+        "O-action-33d429198ae8",
+        "O-action-bd78d4debad6",
+        "O-action-cf86cdd617f2",
+        "O-action-e8472fdfcea2",
+        "O-project-objective",
+        "OPT-op-control",
+        "OPT-op-escalation",
+        "OPT-op-monitoring",
+        "OPT-op-runbook",
+        "PRO-op-control",
+        "PRO-op-escalation",
+        "PRO-op-monitoring",
+        "PRO-op-runbook",
+        "REV-op-control-owner",
+        "RISK-op-monitoring-gap",
+        "RISK-op-single-owner",
+        "VER-op-dry-run"
+      ],
+      "title": "Source Traceability"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "ID",
+            "Source",
+            "Ref",
+            "Status",
+            "Summary"
+          ],
+          "rows": [
+            [
+              "EVID-op-incident-review",
+              "docs",
+              "incidents/2026-04-repeat-review",
+              "active",
+              "Incident records support defining a repeatable review runbook."
+            ],
+            [
+              "EVID-op-alert-log",
+              "external",
+              "alerts/escalation-lag",
+              "active",
+              "Monitoring data supports a control checklist for incident follow-up."
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "evidence",
+      "order": 60,
+      "source_link_ids": [
+        "L-ACT-op-alert-review-addresses-DEC-op-monitoring",
+        "L-ACT-op-runbook-addresses-DEC-op-process",
+        "L-DEC-op-control-accepts-PRO-op-control",
+        "L-DEC-op-escalation-accepts-PRO-op-escalation",
+        "L-DEC-op-monitoring-accepts-PRO-op-monitoring",
+        "L-DEC-op-process-accepts-PRO-op-runbook",
+        "L-EVID-op-alert-log-supports-DEC-op-control",
+        "L-EVID-op-alert-log-supports-DEC-op-monitoring",
+        "L-EVID-op-incident-review-supports-DEC-op-escalation",
+        "L-EVID-op-incident-review-supports-DEC-op-process",
+        "L-O-action-33d429198ae8-addresses-DEC-op-monitoring",
+        "L-O-action-bd78d4debad6-addresses-DEC-op-control",
+        "L-O-action-cf86cdd617f2-addresses-DEC-op-process",
+        "L-O-action-e8472fdfcea2-addresses-DEC-op-escalation",
+        "L-PRO-op-control-addresses-DEC-op-control",
+        "L-PRO-op-control-recommends-OPT-op-control",
+        "L-PRO-op-escalation-addresses-DEC-op-escalation",
+        "L-PRO-op-escalation-recommends-OPT-op-escalation",
+        "L-PRO-op-monitoring-addresses-DEC-op-monitoring",
+        "L-PRO-op-monitoring-recommends-OPT-op-monitoring",
+        "L-PRO-op-runbook-addresses-DEC-op-process",
+        "L-PRO-op-runbook-recommends-OPT-op-runbook",
+        "L-REV-op-control-owner-revisits-DEC-op-control",
+        "L-VER-op-dry-run-verifies-ACT-op-runbook"
+      ],
+      "source_object_ids": [
+        "EVID-op-alert-log",
+        "EVID-op-incident-review"
+      ],
+      "title": "Evidence"
+    }
+  ],
+  "source": {
+    "diagnostic_types": [
+      "action_plan"
+    ],
+    "link_ids": [
+      "L-ACT-op-alert-review-addresses-DEC-op-monitoring",
+      "L-ACT-op-runbook-addresses-DEC-op-process",
+      "L-DEC-op-control-accepts-PRO-op-control",
+      "L-DEC-op-escalation-accepts-PRO-op-escalation",
+      "L-DEC-op-monitoring-accepts-PRO-op-monitoring",
+      "L-DEC-op-process-accepts-PRO-op-runbook",
+      "L-EVID-op-alert-log-supports-DEC-op-control",
+      "L-EVID-op-alert-log-supports-DEC-op-monitoring",
+      "L-EVID-op-incident-review-supports-DEC-op-escalation",
+      "L-EVID-op-incident-review-supports-DEC-op-process",
+      "L-O-action-33d429198ae8-addresses-DEC-op-monitoring",
+      "L-O-action-bd78d4debad6-addresses-DEC-op-control",
+      "L-O-action-cf86cdd617f2-addresses-DEC-op-process",
+      "L-O-action-e8472fdfcea2-addresses-DEC-op-escalation",
+      "L-PRO-op-control-addresses-DEC-op-control",
+      "L-PRO-op-control-recommends-OPT-op-control",
+      "L-PRO-op-escalation-addresses-DEC-op-escalation",
+      "L-PRO-op-escalation-recommends-OPT-op-escalation",
+      "L-PRO-op-monitoring-addresses-DEC-op-monitoring",
+      "L-PRO-op-monitoring-recommends-OPT-op-monitoring",
+      "L-PRO-op-runbook-addresses-DEC-op-process",
+      "L-PRO-op-runbook-recommends-OPT-op-runbook",
+      "L-REV-op-control-owner-revisits-DEC-op-control",
+      "L-VER-op-dry-run-verifies-ACT-op-runbook"
+    ],
+    "object_ids": [
+      "ACT-op-alert-review",
+      "ACT-op-runbook",
+      "DEC-op-control",
+      "DEC-op-escalation",
+      "DEC-op-monitoring",
+      "DEC-op-process",
+      "EVID-op-alert-log",
+      "EVID-op-incident-review",
+      "O-action-33d429198ae8",
+      "O-action-bd78d4debad6",
+      "O-action-cf86cdd617f2",
+      "O-action-e8472fdfcea2",
+      "O-project-objective",
+      "OPT-op-control",
+      "OPT-op-escalation",
+      "OPT-op-monitoring",
+      "OPT-op-runbook",
+      "PRO-op-control",
+      "PRO-op-escalation",
+      "PRO-op-monitoring",
+      "PRO-op-runbook",
+      "REV-op-control-owner",
+      "RISK-op-monitoring-gap",
+      "RISK-op-single-owner",
+      "VER-op-dry-run"
+    ],
+    "session_ids": [
+      "S-operations-incident-review"
+    ]
+  },
+  "title": "Action Plan",
+  "warnings": []
+}

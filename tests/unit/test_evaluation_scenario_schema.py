@@ -128,9 +128,21 @@ class EvaluationScenarioSchemaTests(unittest.TestCase):
 
         self.assertEqual([], list(self.validator.iter_errors(payload)))
 
+    def test_accepts_optional_document_session_scope(self) -> None:
+        payload = _valid_scenario()
+        payload["evaluation"]["expected_documents"][0]["session_ids"] = ["S-research-protocol"]
+
+        self.assertEqual([], list(self.validator.iter_errors(payload)))
+
     def test_rejects_invalid_document_source_traceability_requirement(self) -> None:
         payload = _valid_scenario()
         payload["evaluation"]["expected_documents"][0]["require_source_traceability"] = "yes"
+
+        self.assertTrue(list(self.validator.iter_errors(payload)))
+
+    def test_rejects_invalid_document_session_scope(self) -> None:
+        payload = _valid_scenario()
+        payload["evaluation"]["expected_documents"][0]["session_ids"] = ["../S"]
 
         self.assertTrue(list(self.validator.iter_errors(payload)))
 

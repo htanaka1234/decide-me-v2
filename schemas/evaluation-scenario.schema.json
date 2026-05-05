@@ -486,6 +486,9 @@
           },
           "uniqueItems": true
         },
+        "session_ids": {
+          "$ref": "#/$defs/session_id_array"
+        },
         "require_source_traceability": {
           "type": "boolean"
         }
