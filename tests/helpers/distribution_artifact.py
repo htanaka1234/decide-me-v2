@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import atexit
 import json
 import os
 import shutil
@@ -15,13 +16,51 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 CLI_TIMEOUT_SECONDS = 30
 
 
-class BuiltArtifact:
+class _SessionArtifactBuild:
     def __init__(self) -> None:
         self._temp_dir = TemporaryDirectory()
         self.root = Path(self._temp_dir.name)
         self.dist_dir = self.root / "dist"
-        self.extract_dir = self.root / "extracted"
         self.zip_path = self._build()
+
+    def cleanup(self) -> None:
+        self._temp_dir.cleanup()
+
+    def _build(self) -> Path:
+        env = dict(os.environ)
+        env["PYTHONPATH"] = str(REPO_ROOT)
+        subprocess.run(
+            [sys.executable, "scripts/build_artifact.py", "--dist-dir", str(self.dist_dir)],
+            cwd=REPO_ROOT,
+            env=env,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            timeout=CLI_TIMEOUT_SECONDS,
+        )
+        return self.dist_dir / "decide-me.zip"
+
+
+_SESSION_BUILD: _SessionArtifactBuild | None = None
+
+
+def _session_build() -> _SessionArtifactBuild:
+    global _SESSION_BUILD
+    if _SESSION_BUILD is None:
+        _SESSION_BUILD = _SessionArtifactBuild()
+        atexit.register(_SESSION_BUILD.cleanup)
+    return _SESSION_BUILD
+
+
+class BuiltArtifact:
+    def __init__(self) -> None:
+        self._temp_dir = TemporaryDirectory()
+        self.root = Path(self._temp_dir.name)
+        self.extract_dir = self.root / "extracted"
+        session_build = _session_build()
+        self.dist_dir = session_build.dist_dir
+        self.zip_path = session_build.zip_path
         self._skill_dir: Path | None = None
 
     def __enter__(self) -> BuiltArtifact:
@@ -85,18 +124,3 @@ class BuiltArtifact:
                 f"Packaged CLI produced no JSON stdout: {' '.join(args)}"
             )
         return json.loads(result.stdout)
-
-    def _build(self) -> Path:
-        env = dict(os.environ)
-        env["PYTHONPATH"] = str(REPO_ROOT)
-        subprocess.run(
-            [sys.executable, "scripts/build_artifact.py", "--dist-dir", str(self.dist_dir)],
-            cwd=REPO_ROOT,
-            env=env,
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            timeout=CLI_TIMEOUT_SECONDS,
-        )
-        return self.dist_dir / "decide-me.zip"

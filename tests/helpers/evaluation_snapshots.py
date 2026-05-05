@@ -45,7 +45,7 @@ def collect_evaluation_snapshots(
         document = compile_document(
             runtime.ai_dir,
             document_type=document_type,
-            session_ids=runtime.closed_session_ids,
+            session_ids=list(expected.get("session_ids") or runtime.closed_session_ids),
             domain_pack_id=scenario.domain_pack,
             now=scenario.evaluation["now"],
         )

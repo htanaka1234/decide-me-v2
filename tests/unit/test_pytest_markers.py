@@ -32,6 +32,18 @@ class PytestMarkerClassificationTests(unittest.TestCase):
 
         self.assertEqual({"integration", "phase_gate"}, markers)
 
+    def test_phase_gate_units_are_explicit_contract_subset(self) -> None:
+        for path in [
+            "tests/unit/test_evaluation_report_schema.py",
+            "tests/unit/test_evaluation_scenario_schema.py",
+            "tests/unit/test_pytest_markers.py",
+        ]:
+            with self.subTest(path=path):
+                self.assertEqual(
+                    {"evaluation", "phase_gate", "unit"} if "evaluation_" in path else {"phase_gate", "unit"},
+                    set(markers_for_test_path(path)),
+                )
+
     def test_evaluation_helper_units_are_unit_evaluation(self) -> None:
         markers = set(markers_for_test_path("tests/unit/test_evaluation_scenario_helpers.py"))
 

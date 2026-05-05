@@ -381,7 +381,7 @@ Pytest is also supported for marked release and maintenance slices:
 
 ```bash
 PYTHONPATH=. python3 -m pytest -m "unit" -q
-PYTHONPATH=. python3 -m pytest -m "phase_gate" -q
+PYTHONPATH=. python3 -m pytest -m "phase_gate and not slow" -q
 PYTHONPATH=. python3 -m pytest -m "evaluation" -q
 PYTHONPATH=. python3 -m pytest -m "integration and not slow" -q
 PYTHONPATH=. python3 -m pytest -m "slow" -q
@@ -393,8 +393,9 @@ Run the Phase 10 release-readiness gate with:
 PYTHONPATH=. python3 scripts/run_phase10_gate.py
 ```
 
-The gate runs the `unit or phase_gate` pytest slice and then the committed Phase 10 scenario
-evaluation runner in JSON mode.
+The gate runs the `phase_gate and not slow` pytest slice, including an explicit lightweight unit
+contract subset, and then the committed Phase 10 scenario evaluation runner in JSON mode. Slow
+evaluation snapshot tests remain available for nightly or manual checks.
 
 Run the full test suite with:
 

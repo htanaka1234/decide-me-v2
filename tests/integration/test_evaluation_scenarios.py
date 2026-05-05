@@ -23,6 +23,7 @@ SCENARIOS_DIR = REPO_ROOT / "tests" / "scenarios"
 EXPECTED_SCENARIOS = {
     "career_plan",
     "household_project",
+    "operations_incident_review",
     "procurement_decision",
     "research_protocol",
     "software_refactor",

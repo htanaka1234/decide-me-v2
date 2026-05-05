@@ -1,0 +1,1022 @@
+{
+  "results": [
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [
+        "action_verification_gap",
+        "high_risk_tier",
+        "human_review_required",
+        "insufficient_evidence_requires_approval"
+      ],
+      "approval_required": true,
+      "approval_satisfied": false,
+      "approval_threshold": "human_review",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [
+          "action_verification_gap",
+          "high_risk_tier",
+          "human_review_required",
+          "insufficient_evidence_requires_approval"
+        ],
+        "approval_threshold": "human_review",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [],
+        "domain_safety_rules": [],
+        "evidence": [],
+        "evidence_coverage": "insufficient",
+        "object_id": "ACT-op-alert-review",
+        "object_type": "action",
+        "reversibility": "partially_reversible",
+        "risk_policy": {
+          "approval": "explicit_with_rationale",
+          "automatic_adoption": "requires_approval",
+          "reason": "high_risk_requires_explicit_approval",
+          "required_actions": [
+            "record_safety_approval"
+          ],
+          "risk_tier": "high"
+        },
+        "risk_tier": "high",
+        "risks": [
+          {
+            "approval_threshold": "human_review",
+            "domain_risk_type": "monitoring_gap",
+            "likelihood": "medium",
+            "link_id": null,
+            "mitigation_object_ids": [
+              "ACT-op-alert-review"
+            ],
+            "object_id": "RISK-op-monitoring-gap",
+            "relation": "mitigation_metadata",
+            "reversibility": "partially_reversible",
+            "risk_tier": "high",
+            "severity": "high",
+            "statement": "Missed incident follow-up actions are not monitored daily.",
+            "status": "active"
+          }
+        ],
+        "source_link_ids": [],
+        "verification_gap": {
+          "gap_reason": "missing_verification",
+          "gap_severity": "medium",
+          "related_link_ids": []
+        },
+        "warning_reasons": [
+          "partially_reversible_change"
+        ]
+      },
+      "domain_requirements": [],
+      "domain_safety_rules": [],
+      "evidence": [],
+      "evidence_coverage": "insufficient",
+      "gate_digest": "SG-6cae412ff8c2",
+      "gate_status": "needs_approval",
+      "object_id": "ACT-op-alert-review",
+      "object_type": "action",
+      "reversibility": "partially_reversible",
+      "risk_policy": {
+        "approval": "explicit_with_rationale",
+        "automatic_adoption": "requires_approval",
+        "reason": "high_risk_requires_explicit_approval",
+        "required_actions": [
+          "record_safety_approval"
+        ],
+        "risk_tier": "high"
+      },
+      "risk_tier": "high",
+      "risks": [
+        {
+          "approval_threshold": "human_review",
+          "domain_risk_type": "monitoring_gap",
+          "likelihood": "medium",
+          "link_id": null,
+          "mitigation_object_ids": [
+            "ACT-op-alert-review"
+          ],
+          "object_id": "RISK-op-monitoring-gap",
+          "relation": "mitigation_metadata",
+          "reversibility": "partially_reversible",
+          "risk_tier": "high",
+          "severity": "high",
+          "statement": "Missed incident follow-up actions are not monitored daily.",
+          "status": "active"
+        }
+      ],
+      "source_link_ids": [],
+      "status": "active",
+      "title": "Add daily escalation-lag review",
+      "warning_reasons": [
+        "partially_reversible_change"
+      ]
+    },
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [],
+      "approval_required": false,
+      "approval_satisfied": false,
+      "approval_threshold": "none",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [],
+        "approval_threshold": "none",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [],
+        "domain_safety_rules": [],
+        "evidence": [],
+        "evidence_coverage": "insufficient",
+        "object_id": "ACT-op-runbook",
+        "object_type": "action",
+        "reversibility": "reversible",
+        "risk_policy": {
+          "approval": "optional",
+          "automatic_adoption": "allowed",
+          "reason": "risk_policy_allows_adoption",
+          "required_actions": [],
+          "risk_tier": "none"
+        },
+        "risk_tier": "none",
+        "risks": [],
+        "source_link_ids": [],
+        "verification_gap": null,
+        "warning_reasons": [
+          "insufficient_evidence"
+        ]
+      },
+      "domain_requirements": [],
+      "domain_safety_rules": [],
+      "evidence": [],
+      "evidence_coverage": "insufficient",
+      "gate_digest": "SG-8672101dd531",
+      "gate_status": "passed",
+      "object_id": "ACT-op-runbook",
+      "object_type": "action",
+      "reversibility": "reversible",
+      "risk_policy": {
+        "approval": "optional",
+        "automatic_adoption": "allowed",
+        "reason": "risk_policy_allows_adoption",
+        "required_actions": [],
+        "risk_tier": "none"
+      },
+      "risk_tier": "none",
+      "risks": [],
+      "source_link_ids": [],
+      "status": "active",
+      "title": "Publish incident review runbook",
+      "warning_reasons": [
+        "insufficient_evidence"
+      ]
+    },
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [],
+      "approval_required": false,
+      "approval_satisfied": false,
+      "approval_threshold": "none",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [],
+        "approval_threshold": "none",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [],
+        "domain_safety_rules": [],
+        "evidence": [
+          {
+            "confidence": "medium",
+            "domain_evidence_type": null,
+            "evidence_requirement_id": null,
+            "freshness": "current",
+            "is_stale": false,
+            "link_id": "L-EVID-op-alert-log-supports-DEC-op-control",
+            "object_id": "EVID-op-alert-log",
+            "observed_at": "2026-04-29T00:19:00Z",
+            "relation": "supports",
+            "source": "external",
+            "source_ref": "alerts/escalation-lag",
+            "status": "active",
+            "summary": "Monitoring data exists, but review lag is not checked daily.",
+            "valid_until": null
+          }
+        ],
+        "evidence_coverage": "sufficient",
+        "object_id": "DEC-op-control",
+        "object_type": "decision",
+        "reversibility": "partially_reversible",
+        "risk_policy": {
+          "approval": "optional",
+          "automatic_adoption": "allowed",
+          "reason": "risk_policy_allows_adoption",
+          "required_actions": [],
+          "risk_tier": "none"
+        },
+        "risk_tier": "none",
+        "risks": [],
+        "source_link_ids": [
+          "L-EVID-op-alert-log-supports-DEC-op-control"
+        ],
+        "verification_gap": null,
+        "warning_reasons": [
+          "partially_reversible_change"
+        ]
+      },
+      "domain_requirements": [],
+      "domain_safety_rules": [],
+      "evidence": [
+        {
+          "confidence": "medium",
+          "domain_evidence_type": null,
+          "evidence_requirement_id": null,
+          "freshness": "current",
+          "is_stale": false,
+          "link_id": "L-EVID-op-alert-log-supports-DEC-op-control",
+          "object_id": "EVID-op-alert-log",
+          "observed_at": "2026-04-29T00:19:00Z",
+          "relation": "supports",
+          "source": "external",
+          "source_ref": "alerts/escalation-lag",
+          "status": "active",
+          "summary": "Monitoring data exists, but review lag is not checked daily.",
+          "valid_until": null
+        }
+      ],
+      "evidence_coverage": "sufficient",
+      "gate_digest": "SG-199d7ccfb2b6",
+      "gate_status": "passed",
+      "object_id": "DEC-op-control",
+      "object_type": "decision",
+      "reversibility": "partially_reversible",
+      "risk_policy": {
+        "approval": "optional",
+        "automatic_adoption": "allowed",
+        "reason": "risk_policy_allows_adoption",
+        "required_actions": [],
+        "risk_tier": "none"
+      },
+      "risk_tier": "none",
+      "risks": [],
+      "source_link_ids": [
+        "L-EVID-op-alert-log-supports-DEC-op-control"
+      ],
+      "status": "accepted",
+      "title": "Incident control design",
+      "warning_reasons": [
+        "partially_reversible_change"
+      ]
+    },
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [
+        "high_risk_tier",
+        "human_review_required"
+      ],
+      "approval_required": true,
+      "approval_satisfied": false,
+      "approval_threshold": "human_review",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [
+          "high_risk_tier",
+          "human_review_required"
+        ],
+        "approval_threshold": "human_review",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [],
+        "domain_safety_rules": [
+          {
+            "approval_threshold": "human_review",
+            "matched_risk_object_ids": [
+              "RISK-op-single-owner"
+            ],
+            "matched_risk_types": [
+              "single_point_of_failure"
+            ],
+            "pack_id": "operations",
+            "reason": "High operational resilience risks require explicit human review before adoption.",
+            "rule_id": "operational_resilience_review"
+          }
+        ],
+        "evidence": [
+          {
+            "confidence": "high",
+            "domain_evidence_type": null,
+            "evidence_requirement_id": null,
+            "freshness": "current",
+            "is_stale": false,
+            "link_id": "L-EVID-op-incident-review-supports-DEC-op-escalation",
+            "object_id": "EVID-op-incident-review",
+            "observed_at": "2026-04-29T00:18:00Z",
+            "relation": "supports",
+            "source": "docs",
+            "source_ref": "incidents/2026-04-repeat-review",
+            "status": "active",
+            "summary": "Repeat incident misses came from unclear ownership and delayed escalation.",
+            "valid_until": null
+          }
+        ],
+        "evidence_coverage": "sufficient",
+        "object_id": "DEC-op-escalation",
+        "object_type": "decision",
+        "reversibility": "partially_reversible",
+        "risk_policy": {
+          "approval": "explicit_with_rationale",
+          "automatic_adoption": "requires_approval",
+          "reason": "high_risk_requires_explicit_approval",
+          "required_actions": [
+            "record_safety_approval"
+          ],
+          "risk_tier": "high"
+        },
+        "risk_tier": "high",
+        "risks": [
+          {
+            "approval_threshold": "human_review",
+            "domain_risk_type": "single_point_of_failure",
+            "likelihood": "medium",
+            "link_id": "L-RISK-op-single-owner-constrains-DEC-op-escalation",
+            "mitigation_object_ids": [],
+            "object_id": "RISK-op-single-owner",
+            "relation": "constrains",
+            "reversibility": "partially_reversible",
+            "risk_tier": "high",
+            "severity": "high",
+            "statement": "Only one support lead owns escalation review.",
+            "status": "active"
+          }
+        ],
+        "source_link_ids": [
+          "L-EVID-op-incident-review-supports-DEC-op-escalation",
+          "L-RISK-op-single-owner-constrains-DEC-op-escalation"
+        ],
+        "verification_gap": null,
+        "warning_reasons": [
+          "partially_reversible_change"
+        ]
+      },
+      "domain_requirements": [],
+      "domain_safety_rules": [
+        {
+          "approval_threshold": "human_review",
+          "matched_risk_object_ids": [
+            "RISK-op-single-owner"
+          ],
+          "matched_risk_types": [
+            "single_point_of_failure"
+          ],
+          "pack_id": "operations",
+          "reason": "High operational resilience risks require explicit human review before adoption.",
+          "rule_id": "operational_resilience_review"
+        }
+      ],
+      "evidence": [
+        {
+          "confidence": "high",
+          "domain_evidence_type": null,
+          "evidence_requirement_id": null,
+          "freshness": "current",
+          "is_stale": false,
+          "link_id": "L-EVID-op-incident-review-supports-DEC-op-escalation",
+          "object_id": "EVID-op-incident-review",
+          "observed_at": "2026-04-29T00:18:00Z",
+          "relation": "supports",
+          "source": "docs",
+          "source_ref": "incidents/2026-04-repeat-review",
+          "status": "active",
+          "summary": "Repeat incident misses came from unclear ownership and delayed escalation.",
+          "valid_until": null
+        }
+      ],
+      "evidence_coverage": "sufficient",
+      "gate_digest": "SG-a2702d70d186",
+      "gate_status": "needs_approval",
+      "object_id": "DEC-op-escalation",
+      "object_type": "decision",
+      "reversibility": "partially_reversible",
+      "risk_policy": {
+        "approval": "explicit_with_rationale",
+        "automatic_adoption": "requires_approval",
+        "reason": "high_risk_requires_explicit_approval",
+        "required_actions": [
+          "record_safety_approval"
+        ],
+        "risk_tier": "high"
+      },
+      "risk_tier": "high",
+      "risks": [
+        {
+          "approval_threshold": "human_review",
+          "domain_risk_type": "single_point_of_failure",
+          "likelihood": "medium",
+          "link_id": "L-RISK-op-single-owner-constrains-DEC-op-escalation",
+          "mitigation_object_ids": [],
+          "object_id": "RISK-op-single-owner",
+          "relation": "constrains",
+          "reversibility": "partially_reversible",
+          "risk_tier": "high",
+          "severity": "high",
+          "statement": "Only one support lead owns escalation review.",
+          "status": "active"
+        }
+      ],
+      "source_link_ids": [
+        "L-EVID-op-incident-review-supports-DEC-op-escalation",
+        "L-RISK-op-single-owner-constrains-DEC-op-escalation"
+      ],
+      "status": "accepted",
+      "title": "Support escalation policy",
+      "warning_reasons": [
+        "partially_reversible_change"
+      ]
+    },
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [
+        "high_risk_tier",
+        "human_review_required"
+      ],
+      "approval_required": true,
+      "approval_satisfied": false,
+      "approval_threshold": "human_review",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [
+          "high_risk_tier",
+          "human_review_required"
+        ],
+        "approval_threshold": "human_review",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [],
+        "domain_safety_rules": [
+          {
+            "approval_threshold": "human_review",
+            "matched_risk_object_ids": [
+              "RISK-op-monitoring-gap"
+            ],
+            "matched_risk_types": [
+              "monitoring_gap"
+            ],
+            "pack_id": "operations",
+            "reason": "High operational resilience risks require explicit human review before adoption.",
+            "rule_id": "operational_resilience_review"
+          }
+        ],
+        "evidence": [
+          {
+            "confidence": "medium",
+            "domain_evidence_type": null,
+            "evidence_requirement_id": null,
+            "freshness": "current",
+            "is_stale": false,
+            "link_id": "L-EVID-op-alert-log-supports-DEC-op-monitoring",
+            "object_id": "EVID-op-alert-log",
+            "observed_at": "2026-04-29T00:19:00Z",
+            "relation": "supports",
+            "source": "external",
+            "source_ref": "alerts/escalation-lag",
+            "status": "active",
+            "summary": "Monitoring data exists, but review lag is not checked daily.",
+            "valid_until": null
+          }
+        ],
+        "evidence_coverage": "sufficient",
+        "object_id": "DEC-op-monitoring",
+        "object_type": "decision",
+        "reversibility": "partially_reversible",
+        "risk_policy": {
+          "approval": "explicit_with_rationale",
+          "automatic_adoption": "requires_approval",
+          "reason": "high_risk_requires_explicit_approval",
+          "required_actions": [
+            "record_safety_approval"
+          ],
+          "risk_tier": "high"
+        },
+        "risk_tier": "high",
+        "risks": [
+          {
+            "approval_threshold": "human_review",
+            "domain_risk_type": "monitoring_gap",
+            "likelihood": "medium",
+            "link_id": "L-RISK-op-monitoring-gap-constrains-DEC-op-monitoring",
+            "mitigation_object_ids": [
+              "ACT-op-alert-review"
+            ],
+            "object_id": "RISK-op-monitoring-gap",
+            "relation": "constrains",
+            "reversibility": "partially_reversible",
+            "risk_tier": "high",
+            "severity": "high",
+            "statement": "Missed incident follow-up actions are not monitored daily.",
+            "status": "active"
+          }
+        ],
+        "source_link_ids": [
+          "L-EVID-op-alert-log-supports-DEC-op-monitoring",
+          "L-RISK-op-monitoring-gap-constrains-DEC-op-monitoring"
+        ],
+        "verification_gap": null,
+        "warning_reasons": [
+          "partially_reversible_change"
+        ]
+      },
+      "domain_requirements": [],
+      "domain_safety_rules": [
+        {
+          "approval_threshold": "human_review",
+          "matched_risk_object_ids": [
+            "RISK-op-monitoring-gap"
+          ],
+          "matched_risk_types": [
+            "monitoring_gap"
+          ],
+          "pack_id": "operations",
+          "reason": "High operational resilience risks require explicit human review before adoption.",
+          "rule_id": "operational_resilience_review"
+        }
+      ],
+      "evidence": [
+        {
+          "confidence": "medium",
+          "domain_evidence_type": null,
+          "evidence_requirement_id": null,
+          "freshness": "current",
+          "is_stale": false,
+          "link_id": "L-EVID-op-alert-log-supports-DEC-op-monitoring",
+          "object_id": "EVID-op-alert-log",
+          "observed_at": "2026-04-29T00:19:00Z",
+          "relation": "supports",
+          "source": "external",
+          "source_ref": "alerts/escalation-lag",
+          "status": "active",
+          "summary": "Monitoring data exists, but review lag is not checked daily.",
+          "valid_until": null
+        }
+      ],
+      "evidence_coverage": "sufficient",
+      "gate_digest": "SG-eb65810b64d2",
+      "gate_status": "needs_approval",
+      "object_id": "DEC-op-monitoring",
+      "object_type": "decision",
+      "reversibility": "partially_reversible",
+      "risk_policy": {
+        "approval": "explicit_with_rationale",
+        "automatic_adoption": "requires_approval",
+        "reason": "high_risk_requires_explicit_approval",
+        "required_actions": [
+          "record_safety_approval"
+        ],
+        "risk_tier": "high"
+      },
+      "risk_tier": "high",
+      "risks": [
+        {
+          "approval_threshold": "human_review",
+          "domain_risk_type": "monitoring_gap",
+          "likelihood": "medium",
+          "link_id": "L-RISK-op-monitoring-gap-constrains-DEC-op-monitoring",
+          "mitigation_object_ids": [
+            "ACT-op-alert-review"
+          ],
+          "object_id": "RISK-op-monitoring-gap",
+          "relation": "constrains",
+          "reversibility": "partially_reversible",
+          "risk_tier": "high",
+          "severity": "high",
+          "statement": "Missed incident follow-up actions are not monitored daily.",
+          "status": "active"
+        }
+      ],
+      "source_link_ids": [
+        "L-EVID-op-alert-log-supports-DEC-op-monitoring",
+        "L-RISK-op-monitoring-gap-constrains-DEC-op-monitoring"
+      ],
+      "status": "accepted",
+      "title": "Escalation monitoring plan",
+      "warning_reasons": [
+        "partially_reversible_change"
+      ]
+    },
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [],
+      "approval_required": false,
+      "approval_satisfied": false,
+      "approval_threshold": "none",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [],
+        "approval_threshold": "none",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [],
+        "domain_safety_rules": [],
+        "evidence": [
+          {
+            "confidence": "high",
+            "domain_evidence_type": null,
+            "evidence_requirement_id": null,
+            "freshness": "current",
+            "is_stale": false,
+            "link_id": "L-EVID-op-incident-review-supports-DEC-op-process",
+            "object_id": "EVID-op-incident-review",
+            "observed_at": "2026-04-29T00:18:00Z",
+            "relation": "supports",
+            "source": "docs",
+            "source_ref": "incidents/2026-04-repeat-review",
+            "status": "active",
+            "summary": "Repeat incident misses came from unclear ownership and delayed escalation.",
+            "valid_until": null
+          }
+        ],
+        "evidence_coverage": "sufficient",
+        "object_id": "DEC-op-process",
+        "object_type": "decision",
+        "reversibility": "partially_reversible",
+        "risk_policy": {
+          "approval": "optional",
+          "automatic_adoption": "allowed",
+          "reason": "risk_policy_allows_adoption",
+          "required_actions": [],
+          "risk_tier": "none"
+        },
+        "risk_tier": "none",
+        "risks": [],
+        "source_link_ids": [
+          "L-EVID-op-incident-review-supports-DEC-op-process"
+        ],
+        "verification_gap": null,
+        "warning_reasons": [
+          "partially_reversible_change"
+        ]
+      },
+      "domain_requirements": [],
+      "domain_safety_rules": [],
+      "evidence": [
+        {
+          "confidence": "high",
+          "domain_evidence_type": null,
+          "evidence_requirement_id": null,
+          "freshness": "current",
+          "is_stale": false,
+          "link_id": "L-EVID-op-incident-review-supports-DEC-op-process",
+          "object_id": "EVID-op-incident-review",
+          "observed_at": "2026-04-29T00:18:00Z",
+          "relation": "supports",
+          "source": "docs",
+          "source_ref": "incidents/2026-04-repeat-review",
+          "status": "active",
+          "summary": "Repeat incident misses came from unclear ownership and delayed escalation.",
+          "valid_until": null
+        }
+      ],
+      "evidence_coverage": "sufficient",
+      "gate_digest": "SG-21ec42546211",
+      "gate_status": "passed",
+      "object_id": "DEC-op-process",
+      "object_type": "decision",
+      "reversibility": "partially_reversible",
+      "risk_policy": {
+        "approval": "optional",
+        "automatic_adoption": "allowed",
+        "reason": "risk_policy_allows_adoption",
+        "required_actions": [],
+        "risk_tier": "none"
+      },
+      "risk_tier": "none",
+      "risks": [],
+      "source_link_ids": [
+        "L-EVID-op-incident-review-supports-DEC-op-process"
+      ],
+      "status": "accepted",
+      "title": "Incident review process",
+      "warning_reasons": [
+        "partially_reversible_change"
+      ]
+    },
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [
+        "action_verification_gap"
+      ],
+      "approval_required": true,
+      "approval_satisfied": false,
+      "approval_threshold": "none",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [
+          "action_verification_gap"
+        ],
+        "approval_threshold": "none",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [],
+        "domain_safety_rules": [],
+        "evidence": [],
+        "evidence_coverage": "insufficient",
+        "object_id": "O-action-33d429198ae8",
+        "object_type": "action",
+        "reversibility": "reversible",
+        "risk_policy": {
+          "approval": "explicit",
+          "automatic_adoption": "requires_approval",
+          "reason": "approval_threshold_requires_review",
+          "required_actions": [
+            "record_safety_approval"
+          ],
+          "risk_tier": "none"
+        },
+        "risk_tier": "none",
+        "risks": [],
+        "source_link_ids": [],
+        "verification_gap": {
+          "gap_reason": "missing_verification",
+          "gap_severity": "medium",
+          "related_link_ids": []
+        },
+        "warning_reasons": [
+          "insufficient_evidence"
+        ]
+      },
+      "domain_requirements": [],
+      "domain_safety_rules": [],
+      "evidence": [],
+      "evidence_coverage": "insufficient",
+      "gate_digest": "SG-90052fa33e2d",
+      "gate_status": "needs_approval",
+      "object_id": "O-action-33d429198ae8",
+      "object_type": "action",
+      "reversibility": "reversible",
+      "risk_policy": {
+        "approval": "explicit",
+        "automatic_adoption": "requires_approval",
+        "reason": "approval_threshold_requires_review",
+        "required_actions": [
+          "record_safety_approval"
+        ],
+        "risk_tier": "none"
+      },
+      "risk_tier": "none",
+      "risks": [],
+      "source_link_ids": [],
+      "status": "active",
+      "title": "Escalation monitoring plan",
+      "warning_reasons": [
+        "insufficient_evidence"
+      ]
+    },
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [
+        "action_verification_gap"
+      ],
+      "approval_required": true,
+      "approval_satisfied": false,
+      "approval_threshold": "none",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [
+          "action_verification_gap"
+        ],
+        "approval_threshold": "none",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [],
+        "domain_safety_rules": [],
+        "evidence": [],
+        "evidence_coverage": "insufficient",
+        "object_id": "O-action-bd78d4debad6",
+        "object_type": "action",
+        "reversibility": "partially_reversible",
+        "risk_policy": {
+          "approval": "explicit",
+          "automatic_adoption": "requires_approval",
+          "reason": "approval_threshold_requires_review",
+          "required_actions": [
+            "record_safety_approval"
+          ],
+          "risk_tier": "none"
+        },
+        "risk_tier": "none",
+        "risks": [],
+        "source_link_ids": [],
+        "verification_gap": {
+          "gap_reason": "missing_verification",
+          "gap_severity": "medium",
+          "related_link_ids": []
+        },
+        "warning_reasons": [
+          "insufficient_evidence",
+          "partially_reversible_change"
+        ]
+      },
+      "domain_requirements": [],
+      "domain_safety_rules": [],
+      "evidence": [],
+      "evidence_coverage": "insufficient",
+      "gate_digest": "SG-4cf7f74e9ec0",
+      "gate_status": "needs_approval",
+      "object_id": "O-action-bd78d4debad6",
+      "object_type": "action",
+      "reversibility": "partially_reversible",
+      "risk_policy": {
+        "approval": "explicit",
+        "automatic_adoption": "requires_approval",
+        "reason": "approval_threshold_requires_review",
+        "required_actions": [
+          "record_safety_approval"
+        ],
+        "risk_tier": "none"
+      },
+      "risk_tier": "none",
+      "risks": [],
+      "source_link_ids": [],
+      "status": "active",
+      "title": "Incident control design",
+      "warning_reasons": [
+        "insufficient_evidence",
+        "partially_reversible_change"
+      ]
+    },
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [
+        "action_verification_gap"
+      ],
+      "approval_required": true,
+      "approval_satisfied": false,
+      "approval_threshold": "none",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [
+          "action_verification_gap"
+        ],
+        "approval_threshold": "none",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [],
+        "domain_safety_rules": [],
+        "evidence": [],
+        "evidence_coverage": "insufficient",
+        "object_id": "O-action-cf86cdd617f2",
+        "object_type": "action",
+        "reversibility": "partially_reversible",
+        "risk_policy": {
+          "approval": "explicit",
+          "automatic_adoption": "requires_approval",
+          "reason": "approval_threshold_requires_review",
+          "required_actions": [
+            "record_safety_approval"
+          ],
+          "risk_tier": "none"
+        },
+        "risk_tier": "none",
+        "risks": [],
+        "source_link_ids": [],
+        "verification_gap": {
+          "gap_reason": "missing_verification",
+          "gap_severity": "medium",
+          "related_link_ids": []
+        },
+        "warning_reasons": [
+          "insufficient_evidence",
+          "partially_reversible_change"
+        ]
+      },
+      "domain_requirements": [],
+      "domain_safety_rules": [],
+      "evidence": [],
+      "evidence_coverage": "insufficient",
+      "gate_digest": "SG-84c73d96fb18",
+      "gate_status": "needs_approval",
+      "object_id": "O-action-cf86cdd617f2",
+      "object_type": "action",
+      "reversibility": "partially_reversible",
+      "risk_policy": {
+        "approval": "explicit",
+        "automatic_adoption": "requires_approval",
+        "reason": "approval_threshold_requires_review",
+        "required_actions": [
+          "record_safety_approval"
+        ],
+        "risk_tier": "none"
+      },
+      "risk_tier": "none",
+      "risks": [],
+      "source_link_ids": [],
+      "status": "active",
+      "title": "Incident review process",
+      "warning_reasons": [
+        "insufficient_evidence",
+        "partially_reversible_change"
+      ]
+    },
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [
+        "action_verification_gap"
+      ],
+      "approval_required": true,
+      "approval_satisfied": false,
+      "approval_threshold": "none",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [
+          "action_verification_gap"
+        ],
+        "approval_threshold": "none",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [],
+        "domain_safety_rules": [],
+        "evidence": [],
+        "evidence_coverage": "insufficient",
+        "object_id": "O-action-e8472fdfcea2",
+        "object_type": "action",
+        "reversibility": "partially_reversible",
+        "risk_policy": {
+          "approval": "explicit",
+          "automatic_adoption": "requires_approval",
+          "reason": "approval_threshold_requires_review",
+          "required_actions": [
+            "record_safety_approval"
+          ],
+          "risk_tier": "none"
+        },
+        "risk_tier": "none",
+        "risks": [],
+        "source_link_ids": [],
+        "verification_gap": {
+          "gap_reason": "missing_verification",
+          "gap_severity": "medium",
+          "related_link_ids": []
+        },
+        "warning_reasons": [
+          "insufficient_evidence",
+          "partially_reversible_change"
+        ]
+      },
+      "domain_requirements": [],
+      "domain_safety_rules": [],
+      "evidence": [],
+      "evidence_coverage": "insufficient",
+      "gate_digest": "SG-98424d5c8113",
+      "gate_status": "needs_approval",
+      "object_id": "O-action-e8472fdfcea2",
+      "object_type": "action",
+      "reversibility": "partially_reversible",
+      "risk_policy": {
+        "approval": "explicit",
+        "automatic_adoption": "requires_approval",
+        "reason": "approval_threshold_requires_review",
+        "required_actions": [
+          "record_safety_approval"
+        ],
+        "risk_tier": "none"
+      },
+      "risk_tier": "none",
+      "risks": [],
+      "source_link_ids": [],
+      "status": "active",
+      "title": "Support escalation policy",
+      "warning_reasons": [
+        "insufficient_evidence",
+        "partially_reversible_change"
+      ]
+    }
+  ],
+  "schema_version": 1,
+  "summary": {
+    "approval_required_count": 7,
+    "blocking_count": 0,
+    "by_gate_status": {
+      "needs_approval": 7,
+      "passed": 3
+    },
+    "evaluated_count": 10
+  }
+}

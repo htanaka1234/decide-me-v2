@@ -919,7 +919,7 @@ def _document_readability_metric(
             document = compile_document(
                 runtime.ai_dir,
                 document_type=expected["type"],
-                session_ids=runtime.closed_session_ids,
+                session_ids=_expected_document_session_ids(expected, runtime),
                 domain_pack_id=scenario.domain_pack,
                 now=scenario.evaluation["now"],
             )
@@ -967,6 +967,13 @@ def _document_readability_metric(
         "missing_source_traceability": sorted(stable_unique(missing_traceability)),
         "passed": passed,
     }
+
+
+def _expected_document_session_ids(
+    expected: dict[str, Any],
+    runtime: ScenarioRuntime,
+) -> list[str]:
+    return list(expected.get("session_ids") or runtime.closed_session_ids)
 
 
 def _revisit_quality_metric(

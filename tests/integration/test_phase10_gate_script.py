@@ -18,7 +18,7 @@ class Phase10GateScriptTests(unittest.TestCase):
 
         self.assertEqual(["pytest phase gate", "scenario evaluation"], [command.label for command in commands])
         self.assertEqual(
-            ("python3", "-m", "pytest", "-m", "unit or phase_gate", "-q"),
+            ("python3", "-m", "pytest", "-m", "phase_gate and not slow", "-q"),
             commands[0].args,
         )
         self.assertEqual(
@@ -49,7 +49,7 @@ class Phase10GateScriptTests(unittest.TestCase):
         self.assertEqual("", result.stderr)
         self.assertEqual(0, result.returncode)
         self.assertIn("==> pytest phase gate", result.stdout)
-        self.assertIn("-m pytest -m 'unit or phase_gate' -q", result.stdout)
+        self.assertIn("-m pytest -m 'phase_gate and not slow' -q", result.stdout)
         self.assertIn("==> scenario evaluation", result.stdout)
         self.assertIn("scripts/evaluate_scenarios.py --scenarios tests/scenarios --format json", result.stdout)
 

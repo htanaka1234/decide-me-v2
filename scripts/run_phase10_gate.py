@@ -12,7 +12,7 @@ from typing import Sequence
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_PYTEST_MARKER = "unit or phase_gate"
+DEFAULT_PYTEST_MARKER = "phase_gate and not slow"
 DEFAULT_SCENARIOS = "tests/scenarios"
 
 

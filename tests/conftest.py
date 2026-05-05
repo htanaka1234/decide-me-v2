@@ -15,6 +15,9 @@ EVALUATION_TEST_FILES = {
 }
 
 PHASE_GATE_TEST_FILES = {
+    "tests/unit/test_evaluation_report_schema.py",
+    "tests/unit/test_evaluation_scenario_schema.py",
+    "tests/unit/test_pytest_markers.py",
     "tests/integration/test_evaluation_scenarios.py",
     "tests/integration/test_phase5_object_runtime_gate.py",
     "tests/integration/test_phase6_distribution_artifact.py",
