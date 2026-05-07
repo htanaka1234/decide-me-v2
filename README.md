@@ -8,7 +8,8 @@ plan.
 
 The repository contains the v2 runtime behind that Skill: an event-sourced
 object/link graph, rebuildable projections, taxonomy-aware session search,
-object-native close summaries, and local derived exports for generic documents, plans, ADRs,
+object-native close summaries, an evidence source store for authoritative document snapshots and
+citation units, and local derived exports for generic documents, plans, ADRs,
 software-oriented decision registers, GitHub issue drafts, agent instruction
 fragments, arc42 architecture docs, impact reports, traceability matrices, and verification gap
 reports.
@@ -21,9 +22,10 @@ runtime state or intermediate APIs. Contract changes should update runtime code,
 schemas, documentation, and tests together; invalid old state should fail
 clearly rather than being silently adapted through compatibility layers.
 
-## Phase 11 completion boundary
+## Phase 12 completion boundary
 
-Phase 11 extends the MVP runtime stack built across Phases 5 through 10 with a simulation benchmark:
+Phase 12 extends the MVP runtime stack built across Phases 5 through 11 with an evidence source
+store:
 
 - Phase 5: domain-neutral object/link event model and rebuildable projections
 - Phase 6: Decision Stack Graph, read-only impact diagnostics, and explicit invalidation apply
@@ -33,9 +35,14 @@ Phase 11 extends the MVP runtime stack built across Phases 5 through 10 with a s
 - Phase 10: committed scenario Evaluation Suite and release-readiness gate
 - Phase 11: simulation benchmark fixtures, source-material validation, quality metrics, and runtime
   performance diagnostics
+- Phase 12: immutable source snapshots, citation-unit decomposition, source-unit search, source
+  evidence links, and read-only source impact diagnostics
 
 The runtime source of truth is the transaction event log. `project-state.json`, session JSON,
 register outputs, document models, indexes, and exports are derived and must be rebuildable.
+Authoritative source text lives under `.ai/decide-me/sources/`, not inside `project-state.json`;
+source audit events store IDs, hashes, timestamps, methods, counts, and quality flags rather than
+full source text.
 Invalidation is never applied automatically: candidates are generated from current projections and
 only become events after explicit approval through the transaction path. High and critical risk
 are controlled by Safety Gate policy; critical risk blocks automatic adoption and requires external
@@ -230,6 +237,21 @@ Inspect Phase 7 stale diagnostics:
    Stale evidence output includes indirect affected decisions and representative paths when stale
    evidence reaches decisions through verification, assumption, or proposal links.
 
+Use the Phase 12 evidence source store:
+
+1. Import an XML, HTML, Markdown, text, or PDF snapshot with
+   `python3 scripts/decide_me.py import-source --ai-dir .ai/decide-me --type academic_regulation --title "医学部教務規則" --file ./rules.xml --effective-from 2026-04-01`.
+2. Decompose XML/HTML/Markdown/text sources with
+   `python3 scripts/decide_me.py decompose-source --ai-dir .ai/decide-me --source-id SRC-... --strategy auto`.
+3. Search citation units with
+   `python3 scripts/decide_me.py search-evidence --ai-dir .ai/decide-me --query "履修登録 締切"`.
+4. Link a source unit to a runtime decision or object with
+   `python3 scripts/decide_me.py link-evidence --ai-dir .ai/decide-me --session-id S-... --decision-id D-... --source-unit-id NU-... --relevance supports`.
+5. Inspect source impact with
+   `python3 scripts/decide_me.py show-source-impact --ai-dir .ai/decide-me --source-id SRC-...`.
+6. Source impact is read-only. It never invalidates decisions, creates revisit triggers, or applies
+   source changes automatically.
+
 Record object relationships:
 
 1. Domain state changes are represented by `object_recorded`, `object_updated`,
@@ -257,9 +279,12 @@ The runtime lives under `.ai/decide-me/`.
   the effective projection stream without deleting the rejected files.
 - The domain-neutral event whitelist is `project_initialized`, `session_created`,
   `session_resumed`, `session_closed`, `close_summary_generated`, `plan_generated`,
-  `taxonomy_extended`, `transaction_rejected`, `object_recorded`, `object_updated`,
+  `taxonomy_extended`, `source_document_imported`, `normative_units_extracted`,
+  `source_version_updated`, `evidence_linked_to_object`, `transaction_rejected`, `object_recorded`, `object_updated`,
   `object_status_changed`, `object_linked`, `object_unlinked`,
   `session_question_asked`, and `session_answer_recorded`.
+- `sources/` stores immutable source snapshots and citation units. `index/source_units.sqlite` is
+  a derived source-unit search index and can be rebuilt with `rebuild-evidence-index`.
 - Deleted decision/proposal/session-graph compatibility event names are rejected rather than
   migrated or backfilled.
 - `project-state.json` is the rebuildable object/link projection. It contains project metadata,
@@ -399,6 +424,12 @@ The gate runs the `phase_gate and not slow` pytest slice, including an explicit 
 contract subset, and then the committed Phase 11 scenario evaluation runner in JSON mode. Slow
 evaluation snapshot tests remain available for nightly or manual checks.
 
+Run the Phase 12 source-store gate with:
+
+```bash
+PYTHONPATH=. python3 scripts/run_phase12_gate.py
+```
+
 Run the full test suite with:
 
 ```bash
@@ -430,7 +461,8 @@ PYTHONPATH=. python3 scripts/evaluate_scenarios.py --scenarios tests/scenarios -
 - `scripts/decide_me.py`: deterministic CLI
 - `scripts/evaluate_scenarios.py`: development-only Phase 11 evaluation runner
 - `scripts/run_phase11_gate.py`: CI/local Phase 11 release-readiness gate
+- `scripts/run_phase12_gate.py`: CI/local Phase 12 source-store gate
 - `requirements.txt`: runtime dependency declarations, including PyYAML for declarative pack YAML
   loading
 - `requirements-dev.txt`: development-only dependencies for schema validation tests
-- `tests/`: unit, integration, and Phase 11 scenario coverage
+- `tests/`: unit, integration, Phase 11 scenario coverage, and Phase 12 source-store coverage

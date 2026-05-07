@@ -58,6 +58,9 @@ EVENT_TYPES = {
     "project_initialized",
     "session_created",
     "session_resumed",
+    "source_document_imported",
+    "normative_units_extracted",
+    "source_version_updated",
     "object_recorded",
     "object_updated",
     "object_status_changed",
@@ -70,12 +73,23 @@ EVENT_TYPES = {
     "plan_generated",
     "taxonomy_extended",
     "transaction_rejected",
+    "evidence_linked_to_object",
 }
 
 REQUIRED_PAYLOAD_KEYS: dict[str, tuple[str, ...]] = {
     "project_initialized": ("project",),
     "session_created": ("session",),
     "session_resumed": ("resumed_at",),
+    "source_document_imported": ("source_document_id", "retrieved_at", "content_hash", "import_method"),
+    "normative_units_extracted": ("source_document_id", "unit_count", "parser_version", "quality_flags"),
+    "source_version_updated": (
+        "source_document_id",
+        "previous_source_document_id",
+        "old_source_hash",
+        "new_source_hash",
+        "updated_at",
+        "reason",
+    ),
     "object_recorded": ("object",),
     "object_updated": ("object_id", "patch"),
     "object_status_changed": ("object_id", "from_status", "to_status", "reason", "changed_at"),
@@ -87,6 +101,15 @@ REQUIRED_PAYLOAD_KEYS: dict[str, tuple[str, ...]] = {
     "session_closed": ("closed_at",),
     "plan_generated": ("session_ids", "status"),
     "taxonomy_extended": ("nodes",),
+    "evidence_linked_to_object": (
+        "evidence_object_id",
+        "target_object_id",
+        "source_document_id",
+        "source_unit_id",
+        "source_unit_hash",
+        "relevance",
+        "linked_at",
+    ),
     "transaction_rejected": (
         "kept_tx_id",
         "rejected_tx_ids",
@@ -177,6 +200,12 @@ def _require_id_list(value: Any, label: str) -> None:
         if item in seen:
             raise EventValidationError(f"{label} contains duplicate ids")
         seen.add(item)
+
+
+def _require_hash(value: Any, label: str) -> None:
+    _require_non_empty_string(value, label)
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", str(value)):
+        raise EventValidationError(f"{label} must be sha256:<64 lowercase hex chars>")
 
 
 def _require_source_event_ids(value: Any, label: str) -> None:
@@ -339,6 +368,81 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
             )
     elif event_type == "session_resumed":
         _require_timestamp(payload.get("resumed_at"), "session_resumed.payload.resumed_at")
+    elif event_type == "source_document_imported":
+        allowed = {
+            "source_document_id",
+            "retrieved_at",
+            "content_hash",
+            "import_method",
+            "format",
+            "source_uri",
+            "snapshot_path",
+        }
+        unsupported = sorted(set(payload) - allowed)
+        if unsupported:
+            raise EventValidationError(
+                "source_document_imported.payload contains unsupported fields: "
+                + ", ".join(unsupported)
+            )
+        _require_non_empty_string(payload.get("source_document_id"), "source_document_imported.payload.source_document_id")
+        _require_timestamp(payload.get("retrieved_at"), "source_document_imported.payload.retrieved_at")
+        _require_hash(payload.get("content_hash"), "source_document_imported.payload.content_hash")
+        _require_non_empty_string(payload.get("import_method"), "source_document_imported.payload.import_method")
+        if "format" in payload:
+            _require_non_empty_string(payload.get("format"), "source_document_imported.payload.format")
+        if "source_uri" in payload:
+            _require_string_or_null(payload.get("source_uri"), "source_document_imported.payload.source_uri")
+        if "snapshot_path" in payload:
+            _require_non_empty_string(payload.get("snapshot_path"), "source_document_imported.payload.snapshot_path")
+    elif event_type == "normative_units_extracted":
+        allowed = {
+            "source_document_id",
+            "unit_count",
+            "parser_version",
+            "quality_flags",
+            "extracted_at",
+            "source_content_hash",
+        }
+        unsupported = sorted(set(payload) - allowed)
+        if unsupported:
+            raise EventValidationError(
+                "normative_units_extracted.payload contains unsupported fields: "
+                + ", ".join(unsupported)
+            )
+        _require_non_empty_string(payload.get("source_document_id"), "normative_units_extracted.payload.source_document_id")
+        if not isinstance(payload.get("unit_count"), int) or payload["unit_count"] < 0:
+            raise EventValidationError("normative_units_extracted.payload.unit_count must be a non-negative integer")
+        _require_non_empty_string(payload.get("parser_version"), "normative_units_extracted.payload.parser_version")
+        for flag in _require_list(payload.get("quality_flags"), "normative_units_extracted.payload.quality_flags"):
+            _require_non_empty_string(flag, "normative_units_extracted.payload.quality_flags[]")
+        if "extracted_at" in payload:
+            _require_timestamp(payload.get("extracted_at"), "normative_units_extracted.payload.extracted_at")
+        if "source_content_hash" in payload:
+            _require_hash(payload.get("source_content_hash"), "normative_units_extracted.payload.source_content_hash")
+    elif event_type == "source_version_updated":
+        allowed = {
+            "source_document_id",
+            "previous_source_document_id",
+            "old_source_hash",
+            "new_source_hash",
+            "updated_at",
+            "reason",
+        }
+        unsupported = sorted(set(payload) - allowed)
+        if unsupported:
+            raise EventValidationError(
+                "source_version_updated.payload contains unsupported fields: "
+                + ", ".join(unsupported)
+            )
+        _require_non_empty_string(payload.get("source_document_id"), "source_version_updated.payload.source_document_id")
+        _require_non_empty_string(
+            payload.get("previous_source_document_id"),
+            "source_version_updated.payload.previous_source_document_id",
+        )
+        _require_hash(payload.get("old_source_hash"), "source_version_updated.payload.old_source_hash")
+        _require_hash(payload.get("new_source_hash"), "source_version_updated.payload.new_source_hash")
+        _require_timestamp(payload.get("updated_at"), "source_version_updated.payload.updated_at")
+        _require_non_empty_string(payload.get("reason"), "source_version_updated.payload.reason")
     elif event_type == "object_recorded":
         _validate_object_payload(
             _require_dict(payload["object"], "object_recorded.payload.object"),
@@ -483,6 +587,33 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
             _require_non_empty_string(session_id, "plan_generated.payload.session_ids[]")
         if payload["status"] not in PLAN_STATUSES:
             raise EventValidationError("plan_generated.payload.status must be action-plan or conflicts")
+    elif event_type == "evidence_linked_to_object":
+        allowed = {
+            "evidence_object_id",
+            "target_object_id",
+            "source_document_id",
+            "source_unit_id",
+            "source_unit_hash",
+            "relevance",
+            "linked_at",
+        }
+        unsupported = sorted(set(payload) - allowed)
+        if unsupported:
+            raise EventValidationError(
+                "evidence_linked_to_object.payload contains unsupported fields: "
+                + ", ".join(unsupported)
+            )
+        _require_non_empty_string(payload.get("evidence_object_id"), "evidence_linked_to_object.payload.evidence_object_id")
+        _require_non_empty_string(payload.get("target_object_id"), "evidence_linked_to_object.payload.target_object_id")
+        _require_non_empty_string(payload.get("source_document_id"), "evidence_linked_to_object.payload.source_document_id")
+        _require_non_empty_string(payload.get("source_unit_id"), "evidence_linked_to_object.payload.source_unit_id")
+        _require_hash(payload.get("source_unit_hash"), "evidence_linked_to_object.payload.source_unit_hash")
+        if payload.get("relevance") not in LINK_RELATIONS:
+            allowed_relations = ", ".join(sorted(LINK_RELATIONS))
+            raise EventValidationError(
+                f"evidence_linked_to_object.payload.relevance must be one of: {allowed_relations}"
+            )
+        _require_timestamp(payload.get("linked_at"), "evidence_linked_to_object.payload.linked_at")
     elif event_type == "transaction_rejected":
         for key in ("kept_tx_id", "reason", "conflict_kind", "conflict_summary"):
             _require_non_empty_string(payload.get(key), f"transaction_rejected.payload.{key}")

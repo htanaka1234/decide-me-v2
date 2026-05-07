@@ -111,6 +111,26 @@ Document exports must not call `generate_plan()`, record `plan_generated`, creat
 objects, or update runtime projections. Markdown document exports use
 `<!-- decide-me:generated:start ... -->` and `<!-- decide-me:generated:end -->` markers by default
 so re-export replaces only generated content and preserves human notes outside the marker block.
+Decision brief exports must surface Phase 12 source-store evidence fields when present, including
+source-unit ID, citation, quote, and effective dates.
+
+Source-store commands:
+
+- `import-source`
+- `decompose-source`
+- `search-evidence`
+- `link-evidence`
+- `list-sources`
+- `show-source`
+- `show-source-unit`
+- `show-source-impact`
+- `rebuild-evidence-index`
+- `validate-sources`
+
+Source-store search and impact commands are diagnostics over `.ai/decide-me/sources/`,
+`index/source_units.sqlite`, and projected evidence links. `search-evidence`,
+`show-source-impact`, `list-sources`, `show-source`, and `show-source-unit` must not update
+runtime projections or event logs. `rebuild-evidence-index` updates only the derived SQLite index.
 
 Derived export commands:
 

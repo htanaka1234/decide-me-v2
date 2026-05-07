@@ -51,6 +51,7 @@ Read only the reference file needed for the turn:
 - [references/output-contract.md](references/output-contract.md)
 - [references/document-compiler.md](references/document-compiler.md)
 - [references/domain-packs.md](references/domain-packs.md)
+- [references/evidence-source-store.md](references/evidence-source-store.md)
 - [references/examples.md](references/examples.md)
 
 Bundled assets:
@@ -91,10 +92,23 @@ User-facing commands:
 - `Export verification gaps`
 - `Export document as Markdown, JSON, or CSV`
 - `Export document with domain pack research`
+- `Import source document`
+- `Decompose source document`
+- `Search evidence`
+- `Link evidence to decision`
+- `List sources`
+- `Show source`
+- `Show source unit`
+- `Show source impact`
+- `Rebuild evidence index`
+- `Validate sources`
 
 Runtime invariants:
 
 - `.ai/decide-me/events/**/*.jsonl` transaction files are the source of truth.
+- `.ai/decide-me/sources/` stores immutable source snapshots, document metadata, and citation
+  units. Source-store files are side-store data; the event log records imports, decomposition,
+  version updates, and evidence links without storing full source text.
 - `project-state.json` is the derived object/link projection. It contains project metadata,
   projection metadata, protocol settings, session index data, counts, `objects`, `links`, and the
   derived Decision Stack Graph.
@@ -109,6 +123,8 @@ Runtime invariants:
 - The runtime accepts only the domain-neutral event whitelist:
   `project_initialized`, `session_created`, `session_resumed`, `session_closed`,
   `close_summary_generated`, `plan_generated`, `taxonomy_extended`,
+  `source_document_imported`, `normative_units_extracted`, `source_version_updated`,
+  `evidence_linked_to_object`,
   `transaction_rejected`, `object_recorded`, `object_updated`,
   `object_status_changed`, `object_linked`, `object_unlinked`,
   `session_question_asked`, and `session_answer_recorded`.
@@ -134,6 +150,10 @@ Runtime invariants:
   GitHub issue draft, agent instruction, arc42 architecture, traceability matrix, and verification gap files are derived
   exports, not runtime state. Software-oriented exports are allowed, but they must be derived from
   the domain-neutral object/link core.
+- Source evidence uses normal `evidence` objects with `metadata.source = "source-store"` and
+  object links such as `supports`, `challenges`, `verifies`, or `constrains`. Source updates are
+  read-only impact diagnostics until a human applies the normal revisit, approval, or invalidation
+  workflow.
 - Domain packs are declarative policy overlays. Session and object pack metadata must keep
   `domain_pack_id`, `domain_pack_version`, and `domain_pack_digest` together; stale digest or
   version mismatches fail validation or pack-aware evaluation instead of silently falling back.

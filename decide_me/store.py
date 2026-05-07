@@ -702,7 +702,13 @@ def _validate_incremental_session_scope(bundle: dict[str, Any], events: list[dic
     for event in events:
         event_type = event["event_type"]
         session_id = event["session_id"]
-        if event_type in {"project_initialized", "plan_generated"}:
+        if event_type in {
+            "project_initialized",
+            "plan_generated",
+            "source_document_imported",
+            "normative_units_extracted",
+            "source_version_updated",
+        }:
             if session_id != SYSTEM_SESSION_ID:
                 raise StateValidationError(f"{event_type} must use SYSTEM session_id")
             continue

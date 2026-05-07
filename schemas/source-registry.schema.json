@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/decide-me/source-registry.schema.json",
+  "title": "Decide Me Source Registry",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "documents"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "documents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "document_type",
+          "content_hash",
+          "metadata_path"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^SRC-[A-Za-z0-9_.:-]+$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "document_type": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_:-]*$"
+          },
+          "content_hash": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "metadata_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "canonical": {
+            "type": "boolean"
+          },
+          "effective_from": {
+            "type": "string",
+            "format": "date"
+          },
+          "version_label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "unit_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "parser_version": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "uniqueItems": true
+    }
+  },
+  "additionalProperties": false
+}

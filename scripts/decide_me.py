@@ -40,6 +40,18 @@ from decide_me.session_graph import (
     detect_session_conflicts,
     show_session_graph,
 )
+from decide_me.sources import (
+    decompose_source,
+    import_source,
+    link_evidence_to_object,
+    list_sources,
+    rebuild_evidence_index,
+    search_evidence,
+    show_source,
+    show_source_impact,
+    show_source_unit,
+    validate_sources,
+)
 from decide_me.stale_detection import (
     detect_revisit_due,
     detect_stale_assumptions,
@@ -233,6 +245,87 @@ def main(argv: list[str] | None = None) -> int:
         help="show a read-only risk register projection",
     )
     show_risk_register.add_argument("--ai-dir", required=True)
+
+    import_source_cmd = subparsers.add_parser(
+        "import-source",
+        help="import an immutable source document snapshot",
+    )
+    import_source_cmd.add_argument("--ai-dir", required=True)
+    import_source_cmd.add_argument("--type", dest="document_type", required=True)
+    import_source_cmd.add_argument("--title", required=True)
+    source_input = import_source_cmd.add_mutually_exclusive_group(required=True)
+    source_input.add_argument("--file")
+    source_input.add_argument("--uri")
+    import_source_cmd.add_argument("--source-id")
+    import_source_cmd.add_argument("--effective-from", required=True)
+    import_source_cmd.add_argument("--authority")
+    import_source_cmd.add_argument("--version-label")
+    canonical = import_source_cmd.add_mutually_exclusive_group()
+    canonical.add_argument("--canonical", dest="canonical", action="store_true", default=True)
+    canonical.add_argument("--non-canonical", dest="canonical", action="store_false")
+
+    decompose_source_cmd = subparsers.add_parser(
+        "decompose-source",
+        help="decompose a source document into citation units",
+    )
+    decompose_source_cmd.add_argument("--ai-dir", required=True)
+    decompose_source_cmd.add_argument("--source-id", required=True)
+    decompose_source_cmd.add_argument(
+        "--strategy",
+        required=True,
+        choices=("auto", "egov-law-xml", "japanese-regulation-text"),
+    )
+
+    search_evidence_cmd = subparsers.add_parser(
+        "search-evidence",
+        help="search source-store citation units",
+    )
+    search_evidence_cmd.add_argument("--ai-dir", required=True)
+    search_evidence_cmd.add_argument("--query", required=True)
+    search_evidence_cmd.add_argument("--source-id")
+    search_evidence_cmd.add_argument("--limit", type=int, default=20)
+
+    link_evidence_cmd = subparsers.add_parser(
+        "link-evidence",
+        help="link a source-store unit as evidence for a runtime object",
+    )
+    link_evidence_cmd.add_argument("--ai-dir", required=True)
+    link_evidence_cmd.add_argument("--session-id", required=True)
+    target = link_evidence_cmd.add_mutually_exclusive_group(required=True)
+    target.add_argument("--decision-id")
+    target.add_argument("--object-id")
+    link_evidence_cmd.add_argument("--source-unit-id", required=True)
+    link_evidence_cmd.add_argument("--relevance", required=True, choices=("supports", "challenges", "verifies", "constrains"))
+    link_evidence_cmd.add_argument("--quote")
+    link_evidence_cmd.add_argument("--interpretation-note")
+
+    list_sources_cmd = subparsers.add_parser("list-sources", help="list source documents")
+    list_sources_cmd.add_argument("--ai-dir", required=True)
+
+    show_source_cmd = subparsers.add_parser("show-source", help="show one source document")
+    show_source_cmd.add_argument("--ai-dir", required=True)
+    show_source_cmd.add_argument("--source-id", required=True)
+
+    show_source_unit_cmd = subparsers.add_parser("show-source-unit", help="show one source unit")
+    show_source_unit_cmd.add_argument("--ai-dir", required=True)
+    show_source_unit_cmd.add_argument("--source-unit-id", required=True)
+
+    show_source_impact_cmd = subparsers.add_parser(
+        "show-source-impact",
+        help="show read-only impact of linked source evidence",
+    )
+    show_source_impact_cmd.add_argument("--ai-dir", required=True)
+    show_source_impact_cmd.add_argument("--source-id", required=True)
+    show_source_impact_cmd.add_argument("--source-unit-id")
+
+    rebuild_evidence_index_cmd = subparsers.add_parser(
+        "rebuild-evidence-index",
+        help="rebuild the derived source evidence search index",
+    )
+    rebuild_evidence_index_cmd.add_argument("--ai-dir", required=True)
+
+    validate_sources_cmd = subparsers.add_parser("validate-sources", help="validate source-store files")
+    validate_sources_cmd.add_argument("--ai-dir", required=True)
 
     show_safety_gate = subparsers.add_parser(
         "show-safety-gate",
@@ -573,6 +666,71 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "show-risk-register":
             bundle = load_runtime(runtime_paths(args.ai_dir))
             _print_json(build_risk_register(bundle["project_state"]))
+        elif args.command == "import-source":
+            _print_json(
+                import_source(
+                    args.ai_dir,
+                    document_type=args.document_type,
+                    title=args.title,
+                    file=args.file,
+                    uri=args.uri,
+                    source_id=args.source_id,
+                    effective_from=args.effective_from,
+                    authority=args.authority,
+                    version_label=args.version_label,
+                    canonical=args.canonical,
+                )
+            )
+        elif args.command == "decompose-source":
+            _print_json(
+                decompose_source(
+                    args.ai_dir,
+                    source_id=args.source_id,
+                    strategy=args.strategy,
+                )
+            )
+        elif args.command == "search-evidence":
+            _print_json(
+                search_evidence(
+                    args.ai_dir,
+                    query=args.query,
+                    source_id=args.source_id,
+                    limit=args.limit,
+                )
+            )
+        elif args.command == "link-evidence":
+            _print_json(
+                link_evidence_to_object(
+                    args.ai_dir,
+                    session_id=args.session_id,
+                    decision_id=args.decision_id,
+                    object_id=args.object_id,
+                    source_unit_id=args.source_unit_id,
+                    relevance=args.relevance,
+                    quote=args.quote,
+                    interpretation_note=args.interpretation_note,
+                )
+            )
+        elif args.command == "list-sources":
+            _print_json(list_sources(args.ai_dir))
+        elif args.command == "show-source":
+            _print_json(show_source(args.ai_dir, args.source_id))
+        elif args.command == "show-source-unit":
+            _print_json(show_source_unit(args.ai_dir, args.source_unit_id))
+        elif args.command == "show-source-impact":
+            _print_json(
+                show_source_impact(
+                    args.ai_dir,
+                    source_id=args.source_id,
+                    source_unit_id=args.source_unit_id,
+                )
+            )
+        elif args.command == "rebuild-evidence-index":
+            _print_json(rebuild_evidence_index(args.ai_dir))
+        elif args.command == "validate-sources":
+            result = validate_sources(args.ai_dir)
+            _print_json(result)
+            return 0 if result["ok"] else 1
         elif args.command == "show-safety-gate":
             bundle = load_runtime(runtime_paths(args.ai_dir))
             _print_json(

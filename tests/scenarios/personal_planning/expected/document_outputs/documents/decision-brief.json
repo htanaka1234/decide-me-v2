@@ -166,6 +166,11 @@
             "Evidence ID",
             "Source",
             "Ref",
+            "Source Unit",
+            "Citation",
+            "Quote",
+            "Effective From",
+            "Effective To",
             "Confidence",
             "Freshness",
             "Summary"

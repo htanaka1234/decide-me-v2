@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/decide-me/evidence-search.schema.json",
+  "title": "Decide Me Evidence Search Result",
+  "type": "object",
+  "required": [
+    "status",
+    "query",
+    "count",
+    "results"
+  ],
+  "properties": {
+    "status": {
+      "const": "ok"
+    },
+    "query": {
+      "type": "string",
+      "minLength": 1
+    },
+    "count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "source_unit_id",
+          "source_document_id",
+          "title",
+          "citation",
+          "unit_type",
+          "text_exact",
+          "content_hash",
+          "effective_from",
+          "effective_to",
+          "linked_object_ids",
+          "linked_by_relevance"
+        ],
+        "properties": {
+          "source_unit_id": {
+            "type": "string"
+          },
+          "source_document_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "citation": {
+            "type": "string"
+          },
+          "unit_type": {
+            "type": "string"
+          },
+          "text_exact": {
+            "type": "string"
+          },
+          "content_hash": {
+            "type": "string"
+          },
+          "effective_from": {
+            "type": "string"
+          },
+          "effective_to": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "linked_object_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "linked_by_relevance": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "uniqueItems": true
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

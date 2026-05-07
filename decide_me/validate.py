@@ -40,6 +40,9 @@ SYSTEM_SESSION_ID = "SYSTEM"
 SYSTEM_EVENT_TYPES = {
     "project_initialized",
     "plan_generated",
+    "source_document_imported",
+    "normative_units_extracted",
+    "source_version_updated",
 }
 DOMAIN_PACK_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 DOMAIN_PACK_DIGEST_PATTERN = re.compile(r"^DP-[0-9a-f]{12}$")
@@ -58,6 +61,7 @@ SESSION_SCOPED_EVENT_TYPES = {
     "session_closed",
     "taxonomy_extended",
     "transaction_rejected",
+    "evidence_linked_to_object",
 }
 SESSION_MUTATION_EVENT_TYPES = {
     "session_resumed",
@@ -70,6 +74,7 @@ SESSION_MUTATION_EVENT_TYPES = {
     "session_answer_recorded",
     "taxonomy_extended",
     "close_summary_generated",
+    "evidence_linked_to_object",
 }
 CLOSE_SUMMARY_OBJECT_ID_KEYS = (
     "decisions",
@@ -1109,6 +1114,17 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
                 if expected_target != target_object_id:
                     raise StateValidationError("session_answer_recorded target_object_id does not match pending question")
                 del session_questions[question_id]
+        elif event_type == "evidence_linked_to_object":
+            evidence_object_id = payload["evidence_object_id"]
+            target_object_id = payload["target_object_id"]
+            if evidence_object_id not in object_ids:
+                raise StateValidationError(
+                    f"evidence_linked_to_object references unknown evidence object {evidence_object_id}"
+                )
+            if target_object_id not in object_ids:
+                raise StateValidationError(
+                    f"evidence_linked_to_object references unknown target object {target_object_id}"
+                )
         if event_type == "close_summary_generated":
             has_close_summary[event["session_id"]] = True
             pending_close_summary_session_id = event["session_id"]

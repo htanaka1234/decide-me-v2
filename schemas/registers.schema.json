@@ -153,7 +153,8 @@
         "tests",
         "external",
         "existing-decisions",
-        "close-summaries"
+        "close-summaries",
+        "source-store"
       ]
     },
     "risk_severity": {
@@ -323,6 +324,14 @@
             "freshness",
             "observed_at",
             "valid_until",
+            "source_document_id",
+            "source_unit_id",
+            "source_unit_hash",
+            "citation",
+            "quote",
+            "interpretation_note",
+            "effective_from",
+            "effective_to",
             "supports_object_ids",
             "challenges_object_ids",
             "verifies_object_ids",
@@ -351,6 +360,62 @@
             },
             "valid_until": {
               "$ref": "#/$defs/nullable_date_time"
+            },
+            "source_document_id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 1
+            },
+            "source_unit_id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 1
+            },
+            "source_unit_hash": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            "citation": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 1
+            },
+            "quote": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 1
+            },
+            "interpretation_note": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 1
+            },
+            "effective_from": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date"
+            },
+            "effective_to": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date"
             },
             "supports_object_ids": {
               "$ref": "#/$defs/string_array"

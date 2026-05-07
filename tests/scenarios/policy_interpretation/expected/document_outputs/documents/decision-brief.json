@@ -143,6 +143,11 @@
             "Evidence ID",
             "Source",
             "Ref",
+            "Source Unit",
+            "Citation",
+            "Quote",
+            "Effective From",
+            "Effective To",
             "Confidence",
             "Freshness",
             "Summary"
@@ -152,6 +157,11 @@
               "EVID-pi-policy",
               "docs",
               "docs/policy-excerpt.md",
+              null,
+              null,
+              null,
+              null,
+              null,
               "high",
               "current",
               "The policy excerpt defines the required review and rationale conditions."

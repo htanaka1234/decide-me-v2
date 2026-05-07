@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/decide-me/source-document.schema.json",
+  "title": "Decide Me Source Document",
+  "type": "object",
+  "required": [
+    "id",
+    "title",
+    "authority",
+    "document_type",
+    "source_uri",
+    "version_label",
+    "effective_from",
+    "effective_to",
+    "retrieved_at",
+    "content_hash",
+    "format",
+    "canonical",
+    "original_path",
+    "text_path",
+    "units_path"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^SRC-[A-Za-z0-9_.:-]+$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "authority": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "document_type": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_:-]*$"
+    },
+    "source_uri": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "version_label": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "effective_from": {
+      "type": "string",
+      "format": "date"
+    },
+    "effective_to": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    },
+    "retrieved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "content_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "format": {
+      "type": "string",
+      "enum": [
+        "xml",
+        "html",
+        "markdown",
+        "text",
+        "pdf",
+        "binary"
+      ]
+    },
+    "canonical": {
+      "type": "boolean"
+    },
+    "original_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "text_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "units_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "unit_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "decomposed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "parser_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "quality_flags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    }
+  },
+  "additionalProperties": false
+}
