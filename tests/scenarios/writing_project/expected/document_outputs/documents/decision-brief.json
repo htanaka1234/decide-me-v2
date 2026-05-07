@@ -140,6 +140,13 @@
             "Evidence ID",
             "Source",
             "Ref",
+            "Target",
+            "Relevance",
+            "Source Unit",
+            "Citation",
+            "Quote",
+            "Effective From",
+            "Effective To",
             "Confidence",
             "Freshness",
             "Summary"

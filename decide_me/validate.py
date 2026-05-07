@@ -40,10 +40,24 @@ SYSTEM_SESSION_ID = "SYSTEM"
 SYSTEM_EVENT_TYPES = {
     "project_initialized",
     "plan_generated",
+    "source_document_imported",
+    "normative_units_extracted",
+    "source_version_updated",
 }
 DOMAIN_PACK_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 DOMAIN_PACK_DIGEST_PATTERN = re.compile(r"^DP-[0-9a-f]{12}$")
 PACK_METADATA_KEYS = ("domain_pack_id", "domain_pack_version", "domain_pack_digest")
+LINK_METADATA_KEYS = {
+    "source_document_id",
+    "source_unit_id",
+    "source_unit_hash",
+    "citation",
+    "quote",
+    "interpretation_note",
+    "effective_from",
+    "effective_to",
+    "linked_at",
+}
 SESSION_SCOPED_EVENT_TYPES = {
     "session_created",
     "session_resumed",
@@ -58,6 +72,7 @@ SESSION_SCOPED_EVENT_TYPES = {
     "session_closed",
     "taxonomy_extended",
     "transaction_rejected",
+    "evidence_linked_to_object",
 }
 SESSION_MUTATION_EVENT_TYPES = {
     "session_resumed",
@@ -70,6 +85,7 @@ SESSION_MUTATION_EVENT_TYPES = {
     "session_answer_recorded",
     "taxonomy_extended",
     "close_summary_generated",
+    "evidence_linked_to_object",
 }
 CLOSE_SUMMARY_OBJECT_ID_KEYS = (
     "decisions",
@@ -254,6 +270,7 @@ def validate_project_state(project_state: dict[str, Any]) -> None:
             "rationale",
             "created_at",
             "source_event_ids",
+            "metadata",
         }:
             raise StateValidationError(f"link {link.get('id', '?')} contains unsupported keys")
         _require_non_empty_string(link.get("id"), "project_state.links[].id")
@@ -264,6 +281,11 @@ def validate_project_state(project_state: dict[str, Any]) -> None:
             raise StateValidationError(f"link {link['id']}.rationale must be a string or null")
         _require_timestamp(link.get("created_at"), f"link {link['id']}.created_at")
         _require_source_event_ids(link.get("source_event_ids"), f"link {link['id']}.source_event_ids")
+        if "metadata" in link:
+            _validate_link_metadata(
+                _require_dict(link["metadata"], f"link {link['id']}.metadata"),
+                f"link {link['id']}.metadata",
+            )
         if link["id"] in link_ids:
             raise StateValidationError(f"duplicate link id: {link['id']}")
         link_ids.add(link["id"])
@@ -386,6 +408,39 @@ def _require_source_event_ids(value: Any, label: str) -> None:
         if event_id in seen:
             raise StateValidationError(f"{label} contains duplicate event ids")
         seen.add(event_id)
+
+
+def _validate_link_metadata(metadata: dict[str, Any], label: str) -> None:
+    unsupported = sorted(set(metadata) - LINK_METADATA_KEYS)
+    if unsupported:
+        raise StateValidationError(f"{label} contains unsupported fields: {', '.join(unsupported)}")
+    for key in ("source_document_id", "source_unit_id", "citation", "quote", "interpretation_note"):
+        if key in metadata:
+            _require_optional_non_empty_string(metadata.get(key), f"{label}.{key}")
+    if "source_unit_hash" in metadata and metadata.get("source_unit_hash") is not None:
+        _require_hash(metadata.get("source_unit_hash"), f"{label}.source_unit_hash")
+    if "linked_at" in metadata and metadata.get("linked_at") is not None:
+        _require_timestamp(metadata.get("linked_at"), f"{label}.linked_at")
+    for key in ("effective_from", "effective_to"):
+        if key in metadata:
+            _require_optional_date(metadata.get(key), f"{label}.{key}")
+
+
+def _require_hash(value: Any, label: str) -> None:
+    _require_non_empty_string(value, label)
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", str(value)):
+        raise StateValidationError(f"{label} must be sha256:<64 lowercase hex chars>")
+
+
+def _require_optional_date(value: Any, label: str) -> None:
+    if value is None:
+        return
+    _require_non_empty_string(value, label)
+    try:
+        datetime.fromisoformat(f"{value}T00:00:00")
+    except ValueError as exc:
+        raise StateValidationError(f"{label} must be YYYY-MM-DD") from exc
+
 
 def validate_session_state(session_state: dict[str, Any]) -> None:
     _require_keys(
@@ -1109,6 +1164,17 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
                 if expected_target != target_object_id:
                     raise StateValidationError("session_answer_recorded target_object_id does not match pending question")
                 del session_questions[question_id]
+        elif event_type == "evidence_linked_to_object":
+            evidence_object_id = payload["evidence_object_id"]
+            target_object_id = payload["target_object_id"]
+            if evidence_object_id not in object_ids:
+                raise StateValidationError(
+                    f"evidence_linked_to_object references unknown evidence object {evidence_object_id}"
+                )
+            if target_object_id not in object_ids:
+                raise StateValidationError(
+                    f"evidence_linked_to_object references unknown target object {target_object_id}"
+                )
         if event_type == "close_summary_generated":
             has_close_summary[event["session_id"]] = True
             pending_close_summary_session_id = event["session_id"]

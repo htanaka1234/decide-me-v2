@@ -40,6 +40,9 @@
         "project_initialized",
         "session_created",
         "session_resumed",
+        "source_document_imported",
+        "normative_units_extracted",
+        "source_version_updated",
         "object_recorded",
         "object_updated",
         "object_status_changed",
@@ -51,7 +54,8 @@
         "session_closed",
         "plan_generated",
         "taxonomy_extended",
-        "transaction_rejected"
+        "transaction_rejected",
+        "evidence_linked_to_object"
       ]
     },
     "payload": {

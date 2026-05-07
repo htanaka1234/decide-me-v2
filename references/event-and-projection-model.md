@@ -29,6 +29,11 @@ Projection rules:
 - `project-state.json` is the object/link projection. It contains project metadata, projection
   metadata, protocol settings, session index data, derived counts, `objects`, `links`, and the
   derived Decision Stack Graph.
+- `.ai/decide-me/sources/` is the Phase 12 evidence source side store. It contains immutable
+  source snapshots, document metadata, citation units, and derived search index inputs. Source
+  files are not embedded in `project-state.json`. Import and decomposition side-store writes run
+  under the runtime write lock and are rolled back if the matching audit transaction cannot be
+  persisted.
 - Never mutate a projection directly without emitting an event.
 - Normal reads load the persisted projections plus `runtime-index.json`; they do not replay the
   event log.
@@ -40,12 +45,17 @@ Projection rules:
 - If validation fails, reject the write and keep the previous runtime files unchanged.
 - The accepted event whitelist is `project_initialized`, `session_created`,
   `session_resumed`, `session_closed`, `close_summary_generated`, `plan_generated`,
-  `taxonomy_extended`, `transaction_rejected`, `object_recorded`, `object_updated`,
+  `taxonomy_extended`, `source_document_imported`, `normative_units_extracted`,
+  `source_version_updated`, `evidence_linked_to_object`, `transaction_rejected`,
+  `object_recorded`, `object_updated`,
   `object_status_changed`, `object_linked`, `object_unlinked`,
   `session_question_asked`, and `session_answer_recorded`.
+- Source audit events store document or unit IDs, hashes, methods, counts, timestamps, and quality
+  flags. They must not store full source text.
 - Domain state is recorded as objects and links. `object_recorded.payload.object` matches
   `schemas/object.schema.json`; `object_linked.payload.link` matches
-  `schemas/link.schema.json`.
+  `schemas/link.schema.json`. Phase 12 source-store links may carry link-level metadata for the
+  source unit, citation, quote, interpretation note, effective dates, and linked timestamp.
 - `object_updated.payload.patch` may contain only `title`, `body`, and `metadata`.
   Object `id`, `type`, links, and status are immutable through this event.
 - `object_status_changed.payload` is `{object_id, from_status, to_status, reason, changed_at}`.

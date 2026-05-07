@@ -101,6 +101,7 @@ EVIDENCE_SOURCES = {
     "external",
     "existing-decisions",
     "close-summaries",
+    "source-store",
 }
 METADATA_CONFIDENCE_VALUES = {"low", "medium", "high"}
 EVIDENCE_FRESHNESS_VALUES = {"current", "stale", "unknown"}

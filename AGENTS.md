@@ -44,6 +44,8 @@
   events.
 - `taxonomy-state.json`, `runtime-index.json`, `session-graph-cache.json`, and `sessions/*.json`
   are derived projections or caches and must be rebuildable from events.
+- `.ai/decide-me/sources/` contains Phase 12 immutable source snapshots, source metadata, and
+  normative units. `.ai/decide-me/index/source_units.sqlite` is a derived search index.
 - Human-readable files under `.ai/decide-me/exports/` are exports, not runtime state.
 - `write.lock` protects runtime writes.
 - Rejected transaction files remain on disk for audit; rejection and suppression are represented
@@ -89,6 +91,8 @@
   intentional evaluation-output changes.
 - Run the Phase 11 release-readiness gate with
   `PYTHONPATH=. python3 scripts/run_phase11_gate.py`.
+- Run the Phase 12 source-store gate with
+  `PYTHONPATH=. python3 scripts/run_phase12_gate.py`.
 - Pytest marker slices are available for `unit`, `integration`, `evaluation`, `slow`,
   `phase_gate`, and `smoke`.
 - Use `python3 scripts/decide_me.py --help` for the command reference.
@@ -97,7 +101,9 @@
   `generate-plan`, `validate-state`, `rebuild-projections`, `compact-runtime`,
   `detect-merge-conflicts`, `resolve-merge-conflict`, `link-session`,
   `detect-session-conflicts`, `resolve-session-conflict`, and
-  `resolve-decision-supersession`, plus derived export commands such as
+  `resolve-decision-supersession`, Phase 12 source commands such as `import-source`,
+  `decompose-source`, `search-evidence`, `link-evidence`, and `show-source-impact`, plus derived
+  export commands such as
   `export-agent-instructions`.
 - Do not patch generated runtime projections by hand during development. Fix the source events,
   runtime code, schemas, or projection logic, then rebuild or validate through the CLI.
@@ -106,7 +112,7 @@
 
 - `agents/openai.yaml`: Codex Skill metadata.
 - `decide_me/`: runtime modules for events, projections, lifecycle, interview flow, taxonomy,
-  search, conflict handling, planning, exports, and validation.
+  search, source-store handling, conflict handling, planning, exports, and validation.
 - `references/`: detailed Skill operating references.
 - `schemas/`: JSON Schema contracts.
 - `scripts/`: CLI and artifact builder.
