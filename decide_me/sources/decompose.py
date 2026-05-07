@@ -80,7 +80,7 @@ def decompose_document(
     original = source_path_from_metadata(ai_dir, metadata, "original_path")
     if selected == "egov-law-xml":
         units = _decompose_egov_xml(original, metadata)
-        flags = ["xml_structure_used"]
+        flags = ["xml_structure_used", "parent_units_include_descendant_text"]
     else:
         text = source_text(original, source_format)
         units = _decompose_japanese_regulation_text(text, metadata)
@@ -273,6 +273,7 @@ def _finalize_units(records: list[dict[str, Any]], metadata: dict[str, Any]) -> 
                 "unit_type": record["unit_type"],
                 "path": deepcopy(record["path"]),
                 "citation": _citation(metadata, record["path"]),
+                "canonical_locator": _canonical_locator(metadata, record["path"]),
                 "text_exact": text_exact,
                 "text_normalized": text_normalized,
                 "content_hash": content_hash,
@@ -287,3 +288,12 @@ def _finalize_units(records: list[dict[str, Any]], metadata: dict[str, Any]) -> 
 def _citation(metadata: dict[str, Any], path: dict[str, str]) -> str:
     pieces = [metadata["title"], *[value for value in path.values() if value]]
     return " ".join(pieces)
+
+
+def _canonical_locator(metadata: dict[str, Any], path: dict[str, str]) -> str:
+    pieces = [
+        metadata["document_type"],
+        metadata["title"],
+        *[value for value in path.values() if value],
+    ]
+    return ":".join(pieces)

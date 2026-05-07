@@ -571,6 +571,8 @@ def _projection_mismatch_issues(paths: RuntimePaths, rebuilt: dict[str, Any]) ->
 
 EventSpec = dict[str, Any]
 Builder = Callable[[dict[str, Any]], list[EventSpec]]
+TransactionSideEffect = Callable[[list[dict[str, Any]], dict[str, Any]], None]
+TransactionRollback = Callable[[BaseException], None]
 
 
 def transact(
@@ -578,6 +580,36 @@ def transact(
     builder: Builder,
     *,
     tx_id: str | None = None,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    return _transact_internal(ai_dir, builder, tx_id=tx_id)
+
+
+def transact_with_precommit(
+    ai_dir: str | Path,
+    builder: Builder,
+    *,
+    precommit: TransactionSideEffect,
+    rollback: TransactionRollback | None = None,
+    tx_id: str | None = None,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Run a validated event transaction with a locked filesystem side effect.
+
+    The side effect runs after event validation and projection replay have succeeded, but
+    before the transaction file and projections are persisted. If event persistence fails
+    after the side effect starts, rollback is invoked while the runtime write lock is held.
+    Once the transaction file is durable, the side effect is retained because the audit log
+    can be replayed and projections can be rebuilt.
+    """
+    return _transact_internal(ai_dir, builder, tx_id=tx_id, precommit=precommit, rollback=rollback)
+
+
+def _transact_internal(
+    ai_dir: str | Path,
+    builder: Builder,
+    *,
+    tx_id: str | None = None,
+    precommit: TransactionSideEffect | None = None,
+    rollback: TransactionRollback | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     paths = runtime_paths(ai_dir)
     ensure_runtime_dirs(paths)
@@ -625,13 +657,27 @@ def transact(
         )
         new_bundle = apply_events_to_bundle(deepcopy(current_bundle), built_events)
         validate_projection_bundle(new_bundle)
-        _write_transaction(paths, built_events)
-        _write_projections_and_index(
-            paths,
-            new_bundle,
-            last_event_sort_key=event_sort_key(built_events[-1]),
-            rejected_tx_ids=set(runtime_index.get("rejected_tx_ids", [])),
-        )
+        side_effect_started = False
+        transaction_persisted = False
+        try:
+            if precommit is not None:
+                side_effect_started = True
+                precommit(built_events, new_bundle)
+            _write_transaction(paths, built_events)
+            transaction_persisted = True
+            _write_projections_and_index(
+                paths,
+                new_bundle,
+                last_event_sort_key=event_sort_key(built_events[-1]),
+                rejected_tx_ids=set(runtime_index.get("rejected_tx_ids", [])),
+            )
+        except Exception as exc:
+            if side_effect_started and not transaction_persisted and rollback is not None:
+                try:
+                    rollback(exc)
+                except Exception as rollback_exc:
+                    raise StateValidationError(f"transaction side-effect rollback failed: {rollback_exc}") from exc
+            raise
         return built_events, new_bundle
 
 

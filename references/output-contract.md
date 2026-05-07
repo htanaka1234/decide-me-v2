@@ -112,7 +112,8 @@ objects, or update runtime projections. Markdown document exports use
 `<!-- decide-me:generated:start ... -->` and `<!-- decide-me:generated:end -->` markers by default
 so re-export replaces only generated content and preserves human notes outside the marker block.
 Decision brief exports must surface Phase 12 source-store evidence fields when present, including
-source-unit ID, citation, quote, and effective dates.
+source-unit ID, citation, per-link quote, interpretation note, target object, relevance, and
+effective dates.
 
 Source-store commands:
 
@@ -128,7 +129,10 @@ Source-store commands:
 - `validate-sources`
 
 Source-store search and impact commands are diagnostics over `.ai/decide-me/sources/`,
-`index/source_units.sqlite`, and projected evidence links. `search-evidence`,
+`index/source_units.sqlite`, and projected evidence links. `show-source-impact` reports direct
+affected objects and downstream affected decisions; with `--include-previous-version-links`, it can
+include links that still point at prior source snapshots recorded by `source_version_updated`.
+`search-evidence`,
 `show-source-impact`, `list-sources`, `show-source`, and `show-source-unit` must not update
 runtime projections or event logs. `rebuild-evidence-index` updates only the derived SQLite index.
 

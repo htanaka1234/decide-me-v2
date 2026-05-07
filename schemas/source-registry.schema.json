@@ -50,6 +50,23 @@
             "type": "string",
             "format": "date"
           },
+          "effective_to": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "retrieved_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "source_uri": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "version_label": {
             "type": [
               "string",

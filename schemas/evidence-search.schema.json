@@ -30,6 +30,7 @@
           "source_document_id",
           "title",
           "citation",
+          "canonical_locator",
           "unit_type",
           "text_exact",
           "content_hash",
@@ -49,6 +50,9 @@
             "type": "string"
           },
           "citation": {
+            "type": "string"
+          },
+          "canonical_locator": {
             "type": "string"
           },
           "unit_type": {

@@ -140,6 +140,8 @@
             "Evidence ID",
             "Source",
             "Ref",
+            "Target",
+            "Relevance",
             "Source Unit",
             "Citation",
             "Quote",

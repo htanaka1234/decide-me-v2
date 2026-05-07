@@ -15,7 +15,9 @@ def build_evidence_register(project_state: dict[str, Any]) -> dict[str, Any]:
         supports = _target_ids(links.get(obj["id"], []), "supports")
         challenges = _target_ids(links.get(obj["id"], []), "challenges")
         verifies = _target_ids(links.get(obj["id"], []), "verifies")
-        related_links = _link_ids(links.get(obj["id"], []), {"supports", "challenges", "verifies"})
+        constrains = _target_ids(links.get(obj["id"], []), "constrains")
+        source_store_links = _source_store_links(links.get(obj["id"], []))
+        related_links = _link_ids(links.get(obj["id"], []), {"supports", "challenges", "verifies", "constrains"})
         items.append(
             {
                 **_common_item_fields(obj),
@@ -37,6 +39,8 @@ def build_evidence_register(project_state: dict[str, Any]) -> dict[str, Any]:
                 "supports_object_ids": supports,
                 "challenges_object_ids": challenges,
                 "verifies_object_ids": verifies,
+                "constrains_object_ids": constrains,
+                "source_store_links": source_store_links,
                 "related_link_ids": related_links,
             }
         )
@@ -208,6 +212,31 @@ def _target_ids(links: list[dict[str, Any]], relation: str) -> list[str]:
 
 def _link_ids(links: list[dict[str, Any]], relations: set[str]) -> list[str]:
     return _sorted_strings(link["id"] for link in links if link.get("relation") in relations)
+
+
+def _source_store_links(links: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for link in links:
+        metadata = link.get("metadata") or {}
+        if not metadata.get("source_unit_id"):
+            continue
+        rows.append(
+            {
+                "link_id": link["id"],
+                "target_object_id": link["target_object_id"],
+                "relevance": link["relation"],
+                "source_document_id": metadata.get("source_document_id"),
+                "source_unit_id": metadata.get("source_unit_id"),
+                "source_unit_hash": metadata.get("source_unit_hash"),
+                "citation": metadata.get("citation"),
+                "quote": metadata.get("quote"),
+                "interpretation_note": metadata.get("interpretation_note"),
+                "effective_from": metadata.get("effective_from"),
+                "effective_to": metadata.get("effective_to"),
+                "linked_at": metadata.get("linked_at"),
+            }
+        )
+    return sorted(rows, key=lambda item: item["link_id"])
 
 
 def _sorted_strings(values: Any) -> list[str]:

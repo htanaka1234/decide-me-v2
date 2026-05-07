@@ -10,6 +10,7 @@
     "unit_type",
     "path",
     "citation",
+    "canonical_locator",
     "text_exact",
     "text_normalized",
     "content_hash",
@@ -41,6 +42,10 @@
       }
     },
     "citation": {
+      "type": "string",
+      "minLength": 1
+    },
+    "canonical_locator": {
       "type": "string",
       "minLength": 1
     },

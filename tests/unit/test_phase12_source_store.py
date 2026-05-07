@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from jsonschema import Draft202012Validator
 
@@ -11,12 +12,17 @@ from decide_me.sources.decompose import decompose_document
 from decide_me.sources.model import (
     SourceValidationError,
     document_dir,
+    load_registry,
+    load_source_metadata,
+    load_units,
     source_document_id,
     source_paths,
     source_unit_id,
     validate_normative_unit,
     validate_source_document,
 )
+from decide_me.sources.store import decompose_source, import_source
+from decide_me.store import bootstrap_runtime
 from tests.helpers.schema_validation import load_schema
 
 
@@ -70,10 +76,72 @@ class Phase12SourceStoreUnitTests(unittest.TestCase):
                         "document_type": document["document_type"],
                         "content_hash": document["content_hash"],
                         "metadata_path": "documents/SRC-test/metadata.yaml",
+                        "effective_from": "2026-04-01",
+                        "effective_to": None,
+                        "retrieved_at": "2026-05-01T00:00:00Z",
+                        "source_uri": "fixtures/source.xml",
                     }
                 ],
             }
         )
+
+    def test_import_source_rolls_back_snapshot_when_audit_transaction_fails(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = Path(tmp) / ".ai" / "decide-me"
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Rollback",
+                objective="Exercise rollback.",
+                current_milestone="Phase 12",
+            )
+            source_file = Path(tmp) / "rules.txt"
+            source_file.write_text("第1条 学生は履修登録を行う。\n", encoding="utf-8")
+
+            with patch("decide_me.store._write_transaction", side_effect=RuntimeError("audit write failed")):
+                with self.assertRaisesRegex(RuntimeError, "audit write failed"):
+                    import_source(
+                        ai_dir,
+                        document_type="academic_regulation",
+                        title="医学部教務規則",
+                        file=source_file,
+                        source_id="SRC-rollback",
+                        effective_from="2026-04-01",
+                    )
+
+            self.assertFalse((source_paths(ai_dir)["documents"] / "SRC-rollback").exists())
+            self.assertEqual([], load_registry(ai_dir)["documents"])
+
+    def test_decompose_source_rolls_back_units_when_audit_transaction_fails(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = Path(tmp) / ".ai" / "decide-me"
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Rollback",
+                objective="Exercise rollback.",
+                current_milestone="Phase 12",
+            )
+            source_file = Path(tmp) / "rules.txt"
+            source_file.write_text("第1条 学生は履修登録を行う。\n", encoding="utf-8")
+            import_source(
+                ai_dir,
+                document_type="academic_regulation",
+                title="医学部教務規則",
+                file=source_file,
+                source_id="SRC-decompose-rollback",
+                effective_from="2026-04-01",
+            )
+
+            with patch("decide_me.store._write_transaction", side_effect=RuntimeError("audit write failed")):
+                with self.assertRaisesRegex(RuntimeError, "audit write failed"):
+                    decompose_source(
+                        ai_dir,
+                        source_id="SRC-decompose-rollback",
+                        strategy="japanese-regulation-text",
+                    )
+
+            self.assertEqual([], load_units(ai_dir, "SRC-decompose-rollback"))
+            self.assertEqual(0, load_source_metadata(ai_dir, "SRC-decompose-rollback")["unit_count"])
+            self.assertFalse(source_paths(ai_dir)["source_units_index"].exists())
 
     def test_egov_xml_decomposition_extracts_citation_units(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -108,9 +176,11 @@ class Phase12SourceStoreUnitTests(unittest.TestCase):
 
             self.assertEqual("egov_law_xml_v1", parser_version)
             self.assertIn("xml_structure_used", flags)
+            self.assertIn("parent_units_include_descendant_text", flags)
             self.assertGreaterEqual(len(units), 3)
             self.assertTrue(any(unit["path"].get("article") == "第一条" for unit in units))
             self.assertTrue(any("履修登録" in unit["text_exact"] for unit in units))
+            self.assertTrue(all(unit["canonical_locator"] for unit in units))
 
     def test_japanese_regulation_text_decomposition_handles_common_headings(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -190,11 +260,14 @@ class Phase12SourceStoreUnitTests(unittest.TestCase):
             event_type="evidence_linked_to_object",
             payload={
                 "evidence_object_id": "O-evidence-NU-SRC-test-unit-aaaaaaaa",
+                "link_id": "L-O-evidence-NU-SRC-test-unit-aaaaaaaa-supports-D-001-deadbeef",
                 "target_object_id": "D-001",
                 "source_document_id": "SRC-test",
                 "source_unit_id": "NU-SRC-test-unit-aaaaaaaa",
                 "source_unit_hash": "sha256:" + "a" * 64,
                 "relevance": "supports",
+                "quote": "学生は指定期間内に履修登録を行う。",
+                "interpretation_note": "履修登録期限を制約として扱う。",
                 "linked_at": "2026-05-01T00:00:00Z",
             },
             timestamp="2026-05-01T00:00:00Z",
@@ -237,6 +310,7 @@ def _normative_unit(source_id: str) -> dict:
         "unit_type": "article",
         "path": {"article": "第12条"},
         "citation": "医学部教務規則 第12条",
+        "canonical_locator": "academic_regulation:医学部教務規則:第12条",
         "text_exact": "学生は指定期間内に履修登録を行う。",
         "text_normalized": "学生は指定期間内に履修登録を行う。",
         "content_hash": "sha256:" + "b" * 64,

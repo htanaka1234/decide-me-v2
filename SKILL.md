@@ -108,7 +108,9 @@ Runtime invariants:
 - `.ai/decide-me/events/**/*.jsonl` transaction files are the source of truth.
 - `.ai/decide-me/sources/` stores immutable source snapshots, document metadata, and citation
   units. Source-store files are side-store data; the event log records imports, decomposition,
-  version updates, and evidence links without storing full source text.
+  version updates, and evidence links without storing full source text. Import/decomposition writes
+  are protected by the runtime write lock and rolled back if the matching audit transaction cannot
+  be persisted.
 - `project-state.json` is the derived object/link projection. It contains project metadata,
   projection metadata, protocol settings, session index data, counts, `objects`, `links`, and the
   derived Decision Stack Graph.
@@ -151,9 +153,10 @@ Runtime invariants:
   exports, not runtime state. Software-oriented exports are allowed, but they must be derived from
   the domain-neutral object/link core.
 - Source evidence uses normal `evidence` objects with `metadata.source = "source-store"` and
-  object links such as `supports`, `challenges`, `verifies`, or `constrains`. Source updates are
-  read-only impact diagnostics until a human applies the normal revisit, approval, or invalidation
-  workflow.
+  object links such as `supports`, `challenges`, `verifies`, or `constrains`. The evidence object
+  represents the source unit; per-decision quote and interpretation note live on link metadata and
+  are surfaced by evidence registers and decision briefs. Source updates are read-only impact
+  diagnostics until a human applies the normal revisit, approval, or invalidation workflow.
 - Domain packs are declarative policy overlays. Session and object pack metadata must keep
   `domain_pack_id`, `domain_pack_version`, and `domain_pack_digest` together; stale digest or
   version mismatches fail validation or pack-aware evaluation instead of silently falling back.

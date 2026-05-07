@@ -31,7 +31,9 @@ Projection rules:
   derived Decision Stack Graph.
 - `.ai/decide-me/sources/` is the Phase 12 evidence source side store. It contains immutable
   source snapshots, document metadata, citation units, and derived search index inputs. Source
-  files are not embedded in `project-state.json`.
+  files are not embedded in `project-state.json`. Import and decomposition side-store writes run
+  under the runtime write lock and are rolled back if the matching audit transaction cannot be
+  persisted.
 - Never mutate a projection directly without emitting an event.
 - Normal reads load the persisted projections plus `runtime-index.json`; they do not replay the
   event log.
@@ -52,7 +54,8 @@ Projection rules:
   flags. They must not store full source text.
 - Domain state is recorded as objects and links. `object_recorded.payload.object` matches
   `schemas/object.schema.json`; `object_linked.payload.link` matches
-  `schemas/link.schema.json`.
+  `schemas/link.schema.json`. Phase 12 source-store links may carry link-level metadata for the
+  source unit, citation, quote, interpretation note, effective dates, and linked timestamp.
 - `object_updated.payload.patch` may contain only `title`, `body`, and `metadata`.
   Object `id`, `type`, links, and status are immutable through this event.
 - `object_status_changed.payload` is `{object_id, from_status, to_status, reason, changed_at}`.

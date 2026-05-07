@@ -29,6 +29,18 @@ LINK_KEYS = {
     "rationale",
     "created_at",
     "source_event_ids",
+    "metadata",
+}
+LINK_METADATA_KEYS = {
+    "source_document_id",
+    "source_unit_id",
+    "source_unit_hash",
+    "citation",
+    "quote",
+    "interpretation_note",
+    "effective_from",
+    "effective_to",
+    "linked_at",
 }
 OBJECT_PATCH_KEYS = {"title", "body", "metadata"}
 DOMAIN_PACK_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
@@ -208,6 +220,20 @@ def _require_hash(value: Any, label: str) -> None:
         raise EventValidationError(f"{label} must be sha256:<64 lowercase hex chars>")
 
 
+def _require_date(value: Any, label: str) -> None:
+    _require_non_empty_string(value, label)
+    try:
+        datetime.fromisoformat(f"{value}T00:00:00")
+    except ValueError as exc:
+        raise EventValidationError(f"{label} must be YYYY-MM-DD") from exc
+
+
+def _require_date_or_null(value: Any, label: str) -> None:
+    if value is None:
+        return
+    _require_date(value, label)
+
+
 def _require_source_event_ids(value: Any, label: str) -> None:
     if not isinstance(value, list) or not value:
         raise EventValidationError(f"{label} must be a non-empty list")
@@ -334,6 +360,29 @@ def _validate_link_payload(link: dict[str, Any], label: str) -> None:
     _require_string_or_null(link.get("rationale"), f"{label}.rationale")
     _require_timestamp(link.get("created_at"), f"{label}.created_at")
     _require_source_event_ids(link.get("source_event_ids"), f"{label}.source_event_ids")
+    if "metadata" in link:
+        _validate_link_metadata(_require_dict(link["metadata"], f"{label}.metadata"), f"{label}.metadata")
+
+
+def _validate_link_metadata(metadata: dict[str, Any], label: str) -> None:
+    unsupported = sorted(set(metadata) - LINK_METADATA_KEYS)
+    if unsupported:
+        raise EventValidationError(f"{label} contains unsupported fields: {', '.join(unsupported)}")
+    for key in ("source_document_id", "source_unit_id", "citation"):
+        if key in metadata:
+            _require_string_or_null(metadata.get(key), f"{label}.{key}", non_empty=True)
+    if "source_unit_hash" in metadata:
+        if metadata.get("source_unit_hash") is not None:
+            _require_hash(metadata.get("source_unit_hash"), f"{label}.source_unit_hash")
+    for key in ("quote", "interpretation_note"):
+        if key in metadata:
+            _require_string_or_null(metadata.get(key), f"{label}.{key}", non_empty=True)
+    if "linked_at" in metadata:
+        if metadata.get("linked_at") is not None:
+            _require_timestamp(metadata.get("linked_at"), f"{label}.linked_at")
+    for key in ("effective_from", "effective_to"):
+        if key in metadata:
+            _require_date_or_null(metadata.get(key), f"{label}.{key}")
 
 
 def prepare_payload(event_type: str, payload: dict[str, Any], project_head: str | None) -> dict[str, Any]:
@@ -590,11 +639,14 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
     elif event_type == "evidence_linked_to_object":
         allowed = {
             "evidence_object_id",
+            "link_id",
             "target_object_id",
             "source_document_id",
             "source_unit_id",
             "source_unit_hash",
             "relevance",
+            "quote",
+            "interpretation_note",
             "linked_at",
         }
         unsupported = sorted(set(payload) - allowed)
@@ -604,6 +656,8 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
                 + ", ".join(unsupported)
             )
         _require_non_empty_string(payload.get("evidence_object_id"), "evidence_linked_to_object.payload.evidence_object_id")
+        if "link_id" in payload:
+            _require_string_or_null(payload.get("link_id"), "evidence_linked_to_object.payload.link_id", non_empty=True)
         _require_non_empty_string(payload.get("target_object_id"), "evidence_linked_to_object.payload.target_object_id")
         _require_non_empty_string(payload.get("source_document_id"), "evidence_linked_to_object.payload.source_document_id")
         _require_non_empty_string(payload.get("source_unit_id"), "evidence_linked_to_object.payload.source_unit_id")
@@ -613,6 +667,13 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
             raise EventValidationError(
                 f"evidence_linked_to_object.payload.relevance must be one of: {allowed_relations}"
             )
+        for key in ("quote", "interpretation_note"):
+            if key in payload:
+                _require_string_or_null(
+                    payload.get(key),
+                    f"evidence_linked_to_object.payload.{key}",
+                    non_empty=True,
+                )
         _require_timestamp(payload.get("linked_at"), "evidence_linked_to_object.payload.linked_at")
     elif event_type == "transaction_rejected":
         for key in ("kept_tx_id", "reason", "conflict_kind", "conflict_summary"):

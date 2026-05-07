@@ -30,6 +30,7 @@ def rebuild_evidence_index(ai_dir: str | Path) -> dict[str, Any]:
                         source_document_id,
                         title,
                         citation,
+                        canonical_locator,
                         unit_type,
                         text_exact,
                         text_normalized,
@@ -37,13 +38,14 @@ def rebuild_evidence_index(ai_dir: str | Path) -> dict[str, Any]:
                         effective_from,
                         effective_to
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         unit["id"],
                         unit["source_document_id"],
                         metadata["title"],
                         unit["citation"],
+                        unit["canonical_locator"],
                         unit["unit_type"],
                         unit["text_exact"],
                         unit["text_normalized"],
@@ -55,10 +57,16 @@ def rebuild_evidence_index(ai_dir: str | Path) -> dict[str, Any]:
                 if fts_enabled:
                     conn.execute(
                         """
-                        INSERT INTO source_units_fts(source_unit_id, title, citation, text_normalized)
-                        VALUES (?, ?, ?, ?)
+                        INSERT INTO source_units_fts(source_unit_id, title, citation, canonical_locator, text_normalized)
+                        VALUES (?, ?, ?, ?, ?)
                         """,
-                        (unit["id"], metadata["title"], unit["citation"], unit["text_normalized"]),
+                        (
+                            unit["id"],
+                            metadata["title"],
+                            unit["citation"],
+                            unit["canonical_locator"],
+                            unit["text_normalized"],
+                        ),
                     )
         conn.execute(
             "INSERT INTO source_index_meta(key, value) VALUES (?, ?)",
@@ -116,6 +124,7 @@ def _reset_schema(conn: sqlite3.Connection) -> None:
             source_document_id TEXT NOT NULL,
             title TEXT NOT NULL,
             citation TEXT NOT NULL,
+            canonical_locator TEXT NOT NULL,
             unit_type TEXT NOT NULL,
             text_exact TEXT NOT NULL,
             text_normalized TEXT NOT NULL,
@@ -133,7 +142,7 @@ def _create_fts(conn: sqlite3.Connection) -> bool:
         conn.execute(
             """
             CREATE VIRTUAL TABLE source_units_fts
-            USING fts5(source_unit_id, title, citation, text_normalized)
+            USING fts5(source_unit_id, title, citation, canonical_locator, text_normalized)
             """
         )
     except sqlite3.OperationalError:
@@ -162,6 +171,7 @@ def _search_fts(
                        u.source_document_id,
                        u.title,
                        u.citation,
+                       u.canonical_locator,
                        u.unit_type,
                        u.text_exact,
                        u.content_hash,
@@ -188,8 +198,8 @@ def _search_like(
     limit: int,
 ) -> list[sqlite3.Row]:
     needle = f"%{query}%"
-    where = "(title LIKE ? OR citation LIKE ? OR text_normalized LIKE ?)"
-    params: list[Any] = [needle, needle, needle]
+    where = "(title LIKE ? OR citation LIKE ? OR canonical_locator LIKE ? OR text_normalized LIKE ?)"
+    params: list[Any] = [needle, needle, needle, needle]
     if source_id is not None:
         where += " AND source_document_id = ?"
         params.append(source_id)
@@ -201,6 +211,7 @@ def _search_like(
                    source_document_id,
                    title,
                    citation,
+                   canonical_locator,
                    unit_type,
                    text_exact,
                    content_hash,

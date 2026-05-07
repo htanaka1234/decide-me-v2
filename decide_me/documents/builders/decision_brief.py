@@ -108,22 +108,7 @@ def _decisions_section(context: DocumentContext) -> dict[str, Any]:
 
 
 def _evidence_assumptions_section(context: DocumentContext) -> dict[str, Any]:
-    evidence_rows = [
-        [
-            item["object_id"],
-            item.get("source"),
-            item.get("source_ref"),
-            item.get("source_unit_id"),
-            item.get("citation"),
-            item.get("quote"),
-            item.get("effective_from"),
-            item.get("effective_to") or item.get("valid_until"),
-            item.get("confidence"),
-            item.get("freshness"),
-            item.get("summary"),
-        ]
-        for item in context.evidence_register.get("items", [])
-    ]
+    evidence_rows = _evidence_rows(context.evidence_register.get("items", []))
     assumption_rows = [
         [
             item["object_id"],
@@ -159,6 +144,8 @@ def _evidence_assumptions_section(context: DocumentContext) -> dict[str, Any]:
                     "Evidence ID",
                     "Source",
                     "Ref",
+                    "Target",
+                    "Relevance",
                     "Source Unit",
                     "Citation",
                     "Quote",
@@ -180,6 +167,50 @@ def _evidence_assumptions_section(context: DocumentContext) -> dict[str, Any]:
             *diagnostic_link_ids(context.stale_evidence),
         ],
     )
+
+
+def _evidence_rows(items: list[dict[str, Any]]) -> list[list[Any]]:
+    rows: list[list[Any]] = []
+    for item in items:
+        source_store_links = item.get("source_store_links") or []
+        if not source_store_links:
+            rows.append(
+                [
+                    item["object_id"],
+                    item.get("source"),
+                    item.get("source_ref"),
+                    None,
+                    None,
+                    item.get("source_unit_id"),
+                    item.get("citation"),
+                    item.get("quote"),
+                    item.get("effective_from"),
+                    item.get("effective_to") or item.get("valid_until"),
+                    item.get("confidence"),
+                    item.get("freshness"),
+                    item.get("summary"),
+                ]
+            )
+            continue
+        for link in source_store_links:
+            rows.append(
+                [
+                    item["object_id"],
+                    item.get("source"),
+                    item.get("source_ref"),
+                    link.get("target_object_id"),
+                    link.get("relevance"),
+                    link.get("source_unit_id"),
+                    link.get("citation"),
+                    link.get("quote"),
+                    link.get("effective_from"),
+                    link.get("effective_to") or item.get("valid_until"),
+                    item.get("confidence"),
+                    item.get("freshness"),
+                    link.get("interpretation_note") or item.get("summary"),
+                ]
+            )
+    return rows
 
 
 def _risks_safety_section(context: DocumentContext) -> dict[str, Any]:

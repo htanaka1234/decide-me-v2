@@ -152,6 +152,22 @@ def validate_registry(registry: dict[str, Any]) -> None:
             _require_non_empty_string(item.get(key), f"registry.documents[{index}].{key}")
         _require_source_id(item["id"], f"registry.documents[{index}].id")
         _require_hash(item["content_hash"], f"registry.documents[{index}].content_hash")
+        if "effective_from" in item:
+            _require_date(item["effective_from"], f"registry.documents[{index}].effective_from")
+        if "effective_to" in item:
+            _require_date_or_null(item["effective_to"], f"registry.documents[{index}].effective_to")
+        if "retrieved_at" in item:
+            _require_timestamp(item["retrieved_at"], f"registry.documents[{index}].retrieved_at")
+        if "source_uri" in item:
+            _require_string_or_null(item["source_uri"], f"registry.documents[{index}].source_uri")
+        if "version_label" in item:
+            _require_string_or_null(item["version_label"], f"registry.documents[{index}].version_label")
+        if "canonical" in item and not isinstance(item["canonical"], bool):
+            raise SourceValidationError(f"registry.documents[{index}].canonical must be a boolean")
+        if "unit_count" in item and (not isinstance(item["unit_count"], int) or item["unit_count"] < 0):
+            raise SourceValidationError(f"registry.documents[{index}].unit_count must be a non-negative integer")
+        if "parser_version" in item:
+            _require_non_empty_string(item["parser_version"], f"registry.documents[{index}].parser_version")
         if item["id"] in seen:
             raise SourceValidationError(f"duplicate source document id in registry: {item['id']}")
         seen.add(item["id"])
@@ -209,6 +225,7 @@ def validate_normative_unit(unit: dict[str, Any]) -> None:
         "unit_type",
         "path",
         "citation",
+        "canonical_locator",
         "text_exact",
         "text_normalized",
         "content_hash",
@@ -226,6 +243,7 @@ def validate_normative_unit(unit: dict[str, Any]) -> None:
     _require_non_empty_string(unit["unit_type"], "normative_unit.unit_type")
     _require_dict(unit["path"], "normative_unit.path")
     _require_non_empty_string(unit["citation"], "normative_unit.citation")
+    _require_non_empty_string(unit["canonical_locator"], "normative_unit.canonical_locator")
     _require_non_empty_string(unit["text_exact"], "normative_unit.text_exact")
     _require_non_empty_string(unit["text_normalized"], "normative_unit.text_normalized")
     _require_hash(unit["content_hash"], "normative_unit.content_hash")

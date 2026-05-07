@@ -181,7 +181,7 @@ class _MetadataValidator:
         for key in ("domain_evidence_type", "evidence_requirement_id"):
             if key in metadata:
                 self._require_domain_pack_identifier(metadata[key], f"{label}.{key}")
-        for key in ("source_document_id", "source_unit_id", "citation", "quote", "interpretation_note"):
+        for key in ("source_document_id", "source_unit_id", "citation"):
             if key in metadata:
                 self._require_optional_non_empty_string(metadata.get(key), f"{label}.{key}")
         if "source_unit_hash" in metadata:

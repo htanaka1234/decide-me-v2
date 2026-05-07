@@ -257,6 +257,7 @@ def main(argv: list[str] | None = None) -> int:
     source_input.add_argument("--file")
     source_input.add_argument("--uri")
     import_source_cmd.add_argument("--source-id")
+    import_source_cmd.add_argument("--previous-source-id")
     import_source_cmd.add_argument("--effective-from", required=True)
     import_source_cmd.add_argument("--authority")
     import_source_cmd.add_argument("--version-label")
@@ -317,6 +318,7 @@ def main(argv: list[str] | None = None) -> int:
     show_source_impact_cmd.add_argument("--ai-dir", required=True)
     show_source_impact_cmd.add_argument("--source-id", required=True)
     show_source_impact_cmd.add_argument("--source-unit-id")
+    show_source_impact_cmd.add_argument("--include-previous-version-links", action="store_true")
 
     rebuild_evidence_index_cmd = subparsers.add_parser(
         "rebuild-evidence-index",
@@ -679,6 +681,7 @@ def main(argv: list[str] | None = None) -> int:
                     authority=args.authority,
                     version_label=args.version_label,
                     canonical=args.canonical,
+                    previous_source_id=args.previous_source_id,
                 )
             )
         elif args.command == "decompose-source":
@@ -723,6 +726,7 @@ def main(argv: list[str] | None = None) -> int:
                     args.ai_dir,
                     source_id=args.source_id,
                     source_unit_id=args.source_unit_id,
+                    include_previous_version_links=args.include_previous_version_links,
                 )
             )
         elif args.command == "rebuild-evidence-index":

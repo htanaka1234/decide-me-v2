@@ -42,7 +42,9 @@ The runtime source of truth is the transaction event log. `project-state.json`, 
 register outputs, document models, indexes, and exports are derived and must be rebuildable.
 Authoritative source text lives under `.ai/decide-me/sources/`, not inside `project-state.json`;
 source audit events store IDs, hashes, timestamps, methods, counts, and quality flags rather than
-full source text.
+full source text. Source-store writes run under the runtime write lock and are rolled back if the
+matching audit transaction cannot be persisted. A source evidence object represents the source unit;
+per-decision quote and interpretation live on the evidence link metadata.
 Invalidation is never applied automatically: candidates are generated from current projections and
 only become events after explicit approval through the transaction path. High and critical risk
 are controlled by Safety Gate policy; critical risk blocks automatic adoption and requires external
@@ -246,10 +248,13 @@ Use the Phase 12 evidence source store:
 3. Search citation units with
    `python3 scripts/decide_me.py search-evidence --ai-dir .ai/decide-me --query "履修登録 締切"`.
 4. Link a source unit to a runtime decision or object with
-   `python3 scripts/decide_me.py link-evidence --ai-dir .ai/decide-me --session-id S-... --decision-id D-... --source-unit-id NU-... --relevance supports`.
+   `python3 scripts/decide_me.py link-evidence --ai-dir .ai/decide-me --session-id S-... --decision-id D-... --source-unit-id NU-... --relevance supports --quote "..." --interpretation-note "..."`.
 5. Inspect source impact with
    `python3 scripts/decide_me.py show-source-impact --ai-dir .ai/decide-me --source-id SRC-...`.
-6. Source impact is read-only. It never invalidates decisions, creates revisit triggers, or applies
+6. For a replacement snapshot, import with `--previous-source-id SRC-...` and inspect the new source
+   with `show-source-impact --include-previous-version-links` to include decisions still linked to
+   the prior version.
+7. Source impact is read-only. It never invalidates decisions, creates revisit triggers, or applies
    source changes automatically.
 
 Record object relationships:
