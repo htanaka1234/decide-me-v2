@@ -1,0 +1,49 @@
+{
+  "items": [
+    {
+      "approval_threshold": "explicit_acceptance",
+      "created_at": "2026-04-29T00:20:06Z",
+      "likelihood": "medium",
+      "mitigated_by_object_ids": [
+        "ACT-pi-review"
+      ],
+      "mitigation_link_ids": [
+        "L-ACT-pi-review-mitigates-RISK-pi-precedent"
+      ],
+      "mitigation_object_ids": [
+        "ACT-pi-review"
+      ],
+      "object_id": "RISK-pi-precedent",
+      "related_link_ids": [
+        "L-ACT-pi-review-mitigates-RISK-pi-precedent"
+      ],
+      "reversibility": "partially_reversible",
+      "risk_tier": "medium",
+      "severity": "medium",
+      "source_event_ids": [
+        "E-pi-007"
+      ],
+      "statement": "Misreading the policy could create an unmanaged precedent.",
+      "status": "active",
+      "title": "Policy misinterpretation risk",
+      "updated_at": null
+    }
+  ],
+  "register_type": "risk",
+  "schema_version": 1,
+  "summary": {
+    "by_approval_threshold": {
+      "explicit_acceptance": 1
+    },
+    "by_reversibility": {
+      "partially_reversible": 1
+    },
+    "by_risk_tier": {
+      "medium": 1
+    },
+    "by_status": {
+      "active": 1
+    },
+    "item_count": 1
+  }
+}

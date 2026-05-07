@@ -1,0 +1,19 @@
+schema_version: 2
+scenario_id: software_project
+label: Software project benchmark
+domain_pack: software
+project:
+  name: Demo software project
+  objective: Refactor the billing integration without disrupting releases.
+  current_milestone: Refactor approach and verification plan
+sessions:
+- session_id: S-software-refactor-base
+  context: Choose the baseline billing refactor architecture and verification plan.
+  seed_events: events.jsonl
+  close: true
+- session_id: S-software-refactor-alt
+  context: Record a conflicting architecture proposal from a later refactor discussion.
+  seed_events: events_alt.jsonl
+  close: true
+evaluation:
+  now: '2026-04-29T00:00:00Z'

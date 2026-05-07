@@ -1,0 +1,18 @@
+documents:
+- type: decision-brief
+  format: json
+  required_sections:
+  - project
+  - current-decisions
+  - evidence-and-assumptions
+  - risks-and-safety
+  - actions-and-verification
+  - source-traceability
+  require_source_traceability: true
+- type: action-plan
+  format: json
+  required_sections:
+  - summary
+  - actions
+  - source-traceability
+  require_source_traceability: true

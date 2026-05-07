@@ -1,0 +1,19 @@
+documents:
+- type: decision-brief
+  format: json
+  required_sections:
+  - project
+  - purpose-principles-constraints
+  - current-decisions
+  - actions-and-verification
+  - revisit-triggers
+  - source-traceability
+  require_source_traceability: true
+- type: action-plan
+  format: json
+  required_sections:
+  - summary
+  - implementation-ready-actions
+  - actions
+  - source-traceability
+  require_source_traceability: true

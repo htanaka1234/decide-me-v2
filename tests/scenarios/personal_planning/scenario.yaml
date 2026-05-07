@@ -1,0 +1,15 @@
+schema_version: 2
+scenario_id: personal_planning
+label: Personal planning benchmark
+domain_pack: personal_planning
+project:
+  name: Demo career project
+  objective: Choose the next career move with visible tradeoffs and follow-up checks.
+  current_milestone: Next role direction
+sessions:
+- session_id: S-career-plan
+  context: Decide a career direction and verification plan.
+  seed_events: events.jsonl
+  close: true
+evaluation:
+  now: '2026-04-29T00:00:00Z'

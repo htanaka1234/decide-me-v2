@@ -1,0 +1,16 @@
+schema_version: 2
+scenario_id: policy_interpretation
+label: Policy interpretation benchmark
+domain_pack: generic
+project:
+  name: Demo policy project
+  objective: Interpret an internal policy exception with rationale, risk, and action
+    follow-up.
+  current_milestone: Policy interpretation recommendation
+sessions:
+- session_id: S-policy-interpretation
+  context: Interpret whether a limited exception can proceed under the policy excerpt.
+  seed_events: events.jsonl
+  close: true
+evaluation:
+  now: '2026-04-29T00:00:00Z'

@@ -1,0 +1,4 @@
+readiness: conditional
+min_implementation_ready_count: 1
+min_action_count: 2
+require_no_unresolved_conflicts: true

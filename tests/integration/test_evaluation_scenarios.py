@@ -21,18 +21,18 @@ from tests.helpers.impact_runtime import event_hash_snapshot, runtime_state_snap
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCENARIOS_DIR = REPO_ROOT / "tests" / "scenarios"
 EXPECTED_SCENARIOS = {
-    "career_plan",
-    "household_project",
-    "operations_incident_review",
+    "operations_incident",
+    "personal_planning",
+    "policy_interpretation",
     "procurement_decision",
     "research_protocol",
-    "software_refactor",
+    "software_project",
     "writing_project",
 }
 
 
 class EvaluationScenarioSnapshotTests(unittest.TestCase):
-    def test_all_evaluation_scenario_snapshots_match_expected_outputs(self) -> None:
+    def test_all_phase11_evaluation_scenario_snapshots_match_expected_documents(self) -> None:
         scenario_paths = sorted(SCENARIOS_DIR.glob("*/scenario.yaml"))
 
         self.assertEqual(EXPECTED_SCENARIOS, {path.parent.name for path in scenario_paths})
@@ -56,9 +56,10 @@ class EvaluationScenarioSnapshotTests(unittest.TestCase):
     def test_snapshot_comparison_reports_missing_extra_and_changed_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            expected = root / "expected_outputs"
-            expected.mkdir()
+            expected = root / "expected" / "document_outputs"
+            expected.mkdir(parents=True)
             (expected / ".gitkeep").write_text("", encoding="utf-8")
+            (expected / "manifest.yaml").write_text("documents: []\n", encoding="utf-8")
             (expected / "a.json").write_text('{"value": 1}\n', encoding="utf-8")
             (expected / "b.csv").write_text("id,value\nB,2\nA,1\n", encoding="utf-8")
             scenario = EvaluationScenario(
@@ -66,6 +67,7 @@ class EvaluationScenarioSnapshotTests(unittest.TestCase):
                 path=root / "scenario.yaml",
                 root=root,
                 seed_paths={},
+                expected={},
             )
 
             with self.assertRaises(AssertionError) as raised:

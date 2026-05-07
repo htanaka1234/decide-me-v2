@@ -1,75 +1,16 @@
-schema_version: 1
+schema_version: 2
 scenario_id: procurement_decision
 label: Procurement decision
 domain_pack: procurement
 project:
   name: Demo procurement project
-  objective: Select a vendor with clear requirements, comparison evidence, and review gates.
+  objective: Select a vendor with clear requirements, comparison evidence, and review
+    gates.
   current_milestone: Vendor selection decision
 sessions:
-  - session_id: S-procurement-decision
-    context: Compare vendors and select an option with procurement risks visible.
-    seed_events: events.jsonl
-    close: true
+- session_id: S-procurement-decision
+  context: Compare vendors and select an option with procurement risks visible.
+  seed_events: events.jsonl
+  close: true
 evaluation:
-  now: "2026-04-29T00:00:00Z"
-  expected_decision_coverage:
-    required_domain_decision_types:
-      - requirement_definition
-      - evaluation_criteria
-      - candidate_selection
-      - final_selection
-    required_status_counts:
-      - status: accepted
-        mode: min
-        count: 4
-  expected_questions:
-    max_questions: 0
-    forbidden_repeated_decision_types:
-      - final_selection
-  expected_evidence_coverage:
-    min_supporting_evidence: 3
-    required_evidence_requirement_ids:
-      - requirements_brief
-      - budget_context
-      - comparison_table
-  expected_risks:
-    required_domain_risk_types:
-      - vendor_lock_in
-      - contract_constraint
-    required_risk_tiers:
-      - high
-    min_high_or_critical_risks: 1
-  expected_safety_gates:
-    required_rule_ids:
-      - spend_and_exit_review
-      - contract_external_review
-    required_approval_thresholds:
-      - human_review
-      - external_review
-    min_approval_required_count: 1
-    required_insufficient_evidence_ids:
-      - contract_terms
-  expected_conflicts:
-    count: 0
-  expected_plan_executability:
-    readiness: conditional
-    min_implementation_ready_count: 0
-    min_action_count: 4
-    max_blocker_count: 0
-    require_no_unresolved_conflicts: true
-  expected_documents:
-    - type: comparison-table
-      format: csv
-      required_sections:
-        - comparison
-      require_source_traceability: true
-    - type: decision-brief
-      format: json
-      required_sections:
-        - project
-        - current-decisions
-        - evidence-and-assumptions
-        - risks-and-safety
-        - source-traceability
-      require_source_traceability: true
+  now: '2026-04-29T00:00:00Z'

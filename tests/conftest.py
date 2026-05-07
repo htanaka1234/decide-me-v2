@@ -25,8 +25,8 @@ PHASE_GATE_TEST_FILES = {
     "tests/integration/test_phase7_distribution_artifact.py",
     "tests/integration/test_phase8_distribution_artifact.py",
     "tests/integration/test_phase9_distribution_artifact.py",
-    "tests/integration/test_phase10_distribution_artifact.py",
-    "tests/integration/test_phase10_gate_script.py",
+    "tests/integration/test_phase11_distribution_artifact.py",
+    "tests/integration/test_phase11_gate_script.py",
 }
 
 SLOW_TEST_FILES = {
@@ -64,6 +64,12 @@ def pytest_collection_modifyitems(config: Any, items: list[Any]) -> None:
             relative = item_path
         for marker in markers_for_test_path(relative):
             item.add_marker(marker)
+
+
+def pytest_ignore_collect(collection_path: Path, config: Any) -> bool:
+    del config
+    normalized = _normalize_path(collection_path)
+    return "/tests/scenarios/" in normalized and "/source_materials/" in normalized
 
 
 def _normalize_path(path: str | Path) -> str:

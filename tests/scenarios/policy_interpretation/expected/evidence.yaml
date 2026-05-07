@@ -1,0 +1,5 @@
+min_linked_evidence: 1
+required_evidence_requirement_ids: []
+required_source_refs:
+- docs/policy-excerpt.md
+require_all_linked_evidence_source_ref: true

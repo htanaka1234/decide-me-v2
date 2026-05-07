@@ -1,0 +1,15 @@
+required_assumption_ids:
+- ASSUMP-pi-current-policy
+min_assumption_count: 1
+stale_assumptions:
+  mode: exact
+  count: 0
+stale_evidence:
+  mode: exact
+  count: 0
+verification_gaps:
+  mode: min
+  count: 1
+due_revisits:
+  mode: exact
+  count: 0

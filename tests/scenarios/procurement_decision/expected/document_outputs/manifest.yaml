@@ -1,0 +1,15 @@
+documents:
+- type: comparison-table
+  format: csv
+  required_sections:
+  - comparison
+  require_source_traceability: true
+- type: decision-brief
+  format: json
+  required_sections:
+  - project
+  - current-decisions
+  - evidence-and-assumptions
+  - risks-and-safety
+  - source-traceability
+  require_source_traceability: true

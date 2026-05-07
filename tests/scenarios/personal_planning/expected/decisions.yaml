@@ -1,0 +1,9 @@
+required_domain_decision_types:
+- goal_definition
+- option_selection
+- constraint_definition
+- review_plan
+required_status_counts:
+- status: accepted
+  mode: min
+  count: 4

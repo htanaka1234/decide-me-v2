@@ -1,0 +1,2 @@
+max_total_seconds: 5.0
+max_load_runtime_seconds: 1.0

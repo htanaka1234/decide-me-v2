@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
+import time
 from collections import Counter
 from copy import deepcopy
 from dataclasses import dataclass
@@ -19,7 +20,7 @@ from decide_me.events import build_event
 from decide_me.interview import advance_session
 from decide_me.lifecycle import close_session
 from decide_me.planner import assemble_action_plan, detect_conflicts
-from decide_me.registers import build_evidence_register, build_risk_register
+from decide_me.registers import build_assumption_register, build_evidence_register, build_risk_register
 from decide_me.safety_gate import build_safety_gate_report
 from decide_me.session_graph import detect_session_conflicts
 from decide_me.stale_detection import (
@@ -43,6 +44,18 @@ from decide_me.taxonomy import stable_unique
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCENARIO_SCHEMA_PATH = REPO_ROOT / "schemas" / "evaluation-scenario.schema.json"
+EXPECTED_DIR_NAME = "expected"
+DOCUMENT_OUTPUTS_DIR = "document_outputs"
+DOCUMENT_OUTPUT_MANIFEST = "manifest.yaml"
+REQUIRED_EXPECTED_FILES = {
+    "decisions": "decisions.yaml",
+    "questions": "unresolved_questions.yaml",
+    "evidence": "evidence.yaml",
+    "conflicts": "conflicts.yaml",
+    "risks": "risks.yaml",
+    "assumptions": "assumptions.yaml",
+    "action_plan": "action_plan.yaml",
+}
 
 
 @dataclass(frozen=True)
@@ -51,6 +64,7 @@ class EvaluationScenario:
     path: Path
     root: Path
     seed_paths: dict[str, Path]
+    expected: dict[str, Any]
 
     @property
     def scenario_id(self) -> str:
@@ -84,15 +98,19 @@ def load_scenario(path: Path) -> EvaluationScenario:
     raw = _load_payload(scenario_path)
     _validate_scenario_payload(raw)
     scenario_root = scenario_path.parent.resolve()
+    expected = _load_expected_payloads(scenario_root)
     seed_paths = {
         session["session_id"]: _resolve_seed_path(scenario_root, session["seed_events"])
         for session in raw["sessions"]
     }
+    _validate_source_material_fixture_paths(scenario_root)
+    _validate_evidence_source_refs(scenario_root, seed_paths)
     return EvaluationScenario(
         data=raw,
         path=scenario_path,
         root=scenario_root,
         seed_paths=seed_paths,
+        expected=expected,
     )
 
 
@@ -141,38 +159,51 @@ def run_scenario_evaluation(
     scenario: EvaluationScenario,
     runtime: ScenarioRuntime,
 ) -> dict[str, Any]:
+    started = time.perf_counter()
     ai_dir = runtime.ai_dir
+    load_started = time.perf_counter()
     bundle = rebuild_and_persist(ai_dir)
+    load_runtime_seconds = time.perf_counter() - load_started
     events = read_event_log(runtime_paths(ai_dir))
     project_state = bundle["project_state"]
     evaluation = scenario.evaluation
     failures: list[dict[str, Any]] = []
 
     validation_issues = validate_runtime(ai_dir)
+    conflict_metrics = _conflict_detection_metrics(scenario, runtime, bundle, failures)
     metrics = {
         "question_efficiency": _question_efficiency_metric(scenario, runtime, failures),
-        "decision_completeness": _decision_completeness_metric(scenario, project_state, failures),
-        "evidence_coverage": _evidence_coverage_metric(scenario, project_state, failures),
+        "decision_coverage": _decision_coverage_metric(scenario, project_state, failures),
+        "evidence_linkage_rate": _evidence_linkage_metric(scenario, project_state, failures),
+        "assumption_exposure": _assumption_exposure_metric(scenario, project_state, evaluation["now"], failures),
         "risk_coverage": _risk_and_safety_metric(scenario, runtime, project_state, failures),
-        "conflict_detection": _conflict_detection_metric(scenario, runtime, bundle, failures),
-        "plan_executability": _plan_executability_metric(scenario, runtime, bundle, failures),
-        "document_readability": _document_readability_metric(scenario, runtime, failures),
-        "revisit_quality": _revisit_quality_metric(scenario, project_state, evaluation["now"], failures),
+        "conflict_detection_recall": conflict_metrics["recall"],
+        "conflict_precision": conflict_metrics["precision"],
+        "action_executability": _action_executability_metric(scenario, runtime, bundle, failures),
+        "document_validity": _document_validity_metric(scenario, runtime, failures),
     }
     if validation_issues:
-        metrics["plan_executability"]["passed"] = False
+        metrics["action_executability"]["passed"] = False
         failures.append(
             _failure(
-                "plan_executability",
+                "action_executability",
                 "Runtime validation reported issues.",
                 "$.runtime.validation",
                 expected=[],
                 actual=validation_issues,
             )
         )
+    metrics["runtime_performance"] = _runtime_performance_metric(
+        scenario,
+        runtime,
+        bundle,
+        total_seconds=time.perf_counter() - started,
+        load_runtime_seconds=load_runtime_seconds,
+        failures=failures,
+    )
 
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "scenario_id": scenario.scenario_id,
         "status": "failed" if failures else "passed",
         "generated_at": evaluation["now"],
@@ -201,6 +232,381 @@ def _validate_scenario_payload(payload: dict[str, Any]) -> None:
     if errors:
         details = "; ".join(_format_schema_error(error) for error in errors)
         raise ValueError(f"invalid evaluation scenario: {details}")
+
+
+def _load_expected_payloads(scenario_root: Path) -> dict[str, Any]:
+    input_context = scenario_root / "input_context.md"
+    if not input_context.is_file():
+        raise FileNotFoundError(f"scenario input_context.md is required: {input_context}")
+    source_materials = scenario_root / "source_materials"
+    if not source_materials.is_dir():
+        raise FileNotFoundError(f"scenario source_materials directory is required: {source_materials}")
+    expected_root = scenario_root / EXPECTED_DIR_NAME
+    if not expected_root.is_dir():
+        raise FileNotFoundError(f"scenario expected directory is required: {expected_root}")
+
+    expected: dict[str, Any] = {}
+    for key, relative_path in REQUIRED_EXPECTED_FILES.items():
+        expected[key] = _load_expected_yaml(expected_root / relative_path)
+    performance_path = expected_root / "performance.yaml"
+    expected["performance"] = _load_expected_yaml(performance_path) if performance_path.exists() else {}
+    document_outputs = expected_root / DOCUMENT_OUTPUTS_DIR
+    if not document_outputs.is_dir():
+        raise FileNotFoundError(f"scenario expected/document_outputs directory is required: {document_outputs}")
+    manifest_path = document_outputs / DOCUMENT_OUTPUT_MANIFEST
+    manifest = _load_expected_yaml(manifest_path) if manifest_path.exists() else {}
+    _validate_expected_document_manifest(manifest, manifest_path)
+    documents = manifest["documents"]
+    expected["documents"] = documents
+    _validate_expected_payloads(scenario_root, expected)
+    return expected
+
+
+def _load_expected_yaml(path: Path) -> dict[str, Any]:
+    if not path.is_file():
+        raise FileNotFoundError(f"scenario expected file is required: {path}")
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if payload is None:
+        payload = {}
+    if not isinstance(payload, dict):
+        raise ValueError(f"scenario expected file must contain an object: {path}")
+    return payload
+
+
+def _validate_expected_payloads(scenario_root: Path, expected: dict[str, Any]) -> None:
+    _validate_expected_decisions(expected["decisions"], scenario_root / EXPECTED_DIR_NAME / "decisions.yaml")
+    _validate_expected_questions(expected["questions"], scenario_root / EXPECTED_DIR_NAME / "unresolved_questions.yaml")
+    _validate_expected_evidence(expected["evidence"], scenario_root / EXPECTED_DIR_NAME / "evidence.yaml", scenario_root)
+    _validate_expected_conflicts(expected["conflicts"], scenario_root / EXPECTED_DIR_NAME / "conflicts.yaml")
+    _validate_expected_risks(expected["risks"], scenario_root / EXPECTED_DIR_NAME / "risks.yaml")
+    _validate_expected_assumptions(expected["assumptions"], scenario_root / EXPECTED_DIR_NAME / "assumptions.yaml")
+    _validate_expected_action_plan(expected["action_plan"], scenario_root / EXPECTED_DIR_NAME / "action_plan.yaml")
+    performance_path = scenario_root / EXPECTED_DIR_NAME / "performance.yaml"
+    _validate_expected_performance(expected["performance"], performance_path)
+
+
+def _validate_expected_decisions(payload: dict[str, Any], path: Path) -> None:
+    _require_keys(payload, {"required_domain_decision_types", "required_status_counts"}, path)
+    _reject_unknown_keys(payload, {"required_domain_decision_types", "required_status_counts"}, path)
+    _require_string_list(payload, "required_domain_decision_types", path)
+    counts = _require_list(payload, "required_status_counts", path)
+    for index, item in enumerate(counts):
+        item_path = f"{path}:required_status_counts[{index}]"
+        _require_mapping(item, item_path)
+        _require_keys(item, {"status", "mode", "count"}, item_path)
+        _reject_unknown_keys(item, {"status", "mode", "count"}, item_path)
+        _require_non_empty_string(item, "status", item_path)
+        _require_enum(item, "mode", {"exact", "min"}, item_path)
+        _require_non_negative_int(item, "count", item_path)
+
+
+def _validate_expected_questions(payload: dict[str, Any], path: Path) -> None:
+    allowed = {"max_questions", "forbidden_repeated_decision_types", "probe_session_ids", "advance_steps"}
+    _require_keys(payload, {"max_questions", "forbidden_repeated_decision_types"}, path)
+    _reject_unknown_keys(payload, allowed, path)
+    _require_non_negative_int(payload, "max_questions", path)
+    _require_string_list(payload, "forbidden_repeated_decision_types", path)
+    if "probe_session_ids" in payload:
+        _require_string_list(payload, "probe_session_ids", path)
+    if "advance_steps" in payload:
+        _require_minimum_int(payload, "advance_steps", 1, path)
+
+
+def _validate_expected_evidence(payload: dict[str, Any], path: Path, scenario_root: Path) -> None:
+    allowed = {
+        "min_linked_evidence",
+        "required_evidence_requirement_ids",
+        "required_source_refs",
+        "require_all_linked_evidence_source_ref",
+    }
+    _require_keys(payload, {"min_linked_evidence", "required_evidence_requirement_ids", "required_source_refs"}, path)
+    _reject_unknown_keys(payload, allowed, path)
+    _require_non_negative_int(payload, "min_linked_evidence", path)
+    _require_string_list(payload, "required_evidence_requirement_ids", path)
+    source_refs = _require_string_list(payload, "required_source_refs", path)
+    if "require_all_linked_evidence_source_ref" in payload:
+        _require_bool(payload, "require_all_linked_evidence_source_ref", path)
+    missing_source_refs = [
+        source_ref
+        for source_ref in source_refs
+        if not _evidence_source_ref_exists(scenario_root, source_ref)
+    ]
+    if missing_source_refs:
+        raise ValueError(f"{path} required_source_refs do not exist: {', '.join(sorted(missing_source_refs))}")
+
+
+def _validate_expected_conflicts(payload: dict[str, Any], path: Path) -> None:
+    allowed = {
+        "expected_count",
+        "required_conflict_ids",
+        "required_conflict_types",
+        "allowed_conflict_types",
+        "forbidden_conflict_types",
+    }
+    _require_keys(payload, {"expected_count"}, path)
+    _reject_unknown_keys(payload, allowed, path)
+    _require_non_negative_int(payload, "expected_count", path)
+    for key in (
+        "required_conflict_ids",
+        "required_conflict_types",
+        "allowed_conflict_types",
+        "forbidden_conflict_types",
+    ):
+        if key in payload:
+            _require_string_list(payload, key, path)
+    if "allowed_conflict_types" in payload and "forbidden_conflict_types" in payload:
+        raise ValueError(
+            f"{path} allowed_conflict_types and forbidden_conflict_types are mutually exclusive"
+        )
+
+
+def _validate_expected_risks(payload: dict[str, Any], path: Path) -> None:
+    allowed = {
+        "required_domain_risk_types",
+        "required_risk_tiers",
+        "min_high_or_critical_risks",
+        "safety_gates",
+    }
+    _require_keys(payload, {"required_domain_risk_types", "min_high_or_critical_risks"}, path)
+    _reject_unknown_keys(payload, allowed, path)
+    _require_string_list(payload, "required_domain_risk_types", path)
+    if "required_risk_tiers" in payload:
+        _require_string_list(payload, "required_risk_tiers", path)
+    _require_non_negative_int(payload, "min_high_or_critical_risks", path)
+    if "safety_gates" in payload:
+        _validate_expected_safety_gates(payload["safety_gates"], f"{path}:safety_gates")
+
+
+def _validate_expected_safety_gates(payload: Any, path: str) -> None:
+    _require_mapping(payload, path)
+    allowed = {
+        "required_rule_ids",
+        "required_approval_thresholds",
+        "min_approval_required_count",
+        "max_approval_required_count",
+        "required_insufficient_evidence_ids",
+        "forbidden_rule_ids",
+        "forbidden_approval_thresholds",
+    }
+    _require_keys(
+        payload,
+        {
+            "required_rule_ids",
+            "required_approval_thresholds",
+            "min_approval_required_count",
+            "required_insufficient_evidence_ids",
+        },
+        path,
+    )
+    _reject_unknown_keys(payload, allowed, path)
+    _require_string_list(payload, "required_rule_ids", path)
+    _require_string_list(payload, "required_approval_thresholds", path)
+    _require_non_negative_int(payload, "min_approval_required_count", path)
+    _require_string_list(payload, "required_insufficient_evidence_ids", path)
+    if "max_approval_required_count" in payload:
+        _require_non_negative_int(payload, "max_approval_required_count", path)
+        if payload["max_approval_required_count"] < payload["min_approval_required_count"]:
+            raise ValueError(f"{path} max_approval_required_count must be >= min_approval_required_count")
+    for key in ("forbidden_rule_ids", "forbidden_approval_thresholds"):
+        if key in payload:
+            _require_string_list(payload, key, path)
+
+
+def _validate_expected_assumptions(payload: dict[str, Any], path: Path) -> None:
+    allowed = {
+        "required_assumption_ids",
+        "min_assumption_count",
+        "stale_assumptions",
+        "stale_evidence",
+        "verification_gaps",
+        "due_revisits",
+    }
+    _require_keys(payload, {"required_assumption_ids", "min_assumption_count"}, path)
+    _reject_unknown_keys(payload, allowed, path)
+    _require_string_list(payload, "required_assumption_ids", path)
+    _require_non_negative_int(payload, "min_assumption_count", path)
+    for key in ("stale_assumptions", "stale_evidence", "verification_gaps", "due_revisits"):
+        if key in payload:
+            _validate_count_expectation(payload[key], f"{path}:{key}")
+
+
+def _validate_expected_action_plan(payload: dict[str, Any], path: Path) -> None:
+    allowed = {
+        "readiness",
+        "min_implementation_ready_count",
+        "min_action_count",
+        "max_blocker_count",
+        "require_no_unresolved_conflicts",
+    }
+    _reject_unknown_keys(payload, allowed, path)
+    if not payload:
+        return
+    _require_keys(payload, {"readiness", "min_implementation_ready_count"}, path)
+    _require_enum(payload, "readiness", {"ready", "conditional", "blocked"}, path)
+    _require_non_negative_int(payload, "min_implementation_ready_count", path)
+    if "min_action_count" in payload:
+        _require_non_negative_int(payload, "min_action_count", path)
+    if "max_blocker_count" in payload:
+        _require_non_negative_int(payload, "max_blocker_count", path)
+    if "require_no_unresolved_conflicts" in payload:
+        _require_bool(payload, "require_no_unresolved_conflicts", path)
+
+
+def _validate_expected_document_manifest(payload: dict[str, Any], path: Path) -> None:
+    _require_keys(payload, {"documents"}, path)
+    _reject_unknown_keys(payload, {"documents"}, path)
+    documents = _require_list(payload, "documents", path)
+    for index, document in enumerate(documents):
+        item_path = f"{path}:documents[{index}]"
+        _require_mapping(document, item_path)
+        allowed = {"type", "format", "session_ids", "required_sections", "require_source_traceability"}
+        _require_keys(document, {"type", "format", "required_sections"}, item_path)
+        _reject_unknown_keys(document, allowed, item_path)
+        _require_non_empty_string(document, "type", item_path)
+        _require_enum(document, "format", {"json", "csv", "markdown"}, item_path)
+        _require_string_list(document, "required_sections", item_path)
+        if "session_ids" in document:
+            _require_string_list(document, "session_ids", item_path)
+        if "require_source_traceability" in document:
+            _require_bool(document, "require_source_traceability", item_path)
+
+
+def _validate_expected_performance(payload: dict[str, Any], path: Path) -> None:
+    allowed = {"max_total_seconds", "max_load_runtime_seconds"}
+    _reject_unknown_keys(payload, allowed, path)
+    for key in sorted(allowed):
+        if key in payload:
+            _require_non_negative_number(payload, key, path)
+
+
+def _validate_count_expectation(payload: Any, path: str) -> None:
+    _require_mapping(payload, path)
+    _require_keys(payload, {"mode", "count"}, path)
+    _reject_unknown_keys(payload, {"mode", "count"}, path)
+    _require_enum(payload, "mode", {"exact", "min"}, path)
+    _require_non_negative_int(payload, "count", path)
+
+
+def _require_keys(payload: dict[str, Any], required: set[str], path: Path | str) -> None:
+    missing = sorted(required - set(payload))
+    if missing:
+        raise ValueError(f"{path} missing required keys: {', '.join(missing)}")
+
+
+def _reject_unknown_keys(payload: dict[str, Any], allowed: set[str], path: Path | str) -> None:
+    unknown = sorted(set(payload) - allowed)
+    if unknown:
+        raise ValueError(f"{path} contains unknown keys: {', '.join(unknown)}")
+
+
+def _require_mapping(value: Any, path: Path | str) -> None:
+    if not isinstance(value, dict):
+        raise ValueError(f"{path} must be an object")
+
+
+def _require_list(payload: dict[str, Any], key: str, path: Path | str) -> list[Any]:
+    value = payload.get(key)
+    if not isinstance(value, list):
+        raise ValueError(f"{path} {key} must be an array")
+    return value
+
+
+def _require_string_list(payload: dict[str, Any], key: str, path: Path | str) -> list[str]:
+    values = _require_list(payload, key, path)
+    invalid = [value for value in values if not isinstance(value, str) or not value]
+    if invalid:
+        raise ValueError(f"{path} {key} must contain only non-empty strings")
+    return values
+
+
+def _require_non_empty_string(payload: dict[str, Any], key: str, path: Path | str) -> str:
+    value = payload.get(key)
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"{path} {key} must be a non-empty string")
+    return value
+
+
+def _require_enum(payload: dict[str, Any], key: str, allowed: set[str], path: Path | str) -> str:
+    value = _require_non_empty_string(payload, key, path)
+    if value not in allowed:
+        raise ValueError(f"{path} {key} must be one of: {', '.join(sorted(allowed))}")
+    return value
+
+
+def _require_non_negative_int(payload: dict[str, Any], key: str, path: Path | str) -> int:
+    return _require_minimum_int(payload, key, 0, path)
+
+
+def _require_minimum_int(payload: dict[str, Any], key: str, minimum: int, path: Path | str) -> int:
+    value = payload.get(key)
+    if type(value) is not int or value < minimum:
+        raise ValueError(f"{path} {key} must be an integer >= {minimum}")
+    return value
+
+
+def _require_non_negative_number(payload: dict[str, Any], key: str, path: Path | str) -> float:
+    value = payload.get(key)
+    if not isinstance(value, (int, float)) or isinstance(value, bool) or value < 0:
+        raise ValueError(f"{path} {key} must be a number >= 0")
+    return float(value)
+
+
+def _require_bool(payload: dict[str, Any], key: str, path: Path | str) -> bool:
+    value = payload.get(key)
+    if type(value) is not bool:
+        raise ValueError(f"{path} {key} must be a boolean")
+    return value
+
+
+def _validate_source_material_fixture_paths(scenario_root: Path) -> None:
+    _resolve_fixture_path(scenario_root, "input_context.md")
+    source_materials = (scenario_root / "source_materials").resolve()
+    for path in source_materials.rglob("*"):
+        if path.is_file():
+            try:
+                path.resolve().relative_to(source_materials)
+            except ValueError as exc:  # pragma: no cover - defensive on unusual filesystems
+                raise ValueError(f"source material path escapes source_materials: {path}") from exc
+
+
+def _validate_evidence_source_refs(scenario_root: Path, seed_paths: dict[str, Path]) -> None:
+    invalid_refs = []
+    for seed_path in seed_paths.values():
+        for spec in _load_seed_event_specs_from_path(seed_path):
+            if spec.get("event_type") != "object_recorded":
+                continue
+            obj = spec.get("payload", {}).get("object", {})
+            if obj.get("type") != "evidence":
+                continue
+            source_ref = obj.get("metadata", {}).get("source_ref")
+            if source_ref and not _evidence_source_ref_exists(scenario_root, str(source_ref)):
+                invalid_refs.append(f"{seed_path.name}:{obj.get('id')}:{source_ref}")
+    if invalid_refs:
+        raise ValueError(
+            "evidence source_ref must point to input_context.md or source_materials/: "
+            + ", ".join(sorted(invalid_refs))
+        )
+
+
+def _evidence_source_ref_exists(scenario_root: Path, source_ref: str) -> bool:
+    if source_ref == "input_context.md":
+        return (scenario_root / "input_context.md").is_file()
+    try:
+        candidate = _resolve_fixture_path(scenario_root / "source_materials", source_ref)
+    except ValueError:
+        return False
+    return candidate.is_file()
+
+
+def _resolve_fixture_path(root: Path, relative_path: str) -> Path:
+    if Path(relative_path).is_absolute() or _looks_like_windows_absolute_path(relative_path):
+        raise ValueError(f"fixture path must be relative: {relative_path}")
+    resolved = (root / relative_path).resolve()
+    try:
+        resolved.relative_to(root.resolve())
+    except ValueError as exc:
+        raise ValueError(f"fixture path escapes root: {relative_path}") from exc
+    return resolved
 
 
 def _resolve_seed_path(scenario_root: Path, seed_events: str) -> Path:
@@ -326,6 +732,10 @@ def _load_seed_event_specs(
     session: dict[str, Any],
 ) -> list[dict[str, Any]]:
     seed_path = scenario.seed_paths[session["session_id"]]
+    return _load_seed_event_specs_from_path(seed_path)
+
+
+def _load_seed_event_specs_from_path(seed_path: Path) -> list[dict[str, Any]]:
     specs = []
     with seed_path.open("r", encoding="utf-8") as handle:
         for line_number, line in enumerate(handle, start=1):
@@ -381,7 +791,7 @@ def _question_efficiency_metric(
     runtime: ScenarioRuntime,
     failures: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    expected = scenario.evaluation["expected_questions"]
+    expected = scenario.expected["questions"]
     probe_session_ids = expected.get("probe_session_ids") or _scenario_session_ids(scenario)
     advance_steps = expected.get("advance_steps", 1)
     known_sessions = set(_scenario_session_ids(scenario))
@@ -471,12 +881,12 @@ def _question_efficiency_metric(
     }
 
 
-def _decision_completeness_metric(
+def _decision_coverage_metric(
     scenario: EvaluationScenario,
     project_state: dict[str, Any],
     failures: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    expected = scenario.evaluation["expected_decision_coverage"]
+    expected = scenario.expected["decisions"]
     decisions = [obj for obj in project_state.get("objects", []) if obj.get("type") == "decision"]
     actual_types = {
         obj.get("metadata", {}).get("domain_decision_type")
@@ -508,9 +918,9 @@ def _decision_completeness_metric(
     if missing:
         failures.append(
             _failure(
-                "decision_completeness",
+                "decision_coverage",
                 "Missing required decision coverage.",
-                "$.metrics.decision_completeness",
+                "$.metrics.decision_coverage",
                 expected=expected,
                 actual={
                     "domain_decision_types": sorted(actual_types),
@@ -527,59 +937,87 @@ def _decision_completeness_metric(
     }
 
 
-def _evidence_coverage_metric(
+def _evidence_linkage_metric(
     scenario: EvaluationScenario,
     project_state: dict[str, Any],
     failures: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    expected = scenario.evaluation["expected_evidence_coverage"]
+    expected = scenario.expected["evidence"]
     register = build_evidence_register(project_state)
     objects_by_id = _objects_by_id(project_state)
+    live_evidence_items = [item for item in register["items"] if _is_live_object(item)]
     linked_evidence_items = [
         item
-        for item in register["items"]
+        for item in live_evidence_items
         if _is_live_object(item) and (item.get("supports_object_ids") or item.get("verifies_object_ids"))
     ]
-    supporting_count = len(linked_evidence_items)
+    linked_count = len(linked_evidence_items)
+    total_count = len(live_evidence_items)
+    linkage_rate = 1.0 if total_count == 0 else linked_count / total_count
     actual_requirement_ids = {
         objects_by_id.get(item["object_id"], {}).get("metadata", {}).get("evidence_requirement_id")
         for item in linked_evidence_items
         if objects_by_id.get(item["object_id"], {}).get("metadata", {}).get("evidence_requirement_id")
     }
-    missing = [
+    actual_source_refs = {
+        objects_by_id.get(item["object_id"], {}).get("metadata", {}).get("source_ref")
+        for item in linked_evidence_items
+        if objects_by_id.get(item["object_id"], {}).get("metadata", {}).get("source_ref")
+    }
+    missing_source_ref_ids = [
+        item["object_id"]
+        for item in linked_evidence_items
+        if not objects_by_id.get(item["object_id"], {}).get("metadata", {}).get("source_ref")
+    ]
+    coverage_missing = [
         requirement_id
         for requirement_id in expected["required_evidence_requirement_ids"]
         if requirement_id not in actual_requirement_ids
     ]
-    if supporting_count < expected["min_supporting_evidence"]:
-        missing.append(f"supporting_evidence_min:{expected['min_supporting_evidence']}")
+    for source_ref in expected.get("required_source_refs", []):
+        if source_ref not in actual_source_refs:
+            coverage_missing.append(f"source_ref:{source_ref}")
+    diagnostic_missing: list[str] = []
+    min_linked = expected.get("min_linked_evidence", expected.get("min_supporting_evidence", 0))
+    if linked_count < min_linked:
+        diagnostic_missing.append(f"linked_evidence_min:{min_linked}")
+    if expected.get("require_all_linked_evidence_source_ref"):
+        diagnostic_missing.extend(f"source_ref_missing:{object_id}" for object_id in missing_source_ref_ids)
+    invalid_source_refs = [
+        str(ref)
+        for ref in sorted(actual_source_refs)
+        if not _evidence_source_ref_exists(scenario.root, str(ref))
+    ]
 
-    required_count = len(expected["required_evidence_requirement_ids"])
-    covered_count = required_count - len(
-        [
-            item
-            for item in missing
-            if not item.startswith("supporting_evidence_min:")
-        ]
-    )
-    passed = not missing
-    if missing:
+    required_count = len(expected["required_evidence_requirement_ids"]) + len(expected.get("required_source_refs", []))
+    covered_count = max(0, required_count - len(coverage_missing))
+    missing = coverage_missing + diagnostic_missing
+    passed = not missing and not invalid_source_refs
+    if missing or invalid_source_refs:
         failures.append(
             _failure(
-                "evidence_coverage",
-                "Missing required evidence coverage.",
-                "$.metrics.evidence_coverage",
+                "evidence_linkage_rate",
+                "Missing required evidence linkage.",
+                "$.metrics.evidence_linkage_rate",
                 expected=expected,
                 actual={
                     "supporting_evidence_requirement_ids": sorted(actual_requirement_ids),
-                    "supporting_evidence": supporting_count,
+                    "supporting_source_refs": sorted(actual_source_refs),
+                    "linked_evidence": linked_count,
+                    "total_evidence": total_count,
+                    "missing_source_ref_ids": missing_source_ref_ids,
+                    "invalid_source_refs": invalid_source_refs,
                 },
             )
         )
     return {
         "required_count": required_count,
         "covered_count": covered_count,
+        "linked_evidence_count": linked_count,
+        "total_evidence_count": total_count,
+        "linkage_rate": round(linkage_rate, 6),
         "missing_ids": missing,
+        "invalid_source_refs": invalid_source_refs,
         "passed": passed,
     }
 
@@ -590,7 +1028,7 @@ def _risk_and_safety_metric(
     project_state: dict[str, Any],
     failures: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    expected_risks = scenario.evaluation["expected_risks"]
+    expected_risks = scenario.expected["risks"]
     risk_register = build_risk_register(project_state)
     objects_by_id = _objects_by_id(project_state)
     live_risk_items = [item for item in risk_register["items"] if _is_live_object(item)]
@@ -617,7 +1055,7 @@ def _risk_and_safety_metric(
         missing.append(f"high_or_critical_min:{expected_risks['min_high_or_critical_risks']}")
 
     safety_actual: dict[str, Any] = {}
-    expected_safety = scenario.evaluation.get("expected_safety_gates")
+    expected_safety = expected_risks.get("safety_gates")
     if expected_safety is not None:
         safety_gate_report = build_safety_gate_report(
             project_state,
@@ -713,13 +1151,13 @@ def _safety_gate_actuals(safety_gate_report: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _conflict_detection_metric(
+def _conflict_detection_metrics(
     scenario: EvaluationScenario,
     runtime: ScenarioRuntime,
     bundle: dict[str, Any],
     failures: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    expected = scenario.evaluation["expected_conflicts"]
+    expected = scenario.expected["conflicts"]
     conflicts = _scenario_conflicts(runtime, bundle)
     actual_ids = sorted(conflict["conflict_id"] for conflict in conflicts)
     actual_types = sorted(
@@ -729,20 +1167,30 @@ def _conflict_detection_metric(
             if (conflict_type := conflict.get("conflict_type") or conflict.get("kind"))
         }
     )
+    expected_count = expected.get("expected_count", expected.get("count", 0))
     required_ids = expected.get("required_conflict_ids", [])
     required_types = expected.get("required_conflict_types", [])
     missing_ids = [conflict_id for conflict_id in required_ids if conflict_id not in actual_ids]
     missing_types = [conflict_type for conflict_type in required_types if conflict_type not in actual_types]
-    unexpected_ids = []
-    if len(conflicts) != expected["count"]:
-        unexpected_ids = actual_ids
-    passed = len(conflicts) == expected["count"] and not missing_ids and not missing_types
-    if not passed:
+    recall_passed = len(conflicts) >= expected_count and not missing_ids and not missing_types
+    unexpected_ids = [
+        conflict_id
+        for conflict_id in actual_ids
+        if conflict_id not in required_ids
+    ] if required_ids else (actual_ids if len(conflicts) > expected_count else [])
+    unexpected_types = _unexpected_conflict_types(actual_types, expected)
+    false_positive_count = max(
+        len(unexpected_ids),
+        len(unexpected_types),
+        max(0, len(conflicts) - expected_count),
+    )
+    precision_passed = len(conflicts) <= expected_count and not unexpected_ids and not unexpected_types
+    if not recall_passed:
         failures.append(
             _failure(
-                "conflict_detection",
-                "Conflict diagnostics did not match expectations.",
-                "$.metrics.conflict_detection",
+                "conflict_detection_recall",
+                "Required conflict diagnostics were not detected.",
+                "$.metrics.conflict_detection_recall",
                 expected=expected,
                 actual={
                     "count": len(conflicts),
@@ -751,13 +1199,56 @@ def _conflict_detection_metric(
                 },
             )
         )
+    if not precision_passed:
+        failures.append(
+            _failure(
+                "conflict_precision",
+                "Unexpected conflict diagnostics were detected.",
+                "$.metrics.conflict_precision",
+                expected=expected,
+                actual={
+                    "count": len(conflicts),
+                    "conflict_ids": actual_ids,
+                    "unexpected_conflict_ids": unexpected_ids,
+                    "conflict_types": actual_types,
+                    "unexpected_conflict_types": unexpected_types,
+                },
+            )
+        )
     return {
-        "expected_count": expected["count"],
-        "actual_count": len(conflicts),
-        "missing_conflict_ids": sorted([*missing_ids, *[f"type:{item}" for item in missing_types]]),
-        "unexpected_conflict_ids": unexpected_ids,
-        "passed": passed,
+        "recall": {
+            "expected_count": expected_count,
+            "actual_count": len(conflicts),
+            "missing_conflict_ids": sorted(missing_ids),
+            "missing_conflict_types": sorted(missing_types),
+            "passed": recall_passed,
+        },
+        "precision": {
+            "expected_count": expected_count,
+            "actual_count": len(conflicts),
+            "unexpected_conflict_ids": unexpected_ids,
+            "unexpected_conflict_types": unexpected_types,
+            "false_positive_count": false_positive_count,
+            "passed": precision_passed,
+        },
     }
+
+
+def _unexpected_conflict_types(actual_types: list[str], expected: dict[str, Any]) -> list[str]:
+    if "forbidden_conflict_types" in expected:
+        return [
+            conflict_type
+            for conflict_type in actual_types
+            if conflict_type in set(expected["forbidden_conflict_types"])
+        ]
+    if "allowed_conflict_types" in expected:
+        allowed = set(expected["allowed_conflict_types"])
+        return [conflict_type for conflict_type in actual_types if conflict_type not in allowed]
+    required_types = set(expected.get("required_conflict_types", []))
+    if required_types:
+        return [conflict_type for conflict_type in actual_types if conflict_type not in required_types]
+    expected_count = expected.get("expected_count", 0)
+    return actual_types if actual_types and expected_count == 0 else []
 
 
 def _scenario_conflicts(runtime: ScenarioRuntime, bundle: dict[str, Any]) -> list[dict[str, Any]]:
@@ -792,7 +1283,7 @@ def _unresolved_conflicts(conflicts: list[dict[str, Any]]) -> list[dict[str, Any
     ]
 
 
-def _plan_executability_metric(
+def _action_executability_metric(
     scenario: EvaluationScenario,
     runtime: ScenarioRuntime,
     bundle: dict[str, Any],
@@ -804,14 +1295,14 @@ def _plan_executability_metric(
         for session_id in runtime.closed_session_ids
         if session_id in bundle["sessions"]
     ]
-    expected = scenario.evaluation.get("expected_plan_executability")
+    expected = scenario.expected["action_plan"]
     if not closed_sessions:
-        if expected is not None:
+        if expected:
             failures.append(
                 _failure(
-                    "plan_executability",
-                    "Plan executability requires at least one closed session.",
-                    "$.metrics.plan_executability",
+                    "action_executability",
+                    "Action executability requires at least one closed session.",
+                    "$.metrics.action_executability",
                     expected=expected,
                     actual={
                         "closed_session_count": 0,
@@ -844,9 +1335,9 @@ def _plan_executability_metric(
     except Exception as exc:  # pragma: no cover - exercised by future broken fixtures
         failures.append(
             _failure(
-                "plan_executability",
+                "action_executability",
                 "Action plan assembly failed.",
-                "$.metrics.plan_executability",
+                "$.metrics.action_executability",
                 expected="action plan",
                 actual=str(exc),
             )
@@ -864,7 +1355,7 @@ def _plan_executability_metric(
     implementation_ready_count = len(action_plan["implementation_ready_actions"])
     blocker_count = len(action_plan["blockers"])
     expectation_failures: list[str] = []
-    if expected is not None:
+    if expected:
         if readiness != expected["readiness"]:
             expectation_failures.append(f"readiness:{expected['readiness']}")
         if implementation_ready_count < expected["min_implementation_ready_count"]:
@@ -881,9 +1372,9 @@ def _plan_executability_metric(
         if expectation_failures:
             failures.append(
                 _failure(
-                    "plan_executability",
-                    "Action plan executability did not match expectations.",
-                    "$.metrics.plan_executability",
+                    "action_executability",
+                    "Action executability did not match expectations.",
+                    "$.metrics.action_executability",
                     expected=expected,
                     actual={
                         "readiness": readiness,
@@ -905,12 +1396,12 @@ def _plan_executability_metric(
     }
 
 
-def _document_readability_metric(
+def _document_validity_metric(
     scenario: EvaluationScenario,
     runtime: ScenarioRuntime,
     failures: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    expected_documents = scenario.evaluation["expected_documents"]
+    expected_documents = scenario.expected["documents"]
     missing_sections: list[str] = []
     empty_sections: list[str] = []
     missing_traceability: list[str] = []
@@ -926,9 +1417,9 @@ def _document_readability_metric(
         except Exception as exc:
             failures.append(
                 _failure(
-                    "document_readability",
+                    "document_validity",
                     f"Document compilation failed for {expected['type']}.",
-                    "$.metrics.document_readability",
+                    "$.metrics.document_validity",
                     expected=expected,
                     actual=str(exc),
                 )
@@ -950,9 +1441,9 @@ def _document_readability_metric(
     if missing_sections or empty_sections or missing_traceability:
         failures.append(
             _failure(
-                "document_readability",
+                "document_validity",
                 "Document required sections or source traceability were missing or empty.",
-                "$.metrics.document_readability",
+                "$.metrics.document_validity",
                 expected=expected_documents,
                 actual={
                     "missing_sections": sorted(stable_unique(missing_sections)),
@@ -976,12 +1467,19 @@ def _expected_document_session_ids(
     return list(expected.get("session_ids") or runtime.closed_session_ids)
 
 
-def _revisit_quality_metric(
+def _assumption_exposure_metric(
     scenario: EvaluationScenario,
     project_state: dict[str, Any],
     now: str,
     failures: list[dict[str, Any]],
 ) -> dict[str, Any]:
+    expected = scenario.expected["assumptions"]
+    assumption_register = build_assumption_register(project_state)
+    assumption_ids = {
+        item["object_id"]
+        for item in assumption_register["items"]
+        if _is_live_object(item)
+    }
     stale_assumptions = detect_stale_assumptions(project_state, now=now)
     stale_evidence = detect_stale_evidence(project_state, now=now)
     verification_gaps = detect_verification_gaps(project_state, now=now)
@@ -992,38 +1490,112 @@ def _revisit_quality_metric(
         "verification_gaps": verification_gaps["summary"]["item_count"],
         "due_revisits": revisit_due["summary"]["item_count"],
     }
-    expected = scenario.evaluation.get("expected_revisit_quality")
+    required_assumption_ids = expected.get("required_assumption_ids", [])
+    min_assumption_count = expected.get("min_assumption_count", 0)
+    missing = [
+        assumption_id
+        for assumption_id in required_assumption_ids
+        if assumption_id not in assumption_ids
+    ]
+    if len(assumption_ids) < min_assumption_count:
+        missing.append(f"assumption_min:{min_assumption_count}")
     expectation_failures: list[dict[str, Any]] = []
-    if expected is not None:
-        for key, actual_count in counts.items():
-            expectation = expected[key]
-            if not _count_expectation_satisfied(expectation, actual_count):
-                expectation_failures.append(
-                    {
-                        "diagnostic": key,
-                        "mode": expectation["mode"],
-                        "expected": expectation["count"],
-                        "actual": actual_count,
-                    }
-                )
-        if expectation_failures:
-            failures.append(
-                _failure(
-                    "revisit_quality",
-                    "Stale or revisit diagnostics did not match expectations.",
-                    "$.metrics.revisit_quality",
-                    expected=expected,
-                    actual={
-                        **counts,
-                        "failed_expectations": expectation_failures,
-                    },
-                )
+    for key, actual_count in counts.items():
+        expectation = expected.get(key)
+        if expectation is not None and not _count_expectation_satisfied(expectation, actual_count):
+            expectation_failures.append(
+                {
+                    "diagnostic": key,
+                    "mode": expectation["mode"],
+                    "expected": expectation["count"],
+                    "actual": actual_count,
+                }
             )
+    if missing or expectation_failures:
+        failures.append(
+            _failure(
+                "assumption_exposure",
+                "Assumption exposure or revisit diagnostics did not match expectations.",
+                "$.metrics.assumption_exposure",
+                expected=expected,
+                actual={
+                    "assumption_ids": sorted(assumption_ids),
+                    **counts,
+                    "failed_expectations": expectation_failures,
+                },
+            )
+        )
+    required_count = len(required_assumption_ids) + (1 if min_assumption_count else 0)
+    covered_count = required_count - len(
+        [
+            item
+            for item in missing
+            if not item.startswith("assumption_min:")
+        ]
+    )
     return {
+        "required_count": required_count,
+        "covered_count": max(0, covered_count),
+        "assumption_count": len(assumption_ids),
         "stale_assumption_count": counts["stale_assumptions"],
         "stale_evidence_count": counts["stale_evidence"],
         "verification_gap_count": counts["verification_gaps"],
         "due_revisit_count": counts["due_revisits"],
+        "missing_ids": missing,
+        "passed": not missing and not expectation_failures,
+    }
+
+
+def _runtime_performance_metric(
+    scenario: EvaluationScenario,
+    runtime: ScenarioRuntime,
+    bundle: dict[str, Any],
+    *,
+    total_seconds: float,
+    load_runtime_seconds: float,
+    failures: list[dict[str, Any]],
+) -> dict[str, Any]:
+    expected = scenario.expected.get("performance", {})
+    max_total_seconds = expected.get("max_total_seconds")
+    max_load_runtime_seconds = expected.get("max_load_runtime_seconds")
+    expectation_failures = []
+    if max_total_seconds is not None and total_seconds > max_total_seconds:
+        expectation_failures.append(
+            {
+                "threshold": "max_total_seconds",
+                "expected": max_total_seconds,
+                "actual": total_seconds,
+            }
+        )
+    if max_load_runtime_seconds is not None and load_runtime_seconds > max_load_runtime_seconds:
+        expectation_failures.append(
+            {
+                "threshold": "max_load_runtime_seconds",
+                "expected": max_load_runtime_seconds,
+                "actual": load_runtime_seconds,
+            }
+        )
+    if expectation_failures:
+        failures.append(
+            _failure(
+                "runtime_performance",
+                "Runtime performance thresholds were exceeded.",
+                "$.metrics.runtime_performance",
+                expected=expected,
+                actual=expectation_failures,
+            )
+        )
+    project_state = bundle["project_state"]
+    objects = project_state.get("objects", [])
+    return {
+        "total_seconds": round(total_seconds, 6),
+        "load_runtime_seconds": round(load_runtime_seconds, 6),
+        "event_count": project_state["state"]["event_count"],
+        "session_count": len(runtime.session_ids),
+        "object_count": len(objects),
+        "decision_count": len([obj for obj in objects if obj.get("type") == "decision"]),
+        "max_total_seconds": max_total_seconds,
+        "max_load_runtime_seconds": max_load_runtime_seconds,
         "passed": not expectation_failures,
     }
 
@@ -1130,6 +1702,10 @@ def _parse_timestamp(value: str) -> datetime:
 
 def _format_timestamp(value: datetime) -> str:
     return value.astimezone(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def _looks_like_windows_absolute_path(value: str) -> bool:
+    return len(value) >= 3 and value[1:3] == ":/" and value[0].isalpha()
 
 
 def _format_checker() -> FormatChecker:

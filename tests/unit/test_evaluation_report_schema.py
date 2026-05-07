@@ -16,34 +16,35 @@ class EvaluationReportSchemaTests(unittest.TestCase):
             format_checker=_format_checker(),
         )
 
-    def test_accepts_valid_passed_report(self) -> None:
+    def test_accepts_valid_phase11_passed_report(self) -> None:
         self.assertEqual([], list(self.validator.iter_errors(_valid_report())))
 
     def test_accepts_failure_payload_with_expected_and_actual_values(self) -> None:
         payload = _valid_report()
         payload["status"] = "failed"
-        payload["metrics"]["decision_completeness"]["passed"] = False
+        payload["metrics"]["decision_coverage"]["passed"] = False
         payload["failures"] = [
             {
-                "metric": "decision_completeness",
+                "metric": "decision_coverage",
                 "message": "Missing required domain decision types.",
-                "path": "$.metrics.decision_completeness",
-                "expected": ["primary_endpoint"],
+                "path": "$.metrics.decision_coverage",
+                "expected": ["clarify_goal"],
                 "actual": [],
             }
         ]
 
         self.assertEqual([], list(self.validator.iter_errors(payload)))
 
-    def test_rejects_invalid_status(self) -> None:
+    def test_rejects_legacy_report_version_and_metric_names(self) -> None:
         payload = _valid_report()
-        payload["status"] = "partial"
+        payload["schema_version"] = 1
+        payload["metrics"]["decision_completeness"] = payload["metrics"].pop("decision_coverage")
 
         self.assertTrue(list(self.validator.iter_errors(payload)))
 
     def test_rejects_missing_required_metric(self) -> None:
         payload = _valid_report()
-        del payload["metrics"]["conflict_detection"]
+        del payload["metrics"]["conflict_precision"]
 
         self.assertTrue(list(self.validator.iter_errors(payload)))
 
@@ -67,7 +68,7 @@ class EvaluationReportSchemaTests(unittest.TestCase):
 
     def test_rejects_passed_report_with_failed_metric(self) -> None:
         payload = _valid_report()
-        payload["metrics"]["decision_completeness"]["passed"] = False
+        payload["metrics"]["decision_coverage"]["passed"] = False
 
         self.assertTrue(list(self.validator.iter_errors(payload)))
 
@@ -75,7 +76,7 @@ class EvaluationReportSchemaTests(unittest.TestCase):
         payload = _valid_report()
         payload["failures"] = [
             {
-                "metric": "decision_completeness",
+                "metric": "decision_coverage",
                 "message": "Failure payload contradicts passed status.",
             }
         ]
@@ -87,7 +88,7 @@ class EvaluationReportSchemaTests(unittest.TestCase):
         payload["status"] = "failed"
         payload["failures"] = [
             {
-                "metric": "decision_completeness",
+                "metric": "decision_coverage",
                 "message": "Failure payload must correspond to a failed metric.",
             }
         ]
@@ -97,7 +98,7 @@ class EvaluationReportSchemaTests(unittest.TestCase):
     def test_rejects_failed_report_without_failures(self) -> None:
         payload = _valid_report()
         payload["status"] = "failed"
-        payload["metrics"]["decision_completeness"]["passed"] = False
+        payload["metrics"]["decision_coverage"]["passed"] = False
 
         self.assertTrue(list(self.validator.iter_errors(payload)))
 
@@ -110,55 +111,88 @@ class EvaluationReportSchemaTests(unittest.TestCase):
 
 def _valid_report() -> dict:
     return {
-        "schema_version": 1,
-        "scenario_id": "research_protocol",
+        "schema_version": 2,
+        "scenario_id": "policy_interpretation",
         "status": "passed",
         "generated_at": "2026-04-29T00:00:00Z",
         "metrics": {
-            "question_efficiency": {
-                "asked_count": 3,
-                "max_allowed": 4,
-                "passed": True,
-            },
-            "decision_completeness": {
-                "required_count": 4,
-                "covered_count": 4,
-                "passed": True,
-            },
-            "evidence_coverage": {
+            "decision_coverage": {
                 "required_count": 2,
                 "covered_count": 2,
+                "missing_ids": [],
+                "passed": True,
+            },
+            "question_efficiency": {
+                "asked_count": 0,
+                "max_allowed": 1,
+                "repeated_forbidden_decision_types": [],
+                "passed": True,
+            },
+            "conflict_detection_recall": {
+                "expected_count": 0,
+                "actual_count": 0,
+                "missing_conflict_ids": [],
+                "missing_conflict_types": [],
+                "passed": True,
+            },
+            "conflict_precision": {
+                "expected_count": 0,
+                "actual_count": 0,
+                "unexpected_conflict_ids": [],
+                "unexpected_conflict_types": [],
+                "false_positive_count": 0,
+                "passed": True,
+            },
+            "evidence_linkage_rate": {
+                "required_count": 1,
+                "covered_count": 1,
+                "linked_evidence_count": 1,
+                "total_evidence_count": 1,
+                "linkage_rate": 1.0,
+                "missing_ids": [],
+                "invalid_source_refs": [],
+                "passed": True,
+            },
+            "assumption_exposure": {
+                "required_count": 1,
+                "covered_count": 1,
+                "assumption_count": 1,
+                "stale_assumption_count": 0,
+                "stale_evidence_count": 0,
+                "verification_gap_count": 1,
+                "due_revisit_count": 0,
+                "missing_ids": [],
                 "passed": True,
             },
             "risk_coverage": {
-                "required_count": 2,
-                "covered_count": 2,
+                "required_count": 1,
+                "covered_count": 1,
+                "missing_ids": [],
                 "passed": True,
             },
-            "conflict_detection": {
-                "expected_count": 0,
-                "actual_count": 0,
-                "passed": True,
-            },
-            "plan_executability": {
+            "action_executability": {
                 "readiness": "conditional",
-                "action_count": 2,
-                "implementation_ready_count": 1,
+                "action_count": 3,
+                "implementation_ready_count": 0,
                 "blocker_count": 0,
                 "unresolved_conflict_count": 0,
                 "passed": True,
             },
-            "document_readability": {
+            "document_validity": {
                 "required_sections_present": True,
                 "empty_required_sections": [],
                 "missing_source_traceability": [],
                 "passed": True,
             },
-            "revisit_quality": {
-                "stale_assumption_count": 0,
-                "stale_evidence_count": 0,
-                "verification_gap_count": 1,
-                "due_revisit_count": 1,
+            "runtime_performance": {
+                "total_seconds": 0.1,
+                "load_runtime_seconds": 0.01,
+                "event_count": 20,
+                "session_count": 1,
+                "object_count": 8,
+                "decision_count": 2,
+                "max_total_seconds": None,
+                "max_load_runtime_seconds": None,
                 "passed": True,
             },
         },

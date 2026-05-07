@@ -84,7 +84,7 @@ Document exports also evaluate embedded Safety Gate diagnostics with the domain 
 domain pack required evidence and safety rules are reflected in document diagnostics when source
 objects carry pack metadata.
 
-Action-plan documents render actions as the Phase 10 WorkUnit surface. The action tables include
+Action-plan documents render actions as the WorkUnit surface. The action tables include
 type, required inputs, outputs, verification references, and source decisions when those values are
 present on action metadata or inferable from object links.
 

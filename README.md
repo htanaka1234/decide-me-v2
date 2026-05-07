@@ -21,9 +21,9 @@ runtime state or intermediate APIs. Contract changes should update runtime code,
 schemas, documentation, and tests together; invalid old state should fail
 clearly rather than being silently adapted through compatibility layers.
 
-## Phase 10 completion boundary
+## Phase 11 completion boundary
 
-Phase 10 completes the MVP runtime stack built across Phases 5 through 10:
+Phase 11 extends the MVP runtime stack built across Phases 5 through 10 with a simulation benchmark:
 
 - Phase 5: domain-neutral object/link event model and rebuildable projections
 - Phase 6: Decision Stack Graph, read-only impact diagnostics, and explicit invalidation apply
@@ -31,6 +31,8 @@ Phase 10 completes the MVP runtime stack built across Phases 5 through 10:
 - Phase 8: Document Compiler and derived exports
 - Phase 9: built-in and user-defined Domain Packs
 - Phase 10: committed scenario Evaluation Suite and release-readiness gate
+- Phase 11: simulation benchmark fixtures, source-material validation, quality metrics, and runtime
+  performance diagnostics
 
 The runtime source of truth is the transaction event log. `project-state.json`, session JSON,
 register outputs, document models, indexes, and exports are derived and must be rebuildable.
@@ -38,7 +40,7 @@ Invalidation is never applied automatically: candidates are generated from curre
 only become events after explicit approval through the transaction path. High and critical risk
 are controlled by Safety Gate policy; critical risk blocks automatic adoption and requires external
 review, split/defer, or reject/rework handling. Domain-specific vocabulary belongs in Domain Packs,
-not new core object types. At Phase 10, `action` is the executable WorkUnit equivalent.
+not new core object types. `action` is the executable WorkUnit equivalent.
 
 ## What this Skill is for
 
@@ -268,7 +270,7 @@ The runtime lives under `.ai/decide-me/`.
 - Close summaries store object and link reference sets in `close_summary.object_ids` and
   `close_summary.link_ids`; generated plans consume those references and emit
   `action_plan.actions` plus `action_plan.implementation_ready_actions`.
-- At Phase 10, an `action` object is the executable WorkUnit equivalent. There is no separate
+- An `action` object is the executable WorkUnit equivalent. There is no separate
   `work_unit` object type; WorkUnit attributes live in optional action metadata such as
   `action_type`, `required_inputs`, `outputs`, `verification_refs`, and
   `source_decision_refs`.
@@ -387,14 +389,14 @@ PYTHONPATH=. python3 -m pytest -m "integration and not slow" -q
 PYTHONPATH=. python3 -m pytest -m "slow" -q
 ```
 
-Run the Phase 10 release-readiness gate with:
+Run the Phase 11 release-readiness gate with:
 
 ```bash
-PYTHONPATH=. python3 scripts/run_phase10_gate.py
+PYTHONPATH=. python3 scripts/run_phase11_gate.py
 ```
 
 The gate runs the `phase_gate and not slow` pytest slice, including an explicit lightweight unit
-contract subset, and then the committed Phase 10 scenario evaluation runner in JSON mode. Slow
+contract subset, and then the committed Phase 11 scenario evaluation runner in JSON mode. Slow
 evaluation snapshot tests remain available for nightly or manual checks.
 
 Run the full test suite with:
@@ -403,7 +405,7 @@ Run the full test suite with:
 PYTHONPATH=. python3 -m unittest discover -v
 ```
 
-Run the Phase 10 evaluation scenarios with committed snapshots:
+Run the Phase 11 evaluation scenarios with committed snapshots:
 
 ```bash
 PYTHONPATH=. python3 -m unittest tests.integration.test_evaluation_scenarios -v
@@ -426,9 +428,9 @@ PYTHONPATH=. python3 scripts/evaluate_scenarios.py --scenarios tests/scenarios -
   document, and agent instruction export templates
 - `decide_me/`: runtime implementation
 - `scripts/decide_me.py`: deterministic CLI
-- `scripts/evaluate_scenarios.py`: development-only Phase 10 evaluation runner
-- `scripts/run_phase10_gate.py`: CI/local Phase 10 release-readiness gate
+- `scripts/evaluate_scenarios.py`: development-only Phase 11 evaluation runner
+- `scripts/run_phase11_gate.py`: CI/local Phase 11 release-readiness gate
 - `requirements.txt`: runtime dependency declarations, including PyYAML for declarative pack YAML
   loading
 - `requirements-dev.txt`: development-only dependencies for schema validation tests
-- `tests/`: unit, integration, and Phase 10 scenario coverage
+- `tests/`: unit, integration, and Phase 11 scenario coverage

@@ -1,0 +1,7 @@
+required_domain_decision_types:
+- architecture_choice
+- verification_strategy
+required_status_counts:
+- status: accepted
+  mode: min
+  count: 2

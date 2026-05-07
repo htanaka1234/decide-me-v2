@@ -81,14 +81,14 @@
 - Use Python 3.11 or newer.
 - Install runtime dependencies with `python3 -m pip install -r requirements.txt`.
 - Install development dependencies with `python3 -m pip install -r requirements-dev.txt` before
-  running the full test suite or Phase 10 evaluation suite.
+  running the full test suite or Phase 11 evaluation suite.
 - Run the full test suite with `PYTHONPATH=. python3 -m unittest discover -v`.
-- Run the Phase 10 evaluation suite with
+- Run the Phase 11 evaluation suite with
   `PYTHONPATH=. python3 scripts/evaluate_scenarios.py --scenarios tests/scenarios --format json`.
   Snapshot updates require the explicit `--update-snapshots` flag and should be committed only for
   intentional evaluation-output changes.
-- Run the Phase 10 release-readiness gate with
-  `PYTHONPATH=. python3 scripts/run_phase10_gate.py`.
+- Run the Phase 11 release-readiness gate with
+  `PYTHONPATH=. python3 scripts/run_phase11_gate.py`.
 - Pytest marker slices are available for `unit`, `integration`, `evaluation`, `slow`,
   `phase_gate`, and `smoke`.
 - Use `python3 scripts/decide_me.py --help` for the command reference.
@@ -113,7 +113,7 @@
 - `templates/`: plan and ADR export templates.
 - `tests/unit/`: focused unit coverage.
 - `tests/integration/`: end-to-end runtime flow coverage.
-- `tests/scenarios/`: development-only Phase 10 evaluation fixtures and expected snapshots.
+- `tests/scenarios/`: development-only Phase 11 evaluation fixtures and expected snapshots.
 - `.ai/`: local decide-me runtime data used while developing this repository; track only event
   logs and markdown exports according to `.gitignore`.
 - `dist/`: generated installable artifact output.

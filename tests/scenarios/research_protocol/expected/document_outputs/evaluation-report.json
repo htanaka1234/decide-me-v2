@@ -1,0 +1,85 @@
+{
+  "failures": [],
+  "metrics": {
+    "action_executability": {
+      "action_count": 3,
+      "blocker_count": 1,
+      "implementation_ready_count": 0,
+      "passed": true,
+      "readiness": "blocked",
+      "unresolved_conflict_count": 0
+    },
+    "assumption_exposure": {
+      "assumption_count": 0,
+      "covered_count": 0,
+      "due_revisit_count": 0,
+      "missing_ids": [],
+      "passed": true,
+      "required_count": 0,
+      "stale_assumption_count": 0,
+      "stale_evidence_count": 0,
+      "verification_gap_count": 3
+    },
+    "conflict_detection_recall": {
+      "actual_count": 0,
+      "expected_count": 0,
+      "missing_conflict_ids": [],
+      "missing_conflict_types": [],
+      "passed": true
+    },
+    "conflict_precision": {
+      "actual_count": 0,
+      "expected_count": 0,
+      "false_positive_count": 0,
+      "passed": true,
+      "unexpected_conflict_ids": [],
+      "unexpected_conflict_types": []
+    },
+    "decision_coverage": {
+      "covered_count": 6,
+      "missing_ids": [],
+      "passed": true,
+      "required_count": 6
+    },
+    "document_validity": {
+      "empty_required_sections": [],
+      "missing_source_traceability": [],
+      "passed": true,
+      "required_sections_present": true
+    },
+    "evidence_linkage_rate": {
+      "covered_count": 4,
+      "invalid_source_refs": [],
+      "linkage_rate": 1.0,
+      "linked_evidence_count": 2,
+      "missing_ids": [],
+      "passed": true,
+      "required_count": 4,
+      "total_evidence_count": 2
+    },
+    "question_efficiency": {
+      "asked_count": 1,
+      "max_allowed": 4,
+      "passed": true,
+      "repeated_forbidden_decision_types": []
+    },
+    "risk_coverage": {
+      "covered_count": 8,
+      "missing_ids": [],
+      "passed": true,
+      "required_count": 8
+    },
+    "runtime_performance": {
+      "decision_count": 4,
+      "event_count": 41,
+      "max_load_runtime_seconds": null,
+      "max_total_seconds": null,
+      "object_count": 19,
+      "passed": true,
+      "session_count": 1
+    }
+  },
+  "scenario_id": "research_protocol",
+  "schema_version": 2,
+  "status": "passed"
+}

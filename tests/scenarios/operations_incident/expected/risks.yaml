@@ -1,0 +1,13 @@
+required_domain_risk_types:
+- single_point_of_failure
+- monitoring_gap
+required_risk_tiers:
+- high
+min_high_or_critical_risks: 2
+safety_gates:
+  required_rule_ids:
+  - operational_resilience_review
+  required_approval_thresholds:
+  - human_review
+  min_approval_required_count: 1
+  required_insufficient_evidence_ids: []

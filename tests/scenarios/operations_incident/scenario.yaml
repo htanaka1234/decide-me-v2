@@ -1,0 +1,16 @@
+schema_version: 2
+scenario_id: operations_incident
+label: Operations incident benchmark
+domain_pack: operations
+project:
+  name: Demo operations project
+  objective: Stabilize the support escalation process after a repeated incident.
+  current_milestone: Incident review and control rollout
+sessions:
+- session_id: S-operations-incident-review
+  context: Define the incident review process, escalation policy, controls, and monitoring
+    follow-up.
+  seed_events: events.jsonl
+  close: true
+evaluation:
+  now: '2026-04-29T00:00:00Z'

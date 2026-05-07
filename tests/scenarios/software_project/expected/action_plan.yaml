@@ -1,0 +1,4 @@
+readiness: ready
+min_implementation_ready_count: 1
+min_action_count: 1
+require_no_unresolved_conflicts: false

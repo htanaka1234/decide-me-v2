@@ -12,7 +12,7 @@ For `Action Plan:` output:
 - resolve plan content from `close_summary.object_ids`, `close_summary.link_ids`,
   `project_state.objects`, and `project_state.links`
 - preserve merged `actions`
-- treat each action as the executable WorkUnit equivalent for Phase 10 rather than introducing a
+- treat each action as the executable WorkUnit equivalent rather than introducing a
   separate `work_unit` object type
 - carry action WorkUnit metadata through the plan: `action_type`, `required_inputs`, `outputs`,
   `verification_refs`, and `source_decision_refs`
