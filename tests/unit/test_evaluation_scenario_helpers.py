@@ -41,6 +41,106 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "invalid evaluation scenario"):
                 load_scenario(root / "scenario.yaml")
 
+    def test_loader_rejects_expected_missing_required_key(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_scenario_fixture(root, _valid_scenario())
+            _overwrite_expected_yaml(
+                root,
+                "decisions.yaml",
+                {
+                    "required_status_counts": [
+                        {"status": "accepted", "mode": "exact", "count": 1},
+                    ],
+                },
+            )
+
+            with self.assertRaisesRegex(ValueError, "decisions.yaml missing required keys"):
+                load_scenario(root / "scenario.yaml")
+
+    def test_loader_rejects_expected_unknown_key(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_scenario_fixture(root, _valid_scenario())
+            _overwrite_expected_yaml(
+                root,
+                "evidence.yaml",
+                {
+                    "min_linked_evidence": 0,
+                    "required_evidence_requirement_ids": [],
+                    "required_source_refs": [],
+                    "required_source_reffs": [],
+                },
+            )
+
+            with self.assertRaisesRegex(ValueError, "evidence.yaml contains unknown keys"):
+                load_scenario(root / "scenario.yaml")
+
+    def test_loader_rejects_expected_type_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_scenario_fixture(root, _valid_scenario())
+            _overwrite_expected_yaml(
+                root,
+                "unresolved_questions.yaml",
+                {
+                    "max_questions": "zero",
+                    "forbidden_repeated_decision_types": [],
+                },
+            )
+
+            with self.assertRaisesRegex(ValueError, "max_questions must be an integer"):
+                load_scenario(root / "scenario.yaml")
+
+    def test_loader_rejects_invalid_document_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_scenario_fixture(root, _valid_scenario())
+            (root / "expected" / "document_outputs" / "manifest.yaml").write_text(
+                yaml.safe_dump(
+                    {
+                        "documents": [
+                            {
+                                "type": "decision-brief",
+                                "format": "json",
+                                "required_sectionz": ["project"],
+                            }
+                        ]
+                    },
+                    sort_keys=False,
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "manifest.yaml:documents\\[0\\] missing required keys"):
+                load_scenario(root / "scenario.yaml")
+
+    def test_loader_rejects_invalid_performance_threshold(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_scenario_fixture(root, _valid_scenario())
+            _overwrite_expected_yaml(root, "performance.yaml", {"max_total_seconds": -1})
+
+            with self.assertRaisesRegex(ValueError, "performance.yaml max_total_seconds must be a number >= 0"):
+                load_scenario(root / "scenario.yaml")
+
+    def test_loader_rejects_expected_source_ref_without_source_material(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_scenario_fixture(root, _valid_scenario())
+            _overwrite_expected_yaml(
+                root,
+                "evidence.yaml",
+                {
+                    "min_linked_evidence": 0,
+                    "required_evidence_requirement_ids": [],
+                    "required_source_refs": ["missing.md"],
+                },
+            )
+
+            with self.assertRaisesRegex(ValueError, "required_source_refs do not exist"):
+                load_scenario(root / "scenario.yaml")
+
     def test_runtime_builder_uses_requested_session_ids_and_closes_marked_sessions(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "scenario"
@@ -604,6 +704,63 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
                 opting_out_report["metrics"]["action_executability"]["unresolved_conflict_count"],
             )
 
+    def test_conflict_precision_reports_unexpected_conflict_types(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "scenario"
+            payload = _valid_scenario()
+            payload["scenario_id"] = "conflict_precision_types"
+            payload["sessions"] = [
+                {
+                    "session_id": "S-conflict-a",
+                    "context": "Accept the baseline option.",
+                    "seed_events": "events-a.jsonl",
+                    "close": True,
+                },
+                {
+                    "session_id": "S-conflict-b",
+                    "context": "Accept a conflicting option.",
+                    "seed_events": "events-b.jsonl",
+                    "close": True,
+                },
+            ]
+            payload["evaluation"]["expected_decision_coverage"] = {
+                "required_domain_decision_types": ["choose_option"],
+                "required_status_counts": [
+                    {"status": "accepted", "mode": "min", "count": 1},
+                ],
+            }
+            payload["evaluation"]["expected_conflicts"] = {
+                "count": 1,
+                "forbidden_conflict_types": ["decision-accepted-proposal-mismatch"],
+            }
+            _write_scenario_fixture(
+                root,
+                payload,
+                seed_events={
+                    "events-a.jsonl": _conflicting_proposal_seed(
+                        "S-conflict-a",
+                        variant="a",
+                        include_decision=True,
+                    ),
+                    "events-b.jsonl": _conflicting_proposal_seed(
+                        "S-conflict-b",
+                        variant="b",
+                        include_decision=False,
+                    ),
+                },
+            )
+            scenario = load_scenario(root / "scenario.yaml")
+            runtime = build_scenario_runtime(scenario, Path(tmp) / "work-conflict-types")
+
+            report = run_scenario_evaluation(scenario, runtime)
+
+            self.assertEqual([], validate_evaluation_report(report))
+            self.assertEqual("failed", report["status"])
+            precision = report["metrics"]["conflict_precision"]
+            self.assertEqual(["decision-accepted-proposal-mismatch"], precision["unexpected_conflict_types"])
+            self.assertEqual(1, precision["false_positive_count"])
+            self.assertIn("conflict_precision", {item["metric"] for item in report["failures"]})
+
     def test_action_executability_expectation_fails_without_closed_sessions(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "scenario"
@@ -699,6 +856,26 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
             self.assertEqual([], validate_evaluation_report(failing_report))
             self.assertEqual("failed", failing_report["status"])
             self.assertIn("assumption_exposure", {item["metric"] for item in failing_report["failures"]})
+
+    def test_runtime_performance_thresholds_fail_when_exceeded(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "scenario"
+            work = Path(tmp) / "work"
+            payload = _valid_scenario()
+            payload["evaluation"]["expected_performance"] = {
+                "max_total_seconds": 0.0,
+                "max_load_runtime_seconds": 0.0,
+            }
+            _write_scenario_fixture(root, payload)
+            scenario = load_scenario(root / "scenario.yaml")
+            runtime = build_scenario_runtime(scenario, work)
+
+            report = run_scenario_evaluation(scenario, runtime)
+
+            self.assertEqual([], validate_evaluation_report(report))
+            self.assertEqual("failed", report["status"])
+            self.assertFalse(report["metrics"]["runtime_performance"]["passed"])
+            self.assertIn("runtime_performance", {item["metric"] for item in report["failures"]})
 
     def test_evaluation_report_fails_with_schema_shaped_failures(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -796,11 +973,16 @@ def _write_phase11_expected_files(root: Path, payload: dict) -> None:
         ),
     )
     if "min_supporting_evidence" in evidence:
+        legacy_evidence = evidence
         evidence = {
-            "min_linked_evidence": evidence.get("min_supporting_evidence", 0),
-            "required_evidence_requirement_ids": evidence.get("required_evidence_requirement_ids", []),
-            "required_source_refs": evidence.get("required_source_refs", []),
+            "min_linked_evidence": legacy_evidence.get("min_supporting_evidence", 0),
+            "required_evidence_requirement_ids": legacy_evidence.get("required_evidence_requirement_ids", []),
+            "required_source_refs": legacy_evidence.get("required_source_refs", []),
         }
+        if "require_all_linked_evidence_source_ref" in legacy_evidence:
+            evidence["require_all_linked_evidence_source_ref"] = legacy_evidence[
+                "require_all_linked_evidence_source_ref"
+            ]
     risks = dict(
         evaluation.get(
             "expected_risks",
@@ -850,6 +1032,18 @@ def _write_phase11_expected_files(root: Path, payload: dict) -> None:
     }
     for name, value in files.items():
         (expected_root / name).write_text(yaml.safe_dump(value, sort_keys=False), encoding="utf-8")
+    if "expected_performance" in evaluation:
+        (expected_root / "performance.yaml").write_text(
+            yaml.safe_dump(evaluation["expected_performance"], sort_keys=False),
+            encoding="utf-8",
+        )
+
+
+def _overwrite_expected_yaml(root: Path, filename: str, payload: dict) -> None:
+    (root / "expected" / filename).write_text(
+        yaml.safe_dump(payload, sort_keys=False),
+        encoding="utf-8",
+    )
 
 
 def _write_jsonl(path: Path, rows: list[dict]) -> None:

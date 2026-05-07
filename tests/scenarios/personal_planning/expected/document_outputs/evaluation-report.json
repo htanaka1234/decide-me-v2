@@ -32,7 +32,8 @@
       "expected_count": 0,
       "false_positive_count": 0,
       "passed": true,
-      "unexpected_conflict_ids": []
+      "unexpected_conflict_ids": [],
+      "unexpected_conflict_types": []
     },
     "decision_coverage": {
       "covered_count": 5,

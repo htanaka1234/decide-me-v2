@@ -139,6 +139,7 @@ def _valid_report() -> dict:
                 "expected_count": 0,
                 "actual_count": 0,
                 "unexpected_conflict_ids": [],
+                "unexpected_conflict_types": [],
                 "false_positive_count": 0,
                 "passed": True,
             },

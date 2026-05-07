@@ -255,10 +255,10 @@ def _load_expected_payloads(scenario_root: Path) -> dict[str, Any]:
         raise FileNotFoundError(f"scenario expected/document_outputs directory is required: {document_outputs}")
     manifest_path = document_outputs / DOCUMENT_OUTPUT_MANIFEST
     manifest = _load_expected_yaml(manifest_path) if manifest_path.exists() else {}
-    documents = manifest.get("documents", []) if isinstance(manifest, dict) else []
-    if not isinstance(documents, list):
-        raise ValueError(f"{manifest_path} documents must be an array")
+    _validate_expected_document_manifest(manifest, manifest_path)
+    documents = manifest["documents"]
     expected["documents"] = documents
+    _validate_expected_payloads(scenario_root, expected)
     return expected
 
 
@@ -271,6 +271,287 @@ def _load_expected_yaml(path: Path) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ValueError(f"scenario expected file must contain an object: {path}")
     return payload
+
+
+def _validate_expected_payloads(scenario_root: Path, expected: dict[str, Any]) -> None:
+    _validate_expected_decisions(expected["decisions"], scenario_root / EXPECTED_DIR_NAME / "decisions.yaml")
+    _validate_expected_questions(expected["questions"], scenario_root / EXPECTED_DIR_NAME / "unresolved_questions.yaml")
+    _validate_expected_evidence(expected["evidence"], scenario_root / EXPECTED_DIR_NAME / "evidence.yaml", scenario_root)
+    _validate_expected_conflicts(expected["conflicts"], scenario_root / EXPECTED_DIR_NAME / "conflicts.yaml")
+    _validate_expected_risks(expected["risks"], scenario_root / EXPECTED_DIR_NAME / "risks.yaml")
+    _validate_expected_assumptions(expected["assumptions"], scenario_root / EXPECTED_DIR_NAME / "assumptions.yaml")
+    _validate_expected_action_plan(expected["action_plan"], scenario_root / EXPECTED_DIR_NAME / "action_plan.yaml")
+    performance_path = scenario_root / EXPECTED_DIR_NAME / "performance.yaml"
+    _validate_expected_performance(expected["performance"], performance_path)
+
+
+def _validate_expected_decisions(payload: dict[str, Any], path: Path) -> None:
+    _require_keys(payload, {"required_domain_decision_types", "required_status_counts"}, path)
+    _reject_unknown_keys(payload, {"required_domain_decision_types", "required_status_counts"}, path)
+    _require_string_list(payload, "required_domain_decision_types", path)
+    counts = _require_list(payload, "required_status_counts", path)
+    for index, item in enumerate(counts):
+        item_path = f"{path}:required_status_counts[{index}]"
+        _require_mapping(item, item_path)
+        _require_keys(item, {"status", "mode", "count"}, item_path)
+        _reject_unknown_keys(item, {"status", "mode", "count"}, item_path)
+        _require_non_empty_string(item, "status", item_path)
+        _require_enum(item, "mode", {"exact", "min"}, item_path)
+        _require_non_negative_int(item, "count", item_path)
+
+
+def _validate_expected_questions(payload: dict[str, Any], path: Path) -> None:
+    allowed = {"max_questions", "forbidden_repeated_decision_types", "probe_session_ids", "advance_steps"}
+    _require_keys(payload, {"max_questions", "forbidden_repeated_decision_types"}, path)
+    _reject_unknown_keys(payload, allowed, path)
+    _require_non_negative_int(payload, "max_questions", path)
+    _require_string_list(payload, "forbidden_repeated_decision_types", path)
+    if "probe_session_ids" in payload:
+        _require_string_list(payload, "probe_session_ids", path)
+    if "advance_steps" in payload:
+        _require_minimum_int(payload, "advance_steps", 1, path)
+
+
+def _validate_expected_evidence(payload: dict[str, Any], path: Path, scenario_root: Path) -> None:
+    allowed = {
+        "min_linked_evidence",
+        "required_evidence_requirement_ids",
+        "required_source_refs",
+        "require_all_linked_evidence_source_ref",
+    }
+    _require_keys(payload, {"min_linked_evidence", "required_evidence_requirement_ids", "required_source_refs"}, path)
+    _reject_unknown_keys(payload, allowed, path)
+    _require_non_negative_int(payload, "min_linked_evidence", path)
+    _require_string_list(payload, "required_evidence_requirement_ids", path)
+    source_refs = _require_string_list(payload, "required_source_refs", path)
+    if "require_all_linked_evidence_source_ref" in payload:
+        _require_bool(payload, "require_all_linked_evidence_source_ref", path)
+    missing_source_refs = [
+        source_ref
+        for source_ref in source_refs
+        if not _evidence_source_ref_exists(scenario_root, source_ref)
+    ]
+    if missing_source_refs:
+        raise ValueError(f"{path} required_source_refs do not exist: {', '.join(sorted(missing_source_refs))}")
+
+
+def _validate_expected_conflicts(payload: dict[str, Any], path: Path) -> None:
+    allowed = {
+        "expected_count",
+        "required_conflict_ids",
+        "required_conflict_types",
+        "allowed_conflict_types",
+        "forbidden_conflict_types",
+    }
+    _require_keys(payload, {"expected_count"}, path)
+    _reject_unknown_keys(payload, allowed, path)
+    _require_non_negative_int(payload, "expected_count", path)
+    for key in (
+        "required_conflict_ids",
+        "required_conflict_types",
+        "allowed_conflict_types",
+        "forbidden_conflict_types",
+    ):
+        if key in payload:
+            _require_string_list(payload, key, path)
+
+
+def _validate_expected_risks(payload: dict[str, Any], path: Path) -> None:
+    allowed = {
+        "required_domain_risk_types",
+        "required_risk_tiers",
+        "min_high_or_critical_risks",
+        "safety_gates",
+    }
+    _require_keys(payload, {"required_domain_risk_types", "min_high_or_critical_risks"}, path)
+    _reject_unknown_keys(payload, allowed, path)
+    _require_string_list(payload, "required_domain_risk_types", path)
+    if "required_risk_tiers" in payload:
+        _require_string_list(payload, "required_risk_tiers", path)
+    _require_non_negative_int(payload, "min_high_or_critical_risks", path)
+    if "safety_gates" in payload:
+        _validate_expected_safety_gates(payload["safety_gates"], f"{path}:safety_gates")
+
+
+def _validate_expected_safety_gates(payload: Any, path: str) -> None:
+    _require_mapping(payload, path)
+    allowed = {
+        "required_rule_ids",
+        "required_approval_thresholds",
+        "min_approval_required_count",
+        "max_approval_required_count",
+        "required_insufficient_evidence_ids",
+        "forbidden_rule_ids",
+        "forbidden_approval_thresholds",
+    }
+    _require_keys(
+        payload,
+        {
+            "required_rule_ids",
+            "required_approval_thresholds",
+            "min_approval_required_count",
+            "required_insufficient_evidence_ids",
+        },
+        path,
+    )
+    _reject_unknown_keys(payload, allowed, path)
+    _require_string_list(payload, "required_rule_ids", path)
+    _require_string_list(payload, "required_approval_thresholds", path)
+    _require_non_negative_int(payload, "min_approval_required_count", path)
+    _require_string_list(payload, "required_insufficient_evidence_ids", path)
+    if "max_approval_required_count" in payload:
+        _require_non_negative_int(payload, "max_approval_required_count", path)
+        if payload["max_approval_required_count"] < payload["min_approval_required_count"]:
+            raise ValueError(f"{path} max_approval_required_count must be >= min_approval_required_count")
+    for key in ("forbidden_rule_ids", "forbidden_approval_thresholds"):
+        if key in payload:
+            _require_string_list(payload, key, path)
+
+
+def _validate_expected_assumptions(payload: dict[str, Any], path: Path) -> None:
+    allowed = {
+        "required_assumption_ids",
+        "min_assumption_count",
+        "stale_assumptions",
+        "stale_evidence",
+        "verification_gaps",
+        "due_revisits",
+    }
+    _require_keys(payload, {"required_assumption_ids", "min_assumption_count"}, path)
+    _reject_unknown_keys(payload, allowed, path)
+    _require_string_list(payload, "required_assumption_ids", path)
+    _require_non_negative_int(payload, "min_assumption_count", path)
+    for key in ("stale_assumptions", "stale_evidence", "verification_gaps", "due_revisits"):
+        if key in payload:
+            _validate_count_expectation(payload[key], f"{path}:{key}")
+
+
+def _validate_expected_action_plan(payload: dict[str, Any], path: Path) -> None:
+    allowed = {
+        "readiness",
+        "min_implementation_ready_count",
+        "min_action_count",
+        "max_blocker_count",
+        "require_no_unresolved_conflicts",
+    }
+    _reject_unknown_keys(payload, allowed, path)
+    if not payload:
+        return
+    _require_keys(payload, {"readiness", "min_implementation_ready_count"}, path)
+    _require_enum(payload, "readiness", {"ready", "conditional", "blocked"}, path)
+    _require_non_negative_int(payload, "min_implementation_ready_count", path)
+    if "min_action_count" in payload:
+        _require_non_negative_int(payload, "min_action_count", path)
+    if "max_blocker_count" in payload:
+        _require_non_negative_int(payload, "max_blocker_count", path)
+    if "require_no_unresolved_conflicts" in payload:
+        _require_bool(payload, "require_no_unresolved_conflicts", path)
+
+
+def _validate_expected_document_manifest(payload: dict[str, Any], path: Path) -> None:
+    _require_keys(payload, {"documents"}, path)
+    _reject_unknown_keys(payload, {"documents"}, path)
+    documents = _require_list(payload, "documents", path)
+    for index, document in enumerate(documents):
+        item_path = f"{path}:documents[{index}]"
+        _require_mapping(document, item_path)
+        allowed = {"type", "format", "session_ids", "required_sections", "require_source_traceability"}
+        _require_keys(document, {"type", "format", "required_sections"}, item_path)
+        _reject_unknown_keys(document, allowed, item_path)
+        _require_non_empty_string(document, "type", item_path)
+        _require_enum(document, "format", {"json", "csv", "markdown"}, item_path)
+        _require_string_list(document, "required_sections", item_path)
+        if "session_ids" in document:
+            _require_string_list(document, "session_ids", item_path)
+        if "require_source_traceability" in document:
+            _require_bool(document, "require_source_traceability", item_path)
+
+
+def _validate_expected_performance(payload: dict[str, Any], path: Path) -> None:
+    allowed = {"max_total_seconds", "max_load_runtime_seconds"}
+    _reject_unknown_keys(payload, allowed, path)
+    for key in sorted(allowed):
+        if key in payload:
+            _require_non_negative_number(payload, key, path)
+
+
+def _validate_count_expectation(payload: Any, path: str) -> None:
+    _require_mapping(payload, path)
+    _require_keys(payload, {"mode", "count"}, path)
+    _reject_unknown_keys(payload, {"mode", "count"}, path)
+    _require_enum(payload, "mode", {"exact", "min"}, path)
+    _require_non_negative_int(payload, "count", path)
+
+
+def _require_keys(payload: dict[str, Any], required: set[str], path: Path | str) -> None:
+    missing = sorted(required - set(payload))
+    if missing:
+        raise ValueError(f"{path} missing required keys: {', '.join(missing)}")
+
+
+def _reject_unknown_keys(payload: dict[str, Any], allowed: set[str], path: Path | str) -> None:
+    unknown = sorted(set(payload) - allowed)
+    if unknown:
+        raise ValueError(f"{path} contains unknown keys: {', '.join(unknown)}")
+
+
+def _require_mapping(value: Any, path: Path | str) -> None:
+    if not isinstance(value, dict):
+        raise ValueError(f"{path} must be an object")
+
+
+def _require_list(payload: dict[str, Any], key: str, path: Path | str) -> list[Any]:
+    value = payload.get(key)
+    if not isinstance(value, list):
+        raise ValueError(f"{path} {key} must be an array")
+    return value
+
+
+def _require_string_list(payload: dict[str, Any], key: str, path: Path | str) -> list[str]:
+    values = _require_list(payload, key, path)
+    invalid = [value for value in values if not isinstance(value, str) or not value]
+    if invalid:
+        raise ValueError(f"{path} {key} must contain only non-empty strings")
+    return values
+
+
+def _require_non_empty_string(payload: dict[str, Any], key: str, path: Path | str) -> str:
+    value = payload.get(key)
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"{path} {key} must be a non-empty string")
+    return value
+
+
+def _require_enum(payload: dict[str, Any], key: str, allowed: set[str], path: Path | str) -> str:
+    value = _require_non_empty_string(payload, key, path)
+    if value not in allowed:
+        raise ValueError(f"{path} {key} must be one of: {', '.join(sorted(allowed))}")
+    return value
+
+
+def _require_non_negative_int(payload: dict[str, Any], key: str, path: Path | str) -> int:
+    return _require_minimum_int(payload, key, 0, path)
+
+
+def _require_minimum_int(payload: dict[str, Any], key: str, minimum: int, path: Path | str) -> int:
+    value = payload.get(key)
+    if type(value) is not int or value < minimum:
+        raise ValueError(f"{path} {key} must be an integer >= {minimum}")
+    return value
+
+
+def _require_non_negative_number(payload: dict[str, Any], key: str, path: Path | str) -> float:
+    value = payload.get(key)
+    if not isinstance(value, (int, float)) or isinstance(value, bool) or value < 0:
+        raise ValueError(f"{path} {key} must be a number >= 0")
+    return float(value)
+
+
+def _require_bool(payload: dict[str, Any], key: str, path: Path | str) -> bool:
+    value = payload.get(key)
+    if type(value) is not bool:
+        raise ValueError(f"{path} {key} must be a boolean")
+    return value
 
 
 def _validate_source_material_fixture_paths(scenario_root: Path) -> None:
@@ -679,6 +960,11 @@ def _evidence_linkage_metric(
         for item in linked_evidence_items
         if objects_by_id.get(item["object_id"], {}).get("metadata", {}).get("source_ref")
     }
+    missing_source_ref_ids = [
+        item["object_id"]
+        for item in linked_evidence_items
+        if not objects_by_id.get(item["object_id"], {}).get("metadata", {}).get("source_ref")
+    ]
     missing = [
         requirement_id
         for requirement_id in expected["required_evidence_requirement_ids"]
@@ -690,6 +976,8 @@ def _evidence_linkage_metric(
     min_linked = expected.get("min_linked_evidence", expected.get("min_supporting_evidence", 0))
     if linked_count < min_linked:
         missing.append(f"linked_evidence_min:{min_linked}")
+    if expected.get("require_all_linked_evidence_source_ref"):
+        missing.extend(f"source_ref_missing:{object_id}" for object_id in missing_source_ref_ids)
     invalid_source_refs = [
         str(ref)
         for ref in sorted(actual_source_refs)
@@ -717,6 +1005,7 @@ def _evidence_linkage_metric(
                     "supporting_source_refs": sorted(actual_source_refs),
                     "linked_evidence": linked_count,
                     "total_evidence": total_count,
+                    "missing_source_ref_ids": missing_source_ref_ids,
                     "invalid_source_refs": invalid_source_refs,
                 },
             )
@@ -889,7 +1178,13 @@ def _conflict_detection_metrics(
         for conflict_id in actual_ids
         if conflict_id not in required_ids
     ] if required_ids else (actual_ids if len(conflicts) > expected_count else [])
-    precision_passed = len(conflicts) <= expected_count and not unexpected_ids
+    unexpected_types = _unexpected_conflict_types(actual_types, expected)
+    false_positive_count = max(
+        len(unexpected_ids),
+        len(unexpected_types),
+        max(0, len(conflicts) - expected_count),
+    )
+    precision_passed = len(conflicts) <= expected_count and not unexpected_ids and not unexpected_types
     if not recall_passed:
         failures.append(
             _failure(
@@ -915,6 +1210,8 @@ def _conflict_detection_metrics(
                     "count": len(conflicts),
                     "conflict_ids": actual_ids,
                     "unexpected_conflict_ids": unexpected_ids,
+                    "conflict_types": actual_types,
+                    "unexpected_conflict_types": unexpected_types,
                 },
             )
         )
@@ -930,10 +1227,28 @@ def _conflict_detection_metrics(
             "expected_count": expected_count,
             "actual_count": len(conflicts),
             "unexpected_conflict_ids": unexpected_ids,
-            "false_positive_count": len(unexpected_ids),
+            "unexpected_conflict_types": unexpected_types,
+            "false_positive_count": false_positive_count,
             "passed": precision_passed,
         },
     }
+
+
+def _unexpected_conflict_types(actual_types: list[str], expected: dict[str, Any]) -> list[str]:
+    if "forbidden_conflict_types" in expected:
+        return [
+            conflict_type
+            for conflict_type in actual_types
+            if conflict_type in set(expected["forbidden_conflict_types"])
+        ]
+    if "allowed_conflict_types" in expected:
+        allowed = set(expected["allowed_conflict_types"])
+        return [conflict_type for conflict_type in actual_types if conflict_type not in allowed]
+    required_types = set(expected.get("required_conflict_types", []))
+    if required_types:
+        return [conflict_type for conflict_type in actual_types if conflict_type not in required_types]
+    expected_count = expected.get("expected_count", 0)
+    return actual_types if actual_types and expected_count == 0 else []
 
 
 def _scenario_conflicts(runtime: ScenarioRuntime, bundle: dict[str, Any]) -> list[dict[str, Any]]:

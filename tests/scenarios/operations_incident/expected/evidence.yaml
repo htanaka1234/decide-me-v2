@@ -1,3 +1,6 @@
 min_linked_evidence: 2
 required_evidence_requirement_ids: []
-required_source_refs: []
+required_source_refs:
+- incidents/2026-04-repeat-review
+- alerts/escalation-lag
+require_all_linked_evidence_source_ref: true

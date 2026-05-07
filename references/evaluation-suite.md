@@ -63,9 +63,10 @@ Semantic expectations are split by concern:
 - `expected/decisions.yaml`: required domain decision types and status counts.
 - `expected/unresolved_questions.yaml`: maximum question count, repeated-question guards, and
   optional probe session settings.
-- `expected/evidence.yaml`: linked evidence minimums, required evidence requirement IDs, and
-  required source refs.
-- `expected/conflicts.yaml`: expected conflict count plus required IDs or types.
+- `expected/evidence.yaml`: linked evidence minimums, required evidence requirement IDs, required
+  source refs, and optional `require_all_linked_evidence_source_ref`.
+- `expected/conflicts.yaml`: expected conflict count plus required, allowed, or forbidden IDs and
+  types.
 - `expected/risks.yaml`: required risk types, tiers, high/critical counts, and nested Safety Gate
   expectations when relevant.
 - `expected/assumptions.yaml`: required assumption exposure and stale/evidence/gap/revisit
@@ -76,6 +77,10 @@ Semantic expectations are split by concern:
   `max_load_runtime_seconds`.
 - `expected/document_outputs/manifest.yaml`: document type, format, required sections, session
   scope, and source-traceability requirements.
+
+The runner validates each expected file before building runtime state. Missing keys, unknown keys,
+type mismatches, invalid document manifests, invalid performance thresholds, and required source
+refs that do not exist under the scenario fixture fail as fixture validation errors.
 
 Evidence `metadata.source_ref` must point to `input_context.md` or a file under
 `source_materials/`. Absolute paths, parent-directory traversal, and missing source files are
@@ -88,7 +93,7 @@ The Phase 11 report emits these metrics:
 - `decision_coverage`: required decision types and status counts.
 - `question_efficiency`: questions asked in probe runs and forbidden repeated question types.
 - `conflict_detection_recall`: required conflicts were detected.
-- `conflict_precision`: unexpected conflicts were not over-reported.
+- `conflict_precision`: unexpected conflict IDs or conflict types were not over-reported.
 - `evidence_linkage_rate`: evidence is linked to decisions/actions and source refs are valid.
 - `assumption_exposure`: assumptions and stale/revisit diagnostics are explicit.
 - `risk_coverage`: expected risks and Safety Gate outputs are present.
@@ -97,7 +102,8 @@ The Phase 11 report emits these metrics:
 - `runtime_performance`: event/session/object counts and timing diagnostics.
 
 Runtime performance is recorded for every scenario. It fails a scenario only when
-`expected/performance.yaml` defines thresholds.
+`expected/performance.yaml` defines thresholds; at least one committed scenario keeps intentionally
+loose thresholds so the threshold path is covered without making CI a microbenchmark.
 
 ## Report Shape
 
@@ -114,7 +120,7 @@ Timing values are present in the live report but normalized out of committed sna
     "decision_coverage": {"required_count": 2, "covered_count": 2, "missing_ids": [], "passed": true},
     "question_efficiency": {"asked_count": 0, "max_allowed": 1, "repeated_forbidden_decision_types": [], "passed": true},
     "conflict_detection_recall": {"expected_count": 0, "actual_count": 0, "missing_conflict_ids": [], "missing_conflict_types": [], "passed": true},
-    "conflict_precision": {"expected_count": 0, "actual_count": 0, "unexpected_conflict_ids": [], "false_positive_count": 0, "passed": true},
+    "conflict_precision": {"expected_count": 0, "actual_count": 0, "unexpected_conflict_ids": [], "unexpected_conflict_types": [], "false_positive_count": 0, "passed": true},
     "evidence_linkage_rate": {"required_count": 1, "covered_count": 1, "linked_evidence_count": 1, "total_evidence_count": 1, "linkage_rate": 1.0, "missing_ids": [], "invalid_source_refs": [], "passed": true},
     "assumption_exposure": {"required_count": 1, "covered_count": 1, "assumption_count": 1, "stale_assumption_count": 0, "stale_evidence_count": 0, "verification_gap_count": 1, "due_revisit_count": 0, "missing_ids": [], "passed": true},
     "risk_coverage": {"required_count": 1, "covered_count": 1, "missing_ids": [], "passed": true},

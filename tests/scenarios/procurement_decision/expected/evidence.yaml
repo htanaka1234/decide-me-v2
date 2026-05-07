@@ -3,4 +3,8 @@ required_evidence_requirement_ids:
 - requirements_brief
 - budget_context
 - comparison_table
-required_source_refs: []
+required_source_refs:
+- docs/procurement-requirements.md
+- docs/budget.md
+- docs/vendor-comparison.md
+require_all_linked_evidence_source_ref: true

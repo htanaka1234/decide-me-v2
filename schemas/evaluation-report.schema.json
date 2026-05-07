@@ -377,6 +377,7 @@
         "expected_count",
         "actual_count",
         "unexpected_conflict_ids",
+        "unexpected_conflict_types",
         "false_positive_count",
         "passed"
       ],
@@ -388,6 +389,9 @@
           "$ref": "#/$defs/non_negative_integer"
         },
         "unexpected_conflict_ids": {
+          "$ref": "#/$defs/string_array"
+        },
+        "unexpected_conflict_types": {
           "$ref": "#/$defs/string_array"
         },
         "false_positive_count": {

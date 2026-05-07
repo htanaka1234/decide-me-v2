@@ -32,7 +32,8 @@
       "expected_count": 0,
       "false_positive_count": 0,
       "passed": true,
-      "unexpected_conflict_ids": []
+      "unexpected_conflict_ids": [],
+      "unexpected_conflict_types": []
     },
     "decision_coverage": {
       "covered_count": 5,
@@ -47,13 +48,13 @@
       "required_sections_present": true
     },
     "evidence_linkage_rate": {
-      "covered_count": 3,
+      "covered_count": 6,
       "invalid_source_refs": [],
       "linkage_rate": 1.0,
       "linked_evidence_count": 3,
       "missing_ids": [],
       "passed": true,
-      "required_count": 3,
+      "required_count": 6,
       "total_evidence_count": 3
     },
     "question_efficiency": {
