@@ -66,5 +66,11 @@ def pytest_collection_modifyitems(config: Any, items: list[Any]) -> None:
             item.add_marker(marker)
 
 
+def pytest_ignore_collect(collection_path: Path, config: Any) -> bool:
+    del config
+    normalized = _normalize_path(collection_path)
+    return "/tests/scenarios/" in normalized and "/source_materials/" in normalized
+
+
 def _normalize_path(path: str | Path) -> str:
     return PurePosixPath(str(path).replace("\\", "/")).as_posix()
