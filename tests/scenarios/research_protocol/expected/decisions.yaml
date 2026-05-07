@@ -1,0 +1,12 @@
+required_domain_decision_types:
+- research_question
+- cohort_definition
+- primary_endpoint
+- missing_data_strategy
+required_status_counts:
+- status: accepted
+  mode: min
+  count: 3
+- status: unresolved
+  mode: min
+  count: 1

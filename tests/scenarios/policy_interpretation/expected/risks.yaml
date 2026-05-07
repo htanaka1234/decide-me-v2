@@ -1,0 +1,4 @@
+required_domain_risk_types: []
+required_risk_tiers:
+- medium
+min_high_or_critical_risks: 0

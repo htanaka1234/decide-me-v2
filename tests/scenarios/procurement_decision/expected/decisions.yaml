@@ -1,0 +1,9 @@
+required_domain_decision_types:
+- requirement_definition
+- evaluation_criteria
+- candidate_selection
+- final_selection
+required_status_counts:
+- status: accepted
+  mode: min
+  count: 4

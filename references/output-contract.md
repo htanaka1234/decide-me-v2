@@ -41,7 +41,7 @@ Action plan payloads must include `readiness`, `goals`, `workstreams`, `actions`
 `source_link_ids`. Plan payloads are closed to additional fields.
 In generated plan JSON, executable work lives under `plan.action_plan.actions`; already-ready work
 lives under `plan.action_plan.implementation_ready_actions`.
-Those action entries are the Phase 10 WorkUnit equivalent. When recorded, action metadata may carry
+Those action entries are the WorkUnit equivalent. When recorded, action metadata may carry
 `action_type`, `required_inputs`, `outputs`, `verification_refs`, and `source_decision_refs`; plan
 and action-plan document exports surface those fields as execution context, not canonical state
 outside the action object.

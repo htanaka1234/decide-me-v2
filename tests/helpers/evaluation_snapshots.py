@@ -40,7 +40,7 @@ def collect_evaluation_snapshots(
         ),
         "risk-register.json": stable_json(build_risk_register(project_state)),
     }
-    for expected in scenario.evaluation["expected_documents"]:
+    for expected in scenario.expected["documents"]:
         document_type = expected["type"]
         document = compile_document(
             runtime.ai_dir,
@@ -78,7 +78,7 @@ def compare_evaluation_snapshots(
     scenario: EvaluationScenario,
     actual_snapshots: dict[str, str],
 ) -> list[str]:
-    expected_snapshots = load_expected_snapshots(scenario.root / "expected_outputs")
+    expected_snapshots = load_expected_snapshots(scenario.root / "expected" / "document_outputs")
     expected_keys = set(expected_snapshots)
     actual_keys = set(actual_snapshots)
     missing = sorted(expected_keys - actual_keys)
@@ -100,7 +100,7 @@ def write_expected_snapshots(
     scenario: EvaluationScenario,
     actual_snapshots: dict[str, str],
 ) -> list[str]:
-    root = scenario.root / "expected_outputs"
+    root = scenario.root / "expected" / "document_outputs"
     root.mkdir(parents=True, exist_ok=True)
     normalized = {
         key: normalize_snapshot_text(key, value)
@@ -132,7 +132,7 @@ def load_expected_snapshots(root: Path) -> dict[str, str]:
     if not root.exists():
         return snapshots
     for path in sorted(item for item in root.rglob("*") if item.is_file()):
-        if path.name == ".gitkeep":
+        if path.name in _IGNORED_EXPECTED_OUTPUT_FILES:
             continue
         key = path.relative_to(root).as_posix()
         snapshots[key] = normalize_snapshot_text(key, path.read_text(encoding="utf-8"))
@@ -145,7 +145,7 @@ def _list_expected_snapshot_keys(root: Path) -> list[str]:
     return [
         path.relative_to(root).as_posix()
         for path in sorted(item for item in root.rglob("*") if item.is_file())
-        if path.name != ".gitkeep"
+        if path.name not in _IGNORED_EXPECTED_OUTPUT_FILES
     ]
 
 
@@ -174,3 +174,6 @@ def _snapshot_diff(key: str, expected: str, actual: str) -> str:
             tofile=f"actual/{key}",
         )
     ).rstrip()
+
+
+_IGNORED_EXPECTED_OUTPUT_FILES = {".gitkeep", "manifest.yaml"}

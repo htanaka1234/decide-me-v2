@@ -1,0 +1,3 @@
+required_conflict_types:
+- decision-accepted-proposal-mismatch
+expected_count: 1

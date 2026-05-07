@@ -1,0 +1,5 @@
+readiness: conditional
+min_implementation_ready_count: 0
+min_action_count: 4
+max_blocker_count: 0
+require_no_unresolved_conflicts: true

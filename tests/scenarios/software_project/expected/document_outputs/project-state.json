@@ -1,0 +1,882 @@
+{
+  "counts": {
+    "by_relation": {
+      "accepts": 3,
+      "addresses": 7,
+      "recommends": 3,
+      "supports": 2,
+      "verifies": 1
+    },
+    "by_status": {
+      "accepted": 5,
+      "active": 11
+    },
+    "by_type": {
+      "action": 4,
+      "decision": 2,
+      "evidence": 2,
+      "objective": 1,
+      "option": 3,
+      "proposal": 3,
+      "verification": 1
+    },
+    "link_total": 16,
+    "object_total": 16
+  },
+  "graph": {
+    "edges": [
+      {
+        "link_id": "L-ACT-sr-refactor-addresses-DEC-sr-architecture",
+        "relation": "addresses",
+        "source_layer": "execution",
+        "source_object_id": "ACT-sr-refactor",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-sr-architecture"
+      },
+      {
+        "link_id": "L-DEC-sr-architecture-accepts-PRO-sr-modular",
+        "relation": "accepts",
+        "source_layer": "strategy",
+        "source_object_id": "DEC-sr-architecture",
+        "target_layer": "strategy",
+        "target_object_id": "PRO-sr-modular"
+      },
+      {
+        "link_id": "L-DEC-sr-architecture-accepts-PRO-sr-strangler",
+        "relation": "accepts",
+        "source_layer": "strategy",
+        "source_object_id": "DEC-sr-architecture",
+        "target_layer": "strategy",
+        "target_object_id": "PRO-sr-strangler"
+      },
+      {
+        "link_id": "L-DEC-sr-verification-accepts-PRO-sr-contract-tests",
+        "relation": "accepts",
+        "source_layer": "strategy",
+        "source_object_id": "DEC-sr-verification",
+        "target_layer": "strategy",
+        "target_object_id": "PRO-sr-contract-tests"
+      },
+      {
+        "link_id": "L-EVID-sr-codebase-supports-DEC-sr-architecture",
+        "relation": "supports",
+        "source_layer": "verification",
+        "source_object_id": "EVID-sr-codebase",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-sr-architecture"
+      },
+      {
+        "link_id": "L-EVID-sr-tests-supports-DEC-sr-verification",
+        "relation": "supports",
+        "source_layer": "verification",
+        "source_object_id": "EVID-sr-tests",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-sr-verification"
+      },
+      {
+        "link_id": "L-O-action-470248235ff0-addresses-DEC-sr-architecture",
+        "relation": "addresses",
+        "source_layer": "execution",
+        "source_object_id": "O-action-470248235ff0",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-sr-architecture"
+      },
+      {
+        "link_id": "L-O-action-619d40610f3e-addresses-DEC-sr-architecture",
+        "relation": "addresses",
+        "source_layer": "execution",
+        "source_object_id": "O-action-619d40610f3e",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-sr-architecture"
+      },
+      {
+        "link_id": "L-O-action-f2ff70233f0e-addresses-DEC-sr-verification",
+        "relation": "addresses",
+        "source_layer": "execution",
+        "source_object_id": "O-action-f2ff70233f0e",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-sr-verification"
+      },
+      {
+        "link_id": "L-PRO-sr-contract-tests-addresses-DEC-sr-verification",
+        "relation": "addresses",
+        "source_layer": "strategy",
+        "source_object_id": "PRO-sr-contract-tests",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-sr-verification"
+      },
+      {
+        "link_id": "L-PRO-sr-contract-tests-recommends-OPT-sr-contract-tests",
+        "relation": "recommends",
+        "source_layer": "strategy",
+        "source_object_id": "PRO-sr-contract-tests",
+        "target_layer": "strategy",
+        "target_object_id": "OPT-sr-contract-tests"
+      },
+      {
+        "link_id": "L-PRO-sr-modular-addresses-DEC-sr-architecture",
+        "relation": "addresses",
+        "source_layer": "strategy",
+        "source_object_id": "PRO-sr-modular",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-sr-architecture"
+      },
+      {
+        "link_id": "L-PRO-sr-modular-recommends-OPT-sr-modular",
+        "relation": "recommends",
+        "source_layer": "strategy",
+        "source_object_id": "PRO-sr-modular",
+        "target_layer": "strategy",
+        "target_object_id": "OPT-sr-modular"
+      },
+      {
+        "link_id": "L-PRO-sr-strangler-addresses-DEC-sr-architecture",
+        "relation": "addresses",
+        "source_layer": "strategy",
+        "source_object_id": "PRO-sr-strangler",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-sr-architecture"
+      },
+      {
+        "link_id": "L-PRO-sr-strangler-recommends-OPT-sr-strangler",
+        "relation": "recommends",
+        "source_layer": "strategy",
+        "source_object_id": "PRO-sr-strangler",
+        "target_layer": "strategy",
+        "target_object_id": "OPT-sr-strangler"
+      },
+      {
+        "link_id": "L-VER-sr-contract-verifies-ACT-sr-refactor",
+        "relation": "verifies",
+        "source_layer": "verification",
+        "source_object_id": "VER-sr-contract",
+        "target_layer": "execution",
+        "target_object_id": "ACT-sr-refactor"
+      }
+    ],
+    "inferred_candidates": [],
+    "nodes": [
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "execution",
+        "object_id": "ACT-sr-refactor",
+        "object_type": "action",
+        "status": "active",
+        "title": "Implement billing adapter extraction"
+      },
+      {
+        "is_frontier": true,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "DEC-sr-architecture",
+        "object_type": "decision",
+        "status": "accepted",
+        "title": "Billing refactor architecture"
+      },
+      {
+        "is_frontier": true,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "DEC-sr-verification",
+        "object_type": "decision",
+        "status": "accepted",
+        "title": "Billing refactor verification"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "verification",
+        "object_id": "EVID-sr-codebase",
+        "object_type": "evidence",
+        "status": "active",
+        "title": "Billing codebase map"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "verification",
+        "object_id": "EVID-sr-tests",
+        "object_type": "evidence",
+        "status": "active",
+        "title": "Billing regression tests"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "execution",
+        "object_id": "O-action-470248235ff0",
+        "object_type": "action",
+        "status": "active",
+        "title": "Billing refactor architecture"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "execution",
+        "object_id": "O-action-619d40610f3e",
+        "object_type": "action",
+        "status": "active",
+        "title": "Billing refactor architecture"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "execution",
+        "object_id": "O-action-f2ff70233f0e",
+        "object_type": "action",
+        "status": "active",
+        "title": "Billing refactor verification"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "purpose",
+        "object_id": "O-project-objective",
+        "object_type": "objective",
+        "status": "active",
+        "title": "Refactor approach and verification plan"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "OPT-sr-contract-tests",
+        "object_type": "option",
+        "status": "active",
+        "title": "Contract test verification"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "OPT-sr-modular",
+        "object_type": "option",
+        "status": "active",
+        "title": "Modular adapter refactor"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "OPT-sr-strangler",
+        "object_type": "option",
+        "status": "active",
+        "title": "Strangler facade refactor"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "PRO-sr-contract-tests",
+        "object_type": "proposal",
+        "status": "accepted",
+        "title": "Use contract and regression tests"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "PRO-sr-modular",
+        "object_type": "proposal",
+        "status": "accepted",
+        "title": "Extract a modular billing adapter"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "PRO-sr-strangler",
+        "object_type": "proposal",
+        "status": "accepted",
+        "title": "Use a strangler refactor"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "verification",
+        "object_id": "VER-sr-contract",
+        "object_type": "verification",
+        "status": "active",
+        "title": "Billing adapter contract verification"
+      }
+    ],
+    "resolved_conflicts": []
+  },
+  "links": [
+    {
+      "created_at": "2026-04-29T00:20:16Z",
+      "id": "L-ACT-sr-refactor-addresses-DEC-sr-architecture",
+      "rationale": "The action implements the accepted architecture decision.",
+      "relation": "addresses",
+      "source_event_ids": [
+        "E-sr-017"
+      ],
+      "source_object_id": "ACT-sr-refactor",
+      "target_object_id": "DEC-sr-architecture"
+    },
+    {
+      "created_at": "2026-04-29T00:20:10Z",
+      "id": "L-DEC-sr-architecture-accepts-PRO-sr-modular",
+      "rationale": "Base session accepted the modular adapter proposal.",
+      "relation": "accepts",
+      "source_event_ids": [
+        "E-sr-011"
+      ],
+      "source_object_id": "DEC-sr-architecture",
+      "target_object_id": "PRO-sr-modular"
+    },
+    {
+      "created_at": "2026-04-29T00:25:02Z",
+      "id": "L-DEC-sr-architecture-accepts-PRO-sr-strangler",
+      "rationale": "Alternate session accepted a different architecture proposal.",
+      "relation": "accepts",
+      "source_event_ids": [
+        "E-sr-alt-003"
+      ],
+      "source_object_id": "DEC-sr-architecture",
+      "target_object_id": "PRO-sr-strangler"
+    },
+    {
+      "created_at": "2026-04-29T00:20:12Z",
+      "id": "L-DEC-sr-verification-accepts-PRO-sr-contract-tests",
+      "rationale": "Contract tests were accepted as the verification strategy.",
+      "relation": "accepts",
+      "source_event_ids": [
+        "E-sr-013"
+      ],
+      "source_object_id": "DEC-sr-verification",
+      "target_object_id": "PRO-sr-contract-tests"
+    },
+    {
+      "created_at": "2026-04-29T00:20:14Z",
+      "id": "L-EVID-sr-codebase-supports-DEC-sr-architecture",
+      "rationale": "Codebase concentration supports adapter extraction.",
+      "relation": "supports",
+      "source_event_ids": [
+        "E-sr-015"
+      ],
+      "source_object_id": "EVID-sr-codebase",
+      "target_object_id": "DEC-sr-architecture"
+    },
+    {
+      "created_at": "2026-04-29T00:20:15Z",
+      "id": "L-EVID-sr-tests-supports-DEC-sr-verification",
+      "rationale": "Existing tests support the verification strategy.",
+      "relation": "supports",
+      "source_event_ids": [
+        "E-sr-016"
+      ],
+      "source_object_id": "EVID-sr-tests",
+      "target_object_id": "DEC-sr-verification"
+    },
+    {
+      "created_at": "2026-04-29T02:30:01Z",
+      "id": "L-O-action-470248235ff0-addresses-DEC-sr-architecture",
+      "rationale": "Strangler facade refactor",
+      "relation": "addresses",
+      "source_event_ids": [
+        "E-eval-software_project-close-0001-2d16d8fa-0002"
+      ],
+      "source_object_id": "O-action-470248235ff0",
+      "target_object_id": "DEC-sr-architecture"
+    },
+    {
+      "created_at": "2026-04-29T02:30:02Z",
+      "id": "L-O-action-619d40610f3e-addresses-DEC-sr-architecture",
+      "rationale": "Strangler facade refactor",
+      "relation": "addresses",
+      "source_event_ids": [
+        "E-eval-software_project-close-0002-31ad2071-0002"
+      ],
+      "source_object_id": "O-action-619d40610f3e",
+      "target_object_id": "DEC-sr-architecture"
+    },
+    {
+      "created_at": "2026-04-29T02:30:01Z",
+      "id": "L-O-action-f2ff70233f0e-addresses-DEC-sr-verification",
+      "rationale": "Contract test verification",
+      "relation": "addresses",
+      "source_event_ids": [
+        "E-eval-software_project-close-0001-2d16d8fa-0004"
+      ],
+      "source_object_id": "O-action-f2ff70233f0e",
+      "target_object_id": "DEC-sr-verification"
+    },
+    {
+      "created_at": "2026-04-29T00:20:19Z",
+      "id": "L-PRO-sr-contract-tests-addresses-DEC-sr-verification",
+      "rationale": "The contract-test proposal addresses the verification decision.",
+      "relation": "addresses",
+      "source_event_ids": [
+        "E-sr-020"
+      ],
+      "source_object_id": "PRO-sr-contract-tests",
+      "target_object_id": "DEC-sr-verification"
+    },
+    {
+      "created_at": "2026-04-29T00:20:13Z",
+      "id": "L-PRO-sr-contract-tests-recommends-OPT-sr-contract-tests",
+      "rationale": "The proposal recommends contract test verification.",
+      "relation": "recommends",
+      "source_event_ids": [
+        "E-sr-014"
+      ],
+      "source_object_id": "PRO-sr-contract-tests",
+      "target_object_id": "OPT-sr-contract-tests"
+    },
+    {
+      "created_at": "2026-04-29T00:20:18Z",
+      "id": "L-PRO-sr-modular-addresses-DEC-sr-architecture",
+      "rationale": "The modular proposal addresses the architecture decision.",
+      "relation": "addresses",
+      "source_event_ids": [
+        "E-sr-019"
+      ],
+      "source_object_id": "PRO-sr-modular",
+      "target_object_id": "DEC-sr-architecture"
+    },
+    {
+      "created_at": "2026-04-29T00:20:11Z",
+      "id": "L-PRO-sr-modular-recommends-OPT-sr-modular",
+      "rationale": "The proposal recommends the modular adapter option.",
+      "relation": "recommends",
+      "source_event_ids": [
+        "E-sr-012"
+      ],
+      "source_object_id": "PRO-sr-modular",
+      "target_object_id": "OPT-sr-modular"
+    },
+    {
+      "created_at": "2026-04-29T00:25:04Z",
+      "id": "L-PRO-sr-strangler-addresses-DEC-sr-architecture",
+      "rationale": "The strangler proposal addresses the architecture decision.",
+      "relation": "addresses",
+      "source_event_ids": [
+        "E-sr-alt-005"
+      ],
+      "source_object_id": "PRO-sr-strangler",
+      "target_object_id": "DEC-sr-architecture"
+    },
+    {
+      "created_at": "2026-04-29T00:25:03Z",
+      "id": "L-PRO-sr-strangler-recommends-OPT-sr-strangler",
+      "rationale": "The alternate proposal recommends the strangler option.",
+      "relation": "recommends",
+      "source_event_ids": [
+        "E-sr-alt-004"
+      ],
+      "source_object_id": "PRO-sr-strangler",
+      "target_object_id": "OPT-sr-strangler"
+    },
+    {
+      "created_at": "2026-04-29T00:20:17Z",
+      "id": "L-VER-sr-contract-verifies-ACT-sr-refactor",
+      "rationale": "Contract tests verify the implementation action.",
+      "relation": "verifies",
+      "source_event_ids": [
+        "E-sr-018"
+      ],
+      "source_object_id": "VER-sr-contract",
+      "target_object_id": "ACT-sr-refactor"
+    }
+  ],
+  "objects": [
+    {
+      "body": "Create the adapter and migrate the first invoice call path.",
+      "created_at": "2026-04-29T00:20:08Z",
+      "id": "ACT-sr-refactor",
+      "metadata": {
+        "decision_id": "DEC-sr-architecture",
+        "evidence_backed": true,
+        "evidence_source": "codebase",
+        "implementation_ready": true,
+        "kind": "implementation",
+        "next_step": "Implement the adapter boundary and migrate one billing path.",
+        "origin_session_id": "S-software-refactor-base",
+        "priority": "P0",
+        "resolvable_by": "codebase",
+        "responsibility": "platform",
+        "reversibility": "reversible"
+      },
+      "source_event_ids": [
+        "E-sr-009"
+      ],
+      "status": "active",
+      "title": "Implement billing adapter extraction",
+      "type": "action",
+      "updated_at": null
+    },
+    {
+      "body": "Choose the architecture for extracting billing integration behavior.",
+      "created_at": "2026-04-29T00:20:00Z",
+      "id": "DEC-sr-architecture",
+      "metadata": {
+        "domain_criteria": [
+          "maintainability",
+          "scalability",
+          "operability",
+          "testability"
+        ],
+        "domain_decision_type": "architecture_choice",
+        "domain_pack_digest": "DP-03c7ea952955",
+        "domain_pack_id": "software",
+        "domain_pack_version": "0.1.0",
+        "frontier": "now",
+        "priority": "P0",
+        "resolvable_by": "human",
+        "reversibility": "hard-to-reverse"
+      },
+      "source_event_ids": [
+        "E-sr-001"
+      ],
+      "status": "accepted",
+      "title": "Billing refactor architecture",
+      "type": "decision",
+      "updated_at": null
+    },
+    {
+      "body": "Choose the verification strategy for the billing refactor.",
+      "created_at": "2026-04-29T00:20:03Z",
+      "id": "DEC-sr-verification",
+      "metadata": {
+        "domain_criteria": [
+          "testability",
+          "delivery_risk"
+        ],
+        "domain_decision_type": "verification_strategy",
+        "domain_pack_digest": "DP-03c7ea952955",
+        "domain_pack_id": "software",
+        "domain_pack_version": "0.1.0",
+        "frontier": "now",
+        "priority": "P1",
+        "resolvable_by": "human",
+        "reversibility": "reversible"
+      },
+      "source_event_ids": [
+        "E-sr-004"
+      ],
+      "status": "accepted",
+      "title": "Billing refactor verification",
+      "type": "decision",
+      "updated_at": null
+    },
+    {
+      "body": "Current billing calls are concentrated in three modules.",
+      "created_at": "2026-04-29T00:20:06Z",
+      "id": "EVID-sr-codebase",
+      "metadata": {
+        "confidence": "high",
+        "domain_evidence_type": "implementation",
+        "domain_pack_digest": "DP-03c7ea952955",
+        "domain_pack_id": "software",
+        "domain_pack_version": "0.1.0",
+        "evidence_requirement_id": "codebase_context",
+        "freshness": "current",
+        "observed_at": "2026-04-29T00:18:00Z",
+        "source": "codebase",
+        "source_ref": "app/billing",
+        "summary": "Billing provider calls are concentrated enough for an adapter extraction.",
+        "valid_until": null
+      },
+      "source_event_ids": [
+        "E-sr-007"
+      ],
+      "status": "active",
+      "title": "Billing codebase map",
+      "type": "evidence",
+      "updated_at": null
+    },
+    {
+      "body": "Existing tests cover invoice total and retry behavior.",
+      "created_at": "2026-04-29T00:20:07Z",
+      "id": "EVID-sr-tests",
+      "metadata": {
+        "confidence": "medium",
+        "domain_evidence_type": "tests",
+        "domain_pack_digest": "DP-03c7ea952955",
+        "domain_pack_id": "software",
+        "domain_pack_version": "0.1.0",
+        "evidence_requirement_id": "test_coverage",
+        "freshness": "current",
+        "observed_at": "2026-04-29T00:19:00Z",
+        "source": "tests",
+        "source_ref": "tests/test_billing.py",
+        "summary": "Regression tests cover the core billing behavior that must survive the refactor.",
+        "valid_until": null
+      },
+      "source_event_ids": [
+        "E-sr-008"
+      ],
+      "status": "active",
+      "title": "Billing regression tests",
+      "type": "evidence",
+      "updated_at": null
+    },
+    {
+      "body": "Strangler facade refactor",
+      "created_at": "2026-04-29T02:30:01Z",
+      "id": "O-action-470248235ff0",
+      "metadata": {
+        "decision_id": "DEC-sr-architecture",
+        "decision_status": "accepted",
+        "evidence": [
+          "app/billing"
+        ],
+        "evidence_backed": true,
+        "evidence_source": "codebase",
+        "implementation_ready": false,
+        "kind": "choice",
+        "next_step": "Drive Billing refactor architecture to completion.",
+        "origin_session_id": "S-software-refactor-base",
+        "priority": "P0",
+        "resolvable_by": "human",
+        "responsibility": "other",
+        "reversibility": "hard-to-reverse"
+      },
+      "source_event_ids": [
+        "E-eval-software_project-close-0001-2d16d8fa-0001"
+      ],
+      "status": "active",
+      "title": "Billing refactor architecture",
+      "type": "action",
+      "updated_at": null
+    },
+    {
+      "body": "Strangler facade refactor",
+      "created_at": "2026-04-29T02:30:02Z",
+      "id": "O-action-619d40610f3e",
+      "metadata": {
+        "decision_id": "DEC-sr-architecture",
+        "decision_status": "accepted",
+        "evidence": [
+          "app/billing"
+        ],
+        "evidence_backed": true,
+        "evidence_source": "codebase",
+        "implementation_ready": false,
+        "kind": "choice",
+        "next_step": "Drive Billing refactor architecture to completion.",
+        "origin_session_id": "S-software-refactor-alt",
+        "priority": "P0",
+        "resolvable_by": "human",
+        "responsibility": "other",
+        "reversibility": "hard-to-reverse"
+      },
+      "source_event_ids": [
+        "E-eval-software_project-close-0002-31ad2071-0001"
+      ],
+      "status": "active",
+      "title": "Billing refactor architecture",
+      "type": "action",
+      "updated_at": null
+    },
+    {
+      "body": "Contract test verification",
+      "created_at": "2026-04-29T02:30:01Z",
+      "id": "O-action-f2ff70233f0e",
+      "metadata": {
+        "decision_id": "DEC-sr-verification",
+        "decision_status": "accepted",
+        "evidence": [
+          "tests/test_billing.py"
+        ],
+        "evidence_backed": true,
+        "evidence_source": "tests",
+        "implementation_ready": false,
+        "kind": "choice",
+        "next_step": "Drive Billing refactor verification to completion.",
+        "origin_session_id": "S-software-refactor-base",
+        "priority": "P1",
+        "resolvable_by": "human",
+        "responsibility": "other",
+        "reversibility": "reversible"
+      },
+      "source_event_ids": [
+        "E-eval-software_project-close-0001-2d16d8fa-0003"
+      ],
+      "status": "active",
+      "title": "Billing refactor verification",
+      "type": "action",
+      "updated_at": null
+    },
+    {
+      "body": "Refactor the billing integration without disrupting releases.",
+      "created_at": "2026-04-29T00:00:00Z",
+      "id": "O-project-objective",
+      "metadata": {
+        "project_name": "Demo software project",
+        "stop_rule": "All relevant P0 decisions with frontier=now are resolved, accepted, or explicitly deferred."
+      },
+      "source_event_ids": [
+        "E-eval-software_project-project"
+      ],
+      "status": "active",
+      "title": "Refactor approach and verification plan",
+      "type": "objective",
+      "updated_at": null
+    },
+    {
+      "body": "Verify the adapter with contract and regression tests before switching traffic.",
+      "created_at": "2026-04-29T00:20:05Z",
+      "id": "OPT-sr-contract-tests",
+      "metadata": {},
+      "source_event_ids": [
+        "E-sr-006"
+      ],
+      "status": "active",
+      "title": "Contract test verification",
+      "type": "option",
+      "updated_at": null
+    },
+    {
+      "body": "Introduce an adapter boundary and migrate call sites incrementally.",
+      "created_at": "2026-04-29T00:20:02Z",
+      "id": "OPT-sr-modular",
+      "metadata": {},
+      "source_event_ids": [
+        "E-sr-003"
+      ],
+      "status": "active",
+      "title": "Modular adapter refactor",
+      "type": "option",
+      "updated_at": null
+    },
+    {
+      "body": "Introduce a facade and switch traffic gradually before moving internals.",
+      "created_at": "2026-04-29T00:25:01Z",
+      "id": "OPT-sr-strangler",
+      "metadata": {},
+      "source_event_ids": [
+        "E-sr-alt-002"
+      ],
+      "status": "active",
+      "title": "Strangler facade refactor",
+      "type": "option",
+      "updated_at": null
+    },
+    {
+      "body": "Add contract tests around billing provider calls and regression coverage for invoices.",
+      "created_at": "2026-04-29T00:20:04Z",
+      "id": "PRO-sr-contract-tests",
+      "metadata": {
+        "origin_session_id": "S-software-refactor-base"
+      },
+      "source_event_ids": [
+        "E-sr-005"
+      ],
+      "status": "accepted",
+      "title": "Use contract and regression tests",
+      "type": "proposal",
+      "updated_at": null
+    },
+    {
+      "body": "Move billing integration behind a modular adapter while preserving the existing release path.",
+      "created_at": "2026-04-29T00:20:01Z",
+      "id": "PRO-sr-modular",
+      "metadata": {
+        "origin_session_id": "S-software-refactor-base"
+      },
+      "source_event_ids": [
+        "E-sr-002"
+      ],
+      "status": "accepted",
+      "title": "Extract a modular billing adapter",
+      "type": "proposal",
+      "updated_at": null
+    },
+    {
+      "body": "Route billing through a strangler facade before extracting the adapter.",
+      "created_at": "2026-04-29T00:25:00Z",
+      "id": "PRO-sr-strangler",
+      "metadata": {
+        "origin_session_id": "S-software-refactor-alt"
+      },
+      "source_event_ids": [
+        "E-sr-alt-001"
+      ],
+      "status": "accepted",
+      "title": "Use a strangler refactor",
+      "type": "proposal",
+      "updated_at": null
+    },
+    {
+      "body": "Contract tests pass against the adapter boundary.",
+      "created_at": "2026-04-29T00:20:09Z",
+      "id": "VER-sr-contract",
+      "metadata": {
+        "expected_result": "Billing adapter contract and invoice regression tests pass.",
+        "method": "test",
+        "result": "pending",
+        "verified_at": null
+      },
+      "source_event_ids": [
+        "E-sr-010"
+      ],
+      "status": "active",
+      "title": "Billing adapter contract verification",
+      "type": "verification",
+      "updated_at": null
+    }
+  ],
+  "project": {
+    "current_milestone": "Refactor approach and verification plan",
+    "name": "Demo software project",
+    "objective": "Refactor the billing integration without disrupting releases.",
+    "stop_rule": "All relevant P0 decisions with frontier=now are resolved, accepted, or explicitly deferred."
+  },
+  "protocol": {
+    "close_policy": "generate-close-summary-on-close",
+    "plain_ok_scope": "same-session-active-proposal-only",
+    "proposal_expiry_rules": [
+      "project-head-changed",
+      "session-boundary",
+      "superseded-proposal",
+      "decision-invalidated",
+      "session-closed"
+    ]
+  },
+  "schema_version": 12,
+  "sessions_index": {
+    "S-software-refactor-alt": {
+      "bound_context_hint": "Record a conflicting architecture proposal from a later refactor discussion.",
+      "closed_at": "2026-04-29T02:30:02Z",
+      "id": "S-software-refactor-alt",
+      "last_seen_at": "2026-04-29T02:30:02Z",
+      "related_object_ids": [
+        "PRO-sr-strangler",
+        "OPT-sr-strangler",
+        "DEC-sr-architecture",
+        "O-action-619d40610f3e"
+      ],
+      "started_at": "2026-04-29T00:00:02Z",
+      "status": "closed"
+    },
+    "S-software-refactor-base": {
+      "bound_context_hint": "Choose the baseline billing refactor architecture and verification plan.",
+      "closed_at": "2026-04-29T02:30:01Z",
+      "id": "S-software-refactor-base",
+      "last_seen_at": "2026-04-29T02:30:01Z",
+      "related_object_ids": [
+        "DEC-sr-architecture",
+        "PRO-sr-modular",
+        "OPT-sr-modular",
+        "DEC-sr-verification",
+        "PRO-sr-contract-tests",
+        "OPT-sr-contract-tests",
+        "EVID-sr-codebase",
+        "EVID-sr-tests",
+        "ACT-sr-refactor",
+        "VER-sr-contract",
+        "O-action-470248235ff0",
+        "O-action-f2ff70233f0e"
+      ],
+      "started_at": "2026-04-29T00:00:01Z",
+      "status": "closed"
+    }
+  },
+  "state": {
+    "event_count": 38,
+    "updated_at": "2026-04-29T02:30:02Z"
+  }
+}

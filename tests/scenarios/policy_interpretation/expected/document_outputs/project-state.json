@@ -1,0 +1,730 @@
+{
+  "counts": {
+    "by_relation": {
+      "accepts": 2,
+      "addresses": 5,
+      "constrains": 1,
+      "mitigates": 1,
+      "recommends": 2,
+      "supports": 2
+    },
+    "by_status": {
+      "accepted": 4,
+      "active": 9
+    },
+    "by_type": {
+      "action": 3,
+      "assumption": 1,
+      "decision": 2,
+      "evidence": 1,
+      "objective": 1,
+      "option": 2,
+      "proposal": 2,
+      "risk": 1
+    },
+    "link_total": 13,
+    "object_total": 13
+  },
+  "graph": {
+    "edges": [
+      {
+        "link_id": "L-ACT-pi-review-addresses-DEC-pi-review",
+        "relation": "addresses",
+        "source_layer": "execution",
+        "source_object_id": "ACT-pi-review",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-pi-review"
+      },
+      {
+        "link_id": "L-ACT-pi-review-mitigates-RISK-pi-precedent",
+        "relation": "mitigates",
+        "source_layer": "execution",
+        "source_object_id": "ACT-pi-review",
+        "target_layer": "constraint",
+        "target_object_id": "RISK-pi-precedent"
+      },
+      {
+        "link_id": "L-ASSUMP-pi-current-policy-constrains-DEC-pi-scope",
+        "relation": "constrains",
+        "source_layer": "constraint",
+        "source_object_id": "ASSUMP-pi-current-policy",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-pi-scope"
+      },
+      {
+        "link_id": "L-DEC-pi-review-accepts-PRO-pi-manager-review",
+        "relation": "accepts",
+        "source_layer": "strategy",
+        "source_object_id": "DEC-pi-review",
+        "target_layer": "strategy",
+        "target_object_id": "PRO-pi-manager-review"
+      },
+      {
+        "link_id": "L-DEC-pi-scope-accepts-PRO-pi-limited-exception",
+        "relation": "accepts",
+        "source_layer": "strategy",
+        "source_object_id": "DEC-pi-scope",
+        "target_layer": "strategy",
+        "target_object_id": "PRO-pi-limited-exception"
+      },
+      {
+        "link_id": "L-EVID-pi-policy-supports-DEC-pi-review",
+        "relation": "supports",
+        "source_layer": "verification",
+        "source_object_id": "EVID-pi-policy",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-pi-review"
+      },
+      {
+        "link_id": "L-EVID-pi-policy-supports-DEC-pi-scope",
+        "relation": "supports",
+        "source_layer": "verification",
+        "source_object_id": "EVID-pi-policy",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-pi-scope"
+      },
+      {
+        "link_id": "L-O-action-4237a384a46d-addresses-DEC-pi-scope",
+        "relation": "addresses",
+        "source_layer": "execution",
+        "source_object_id": "O-action-4237a384a46d",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-pi-scope"
+      },
+      {
+        "link_id": "L-O-action-9f0f8d7f732b-addresses-DEC-pi-review",
+        "relation": "addresses",
+        "source_layer": "execution",
+        "source_object_id": "O-action-9f0f8d7f732b",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-pi-review"
+      },
+      {
+        "link_id": "L-PRO-pi-limited-exception-addresses-DEC-pi-scope",
+        "relation": "addresses",
+        "source_layer": "strategy",
+        "source_object_id": "PRO-pi-limited-exception",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-pi-scope"
+      },
+      {
+        "link_id": "L-PRO-pi-limited-exception-recommends-OPT-pi-limited-exception",
+        "relation": "recommends",
+        "source_layer": "strategy",
+        "source_object_id": "PRO-pi-limited-exception",
+        "target_layer": "strategy",
+        "target_object_id": "OPT-pi-limited-exception"
+      },
+      {
+        "link_id": "L-PRO-pi-manager-review-addresses-DEC-pi-review",
+        "relation": "addresses",
+        "source_layer": "strategy",
+        "source_object_id": "PRO-pi-manager-review",
+        "target_layer": "strategy",
+        "target_object_id": "DEC-pi-review"
+      },
+      {
+        "link_id": "L-PRO-pi-manager-review-recommends-OPT-pi-manager-review",
+        "relation": "recommends",
+        "source_layer": "strategy",
+        "source_object_id": "PRO-pi-manager-review",
+        "target_layer": "strategy",
+        "target_object_id": "OPT-pi-manager-review"
+      }
+    ],
+    "inferred_candidates": [],
+    "nodes": [
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "execution",
+        "object_id": "ACT-pi-review",
+        "object_type": "action",
+        "status": "active",
+        "title": "Request manager policy review"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "constraint",
+        "object_id": "ASSUMP-pi-current-policy",
+        "object_type": "assumption",
+        "status": "active",
+        "title": "Current policy assumption"
+      },
+      {
+        "is_frontier": true,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "DEC-pi-review",
+        "object_type": "decision",
+        "status": "accepted",
+        "title": "Policy review constraint"
+      },
+      {
+        "is_frontier": true,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "DEC-pi-scope",
+        "object_type": "decision",
+        "status": "accepted",
+        "title": "Policy exception scope"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "verification",
+        "object_id": "EVID-pi-policy",
+        "object_type": "evidence",
+        "status": "active",
+        "title": "Policy excerpt"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "execution",
+        "object_id": "O-action-4237a384a46d",
+        "object_type": "action",
+        "status": "active",
+        "title": "Policy exception scope"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "execution",
+        "object_id": "O-action-9f0f8d7f732b",
+        "object_type": "action",
+        "status": "active",
+        "title": "Policy review constraint"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "purpose",
+        "object_id": "O-project-objective",
+        "object_type": "objective",
+        "status": "active",
+        "title": "Policy interpretation recommendation"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "OPT-pi-limited-exception",
+        "object_type": "option",
+        "status": "active",
+        "title": "Limited documented exception"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "OPT-pi-manager-review",
+        "object_type": "option",
+        "status": "active",
+        "title": "Manager review before rollout"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "PRO-pi-limited-exception",
+        "object_type": "proposal",
+        "status": "accepted",
+        "title": "Limited reviewed exception"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "strategy",
+        "object_id": "PRO-pi-manager-review",
+        "object_type": "proposal",
+        "status": "accepted",
+        "title": "Require manager review"
+      },
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "constraint",
+        "object_id": "RISK-pi-precedent",
+        "object_type": "risk",
+        "status": "active",
+        "title": "Policy misinterpretation risk"
+      }
+    ],
+    "resolved_conflicts": []
+  },
+  "links": [
+    {
+      "created_at": "2026-04-29T00:20:13Z",
+      "id": "L-ACT-pi-review-addresses-DEC-pi-review",
+      "rationale": "Manager review implements the review constraint.",
+      "relation": "addresses",
+      "source_event_ids": [
+        "E-pi-014"
+      ],
+      "source_object_id": "ACT-pi-review",
+      "target_object_id": "DEC-pi-review"
+    },
+    {
+      "created_at": "2026-04-29T00:20:14Z",
+      "id": "L-ACT-pi-review-mitigates-RISK-pi-precedent",
+      "rationale": "Manager review mitigates precedent risk.",
+      "relation": "mitigates",
+      "source_event_ids": [
+        "E-pi-015"
+      ],
+      "source_object_id": "ACT-pi-review",
+      "target_object_id": "RISK-pi-precedent"
+    },
+    {
+      "created_at": "2026-04-29T00:20:12Z",
+      "id": "L-ASSUMP-pi-current-policy-constrains-DEC-pi-scope",
+      "rationale": "The interpretation depends on the policy excerpt being current.",
+      "relation": "constrains",
+      "source_event_ids": [
+        "E-pi-013"
+      ],
+      "source_object_id": "ASSUMP-pi-current-policy",
+      "target_object_id": "DEC-pi-scope"
+    },
+    {
+      "created_at": "2026-04-29T00:20:09Z",
+      "id": "L-DEC-pi-review-accepts-PRO-pi-manager-review",
+      "rationale": "Accepted manager review constraint.",
+      "relation": "accepts",
+      "source_event_ids": [
+        "E-pi-010"
+      ],
+      "source_object_id": "DEC-pi-review",
+      "target_object_id": "PRO-pi-manager-review"
+    },
+    {
+      "created_at": "2026-04-29T00:20:08Z",
+      "id": "L-DEC-pi-scope-accepts-PRO-pi-limited-exception",
+      "rationale": "Accepted limited exception interpretation.",
+      "relation": "accepts",
+      "source_event_ids": [
+        "E-pi-009"
+      ],
+      "source_object_id": "DEC-pi-scope",
+      "target_object_id": "PRO-pi-limited-exception"
+    },
+    {
+      "created_at": "2026-04-29T00:20:11Z",
+      "id": "L-EVID-pi-policy-supports-DEC-pi-review",
+      "rationale": "The policy excerpt supports the review constraint.",
+      "relation": "supports",
+      "source_event_ids": [
+        "E-pi-012"
+      ],
+      "source_object_id": "EVID-pi-policy",
+      "target_object_id": "DEC-pi-review"
+    },
+    {
+      "created_at": "2026-04-29T00:20:10Z",
+      "id": "L-EVID-pi-policy-supports-DEC-pi-scope",
+      "rationale": "The policy excerpt supports the exception interpretation.",
+      "relation": "supports",
+      "source_event_ids": [
+        "E-pi-011"
+      ],
+      "source_object_id": "EVID-pi-policy",
+      "target_object_id": "DEC-pi-scope"
+    },
+    {
+      "created_at": "2026-04-29T02:30:01Z",
+      "id": "L-O-action-4237a384a46d-addresses-DEC-pi-scope",
+      "rationale": "Limited documented exception",
+      "relation": "addresses",
+      "source_event_ids": [
+        "E-eval-policy_interpretation-close-0001-5465c2c1-0004"
+      ],
+      "source_object_id": "O-action-4237a384a46d",
+      "target_object_id": "DEC-pi-scope"
+    },
+    {
+      "created_at": "2026-04-29T02:30:01Z",
+      "id": "L-O-action-9f0f8d7f732b-addresses-DEC-pi-review",
+      "rationale": "Manager review before rollout",
+      "relation": "addresses",
+      "source_event_ids": [
+        "E-eval-policy_interpretation-close-0001-5465c2c1-0002"
+      ],
+      "source_object_id": "O-action-9f0f8d7f732b",
+      "target_object_id": "DEC-pi-review"
+    },
+    {
+      "created_at": "2026-04-29T00:20:15Z",
+      "id": "L-PRO-pi-limited-exception-addresses-DEC-pi-scope",
+      "rationale": "Limited exception proposal addresses the scope decision.",
+      "relation": "addresses",
+      "source_event_ids": [
+        "E-pi-016"
+      ],
+      "source_object_id": "PRO-pi-limited-exception",
+      "target_object_id": "DEC-pi-scope"
+    },
+    {
+      "created_at": "2026-04-29T00:20:19Z",
+      "id": "L-PRO-pi-limited-exception-recommends-OPT-pi-limited-exception",
+      "rationale": "The proposal recommends a limited documented exception.",
+      "relation": "recommends",
+      "source_event_ids": [
+        "E-pi-020"
+      ],
+      "source_object_id": "PRO-pi-limited-exception",
+      "target_object_id": "OPT-pi-limited-exception"
+    },
+    {
+      "created_at": "2026-04-29T00:20:16Z",
+      "id": "L-PRO-pi-manager-review-addresses-DEC-pi-review",
+      "rationale": "Manager review proposal addresses the review decision.",
+      "relation": "addresses",
+      "source_event_ids": [
+        "E-pi-017"
+      ],
+      "source_object_id": "PRO-pi-manager-review",
+      "target_object_id": "DEC-pi-review"
+    },
+    {
+      "created_at": "2026-04-29T00:20:20Z",
+      "id": "L-PRO-pi-manager-review-recommends-OPT-pi-manager-review",
+      "rationale": "The proposal recommends manager review before rollout.",
+      "relation": "recommends",
+      "source_event_ids": [
+        "E-pi-021"
+      ],
+      "source_object_id": "PRO-pi-manager-review",
+      "target_object_id": "OPT-pi-manager-review"
+    }
+  ],
+  "objects": [
+    {
+      "body": "Send the rationale and exception conditions to the manager for review.",
+      "created_at": "2026-04-29T00:20:07Z",
+      "id": "ACT-pi-review",
+      "metadata": {
+        "decision_id": "DEC-pi-review",
+        "evidence_backed": true,
+        "evidence_source": "EVID-pi-policy",
+        "implementation_ready": true,
+        "kind": "review",
+        "next_step": "Send documented rationale and conditions to the manager.",
+        "origin_session_id": "S-policy-interpretation",
+        "priority": "P0",
+        "resolvable_by": "human",
+        "responsibility": "policy-owner",
+        "reversibility": "reversible"
+      },
+      "source_event_ids": [
+        "E-pi-008"
+      ],
+      "status": "active",
+      "title": "Request manager policy review",
+      "type": "action",
+      "updated_at": null
+    },
+    {
+      "body": "The policy excerpt is the currently effective guidance for this request.",
+      "created_at": "2026-04-29T00:20:05Z",
+      "id": "ASSUMP-pi-current-policy",
+      "metadata": {
+        "confidence": "medium",
+        "expires_at": null,
+        "invalidates_if_false": [
+          "DEC-pi-scope",
+          "DEC-pi-review"
+        ],
+        "owner": "policy-owner",
+        "statement": "The policy excerpt is current for this request.",
+        "validation": "Confirm with policy owner before rollout."
+      },
+      "source_event_ids": [
+        "E-pi-006"
+      ],
+      "status": "active",
+      "title": "Current policy assumption",
+      "type": "assumption",
+      "updated_at": null
+    },
+    {
+      "body": "Resolve the review constraint before the exception can roll out.",
+      "created_at": "2026-04-29T00:20:01Z",
+      "id": "DEC-pi-review",
+      "metadata": {
+        "domain_criteria": [
+          "feasibility",
+          "risk_awareness"
+        ],
+        "domain_decision_type": "resolve_constraint",
+        "domain_pack_digest": "DP-93bf8d37f00b",
+        "domain_pack_id": "generic",
+        "domain_pack_version": "0.1.0",
+        "frontier": "now",
+        "priority": "P0",
+        "resolvable_by": "human",
+        "reversibility": "hard-to-reverse"
+      },
+      "source_event_ids": [
+        "E-pi-002"
+      ],
+      "status": "accepted",
+      "title": "Policy review constraint",
+      "type": "decision",
+      "updated_at": null
+    },
+    {
+      "body": "Clarify whether a limited exception can proceed under the policy excerpt.",
+      "created_at": "2026-04-29T00:20:00Z",
+      "id": "DEC-pi-scope",
+      "metadata": {
+        "domain_criteria": [
+          "clarity",
+          "relevance"
+        ],
+        "domain_decision_type": "clarify_goal",
+        "domain_pack_digest": "DP-93bf8d37f00b",
+        "domain_pack_id": "generic",
+        "domain_pack_version": "0.1.0",
+        "frontier": "now",
+        "priority": "P0",
+        "resolvable_by": "human",
+        "reversibility": "reversible"
+      },
+      "source_event_ids": [
+        "E-pi-001"
+      ],
+      "status": "accepted",
+      "title": "Policy exception scope",
+      "type": "decision",
+      "updated_at": null
+    },
+    {
+      "body": "Exceptions require documented rationale, owner, and manager review.",
+      "created_at": "2026-04-29T00:20:04Z",
+      "id": "EVID-pi-policy",
+      "metadata": {
+        "confidence": "high",
+        "domain_pack_digest": "DP-93bf8d37f00b",
+        "domain_pack_id": "generic",
+        "domain_pack_version": "0.1.0",
+        "freshness": "current",
+        "observed_at": "2026-04-29T00:19:00Z",
+        "source": "docs",
+        "source_ref": "docs/policy-excerpt.md",
+        "summary": "The policy excerpt defines the required review and rationale conditions.",
+        "valid_until": null
+      },
+      "source_event_ids": [
+        "E-pi-005"
+      ],
+      "status": "active",
+      "title": "Policy excerpt",
+      "type": "evidence",
+      "updated_at": null
+    },
+    {
+      "body": "Limited documented exception",
+      "created_at": "2026-04-29T02:30:01Z",
+      "id": "O-action-4237a384a46d",
+      "metadata": {
+        "decision_id": "DEC-pi-scope",
+        "decision_status": "accepted",
+        "evidence": [
+          "docs/policy-excerpt.md"
+        ],
+        "evidence_backed": true,
+        "evidence_source": "docs",
+        "implementation_ready": false,
+        "kind": "choice",
+        "next_step": "Drive Policy exception scope to completion.",
+        "origin_session_id": "S-policy-interpretation",
+        "priority": "P0",
+        "resolvable_by": "human",
+        "responsibility": "other",
+        "reversibility": "reversible"
+      },
+      "source_event_ids": [
+        "E-eval-policy_interpretation-close-0001-5465c2c1-0003"
+      ],
+      "status": "active",
+      "title": "Policy exception scope",
+      "type": "action",
+      "updated_at": null
+    },
+    {
+      "body": "Manager review before rollout",
+      "created_at": "2026-04-29T02:30:01Z",
+      "id": "O-action-9f0f8d7f732b",
+      "metadata": {
+        "decision_id": "DEC-pi-review",
+        "decision_status": "accepted",
+        "evidence": [
+          "docs/policy-excerpt.md"
+        ],
+        "evidence_backed": true,
+        "evidence_source": "docs",
+        "implementation_ready": false,
+        "kind": "choice",
+        "next_step": "Drive Policy review constraint to completion.",
+        "origin_session_id": "S-policy-interpretation",
+        "priority": "P0",
+        "resolvable_by": "human",
+        "responsibility": "other",
+        "reversibility": "hard-to-reverse"
+      },
+      "source_event_ids": [
+        "E-eval-policy_interpretation-close-0001-5465c2c1-0001"
+      ],
+      "status": "active",
+      "title": "Policy review constraint",
+      "type": "action",
+      "updated_at": null
+    },
+    {
+      "body": "Interpret an internal policy exception with rationale, risk, and action follow-up.",
+      "created_at": "2026-04-29T00:00:00Z",
+      "id": "O-project-objective",
+      "metadata": {
+        "project_name": "Demo policy project",
+        "stop_rule": "All relevant P0 decisions with frontier=now are resolved, accepted, or explicitly deferred."
+      },
+      "source_event_ids": [
+        "E-eval-policy_interpretation-project"
+      ],
+      "status": "active",
+      "title": "Policy interpretation recommendation",
+      "type": "objective",
+      "updated_at": null
+    },
+    {
+      "body": "Limited exception with documented rationale and owner.",
+      "created_at": "2026-04-29T00:20:17Z",
+      "id": "OPT-pi-limited-exception",
+      "metadata": {},
+      "source_event_ids": [
+        "E-pi-018"
+      ],
+      "status": "active",
+      "title": "Limited documented exception",
+      "type": "option",
+      "updated_at": null
+    },
+    {
+      "body": "Manager reviews the rationale before rollout.",
+      "created_at": "2026-04-29T00:20:18Z",
+      "id": "OPT-pi-manager-review",
+      "metadata": {},
+      "source_event_ids": [
+        "E-pi-019"
+      ],
+      "status": "active",
+      "title": "Manager review before rollout",
+      "type": "option",
+      "updated_at": null
+    },
+    {
+      "body": "Allow a limited exception only after manager review and documented rationale.",
+      "created_at": "2026-04-29T00:20:02Z",
+      "id": "PRO-pi-limited-exception",
+      "metadata": {
+        "origin_session_id": "S-policy-interpretation"
+      },
+      "source_event_ids": [
+        "E-pi-003"
+      ],
+      "status": "accepted",
+      "title": "Limited reviewed exception",
+      "type": "proposal",
+      "updated_at": null
+    },
+    {
+      "body": "Manager review is required before rollout.",
+      "created_at": "2026-04-29T00:20:03Z",
+      "id": "PRO-pi-manager-review",
+      "metadata": {
+        "origin_session_id": "S-policy-interpretation"
+      },
+      "source_event_ids": [
+        "E-pi-004"
+      ],
+      "status": "accepted",
+      "title": "Require manager review",
+      "type": "proposal",
+      "updated_at": null
+    },
+    {
+      "body": "Misreading the exception policy could create an unmanaged precedent.",
+      "created_at": "2026-04-29T00:20:06Z",
+      "id": "RISK-pi-precedent",
+      "metadata": {
+        "approval_threshold": "explicit_acceptance",
+        "domain_pack_digest": "DP-93bf8d37f00b",
+        "domain_pack_id": "generic",
+        "domain_pack_version": "0.1.0",
+        "likelihood": "medium",
+        "mitigation_object_ids": [
+          "ACT-pi-review"
+        ],
+        "reversibility": "partially_reversible",
+        "risk_tier": "medium",
+        "severity": "medium",
+        "statement": "Misreading the policy could create an unmanaged precedent."
+      },
+      "source_event_ids": [
+        "E-pi-007"
+      ],
+      "status": "active",
+      "title": "Policy misinterpretation risk",
+      "type": "risk",
+      "updated_at": null
+    }
+  ],
+  "project": {
+    "current_milestone": "Policy interpretation recommendation",
+    "name": "Demo policy project",
+    "objective": "Interpret an internal policy exception with rationale, risk, and action follow-up.",
+    "stop_rule": "All relevant P0 decisions with frontier=now are resolved, accepted, or explicitly deferred."
+  },
+  "protocol": {
+    "close_policy": "generate-close-summary-on-close",
+    "plain_ok_scope": "same-session-active-proposal-only",
+    "proposal_expiry_rules": [
+      "project-head-changed",
+      "session-boundary",
+      "superseded-proposal",
+      "decision-invalidated",
+      "session-closed"
+    ]
+  },
+  "schema_version": 12,
+  "sessions_index": {
+    "S-policy-interpretation": {
+      "bound_context_hint": "Interpret whether a limited exception can proceed under the policy excerpt.",
+      "closed_at": "2026-04-29T02:30:01Z",
+      "id": "S-policy-interpretation",
+      "last_seen_at": "2026-04-29T02:30:01Z",
+      "related_object_ids": [
+        "DEC-pi-scope",
+        "DEC-pi-review",
+        "PRO-pi-limited-exception",
+        "PRO-pi-manager-review",
+        "EVID-pi-policy",
+        "ASSUMP-pi-current-policy",
+        "RISK-pi-precedent",
+        "ACT-pi-review",
+        "OPT-pi-limited-exception",
+        "OPT-pi-manager-review",
+        "O-action-9f0f8d7f732b",
+        "O-action-4237a384a46d"
+      ],
+      "started_at": "2026-04-29T00:00:01Z",
+      "status": "closed"
+    }
+  },
+  "state": {
+    "event_count": 29,
+    "updated_at": "2026-04-29T02:30:01Z"
+  }
+}

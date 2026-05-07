@@ -23,12 +23,12 @@ class PytestMarkerClassificationTests(unittest.TestCase):
         self.assertEqual({"evaluation", "integration", "phase_gate", "slow"}, markers)
 
     def test_phase_specific_integration_tests_are_phase_gate(self) -> None:
-        markers = set(markers_for_test_path("tests/integration/test_phase10_distribution_artifact.py"))
+        markers = set(markers_for_test_path("tests/integration/test_phase11_distribution_artifact.py"))
 
         self.assertEqual({"integration", "phase_gate"}, markers)
 
-    def test_phase10_gate_script_tests_are_phase_gate(self) -> None:
-        markers = set(markers_for_test_path("tests/integration/test_phase10_gate_script.py"))
+    def test_phase11_gate_script_tests_are_phase_gate(self) -> None:
+        markers = set(markers_for_test_path("tests/integration/test_phase11_gate_script.py"))
 
         self.assertEqual({"integration", "phase_gate"}, markers)
 

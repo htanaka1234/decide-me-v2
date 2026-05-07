@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Snapshot normalization for Phase 10 helpers."""
+"""Snapshot normalization for Phase 11 helpers."""
 
 import csv
 import json
@@ -15,6 +15,8 @@ VOLATILE_KEYS = {
     "generated_at",
     "project_head",
     "last_event_id",
+    "load_runtime_seconds",
+    "total_seconds",
     "tx_id",
 }
 

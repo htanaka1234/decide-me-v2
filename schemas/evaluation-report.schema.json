@@ -14,7 +14,7 @@
   "properties": {
     "schema_version": {
       "type": "integer",
-      "const": 1
+      "const": 2
     },
     "scenario_id": {
       "$ref": "#/$defs/identifier"
@@ -99,16 +99,25 @@
       "type": "integer",
       "minimum": 0
     },
+    "nullable_number": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
     "metric_name": {
       "enum": [
+        "decision_coverage",
         "question_efficiency",
-        "decision_completeness",
-        "evidence_coverage",
+        "conflict_detection_recall",
+        "conflict_precision",
+        "evidence_linkage_rate",
+        "assumption_exposure",
         "risk_coverage",
-        "conflict_detection",
-        "plan_executability",
-        "document_readability",
-        "revisit_quality"
+        "action_executability",
+        "document_validity",
+        "runtime_performance"
       ]
     },
     "metric_passed_true": {
@@ -136,34 +145,47 @@
     "all_metrics_passed": {
       "type": "object",
       "properties": {
+        "decision_coverage": {
+          "$ref": "#/$defs/metric_passed_true"
+        },
         "question_efficiency": {
           "$ref": "#/$defs/metric_passed_true"
         },
-        "decision_completeness": {
+        "conflict_detection_recall": {
           "$ref": "#/$defs/metric_passed_true"
         },
-        "evidence_coverage": {
+        "conflict_precision": {
+          "$ref": "#/$defs/metric_passed_true"
+        },
+        "evidence_linkage_rate": {
+          "$ref": "#/$defs/metric_passed_true"
+        },
+        "assumption_exposure": {
           "$ref": "#/$defs/metric_passed_true"
         },
         "risk_coverage": {
           "$ref": "#/$defs/metric_passed_true"
         },
-        "conflict_detection": {
+        "action_executability": {
           "$ref": "#/$defs/metric_passed_true"
         },
-        "plan_executability": {
+        "document_validity": {
           "$ref": "#/$defs/metric_passed_true"
         },
-        "document_readability": {
-          "$ref": "#/$defs/metric_passed_true"
-        },
-        "revisit_quality": {
+        "runtime_performance": {
           "$ref": "#/$defs/metric_passed_true"
         }
       }
     },
     "any_metric_failed": {
       "anyOf": [
+        {
+          "properties": {
+            "decision_coverage": {
+              "$ref": "#/$defs/metric_passed_false"
+            }
+          }
+        },
         {
           "properties": {
             "question_efficiency": {
@@ -173,14 +195,28 @@
         },
         {
           "properties": {
-            "decision_completeness": {
+            "conflict_detection_recall": {
               "$ref": "#/$defs/metric_passed_false"
             }
           }
         },
         {
           "properties": {
-            "evidence_coverage": {
+            "conflict_precision": {
+              "$ref": "#/$defs/metric_passed_false"
+            }
+          }
+        },
+        {
+          "properties": {
+            "evidence_linkage_rate": {
+              "$ref": "#/$defs/metric_passed_false"
+            }
+          }
+        },
+        {
+          "properties": {
+            "assumption_exposure": {
               "$ref": "#/$defs/metric_passed_false"
             }
           }
@@ -194,28 +230,21 @@
         },
         {
           "properties": {
-            "conflict_detection": {
+            "action_executability": {
               "$ref": "#/$defs/metric_passed_false"
             }
           }
         },
         {
           "properties": {
-            "plan_executability": {
+            "document_validity": {
               "$ref": "#/$defs/metric_passed_false"
             }
           }
         },
         {
           "properties": {
-            "document_readability": {
-              "$ref": "#/$defs/metric_passed_false"
-            }
-          }
-        },
-        {
-          "properties": {
-            "revisit_quality": {
+            "runtime_performance": {
               "$ref": "#/$defs/metric_passed_false"
             }
           }
@@ -225,39 +254,47 @@
     "metrics": {
       "type": "object",
       "required": [
+        "decision_coverage",
         "question_efficiency",
-        "decision_completeness",
-        "evidence_coverage",
+        "conflict_detection_recall",
+        "conflict_precision",
+        "evidence_linkage_rate",
+        "assumption_exposure",
         "risk_coverage",
-        "conflict_detection",
-        "plan_executability",
-        "document_readability",
-        "revisit_quality"
+        "action_executability",
+        "document_validity",
+        "runtime_performance"
       ],
       "properties": {
+        "decision_coverage": {
+          "$ref": "#/$defs/coverage_metric"
+        },
         "question_efficiency": {
           "$ref": "#/$defs/question_efficiency_metric"
         },
-        "decision_completeness": {
-          "$ref": "#/$defs/coverage_metric"
+        "conflict_detection_recall": {
+          "$ref": "#/$defs/conflict_recall_metric"
         },
-        "evidence_coverage": {
-          "$ref": "#/$defs/coverage_metric"
+        "conflict_precision": {
+          "$ref": "#/$defs/conflict_precision_metric"
+        },
+        "evidence_linkage_rate": {
+          "$ref": "#/$defs/evidence_linkage_metric"
+        },
+        "assumption_exposure": {
+          "$ref": "#/$defs/assumption_exposure_metric"
         },
         "risk_coverage": {
           "$ref": "#/$defs/coverage_metric"
         },
-        "conflict_detection": {
-          "$ref": "#/$defs/conflict_detection_metric"
+        "action_executability": {
+          "$ref": "#/$defs/action_executability_metric"
         },
-        "plan_executability": {
-          "$ref": "#/$defs/plan_executability_metric"
+        "document_validity": {
+          "$ref": "#/$defs/document_validity_metric"
         },
-        "document_readability": {
-          "$ref": "#/$defs/document_readability_metric"
-        },
-        "revisit_quality": {
-          "$ref": "#/$defs/revisit_quality_metric"
+        "runtime_performance": {
+          "$ref": "#/$defs/runtime_performance_metric"
         }
       },
       "additionalProperties": false
@@ -277,11 +314,7 @@
           "$ref": "#/$defs/non_negative_integer"
         },
         "repeated_forbidden_decision_types": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/identifier"
-          },
-          "uniqueItems": true
+          "$ref": "#/$defs/string_array"
         },
         "passed": {
           "type": "boolean"
@@ -304,11 +337,7 @@
           "$ref": "#/$defs/non_negative_integer"
         },
         "missing_ids": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/non_empty_string"
-          },
-          "uniqueItems": true
+          "$ref": "#/$defs/string_array"
         },
         "passed": {
           "type": "boolean"
@@ -316,7 +345,7 @@
       },
       "additionalProperties": false
     },
-    "conflict_detection_metric": {
+    "conflict_recall_metric": {
       "type": "object",
       "required": [
         "expected_count",
@@ -331,18 +360,10 @@
           "$ref": "#/$defs/non_negative_integer"
         },
         "missing_conflict_ids": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/non_empty_string"
-          },
-          "uniqueItems": true
+          "$ref": "#/$defs/string_array"
         },
-        "unexpected_conflict_ids": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/non_empty_string"
-          },
-          "uniqueItems": true
+        "missing_conflict_types": {
+          "$ref": "#/$defs/string_array"
         },
         "passed": {
           "type": "boolean"
@@ -350,7 +371,119 @@
       },
       "additionalProperties": false
     },
-    "plan_executability_metric": {
+    "conflict_precision_metric": {
+      "type": "object",
+      "required": [
+        "expected_count",
+        "actual_count",
+        "unexpected_conflict_ids",
+        "false_positive_count",
+        "passed"
+      ],
+      "properties": {
+        "expected_count": {
+          "$ref": "#/$defs/non_negative_integer"
+        },
+        "actual_count": {
+          "$ref": "#/$defs/non_negative_integer"
+        },
+        "unexpected_conflict_ids": {
+          "$ref": "#/$defs/string_array"
+        },
+        "false_positive_count": {
+          "$ref": "#/$defs/non_negative_integer"
+        },
+        "passed": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "evidence_linkage_metric": {
+      "type": "object",
+      "required": [
+        "required_count",
+        "covered_count",
+        "linked_evidence_count",
+        "total_evidence_count",
+        "linkage_rate",
+        "invalid_source_refs",
+        "passed"
+      ],
+      "properties": {
+        "required_count": {
+          "$ref": "#/$defs/non_negative_integer"
+        },
+        "covered_count": {
+          "$ref": "#/$defs/non_negative_integer"
+        },
+        "linked_evidence_count": {
+          "$ref": "#/$defs/non_negative_integer"
+        },
+        "total_evidence_count": {
+          "$ref": "#/$defs/non_negative_integer"
+        },
+        "linkage_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "missing_ids": {
+          "$ref": "#/$defs/string_array"
+        },
+        "invalid_source_refs": {
+          "$ref": "#/$defs/string_array"
+        },
+        "passed": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "assumption_exposure_metric": {
+      "type": "object",
+      "required": [
+        "required_count",
+        "covered_count",
+        "assumption_count",
+        "stale_assumption_count",
+        "stale_evidence_count",
+        "verification_gap_count",
+        "due_revisit_count",
+        "passed"
+      ],
+      "properties": {
+        "required_count": {
+          "$ref": "#/$defs/non_negative_integer"
+        },
+        "covered_count": {
+          "$ref": "#/$defs/non_negative_integer"
+        },
+        "assumption_count": {
+          "$ref": "#/$defs/non_negative_integer"
+        },
+        "stale_assumption_count": {
+          "$ref": "#/$defs/non_negative_integer"
+        },
+        "stale_evidence_count": {
+          "$ref": "#/$defs/non_negative_integer"
+        },
+        "verification_gap_count": {
+          "$ref": "#/$defs/non_negative_integer"
+        },
+        "due_revisit_count": {
+          "$ref": "#/$defs/non_negative_integer"
+        },
+        "missing_ids": {
+          "$ref": "#/$defs/string_array"
+        },
+        "passed": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "action_executability_metric": {
       "type": "object",
       "required": [
         "readiness",
@@ -386,7 +519,7 @@
       },
       "additionalProperties": false
     },
-    "document_readability_metric": {
+    "document_validity_metric": {
       "type": "object",
       "required": [
         "required_sections_present",
@@ -399,18 +532,10 @@
           "type": "boolean"
         },
         "empty_required_sections": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/non_empty_string"
-          },
-          "uniqueItems": true
+          "$ref": "#/$defs/string_array"
         },
         "missing_source_traceability": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/non_empty_string"
-          },
-          "uniqueItems": true
+          "$ref": "#/$defs/string_array"
         },
         "passed": {
           "type": "boolean"
@@ -418,27 +543,45 @@
       },
       "additionalProperties": false
     },
-    "revisit_quality_metric": {
+    "runtime_performance_metric": {
       "type": "object",
       "required": [
-        "stale_assumption_count",
-        "stale_evidence_count",
-        "verification_gap_count",
-        "due_revisit_count",
+        "total_seconds",
+        "load_runtime_seconds",
+        "event_count",
+        "session_count",
+        "object_count",
+        "decision_count",
+        "max_total_seconds",
+        "max_load_runtime_seconds",
         "passed"
       ],
       "properties": {
-        "stale_assumption_count": {
+        "total_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "load_runtime_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "event_count": {
           "$ref": "#/$defs/non_negative_integer"
         },
-        "stale_evidence_count": {
+        "session_count": {
           "$ref": "#/$defs/non_negative_integer"
         },
-        "verification_gap_count": {
+        "object_count": {
           "$ref": "#/$defs/non_negative_integer"
         },
-        "due_revisit_count": {
+        "decision_count": {
           "$ref": "#/$defs/non_negative_integer"
+        },
+        "max_total_seconds": {
+          "$ref": "#/$defs/nullable_number"
+        },
+        "max_load_runtime_seconds": {
+          "$ref": "#/$defs/nullable_number"
         },
         "passed": {
           "type": "boolean"
@@ -466,6 +609,14 @@
         "actual": true
       },
       "additionalProperties": false
+    },
+    "string_array": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
     }
   }
 }

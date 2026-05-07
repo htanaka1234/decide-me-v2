@@ -20,7 +20,7 @@ The object graph is meant to support planning and design work beyond decision re
 can contain objectives, constraints, criteria, proposals, risks, actions, verification needs, and
 artifacts without forcing every item to be a property of a decision.
 
-At Phase 10, `action` is the executable WorkUnit equivalent. The core does not define a separate
+`action` is the executable WorkUnit equivalent. The core does not define a separate
 `work_unit` object type. WorkUnit-like details are additive action metadata: `action_type`,
 `required_inputs`, `outputs`, `verification_refs`, and `source_decision_refs`.
 

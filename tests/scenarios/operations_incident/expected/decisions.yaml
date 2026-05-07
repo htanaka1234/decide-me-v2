@@ -1,0 +1,9 @@
+required_domain_decision_types:
+- process_definition
+- escalation_policy
+- control_design
+- monitoring_plan
+required_status_counts:
+- status: accepted
+  mode: min
+  count: 4

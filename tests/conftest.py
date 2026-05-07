@@ -25,8 +25,8 @@ PHASE_GATE_TEST_FILES = {
     "tests/integration/test_phase7_distribution_artifact.py",
     "tests/integration/test_phase8_distribution_artifact.py",
     "tests/integration/test_phase9_distribution_artifact.py",
-    "tests/integration/test_phase10_distribution_artifact.py",
-    "tests/integration/test_phase10_gate_script.py",
+    "tests/integration/test_phase11_distribution_artifact.py",
+    "tests/integration/test_phase11_gate_script.py",
 }
 
 SLOW_TEST_FILES = {

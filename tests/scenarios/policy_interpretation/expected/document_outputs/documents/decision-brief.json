@@ -1,0 +1,502 @@
+{
+  "audience": "human",
+  "document_id": "DOC-20260429-decision-brief",
+  "document_type": "decision-brief",
+  "metadata": {
+    "document_profile_id": "generic_decision_brief",
+    "domain_pack_digest": "DP-93bf8d37f00b",
+    "domain_pack_id": "generic",
+    "domain_pack_version": "0.1.0"
+  },
+  "schema_version": 1,
+  "sections": [
+    {
+      "blocks": [
+        {
+          "columns": [
+            "Field",
+            "Value"
+          ],
+          "rows": [
+            [
+              "Name",
+              "Demo policy project"
+            ],
+            [
+              "Objective",
+              "Interpret an internal policy exception with rationale, risk, and action follow-up."
+            ],
+            [
+              "Current Milestone",
+              "Policy interpretation recommendation"
+            ],
+            [
+              "Project Head",
+              "2befcf1b92ff641510d7955418e778e840d317d04ede1b5de289062e598cfb2c"
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "project",
+      "order": 10,
+      "source_link_ids": [],
+      "source_object_ids": [],
+      "title": "Project"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "ID",
+            "Type",
+            "Title",
+            "Status",
+            "Statement"
+          ],
+          "rows": [
+            [
+              "ASSUMP-pi-current-policy",
+              "assumption",
+              "Current policy assumption",
+              "active",
+              "The policy excerpt is current for this request."
+            ],
+            [
+              "O-project-objective",
+              "objective",
+              "Policy interpretation recommendation",
+              "active",
+              "Interpret an internal policy exception with rationale, risk, and action follow-up."
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "purpose-principles-constraints",
+      "order": 20,
+      "source_link_ids": [
+        "L-ASSUMP-pi-current-policy-constrains-DEC-pi-scope"
+      ],
+      "source_object_ids": [
+        "ASSUMP-pi-current-policy",
+        "O-project-objective"
+      ],
+      "title": "Purpose / Principles / Constraints"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "ID",
+            "Title",
+            "Status",
+            "Priority",
+            "Frontier",
+            "Summary"
+          ],
+          "rows": [
+            [
+              "DEC-pi-review",
+              "Policy review constraint",
+              "accepted",
+              "P0",
+              "now",
+              "Require manager review"
+            ],
+            [
+              "DEC-pi-scope",
+              "Policy exception scope",
+              "accepted",
+              "P0",
+              "now",
+              "Limited reviewed exception"
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "current-decisions",
+      "order": 30,
+      "source_link_ids": [
+        "L-ACT-pi-review-addresses-DEC-pi-review",
+        "L-ASSUMP-pi-current-policy-constrains-DEC-pi-scope",
+        "L-DEC-pi-review-accepts-PRO-pi-manager-review",
+        "L-DEC-pi-scope-accepts-PRO-pi-limited-exception",
+        "L-EVID-pi-policy-supports-DEC-pi-review",
+        "L-EVID-pi-policy-supports-DEC-pi-scope",
+        "L-O-action-4237a384a46d-addresses-DEC-pi-scope",
+        "L-O-action-9f0f8d7f732b-addresses-DEC-pi-review",
+        "L-PRO-pi-limited-exception-addresses-DEC-pi-scope",
+        "L-PRO-pi-manager-review-addresses-DEC-pi-review"
+      ],
+      "source_object_ids": [
+        "DEC-pi-review",
+        "DEC-pi-scope"
+      ],
+      "title": "Current Decisions"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "Evidence ID",
+            "Source",
+            "Ref",
+            "Confidence",
+            "Freshness",
+            "Summary"
+          ],
+          "rows": [
+            [
+              "EVID-pi-policy",
+              "docs",
+              "docs/policy-excerpt.md",
+              "high",
+              "current",
+              "The policy excerpt defines the required review and rationale conditions."
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "columns": [
+            "Assumption ID",
+            "Statement",
+            "Confidence",
+            "Expires At",
+            "Owner"
+          ],
+          "rows": [
+            [
+              "ASSUMP-pi-current-policy",
+              "The policy excerpt is current for this request.",
+              "medium",
+              null,
+              "policy-owner"
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "columns": [
+            "Input ID",
+            "Reason",
+            "Until"
+          ],
+          "rows": [],
+          "type": "table"
+        }
+      ],
+      "id": "evidence-and-assumptions",
+      "order": 40,
+      "source_link_ids": [
+        "L-ASSUMP-pi-current-policy-constrains-DEC-pi-scope",
+        "L-EVID-pi-policy-supports-DEC-pi-review",
+        "L-EVID-pi-policy-supports-DEC-pi-scope"
+      ],
+      "source_object_ids": [
+        "ASSUMP-pi-current-policy",
+        "EVID-pi-policy"
+      ],
+      "title": "Evidence and Assumptions"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "Risk ID",
+            "Statement",
+            "Risk Tier",
+            "Reversibility",
+            "Approval Threshold",
+            "Mitigated By"
+          ],
+          "rows": [
+            [
+              "RISK-pi-precedent",
+              "Misreading the policy could create an unmanaged precedent.",
+              "medium",
+              "partially_reversible",
+              "explicit_acceptance",
+              "ACT-pi-review"
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "columns": [
+            "Object ID",
+            "Gate Status",
+            "Risk Tier",
+            "Reversibility",
+            "Approval Required",
+            "Blocking Reasons"
+          ],
+          "rows": [
+            [
+              "ACT-pi-review",
+              "needs_approval",
+              "medium",
+              "partially_reversible",
+              true,
+              ""
+            ],
+            [
+              "DEC-pi-review",
+              "passed",
+              "none",
+              "partially_reversible",
+              false,
+              ""
+            ],
+            [
+              "DEC-pi-scope",
+              "passed",
+              "none",
+              "reversible",
+              false,
+              ""
+            ],
+            [
+              "O-action-4237a384a46d",
+              "needs_approval",
+              "none",
+              "reversible",
+              true,
+              ""
+            ],
+            [
+              "O-action-9f0f8d7f732b",
+              "needs_approval",
+              "none",
+              "partially_reversible",
+              true,
+              ""
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "risks-and-safety",
+      "order": 50,
+      "source_link_ids": [
+        "L-ACT-pi-review-addresses-DEC-pi-review",
+        "L-ACT-pi-review-mitigates-RISK-pi-precedent",
+        "L-ASSUMP-pi-current-policy-constrains-DEC-pi-scope",
+        "L-DEC-pi-review-accepts-PRO-pi-manager-review",
+        "L-DEC-pi-scope-accepts-PRO-pi-limited-exception",
+        "L-EVID-pi-policy-supports-DEC-pi-review",
+        "L-EVID-pi-policy-supports-DEC-pi-scope",
+        "L-O-action-4237a384a46d-addresses-DEC-pi-scope",
+        "L-O-action-9f0f8d7f732b-addresses-DEC-pi-review",
+        "L-PRO-pi-limited-exception-addresses-DEC-pi-scope",
+        "L-PRO-pi-manager-review-addresses-DEC-pi-review"
+      ],
+      "source_object_ids": [
+        "ACT-pi-review",
+        "ASSUMP-pi-current-policy",
+        "DEC-pi-review",
+        "DEC-pi-scope",
+        "EVID-pi-policy",
+        "O-action-4237a384a46d",
+        "O-action-9f0f8d7f732b",
+        "RISK-pi-precedent"
+      ],
+      "title": "Risks and Safety"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "Action ID",
+            "Title",
+            "Status",
+            "Responsibility",
+            "Ready",
+            "Next Step"
+          ],
+          "rows": [
+            [
+              "ACT-pi-review",
+              "Request manager policy review",
+              "active",
+              "policy-owner",
+              true,
+              "Send documented rationale and conditions to the manager."
+            ],
+            [
+              "O-action-4237a384a46d",
+              "Policy exception scope",
+              "active",
+              "other",
+              false,
+              "Drive Policy exception scope to completion."
+            ],
+            [
+              "O-action-9f0f8d7f732b",
+              "Policy review constraint",
+              "active",
+              "other",
+              false,
+              "Drive Policy review constraint to completion."
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "columns": [
+            "Action ID",
+            "Gap Severity",
+            "Gap Reason"
+          ],
+          "rows": [
+            [
+              "ACT-pi-review",
+              "medium",
+              "missing_verification"
+            ],
+            [
+              "O-action-4237a384a46d",
+              "medium",
+              "missing_verification"
+            ],
+            [
+              "O-action-9f0f8d7f732b",
+              "medium",
+              "missing_verification"
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "actions-and-verification",
+      "order": 60,
+      "source_link_ids": [
+        "L-ACT-pi-review-addresses-DEC-pi-review",
+        "L-ACT-pi-review-mitigates-RISK-pi-precedent",
+        "L-O-action-4237a384a46d-addresses-DEC-pi-scope",
+        "L-O-action-9f0f8d7f732b-addresses-DEC-pi-review"
+      ],
+      "source_object_ids": [
+        "ACT-pi-review",
+        "O-action-4237a384a46d",
+        "O-action-9f0f8d7f732b"
+      ],
+      "title": "Actions and Verification"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "Trigger ID",
+            "Title",
+            "Type",
+            "Due At",
+            "Status",
+            "Condition"
+          ],
+          "rows": [],
+          "type": "table"
+        }
+      ],
+      "id": "revisit-triggers",
+      "order": 70,
+      "source_link_ids": [],
+      "source_object_ids": [],
+      "title": "Revisit Triggers"
+    },
+    {
+      "blocks": [
+        {
+          "items": [
+            "Sessions: S-policy-interpretation",
+            "Objects: ACT-pi-review, ASSUMP-pi-current-policy, DEC-pi-review, DEC-pi-scope, EVID-pi-policy, O-action-4237a384a46d, O-action-9f0f8d7f732b, O-project-objective, OPT-pi-limited-exception, OPT-pi-manager-review, PRO-pi-limited-exception, PRO-pi-manager-review, RISK-pi-precedent",
+            "Links: L-ACT-pi-review-addresses-DEC-pi-review, L-ACT-pi-review-mitigates-RISK-pi-precedent, L-ASSUMP-pi-current-policy-constrains-DEC-pi-scope, L-DEC-pi-review-accepts-PRO-pi-manager-review, L-DEC-pi-scope-accepts-PRO-pi-limited-exception, L-EVID-pi-policy-supports-DEC-pi-review, L-EVID-pi-policy-supports-DEC-pi-scope, L-O-action-4237a384a46d-addresses-DEC-pi-scope, L-O-action-9f0f8d7f732b-addresses-DEC-pi-review, L-PRO-pi-limited-exception-addresses-DEC-pi-scope, L-PRO-pi-limited-exception-recommends-OPT-pi-limited-exception, L-PRO-pi-manager-review-addresses-DEC-pi-review, L-PRO-pi-manager-review-recommends-OPT-pi-manager-review"
+          ],
+          "type": "list"
+        }
+      ],
+      "id": "source-traceability",
+      "order": 80,
+      "source_link_ids": [
+        "L-ACT-pi-review-addresses-DEC-pi-review",
+        "L-ACT-pi-review-mitigates-RISK-pi-precedent",
+        "L-ASSUMP-pi-current-policy-constrains-DEC-pi-scope",
+        "L-DEC-pi-review-accepts-PRO-pi-manager-review",
+        "L-DEC-pi-scope-accepts-PRO-pi-limited-exception",
+        "L-EVID-pi-policy-supports-DEC-pi-review",
+        "L-EVID-pi-policy-supports-DEC-pi-scope",
+        "L-O-action-4237a384a46d-addresses-DEC-pi-scope",
+        "L-O-action-9f0f8d7f732b-addresses-DEC-pi-review",
+        "L-PRO-pi-limited-exception-addresses-DEC-pi-scope",
+        "L-PRO-pi-limited-exception-recommends-OPT-pi-limited-exception",
+        "L-PRO-pi-manager-review-addresses-DEC-pi-review",
+        "L-PRO-pi-manager-review-recommends-OPT-pi-manager-review"
+      ],
+      "source_object_ids": [
+        "ACT-pi-review",
+        "ASSUMP-pi-current-policy",
+        "DEC-pi-review",
+        "DEC-pi-scope",
+        "EVID-pi-policy",
+        "O-action-4237a384a46d",
+        "O-action-9f0f8d7f732b",
+        "O-project-objective",
+        "OPT-pi-limited-exception",
+        "OPT-pi-manager-review",
+        "PRO-pi-limited-exception",
+        "PRO-pi-manager-review",
+        "RISK-pi-precedent"
+      ],
+      "title": "Source Traceability"
+    }
+  ],
+  "source": {
+    "diagnostic_types": [
+      "assumption_register",
+      "evidence_register",
+      "revisit_due",
+      "risk_register",
+      "safety_gates",
+      "stale_assumptions",
+      "stale_evidence",
+      "verification_gaps"
+    ],
+    "link_ids": [
+      "L-ASSUMP-pi-current-policy-constrains-DEC-pi-scope",
+      "L-ACT-pi-review-addresses-DEC-pi-review",
+      "L-DEC-pi-review-accepts-PRO-pi-manager-review",
+      "L-DEC-pi-scope-accepts-PRO-pi-limited-exception",
+      "L-EVID-pi-policy-supports-DEC-pi-review",
+      "L-EVID-pi-policy-supports-DEC-pi-scope",
+      "L-O-action-4237a384a46d-addresses-DEC-pi-scope",
+      "L-O-action-9f0f8d7f732b-addresses-DEC-pi-review",
+      "L-PRO-pi-limited-exception-addresses-DEC-pi-scope",
+      "L-PRO-pi-manager-review-addresses-DEC-pi-review",
+      "L-ACT-pi-review-mitigates-RISK-pi-precedent",
+      "L-PRO-pi-limited-exception-recommends-OPT-pi-limited-exception",
+      "L-PRO-pi-manager-review-recommends-OPT-pi-manager-review"
+    ],
+    "object_ids": [
+      "ASSUMP-pi-current-policy",
+      "O-project-objective",
+      "DEC-pi-review",
+      "DEC-pi-scope",
+      "EVID-pi-policy",
+      "ACT-pi-review",
+      "O-action-4237a384a46d",
+      "O-action-9f0f8d7f732b",
+      "RISK-pi-precedent",
+      "OPT-pi-limited-exception",
+      "OPT-pi-manager-review",
+      "PRO-pi-limited-exception",
+      "PRO-pi-manager-review"
+    ],
+    "session_ids": [
+      "S-policy-interpretation"
+    ]
+  },
+  "title": "Decision Brief",
+  "warnings": []
+}

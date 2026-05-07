@@ -15,24 +15,24 @@ from tests.helpers.evaluation_scenarios import (
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCENARIOS_DIR = REPO_ROOT / "tests" / "scenarios"
 EXPECTED_SCENARIOS = {
-    "career_plan",
-    "household_project",
-    "operations_incident_review",
+    "operations_incident",
+    "personal_planning",
+    "policy_interpretation",
     "procurement_decision",
     "research_protocol",
-    "software_refactor",
+    "software_project",
     "writing_project",
 }
-# These are the committed Phase 10 baseline scenarios, not a partial allow-list.
+# These are the committed Phase 11 benchmark scenarios, not a partial allow-list.
 # Adding exploratory scenarios under tests/scenarios intentionally requires updating
 # both EXPECTED_SCENARIOS and EXPECTED_SCENARIO_PACKS.
 EXPECTED_SCENARIO_PACKS = {
-    "career_plan": "personal_planning",
-    "household_project": "personal_planning",
-    "operations_incident_review": "operations",
+    "operations_incident": "operations",
+    "personal_planning": "personal_planning",
+    "policy_interpretation": "generic",
     "procurement_decision": "procurement",
     "research_protocol": "research",
-    "software_refactor": "software",
+    "software_project": "software",
     "writing_project": "writing",
 }
 
@@ -50,8 +50,8 @@ class EvaluationScenarioFixtureTests(unittest.TestCase):
             for scenario_path in scenario_paths:
                 with self.subTest(scenario=scenario_path.parent.name):
                     self.assertTrue(
-                        (scenario_path.parent / "expected_outputs" / ".gitkeep").exists(),
-                        "scenario expected_outputs placeholder is missing",
+                        (scenario_path.parent / "expected" / "document_outputs" / ".gitkeep").exists(),
+                        "scenario expected/document_outputs placeholder is missing",
                     )
                     scenario = load_scenario(scenario_path)
                     runtime = build_scenario_runtime(scenario, work_root)

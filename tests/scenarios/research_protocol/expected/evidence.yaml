@@ -1,0 +1,5 @@
+min_linked_evidence: 2
+required_evidence_requirement_ids:
+- protocol_or_project_brief
+- data_dictionary
+required_source_refs: []

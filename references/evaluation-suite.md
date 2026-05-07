@@ -1,351 +1,171 @@
 # Evaluation Suite
 
-Phase 10 adds a development-side Evaluation Suite for the runtime capabilities built in Phases 5
-through 9: the domain-neutral object/link core, Decision Stack Graph, Safety Gate, Document
-Compiler, and Domain Packs. It is a regression detection harness, not a new user-facing interview
-behavior.
+Phase 11 turns the development-side scenario suite into a simulation benchmark harness. It
+evaluates quality and runtime performance in the same deterministic runner so the Skill cannot
+look correct while losing evidence, missing conflicts, producing unusable documents, or becoming
+too slow at larger event counts.
 
-The suite keeps expectations in scenario fixtures so tests do not hard-code every domain outcome.
-The contracts are:
+The public contracts are:
 
 - `schemas/evaluation-scenario.schema.json`
 - `schemas/evaluation-report.schema.json`
 
-## Scenario layout
+The runner remains development-only and does not call an LLM.
 
-Scenario fixtures live outside the distributed Skill package, under `tests/scenarios/` in this
-repository. A scenario directory contains:
+## Scenario Layout
 
-- `scenario.yaml`: the evaluation scenario contract.
-- `events.jsonl`: seed transaction events used to build the test runtime.
-- `expected_outputs/`: normalized JSON, Markdown, or CSV snapshots.
+Committed benchmark scenarios live under `tests/scenarios/`. The canonical Phase 11 scenario set is:
 
-The scenario contract records the pack and project context, one or more seeded sessions, a fixed
-evaluation clock, and the expected decision, evidence, risk, conflict, and document outcomes.
+- `software_project`
+- `research_protocol`
+- `procurement_decision`
+- `policy_interpretation`
+- `operations_incident`
+- `personal_planning`
+- `writing_project`
+
+A scenario directory contains:
+
+- `scenario.yaml`: the schema-versioned orchestrator with project, sessions, seed event files, and
+  deterministic evaluation clock.
+- `input_context.md`: the human-facing scenario brief.
+- `source_materials/`: local source files referenced by evidence object metadata.
+- `events*.jsonl`: deterministic EventSpec rows used to build a temporary runtime.
+- `expected/*.yaml`: semantic expectations for quality and optional performance gates.
+- `expected/document_outputs/`: normalized generated baselines plus `manifest.yaml` for document
+  expectations.
+
+`scenario.yaml` is intentionally lean:
 
 ```yaml
-schema_version: 1
-scenario_id: research_protocol
-label: Research protocol planning
-domain_pack: research
+schema_version: 2
+scenario_id: policy_interpretation
+label: Policy interpretation benchmark
+domain_pack: generic
 
 project:
-  name: Demo research project
-  objective: Define a reproducible retrospective cohort study.
-  current_milestone: Protocol decisions
+  name: Demo policy project
+  objective: Interpret an internal policy exception with rationale, risk, and action follow-up.
+  current_milestone: Policy interpretation recommendation
 
 sessions:
-  - session_id: S-research-protocol
-    context: Plan a retrospective cohort study with endpoint and missing-data decisions.
+  - session_id: S-policy-interpretation
+    context: Interpret whether a limited exception can proceed under the policy excerpt.
     seed_events: events.jsonl
     close: true
 
 evaluation:
   now: "2026-04-29T00:00:00Z"
-  expected_decision_coverage:
-    required_domain_decision_types:
-      - research_question
-      - cohort_definition
-      - primary_endpoint
-      - missing_data_strategy
-    required_status_counts:
-      - status: accepted
-        mode: exact
-        count: 2
-      - status: unresolved
-        mode: min
-        count: 1
-      - status: resolved-by-evidence
-        mode: min
-        count: 1
-  expected_questions:
-    max_questions: 4
-    forbidden_repeated_decision_types:
-      - primary_endpoint
-    probe_session_ids:
-      - S-research-protocol
-    advance_steps: 1
-  expected_evidence_coverage:
-    min_supporting_evidence: 2
-    required_evidence_requirement_ids:
-      - protocol_or_project_brief
-      - data_dictionary
-  expected_risks:
-    required_domain_risk_types:
-      - unclear_endpoint
-      - missing_data
-    required_risk_tiers:
-      - high
-    min_high_or_critical_risks: 1
-  expected_safety_gates:
-    required_rule_ids:
-      - validity_review
-    required_approval_thresholds:
-      - human_review
-    min_approval_required_count: 1
-    max_approval_required_count: 2
-    required_insufficient_evidence_ids:
-      - data_dictionary
-    forbidden_rule_ids: []
-    forbidden_approval_thresholds:
-      - external_review
-  expected_conflicts:
-    count: 0
-  expected_plan_executability:
-    readiness: conditional
-    min_implementation_ready_count: 1
-    min_action_count: 1
-    max_blocker_count: 0
-    require_no_unresolved_conflicts: true
-  expected_revisit_quality:
-    stale_assumptions:
-      mode: exact
-      count: 0
-    stale_evidence:
-      mode: exact
-      count: 0
-    verification_gaps:
-      mode: min
-      count: 1
-    due_revisits:
-      mode: min
-      count: 1
-  expected_documents:
-    - type: research-plan
-      format: json
-      session_ids:
-        - S-research-protocol
-      require_source_traceability: true
-      required_sections:
-        - objective
-        - research-question-decision-targets
-        - evidence-base
-        - analysis-verification-plan
-        - risks-and-mitigations
-        - source-traceability
 ```
 
-`domain_pack` is an identifier rather than a fixed enum so future custom packs can be evaluated
-with the same harness. `sessions[].seed_events` must be a safe relative `.jsonl` path. Absolute
-paths, parent-directory traversal, and non-JSONL files are invalid.
+Semantic expectations are split by concern:
 
-Decision status expectations use runtime status names verbatim. The allowed decision statuses are
-`unresolved`, `proposed`, `blocked`, `accepted`, `deferred`, `resolved-by-evidence`, and
-`invalidated`. Evidence-based resolution must be represented as `resolved-by-evidence`; do not add
-fixture-only aliases such as `answered_by_codebase`.
+- `expected/decisions.yaml`: required domain decision types and status counts.
+- `expected/unresolved_questions.yaml`: maximum question count, repeated-question guards, and
+  optional probe session settings.
+- `expected/evidence.yaml`: linked evidence minimums, required evidence requirement IDs, and
+  required source refs.
+- `expected/conflicts.yaml`: expected conflict count plus required IDs or types.
+- `expected/risks.yaml`: required risk types, tiers, high/critical counts, and nested Safety Gate
+  expectations when relevant.
+- `expected/assumptions.yaml`: required assumption exposure and stale/evidence/gap/revisit
+  diagnostics.
+- `expected/action_plan.yaml`: action-plan readiness, executable action bounds, blocker bounds, and
+  unresolved-conflict policy.
+- `expected/performance.yaml`: optional performance thresholds such as `max_total_seconds` and
+  `max_load_runtime_seconds`.
+- `expected/document_outputs/manifest.yaml`: document type, format, required sections, session
+  scope, and source-traceability requirements.
 
-Risk expectations describe risk objects and risk tiers. Safety Gate expectations are separate and
-describe gate outputs such as applied domain safety rules, approval thresholds, approval-required
-counts, and missing domain evidence requirements. They may also express negative expectations with
-`max_approval_required_count`, `forbidden_rule_ids`, and `forbidden_approval_thresholds`; generic
-low-risk scenarios should use these fields to prove that domain-specific or approval-required gates
-do not misfire. Runner code should match these expectations against the projected runtime, register
-outputs, Safety Gate diagnostics, and document models.
+Evidence `metadata.source_ref` must point to `input_context.md` or a file under
+`source_materials/`. Absolute paths, parent-directory traversal, and missing source files are
+invalid fixtures.
 
-Question efficiency is evaluated by running `advance_session()` against a temporary pre-close copy
-of the scenario runtime. `probe_session_ids` defaults to all scenario sessions and `advance_steps`
-defaults to `1`; the probe copy may be mutated, but the main evaluation runtime must remain stable
-for document, register, gate, conflict, and snapshot checks.
+## Metrics
 
-Plan executability is diagnostic-only unless `expected_plan_executability` is present. When present,
-the suite checks action-plan readiness, implementation-ready action count, and any configured total
-action or blocker bounds. `require_no_unresolved_conflicts` defaults to `true` whenever plan
-expectations are present; unresolved semantic conflicts fail the plan metric even if the raw action
-plan output is otherwise `ready`. Conflict-detection scenarios should usually omit plan
-executability expectations, or explicitly set this guard to `false` only when they are intentionally
-testing raw action-plan output in isolation. Revisit quality is diagnostic-only unless
-`expected_revisit_quality` is present; when present, stale assumptions, stale evidence, verification
-gaps, and due revisits are checked independently. When document `require_source_traceability` is
-true, the compiled document must carry non-empty source object and link traceability, and a
-`source-traceability` section must be non-empty when the document type emits that section.
-`expected_documents[].session_ids` optionally narrows one document assertion to a subset of closed
-scenario sessions; when omitted, the document is compiled from all closed scenario sessions.
+The Phase 11 report emits these metrics:
 
-## Evaluation report
+- `decision_coverage`: required decision types and status counts.
+- `question_efficiency`: questions asked in probe runs and forbidden repeated question types.
+- `conflict_detection_recall`: required conflicts were detected.
+- `conflict_precision`: unexpected conflicts were not over-reported.
+- `evidence_linkage_rate`: evidence is linked to decisions/actions and source refs are valid.
+- `assumption_exposure`: assumptions and stale/revisit diagnostics are explicit.
+- `risk_coverage`: expected risks and Safety Gate outputs are present.
+- `action_executability`: generated actions are executable under the scenario expectations.
+- `document_validity`: compiled documents contain required non-empty sections and traceability.
+- `runtime_performance`: event/session/object counts and timing diagnostics.
 
-The report is a schema-shaped JSON object with deterministic timestamps. Runners should set
-`generated_at` from `evaluation.now` unless a test explicitly exercises clock behavior.
+Runtime performance is recorded for every scenario. It fails a scenario only when
+`expected/performance.yaml` defines thresholds.
+
+## Report Shape
+
+The report is a schema-shaped JSON object with deterministic `generated_at` from `evaluation.now`.
+Timing values are present in the live report but normalized out of committed snapshots.
 
 ```json
 {
-  "schema_version": 1,
-  "scenario_id": "research_protocol",
+  "schema_version": 2,
+  "scenario_id": "policy_interpretation",
   "status": "passed",
   "generated_at": "2026-04-29T00:00:00Z",
   "metrics": {
-    "question_efficiency": {
-      "asked_count": 3,
-      "max_allowed": 4,
-      "passed": true
-    },
-    "decision_completeness": {
-      "required_count": 4,
-      "covered_count": 4,
-      "passed": true
-    },
-    "evidence_coverage": {
-      "required_count": 2,
-      "covered_count": 2,
-      "passed": true
-    },
-    "risk_coverage": {
-      "required_count": 2,
-      "covered_count": 2,
-      "passed": true
-    },
-    "conflict_detection": {
-      "expected_count": 0,
-      "actual_count": 0,
-      "passed": true
-    },
-    "plan_executability": {
-      "readiness": "conditional",
-      "action_count": 2,
-      "implementation_ready_count": 1,
-      "blocker_count": 0,
-      "unresolved_conflict_count": 0,
-      "passed": true
-    },
-    "document_readability": {
-      "required_sections_present": true,
-      "empty_required_sections": [],
-      "missing_source_traceability": [],
-      "passed": true
-    },
-    "revisit_quality": {
-      "stale_assumption_count": 0,
-      "stale_evidence_count": 0,
-      "verification_gap_count": 1,
-      "due_revisit_count": 1,
-      "passed": true
-    }
+    "decision_coverage": {"required_count": 2, "covered_count": 2, "missing_ids": [], "passed": true},
+    "question_efficiency": {"asked_count": 0, "max_allowed": 1, "repeated_forbidden_decision_types": [], "passed": true},
+    "conflict_detection_recall": {"expected_count": 0, "actual_count": 0, "missing_conflict_ids": [], "missing_conflict_types": [], "passed": true},
+    "conflict_precision": {"expected_count": 0, "actual_count": 0, "unexpected_conflict_ids": [], "false_positive_count": 0, "passed": true},
+    "evidence_linkage_rate": {"required_count": 1, "covered_count": 1, "linked_evidence_count": 1, "total_evidence_count": 1, "linkage_rate": 1.0, "missing_ids": [], "invalid_source_refs": [], "passed": true},
+    "assumption_exposure": {"required_count": 1, "covered_count": 1, "assumption_count": 1, "stale_assumption_count": 0, "stale_evidence_count": 0, "verification_gap_count": 1, "due_revisit_count": 0, "missing_ids": [], "passed": true},
+    "risk_coverage": {"required_count": 1, "covered_count": 1, "missing_ids": [], "passed": true},
+    "action_executability": {"readiness": "conditional", "action_count": 3, "implementation_ready_count": 0, "blocker_count": 0, "unresolved_conflict_count": 0, "passed": true},
+    "document_validity": {"required_sections_present": true, "empty_required_sections": [], "missing_source_traceability": [], "passed": true},
+    "runtime_performance": {"total_seconds": 0.1, "load_runtime_seconds": 0.01, "event_count": 20, "session_count": 1, "object_count": 8, "decision_count": 2, "max_total_seconds": null, "max_load_runtime_seconds": null, "passed": true}
   },
   "failures": []
 }
 ```
 
-Failures identify the metric, include a human-readable message, and may include a JSON path plus
-the expected and actual values that caused the mismatch.
+`status: "passed"` requires all metric `passed` flags to be true and no failures. `status:
+"failed"` requires at least one failed metric and at least one failure object.
 
-The report schema validates both structure and pass/fail consistency:
+## Runner
 
-- `status: "passed"` requires all metric `passed` flags to be true and `failures` to be empty.
-- `status: "failed"` requires at least one metric `passed` flag to be false and at least one
-  failure entry.
-
-Runtime-derived semantic checks still belong in the Evaluation Suite runner and assertion helpers.
-Those helpers decide whether projections, registers, Safety Gate diagnostics, and compiled
-documents satisfy the scenario. The report schema guarantees that the runner cannot emit a
-self-contradictory report.
-
-## Read-only behavior
-
-Evaluation runs may build a temporary runtime from seed events, validate that runtime, rebuild
-projections, compile documents, and compute diagnostics. They must not mutate the source scenario
-fixtures or write events back into the repository runtime.
-
-Use direct Python APIs for evaluation behavior where possible:
-
-- runtime validation and projection rebuilds
-- decision coverage from `project-state.json`
-- evidence and risk registers
-- Safety Gate diagnostics
-- conflict detection
-- document compilation and rendering
-
-CLI checks should remain smoke tests for the CLI surface rather than the main Evaluation Suite
-execution path.
-
-## Snapshot expectations
-
-Snapshots should compare normalized outputs only. Prefer fixed event timestamps and
-`evaluation.now` for deterministic output. Remove only nonessential volatile fields such as
-`generated_at`, `project_head`, `last_event_id`, and `tx_id` when they cannot be made stable by the
-scenario clock.
-
-Step 5 stores committed baselines under each scenario's `expected_outputs/` directory:
-
-- `project-state.json` (the normalized full project-state projection)
-- `evaluation-report.json`
-- `safety-gates.json`
-- `risk-register.json`
-- `documents/<document-type>.json`
-- `documents/<document-type>.md` or `.csv` when the scenario asks for Markdown or CSV output
-
-Markdown snapshots compare only the generated region when `decide-me` markers are present, ignoring
-marker attributes and human-authored notes outside the region. Malformed marker blocks are invalid
-snapshots and should fail normalization. JSON object keys named `project_head` are treated as
-volatile, but rendered Markdown lines such as `Project head: ...` remain in snapshots because
-scenario event streams are deterministic and the rendered line is part of the document contract. CSV
-snapshots preserve the header and sort data rows deterministically. Normal tests never update
-baselines automatically; explicit snapshot update support belongs to the Step 6 scenario runner.
-
-## Scenario runner
-
-Step 6 adds a development-only runner for local evaluation and explicit snapshot updates:
+Use the development runner for local iteration:
 
 ```bash
-python3 scripts/evaluate_scenarios.py --scenarios tests/scenarios
-python3 scripts/evaluate_scenarios.py --scenarios tests/scenarios --format json
-python3 scripts/evaluate_scenarios.py --scenarios tests/scenarios --update-snapshots
-```
-
-`--scenarios` accepts either a directory containing `*/scenario.yaml` files or a single
-`scenario.yaml` file. The runner uses the same Python helper APIs as the integration tests: it
-loads each scenario, builds a temporary runtime, runs the evaluation metrics, collects snapshots,
-and compares them against `expected_outputs/`. It continues through all scenarios after failures
-and exits non-zero when any evaluation fails or any snapshot drifts.
-
-Snapshot updates are opt-in. With `--update-snapshots`, the runner rewrites `expected_outputs/`
-only for scenarios whose evaluation report passes; failed evaluations are never blessed as new
-baselines. Text output is intended for local scanning. JSON output reports aggregate status plus
-per-scenario evaluation, snapshot, failure, mismatch, and update counts for automation.
-
-## Maintainer commands
-
-Use the Phase 10 release-readiness gate for CI and local final checks:
-
-```bash
-PYTHONPATH=. python3 scripts/run_phase10_gate.py
-```
-
-The gate runs the pytest `phase_gate and not slow` slice first, including an explicit lightweight
-unit contract subset, then runs the committed scenario evaluation runner in JSON mode. Slow
-evaluation snapshot tests are intentionally left for nightly or manual checks. The corresponding
-GitHub Actions workflow is `.github/workflows/phase10-gate.yml`.
-Schema validation tests use `jsonschema` with `referencing.Registry` resources for local `$ref`
-resolution and avoid the deprecated resolver path from older `jsonschema` usage.
-
-Use the scenario integration test for committed snapshot drift:
-
-```bash
-PYTHONPATH=. python3 -m unittest tests.integration.test_evaluation_scenarios -v
-```
-
-Use the development runner when iterating locally or when automation needs a JSON summary:
-
-```bash
+PYTHONPATH=. python3 scripts/evaluate_scenarios.py --scenarios tests/scenarios
 PYTHONPATH=. python3 scripts/evaluate_scenarios.py --scenarios tests/scenarios --format json
-```
-
-Snapshot updates are never automatic in tests. Refresh baselines only after reviewing the behavior
-change:
-
-```bash
 PYTHONPATH=. python3 scripts/evaluate_scenarios.py --scenarios tests/scenarios --update-snapshots
 ```
 
-Pytest markers are assigned automatically during collection:
+`--scenarios` accepts either a directory containing `*/scenario.yaml`, one scenario directory, or a
+single `scenario.yaml`. The runner builds temporary runtimes, evaluates all metrics, compares
+snapshots under `expected/document_outputs/`, continues after failures, and exits non-zero if any
+scenario fails.
+
+Snapshot updates are opt-in. With `--update-snapshots`, the runner rewrites
+`expected/document_outputs/` only for scenarios whose semantic evaluation passed.
+
+## Maintainer Commands
+
+Use the Phase 11 release-readiness gate for CI and local final checks:
 
 ```bash
-PYTHONPATH=. python3 -m pytest -m "unit" -q
-PYTHONPATH=. python3 -m pytest -m "phase_gate and not slow" -q
-PYTHONPATH=. python3 -m pytest -m "evaluation" -q
-PYTHONPATH=. python3 -m pytest -m "integration and not slow" -q
-PYTHONPATH=. python3 -m pytest -m "slow" -q
+PYTHONPATH=. python3 scripts/run_phase11_gate.py
 ```
 
-## Distribution boundary
+The gate runs the `phase_gate and not slow` pytest slice, then the scenario runner in JSON mode.
+The corresponding GitHub Actions workflow is `.github/workflows/phase11-gate.yml`.
+
+Snapshot drift checks:
+
+```bash
+PYTHONPATH=. python3 -m unittest tests.integration.test_evaluation_scenarios -v
+PYTHONPATH=. python3 scripts/evaluate_scenarios.py --scenarios tests/scenarios --format json
+```
+
+## Distribution Boundary
 
 The evaluation contracts and this reference are bundled with the Skill because `schemas/` and
 `references/` are part of the public distribution. Development fixtures and runners are not part of

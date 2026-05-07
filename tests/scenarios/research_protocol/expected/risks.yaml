@@ -1,0 +1,14 @@
+required_domain_risk_types:
+- unclear_endpoint
+- missing_data
+required_risk_tiers:
+- high
+min_high_or_critical_risks: 1
+safety_gates:
+  required_rule_ids:
+  - validity_review
+  required_approval_thresholds:
+  - human_review
+  min_approval_required_count: 1
+  required_insufficient_evidence_ids:
+  - analysis_plan

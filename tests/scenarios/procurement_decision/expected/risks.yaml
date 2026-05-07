@@ -1,0 +1,16 @@
+required_domain_risk_types:
+- vendor_lock_in
+- contract_constraint
+required_risk_tiers:
+- high
+min_high_or_critical_risks: 1
+safety_gates:
+  required_rule_ids:
+  - spend_and_exit_review
+  - contract_external_review
+  required_approval_thresholds:
+  - human_review
+  - external_review
+  min_approval_required_count: 1
+  required_insufficient_evidence_ids:
+  - contract_terms

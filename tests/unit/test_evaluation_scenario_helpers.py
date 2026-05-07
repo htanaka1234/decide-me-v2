@@ -35,7 +35,7 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             payload = _valid_scenario()
-            del payload["evaluation"]["expected_documents"]
+            payload["unexpected"] = True
             _write_scenario_fixture(root, payload)
 
             with self.assertRaisesRegex(ValueError, "invalid evaluation scenario"):
@@ -260,7 +260,7 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
             question_metric = report["metrics"]["question_efficiency"]
             self.assertEqual(["choose_option"], question_metric["repeated_forbidden_decision_types"])
 
-    def test_evidence_coverage_requires_linked_supporting_evidence(self) -> None:
+    def test_evidence_linkage_rate_requires_linked_supporting_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "scenario"
             work = Path(tmp) / "work"
@@ -272,7 +272,7 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
                     {"status": "accepted", "mode": "exact", "count": 1},
                 ],
             }
-            payload["evaluation"]["expected_evidence_coverage"] = {
+            payload["evaluation"]["expected_evidence_linkage_rate"] = {
                 "min_supporting_evidence": 1,
                 "required_evidence_requirement_ids": ["protocol_or_project_brief"],
             }
@@ -288,8 +288,8 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
 
             self.assertEqual([], validate_evaluation_report(report))
             self.assertEqual("failed", report["status"])
-            self.assertIn("evidence_coverage", {item["metric"] for item in report["failures"]})
-            self.assertIn("protocol_or_project_brief", report["metrics"]["evidence_coverage"]["missing_ids"])
+            self.assertIn("evidence_linkage_rate", {item["metric"] for item in report["failures"]})
+            self.assertIn("protocol_or_project_brief", report["metrics"]["evidence_linkage_rate"]["missing_ids"])
 
     def test_invalidated_evidence_does_not_satisfy_linked_coverage(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -303,7 +303,7 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
                     {"status": "accepted", "mode": "exact", "count": 1},
                 ],
             }
-            payload["evaluation"]["expected_evidence_coverage"] = {
+            payload["evaluation"]["expected_evidence_linkage_rate"] = {
                 "min_supporting_evidence": 1,
                 "required_evidence_requirement_ids": ["protocol_or_project_brief"],
             }
@@ -319,8 +319,8 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
 
             self.assertEqual([], validate_evaluation_report(report))
             self.assertEqual("failed", report["status"])
-            self.assertIn("evidence_coverage", {item["metric"] for item in report["failures"]})
-            self.assertIn("protocol_or_project_brief", report["metrics"]["evidence_coverage"]["missing_ids"])
+            self.assertIn("evidence_linkage_rate", {item["metric"] for item in report["failures"]})
+            self.assertIn("protocol_or_project_brief", report["metrics"]["evidence_linkage_rate"]["missing_ids"])
 
     def test_safety_gate_negative_expectations_pass_and_fail(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -431,14 +431,14 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
 
             self.assertEqual([], validate_evaluation_report(report))
             self.assertEqual("failed", report["status"])
-            self.assertIn("document_readability", {item["metric"] for item in report["failures"]})
+            self.assertIn("document_validity", {item["metric"] for item in report["failures"]})
 
-    def test_plan_executability_expectation_fails_when_expected_counts_do_not_match(self) -> None:
+    def test_action_executability_expectation_fails_when_expected_counts_do_not_match(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "scenario"
             work = Path(tmp) / "work"
             payload = _valid_scenario()
-            payload["evaluation"]["expected_plan_executability"] = {
+            payload["evaluation"]["expected_action_executability"] = {
                 "readiness": "blocked",
                 "min_implementation_ready_count": 2,
             }
@@ -450,14 +450,14 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
 
             self.assertEqual([], validate_evaluation_report(report))
             self.assertEqual("failed", report["status"])
-            self.assertIn("plan_executability", {item["metric"] for item in report["failures"]})
+            self.assertIn("action_executability", {item["metric"] for item in report["failures"]})
 
-    def test_plan_executability_expectation_fails_when_action_count_is_too_low(self) -> None:
+    def test_action_executability_expectation_fails_when_action_count_is_too_low(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "scenario"
             work = Path(tmp) / "work"
             payload = _valid_scenario()
-            payload["evaluation"]["expected_plan_executability"] = {
+            payload["evaluation"]["expected_action_executability"] = {
                 "readiness": "ready",
                 "min_implementation_ready_count": 0,
                 "min_action_count": 99,
@@ -470,11 +470,11 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
 
             self.assertEqual([], validate_evaluation_report(report))
             self.assertEqual("failed", report["status"])
-            plan_metric = report["metrics"]["plan_executability"]
+            plan_metric = report["metrics"]["action_executability"]
             self.assertGreaterEqual(plan_metric["action_count"], 1)
-            self.assertIn("plan_executability", {item["metric"] for item in report["failures"]})
+            self.assertIn("action_executability", {item["metric"] for item in report["failures"]})
 
-    def test_plan_executability_expectation_fails_when_blocker_count_is_too_high(self) -> None:
+    def test_action_executability_expectation_fails_when_blocker_count_is_too_high(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "scenario"
             work = Path(tmp) / "work"
@@ -485,7 +485,7 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
             payload["evaluation"]["expected_decision_coverage"]["required_status_counts"] = [
                 {"status": "unresolved", "mode": "exact", "count": 1}
             ]
-            payload["evaluation"]["expected_plan_executability"] = {
+            payload["evaluation"]["expected_action_executability"] = {
                 "readiness": "blocked",
                 "min_implementation_ready_count": 0,
                 "max_blocker_count": 0,
@@ -502,10 +502,10 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
 
             self.assertEqual([], validate_evaluation_report(report))
             self.assertEqual("failed", report["status"])
-            self.assertGreater(report["metrics"]["plan_executability"]["blocker_count"], 0)
-            self.assertIn("plan_executability", {item["metric"] for item in report["failures"]})
+            self.assertGreater(report["metrics"]["action_executability"]["blocker_count"], 0)
+            self.assertIn("action_executability", {item["metric"] for item in report["failures"]})
 
-    def test_plan_executability_fails_when_required_to_have_no_unresolved_conflicts(self) -> None:
+    def test_action_executability_fails_when_required_to_have_no_unresolved_conflicts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "scenario"
             payload = _valid_scenario()
@@ -534,7 +534,7 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
                 "count": 1,
                 "required_conflict_types": ["decision-accepted-proposal-mismatch"],
             }
-            payload["evaluation"]["expected_plan_executability"] = {
+            payload["evaluation"]["expected_action_executability"] = {
                 "readiness": "ready",
                 "min_implementation_ready_count": 0,
                 "min_action_count": 1,
@@ -564,13 +564,13 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
 
             self.assertEqual([], validate_evaluation_report(report))
             self.assertEqual("failed", report["status"])
-            self.assertTrue(report["metrics"]["conflict_detection"]["passed"])
-            self.assertFalse(report["metrics"]["plan_executability"]["passed"])
-            self.assertEqual(1, report["metrics"]["plan_executability"]["unresolved_conflict_count"])
-            self.assertIn("plan_executability", {item["metric"] for item in report["failures"]})
+            self.assertTrue(report["metrics"]["conflict_detection_recall"]["passed"])
+            self.assertFalse(report["metrics"]["action_executability"]["passed"])
+            self.assertEqual(1, report["metrics"]["action_executability"]["unresolved_conflict_count"])
+            self.assertIn("action_executability", {item["metric"] for item in report["failures"]})
 
             opting_out = deepcopy(payload)
-            opting_out["evaluation"]["expected_plan_executability"][
+            opting_out["evaluation"]["expected_action_executability"][
                 "require_no_unresolved_conflicts"
             ] = False
             _write_scenario_fixture(
@@ -598,19 +598,19 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
             opting_out_report = run_scenario_evaluation(opting_out_scenario, opting_out_runtime)
 
             self.assertEqual([], validate_evaluation_report(opting_out_report))
-            self.assertTrue(opting_out_report["metrics"]["plan_executability"]["passed"])
+            self.assertTrue(opting_out_report["metrics"]["action_executability"]["passed"])
             self.assertEqual(
                 1,
-                opting_out_report["metrics"]["plan_executability"]["unresolved_conflict_count"],
+                opting_out_report["metrics"]["action_executability"]["unresolved_conflict_count"],
             )
 
-    def test_plan_executability_expectation_fails_without_closed_sessions(self) -> None:
+    def test_action_executability_expectation_fails_without_closed_sessions(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "scenario"
             work = Path(tmp) / "work"
             payload = _valid_scenario()
             payload["sessions"][0]["close"] = False
-            payload["evaluation"]["expected_plan_executability"] = {
+            payload["evaluation"]["expected_action_executability"] = {
                 "readiness": "ready",
                 "min_implementation_ready_count": 0,
             }
@@ -623,17 +623,17 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
             self.assertEqual([], validate_evaluation_report(report))
             self.assertEqual("failed", report["status"])
             plan_failures = [
-                item for item in report["failures"] if item["metric"] == "plan_executability"
+                item for item in report["failures"] if item["metric"] == "action_executability"
             ]
             self.assertEqual(1, len(plan_failures))
             self.assertIn("requires at least one closed session", plan_failures[0]["message"])
 
-    def test_revisit_quality_expectation_fails_when_due_count_does_not_match(self) -> None:
+    def test_assumption_exposure_expectation_fails_when_due_count_does_not_match(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "scenario"
             work = Path(tmp) / "work"
             payload = _valid_scenario()
-            payload["evaluation"]["expected_revisit_quality"] = {
+            payload["evaluation"]["expected_assumption_exposure"] = {
                 "stale_assumptions": {"mode": "exact", "count": 0},
                 "stale_evidence": {"mode": "exact", "count": 0},
                 "verification_gaps": {"mode": "exact", "count": 0},
@@ -647,15 +647,15 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
 
             self.assertEqual([], validate_evaluation_report(report))
             self.assertEqual("failed", report["status"])
-            self.assertIn("revisit_quality", {item["metric"] for item in report["failures"]})
+            self.assertIn("assumption_exposure", {item["metric"] for item in report["failures"]})
 
-    def test_revisit_quality_expectations_cover_stale_and_gap_diagnostics(self) -> None:
+    def test_assumption_exposure_expectations_cover_stale_and_gap_diagnostics(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "scenario"
             work = Path(tmp) / "work"
             payload = _valid_scenario()
             payload["sessions"][0]["close"] = False
-            payload["evaluation"]["expected_revisit_quality"] = {
+            payload["evaluation"]["expected_assumption_exposure"] = {
                 "stale_assumptions": {"mode": "exact", "count": 1},
                 "stale_evidence": {"mode": "exact", "count": 1},
                 "verification_gaps": {"mode": "exact", "count": 1},
@@ -673,14 +673,14 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
 
             self.assertEqual([], validate_evaluation_report(passing_report))
             self.assertEqual("passed", passing_report["status"])
-            revisit_metric = passing_report["metrics"]["revisit_quality"]
+            revisit_metric = passing_report["metrics"]["assumption_exposure"]
             self.assertEqual(1, revisit_metric["stale_assumption_count"])
             self.assertEqual(1, revisit_metric["stale_evidence_count"])
             self.assertEqual(1, revisit_metric["verification_gap_count"])
             self.assertEqual(1, revisit_metric["due_revisit_count"])
 
             failing = deepcopy(payload)
-            failing["evaluation"]["expected_revisit_quality"] = {
+            failing["evaluation"]["expected_assumption_exposure"] = {
                 "stale_assumptions": {"mode": "exact", "count": 0},
                 "stale_evidence": {"mode": "exact", "count": 0},
                 "verification_gaps": {"mode": "exact", "count": 0},
@@ -698,7 +698,7 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
 
             self.assertEqual([], validate_evaluation_report(failing_report))
             self.assertEqual("failed", failing_report["status"])
-            self.assertIn("revisit_quality", {item["metric"] for item in failing_report["failures"]})
+            self.assertIn("assumption_exposure", {item["metric"] for item in failing_report["failures"]})
 
     def test_evaluation_report_fails_with_schema_shaped_failures(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -708,7 +708,7 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
             payload["evaluation"]["expected_decision_coverage"]["required_domain_decision_types"] = [
                 "plan_verification"
             ]
-            payload["evaluation"]["expected_evidence_coverage"] = {
+            payload["evaluation"]["expected_evidence_linkage_rate"] = {
                 "min_supporting_evidence": 1,
                 "required_evidence_requirement_ids": ["project_brief"],
             }
@@ -725,8 +725,8 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
 
             self.assertEqual([], validate_evaluation_report(report))
             self.assertEqual("failed", report["status"])
-            self.assertIn("decision_completeness", {item["metric"] for item in report["failures"]})
-            self.assertIn("evidence_coverage", {item["metric"] for item in report["failures"]})
+            self.assertIn("decision_coverage", {item["metric"] for item in report["failures"]})
+            self.assertIn("evidence_linkage_rate", {item["metric"] for item in report["failures"]})
             self.assertIn("risk_coverage", {item["metric"] for item in report["failures"]})
 
     def test_runtime_builder_rejects_seed_session_mismatch(self) -> None:
@@ -751,13 +751,105 @@ def _write_scenario_fixture(
     seed_events: list[dict] | dict[str, list[dict]] | None = None,
 ) -> None:
     root.mkdir(parents=True, exist_ok=True)
-    (root / "scenario.yaml").write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+    _write_phase11_expected_files(root, payload)
+    scenario_payload = {
+        "schema_version": 2,
+        "scenario_id": payload["scenario_id"],
+        "label": payload["label"],
+        "domain_pack": payload["domain_pack"],
+        "project": payload["project"],
+        "sessions": payload["sessions"],
+        "evaluation": {"now": payload["evaluation"]["now"]},
+    }
+    if "unexpected" in payload:
+        scenario_payload["unexpected"] = payload["unexpected"]
+    (root / "scenario.yaml").write_text(yaml.safe_dump(scenario_payload, sort_keys=False), encoding="utf-8")
+    (root / "input_context.md").write_text("# Generic minimal scenario\n", encoding="utf-8")
+    (root / "source_materials").mkdir(exist_ok=True)
+    (root / "source_materials" / "fixture.md").write_text("Fixture evidence.\n", encoding="utf-8")
     if isinstance(seed_events, dict):
         for filename, rows in seed_events.items():
             _write_jsonl(root / filename, rows)
         return
     rows = seed_events if seed_events is not None else _seed_events("S-generic-minimal")
     _write_jsonl(root / "events.jsonl", rows)
+
+
+def _write_phase11_expected_files(root: Path, payload: dict) -> None:
+    evaluation = payload["evaluation"]
+    expected_root = root / "expected"
+    outputs = expected_root / "document_outputs"
+    outputs.mkdir(parents=True, exist_ok=True)
+    (outputs / ".gitkeep").write_text("", encoding="utf-8")
+    (outputs / "manifest.yaml").write_text(
+        yaml.safe_dump({"documents": evaluation.get("expected_documents", [])}, sort_keys=False),
+        encoding="utf-8",
+    )
+    evidence = evaluation.get(
+        "expected_evidence_linkage_rate",
+        evaluation.get(
+            "expected_evidence_coverage",
+            {
+                "min_supporting_evidence": 0,
+                "required_evidence_requirement_ids": [],
+            },
+        ),
+    )
+    if "min_supporting_evidence" in evidence:
+        evidence = {
+            "min_linked_evidence": evidence.get("min_supporting_evidence", 0),
+            "required_evidence_requirement_ids": evidence.get("required_evidence_requirement_ids", []),
+            "required_source_refs": evidence.get("required_source_refs", []),
+        }
+    risks = dict(
+        evaluation.get(
+            "expected_risks",
+            {
+                "required_domain_risk_types": [],
+                "min_high_or_critical_risks": 0,
+            },
+        )
+    )
+    if "expected_safety_gates" in evaluation:
+        risks["safety_gates"] = evaluation["expected_safety_gates"]
+    conflicts = dict(evaluation.get("expected_conflicts", {"count": 0}))
+    conflicts["expected_count"] = conflicts.pop("count", conflicts.get("expected_count", 0))
+    assumptions = {
+        "required_assumption_ids": [],
+        "min_assumption_count": 0,
+    }
+    assumptions.update(
+        evaluation.get(
+            "expected_assumption_exposure",
+            evaluation.get("expected_revisit_quality", {}),
+        )
+    )
+    files = {
+        "decisions.yaml": evaluation.get(
+            "expected_decision_coverage",
+            {
+                "required_domain_decision_types": [],
+                "required_status_counts": [],
+            },
+        ),
+        "unresolved_questions.yaml": evaluation.get(
+            "expected_questions",
+            {
+                "max_questions": 0,
+                "forbidden_repeated_decision_types": [],
+            },
+        ),
+        "evidence.yaml": evidence,
+        "conflicts.yaml": conflicts,
+        "risks.yaml": risks,
+        "assumptions.yaml": assumptions,
+        "action_plan.yaml": evaluation.get(
+            "expected_action_executability",
+            evaluation.get("expected_plan_executability", {}),
+        ),
+    }
+    for name, value in files.items():
+        (expected_root / name).write_text(yaml.safe_dump(value, sort_keys=False), encoding="utf-8")
 
 
 def _write_jsonl(path: Path, rows: list[dict]) -> None:
@@ -798,7 +890,7 @@ def _valid_scenario() -> dict:
                 "max_questions": 0,
                 "forbidden_repeated_decision_types": [],
             },
-            "expected_evidence_coverage": {
+            "expected_evidence_linkage_rate": {
                 "min_supporting_evidence": 0,
                 "required_evidence_requirement_ids": [],
             },

@@ -1,0 +1,11 @@
+documents:
+- type: research-plan
+  format: json
+  required_sections:
+  - objective
+  - research-question-decision-targets
+  - evidence-base
+  - analysis-verification-plan
+  - risks-and-mitigations
+  - source-traceability
+  require_source_traceability: true

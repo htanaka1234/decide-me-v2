@@ -1,0 +1,21 @@
+documents:
+- type: action-plan
+  format: json
+  session_ids:
+  - S-operations-incident-review
+  required_sections:
+  - summary
+  - implementation-ready-actions
+  - actions
+  - risks
+  - source-traceability
+  require_source_traceability: true
+- type: review-memo
+  format: json
+  session_ids:
+  - S-operations-incident-review
+  required_sections:
+  - review-summary
+  - required-decisions
+  - verification-gaps
+  - revisit-due

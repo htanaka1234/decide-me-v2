@@ -27,7 +27,7 @@ from tests.helpers.evaluation_snapshots import (
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="run Phase 10 evaluation scenarios")
+    parser = argparse.ArgumentParser(description="run Phase 11 evaluation scenarios")
     parser.add_argument(
         "--scenarios",
         default=str(REPO_ROOT / "tests" / "scenarios"),
@@ -37,7 +37,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--update-snapshots",
         action="store_true",
-        help="update expected_outputs snapshots for scenarios whose evaluation passes",
+        help="update expected/document_outputs snapshots for scenarios whose evaluation passes",
     )
     args = parser.parse_args(argv)
 

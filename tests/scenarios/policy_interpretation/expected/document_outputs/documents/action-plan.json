@@ -1,0 +1,345 @@
+{
+  "audience": "human",
+  "document_id": "DOC-20260429-action-plan",
+  "document_type": "action-plan",
+  "metadata": {
+    "document_profile_id": "generic_action_plan",
+    "domain_pack_digest": "DP-93bf8d37f00b",
+    "domain_pack_id": "generic",
+    "domain_pack_version": "0.1.0",
+    "readiness": "conditional"
+  },
+  "schema_version": 1,
+  "sections": [
+    {
+      "blocks": [
+        {
+          "items": [
+            "Readiness: conditional",
+            "Action count: 3",
+            "Implementation-ready count: 0"
+          ],
+          "type": "list"
+        },
+        {
+          "items": [
+            "Interpret whether a limited exception can proceed under the policy excerpt."
+          ],
+          "type": "list"
+        }
+      ],
+      "id": "summary",
+      "order": 10,
+      "source_link_ids": [
+        "L-ACT-pi-review-addresses-DEC-pi-review",
+        "L-DEC-pi-review-accepts-PRO-pi-manager-review",
+        "L-DEC-pi-scope-accepts-PRO-pi-limited-exception",
+        "L-EVID-pi-policy-supports-DEC-pi-review",
+        "L-EVID-pi-policy-supports-DEC-pi-scope",
+        "L-O-action-4237a384a46d-addresses-DEC-pi-scope",
+        "L-O-action-9f0f8d7f732b-addresses-DEC-pi-review",
+        "L-PRO-pi-limited-exception-addresses-DEC-pi-scope",
+        "L-PRO-pi-limited-exception-recommends-OPT-pi-limited-exception",
+        "L-PRO-pi-manager-review-addresses-DEC-pi-review",
+        "L-PRO-pi-manager-review-recommends-OPT-pi-manager-review"
+      ],
+      "source_object_ids": [
+        "ACT-pi-review",
+        "DEC-pi-review",
+        "DEC-pi-scope",
+        "EVID-pi-policy",
+        "O-action-4237a384a46d",
+        "O-action-9f0f8d7f732b",
+        "O-project-objective",
+        "OPT-pi-limited-exception",
+        "OPT-pi-manager-review",
+        "PRO-pi-limited-exception",
+        "PRO-pi-manager-review",
+        "RISK-pi-precedent"
+      ],
+      "title": "Summary"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "ID",
+            "Name",
+            "Type",
+            "Source Decisions",
+            "Required Inputs",
+            "Outputs",
+            "Verification",
+            "Status",
+            "Priority",
+            "Ready",
+            "Gate",
+            "Next Step"
+          ],
+          "rows": [],
+          "type": "table"
+        }
+      ],
+      "id": "implementation-ready-actions",
+      "order": 20,
+      "source_link_ids": [],
+      "source_object_ids": [],
+      "title": "Implementation-Ready Actions"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "ID",
+            "Name",
+            "Type",
+            "Source Decisions",
+            "Required Inputs",
+            "Outputs",
+            "Verification",
+            "Status",
+            "Priority",
+            "Ready",
+            "Gate",
+            "Next Step"
+          ],
+          "rows": [
+            [
+              "O-action-4237a384a46d",
+              "Policy exception scope",
+              "decision",
+              "DEC-pi-scope",
+              "",
+              "",
+              "",
+              "active",
+              "P0",
+              false,
+              "needs_approval",
+              "Drive Policy exception scope to completion."
+            ],
+            [
+              "O-action-9f0f8d7f732b",
+              "Policy review constraint",
+              "decision",
+              "DEC-pi-review",
+              "",
+              "",
+              "",
+              "active",
+              "P0",
+              false,
+              "needs_approval",
+              "Drive Policy review constraint to completion."
+            ],
+            [
+              "ACT-pi-review",
+              "Request manager policy review",
+              "review",
+              "DEC-pi-review",
+              "",
+              "",
+              "",
+              "active",
+              "P0",
+              false,
+              "needs_approval",
+              "Send documented rationale and conditions to the manager."
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "actions",
+      "order": 30,
+      "source_link_ids": [
+        "L-ACT-pi-review-addresses-DEC-pi-review",
+        "L-ACT-pi-review-mitigates-RISK-pi-precedent",
+        "L-O-action-4237a384a46d-addresses-DEC-pi-scope",
+        "L-O-action-9f0f8d7f732b-addresses-DEC-pi-review"
+      ],
+      "source_object_ids": [
+        "ACT-pi-review",
+        "DEC-pi-review",
+        "DEC-pi-scope",
+        "O-action-4237a384a46d",
+        "O-action-9f0f8d7f732b",
+        "RISK-pi-precedent"
+      ],
+      "title": "Actions"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "ID",
+            "Title",
+            "Status",
+            "Priority",
+            "Evidence"
+          ],
+          "rows": [
+            [
+              "RISK-pi-precedent",
+              "Policy misinterpretation risk",
+              "active",
+              null,
+              ""
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "risks",
+      "order": 50,
+      "source_link_ids": [],
+      "source_object_ids": [
+        "RISK-pi-precedent"
+      ],
+      "title": "Risks"
+    },
+    {
+      "blocks": [
+        {
+          "items": [
+            "Sessions: S-policy-interpretation",
+            "Objects: O-action-9f0f8d7f732b, O-action-4237a384a46d, ACT-pi-review, DEC-pi-scope, DEC-pi-review, EVID-pi-policy, RISK-pi-precedent, O-project-objective, PRO-pi-limited-exception, PRO-pi-manager-review, OPT-pi-limited-exception, OPT-pi-manager-review",
+            "Links: L-O-action-9f0f8d7f732b-addresses-DEC-pi-review, L-O-action-4237a384a46d-addresses-DEC-pi-scope, L-DEC-pi-scope-accepts-PRO-pi-limited-exception, L-EVID-pi-policy-supports-DEC-pi-scope, L-PRO-pi-limited-exception-addresses-DEC-pi-scope, L-ACT-pi-review-addresses-DEC-pi-review, L-DEC-pi-review-accepts-PRO-pi-manager-review, L-EVID-pi-policy-supports-DEC-pi-review, L-PRO-pi-manager-review-addresses-DEC-pi-review, L-PRO-pi-limited-exception-recommends-OPT-pi-limited-exception, L-PRO-pi-manager-review-recommends-OPT-pi-manager-review"
+          ],
+          "type": "list"
+        }
+      ],
+      "id": "source-traceability",
+      "order": 70,
+      "source_link_ids": [
+        "L-ACT-pi-review-addresses-DEC-pi-review",
+        "L-DEC-pi-review-accepts-PRO-pi-manager-review",
+        "L-DEC-pi-scope-accepts-PRO-pi-limited-exception",
+        "L-EVID-pi-policy-supports-DEC-pi-review",
+        "L-EVID-pi-policy-supports-DEC-pi-scope",
+        "L-O-action-4237a384a46d-addresses-DEC-pi-scope",
+        "L-O-action-9f0f8d7f732b-addresses-DEC-pi-review",
+        "L-PRO-pi-limited-exception-addresses-DEC-pi-scope",
+        "L-PRO-pi-limited-exception-recommends-OPT-pi-limited-exception",
+        "L-PRO-pi-manager-review-addresses-DEC-pi-review",
+        "L-PRO-pi-manager-review-recommends-OPT-pi-manager-review"
+      ],
+      "source_object_ids": [
+        "ACT-pi-review",
+        "DEC-pi-review",
+        "DEC-pi-scope",
+        "EVID-pi-policy",
+        "O-action-4237a384a46d",
+        "O-action-9f0f8d7f732b",
+        "O-project-objective",
+        "OPT-pi-limited-exception",
+        "OPT-pi-manager-review",
+        "PRO-pi-limited-exception",
+        "PRO-pi-manager-review",
+        "RISK-pi-precedent"
+      ],
+      "title": "Source Traceability"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "ID",
+            "Title",
+            "Status",
+            "Priority",
+            "Frontier",
+            "Evidence"
+          ],
+          "rows": [],
+          "type": "table"
+        }
+      ],
+      "id": "blockers",
+      "order": 40,
+      "source_link_ids": [],
+      "source_object_ids": [],
+      "title": "Blockers"
+    },
+    {
+      "blocks": [
+        {
+          "columns": [
+            "ID",
+            "Source",
+            "Ref",
+            "Status",
+            "Summary"
+          ],
+          "rows": [
+            [
+              "EVID-pi-policy",
+              "docs",
+              "docs/policy-excerpt.md",
+              "active",
+              "The policy excerpt supports the exception interpretation."
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "id": "evidence",
+      "order": 60,
+      "source_link_ids": [
+        "L-ACT-pi-review-addresses-DEC-pi-review",
+        "L-DEC-pi-review-accepts-PRO-pi-manager-review",
+        "L-DEC-pi-scope-accepts-PRO-pi-limited-exception",
+        "L-EVID-pi-policy-supports-DEC-pi-review",
+        "L-EVID-pi-policy-supports-DEC-pi-scope",
+        "L-O-action-4237a384a46d-addresses-DEC-pi-scope",
+        "L-O-action-9f0f8d7f732b-addresses-DEC-pi-review",
+        "L-PRO-pi-limited-exception-addresses-DEC-pi-scope",
+        "L-PRO-pi-limited-exception-recommends-OPT-pi-limited-exception",
+        "L-PRO-pi-manager-review-addresses-DEC-pi-review",
+        "L-PRO-pi-manager-review-recommends-OPT-pi-manager-review"
+      ],
+      "source_object_ids": [
+        "EVID-pi-policy"
+      ],
+      "title": "Evidence"
+    }
+  ],
+  "source": {
+    "diagnostic_types": [
+      "action_plan"
+    ],
+    "link_ids": [
+      "L-ACT-pi-review-addresses-DEC-pi-review",
+      "L-DEC-pi-review-accepts-PRO-pi-manager-review",
+      "L-DEC-pi-scope-accepts-PRO-pi-limited-exception",
+      "L-EVID-pi-policy-supports-DEC-pi-review",
+      "L-EVID-pi-policy-supports-DEC-pi-scope",
+      "L-O-action-4237a384a46d-addresses-DEC-pi-scope",
+      "L-O-action-9f0f8d7f732b-addresses-DEC-pi-review",
+      "L-PRO-pi-limited-exception-addresses-DEC-pi-scope",
+      "L-PRO-pi-limited-exception-recommends-OPT-pi-limited-exception",
+      "L-PRO-pi-manager-review-addresses-DEC-pi-review",
+      "L-PRO-pi-manager-review-recommends-OPT-pi-manager-review",
+      "L-ACT-pi-review-mitigates-RISK-pi-precedent"
+    ],
+    "object_ids": [
+      "ACT-pi-review",
+      "DEC-pi-review",
+      "DEC-pi-scope",
+      "EVID-pi-policy",
+      "O-action-4237a384a46d",
+      "O-action-9f0f8d7f732b",
+      "O-project-objective",
+      "OPT-pi-limited-exception",
+      "OPT-pi-manager-review",
+      "PRO-pi-limited-exception",
+      "PRO-pi-manager-review",
+      "RISK-pi-precedent"
+    ],
+    "session_ids": [
+      "S-policy-interpretation"
+    ]
+  },
+  "title": "Action Plan",
+  "warnings": []
+}

@@ -1,0 +1,5 @@
+min_linked_evidence: 2
+required_evidence_requirement_ids:
+- codebase_context
+- test_coverage
+required_source_refs: []

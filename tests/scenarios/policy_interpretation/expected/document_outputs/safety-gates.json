@@ -1,0 +1,541 @@
+{
+  "results": [
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [
+        "action_verification_gap",
+        "explicit_acceptance_required",
+        "insufficient_evidence_requires_approval"
+      ],
+      "approval_required": true,
+      "approval_satisfied": false,
+      "approval_threshold": "explicit_acceptance",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [
+          "action_verification_gap",
+          "explicit_acceptance_required",
+          "insufficient_evidence_requires_approval"
+        ],
+        "approval_threshold": "explicit_acceptance",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [],
+        "domain_safety_rules": [],
+        "evidence": [],
+        "evidence_coverage": "insufficient",
+        "object_id": "ACT-pi-review",
+        "object_type": "action",
+        "reversibility": "partially_reversible",
+        "risk_policy": {
+          "approval": "explicit",
+          "automatic_adoption": "requires_approval",
+          "reason": "medium_risk_requires_explicit_approval",
+          "required_actions": [
+            "record_safety_approval"
+          ],
+          "risk_tier": "medium"
+        },
+        "risk_tier": "medium",
+        "risks": [
+          {
+            "approval_threshold": "explicit_acceptance",
+            "domain_risk_type": null,
+            "likelihood": "medium",
+            "link_id": "L-ACT-pi-review-mitigates-RISK-pi-precedent",
+            "mitigation_object_ids": [
+              "ACT-pi-review"
+            ],
+            "object_id": "RISK-pi-precedent",
+            "relation": "mitigates",
+            "reversibility": "partially_reversible",
+            "risk_tier": "medium",
+            "severity": "medium",
+            "statement": "Misreading the policy could create an unmanaged precedent.",
+            "status": "active"
+          },
+          {
+            "approval_threshold": "explicit_acceptance",
+            "domain_risk_type": null,
+            "likelihood": "medium",
+            "link_id": null,
+            "mitigation_object_ids": [
+              "ACT-pi-review"
+            ],
+            "object_id": "RISK-pi-precedent",
+            "relation": "mitigation_metadata",
+            "reversibility": "partially_reversible",
+            "risk_tier": "medium",
+            "severity": "medium",
+            "statement": "Misreading the policy could create an unmanaged precedent.",
+            "status": "active"
+          }
+        ],
+        "source_link_ids": [
+          "L-ACT-pi-review-mitigates-RISK-pi-precedent"
+        ],
+        "verification_gap": {
+          "gap_reason": "missing_verification",
+          "gap_severity": "medium",
+          "related_link_ids": []
+        },
+        "warning_reasons": [
+          "medium_risk_tier",
+          "partially_reversible_change"
+        ]
+      },
+      "domain_requirements": [],
+      "domain_safety_rules": [],
+      "evidence": [],
+      "evidence_coverage": "insufficient",
+      "gate_digest": "SG-9e3e20342436",
+      "gate_status": "needs_approval",
+      "object_id": "ACT-pi-review",
+      "object_type": "action",
+      "reversibility": "partially_reversible",
+      "risk_policy": {
+        "approval": "explicit",
+        "automatic_adoption": "requires_approval",
+        "reason": "medium_risk_requires_explicit_approval",
+        "required_actions": [
+          "record_safety_approval"
+        ],
+        "risk_tier": "medium"
+      },
+      "risk_tier": "medium",
+      "risks": [
+        {
+          "approval_threshold": "explicit_acceptance",
+          "domain_risk_type": null,
+          "likelihood": "medium",
+          "link_id": "L-ACT-pi-review-mitigates-RISK-pi-precedent",
+          "mitigation_object_ids": [
+            "ACT-pi-review"
+          ],
+          "object_id": "RISK-pi-precedent",
+          "relation": "mitigates",
+          "reversibility": "partially_reversible",
+          "risk_tier": "medium",
+          "severity": "medium",
+          "statement": "Misreading the policy could create an unmanaged precedent.",
+          "status": "active"
+        },
+        {
+          "approval_threshold": "explicit_acceptance",
+          "domain_risk_type": null,
+          "likelihood": "medium",
+          "link_id": null,
+          "mitigation_object_ids": [
+            "ACT-pi-review"
+          ],
+          "object_id": "RISK-pi-precedent",
+          "relation": "mitigation_metadata",
+          "reversibility": "partially_reversible",
+          "risk_tier": "medium",
+          "severity": "medium",
+          "statement": "Misreading the policy could create an unmanaged precedent.",
+          "status": "active"
+        }
+      ],
+      "source_link_ids": [
+        "L-ACT-pi-review-mitigates-RISK-pi-precedent"
+      ],
+      "status": "active",
+      "title": "Request manager policy review",
+      "warning_reasons": [
+        "medium_risk_tier",
+        "partially_reversible_change"
+      ]
+    },
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [],
+      "approval_required": false,
+      "approval_satisfied": false,
+      "approval_threshold": "none",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [],
+        "approval_threshold": "none",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [],
+        "domain_safety_rules": [],
+        "evidence": [
+          {
+            "confidence": "high",
+            "domain_evidence_type": null,
+            "evidence_requirement_id": null,
+            "freshness": "current",
+            "is_stale": false,
+            "link_id": "L-EVID-pi-policy-supports-DEC-pi-review",
+            "object_id": "EVID-pi-policy",
+            "observed_at": "2026-04-29T00:19:00Z",
+            "relation": "supports",
+            "source": "docs",
+            "source_ref": "docs/policy-excerpt.md",
+            "status": "active",
+            "summary": "The policy excerpt defines the required review and rationale conditions.",
+            "valid_until": null
+          }
+        ],
+        "evidence_coverage": "sufficient",
+        "object_id": "DEC-pi-review",
+        "object_type": "decision",
+        "reversibility": "partially_reversible",
+        "risk_policy": {
+          "approval": "optional",
+          "automatic_adoption": "allowed",
+          "reason": "risk_policy_allows_adoption",
+          "required_actions": [],
+          "risk_tier": "none"
+        },
+        "risk_tier": "none",
+        "risks": [],
+        "source_link_ids": [
+          "L-EVID-pi-policy-supports-DEC-pi-review"
+        ],
+        "verification_gap": null,
+        "warning_reasons": [
+          "partially_reversible_change"
+        ]
+      },
+      "domain_requirements": [],
+      "domain_safety_rules": [],
+      "evidence": [
+        {
+          "confidence": "high",
+          "domain_evidence_type": null,
+          "evidence_requirement_id": null,
+          "freshness": "current",
+          "is_stale": false,
+          "link_id": "L-EVID-pi-policy-supports-DEC-pi-review",
+          "object_id": "EVID-pi-policy",
+          "observed_at": "2026-04-29T00:19:00Z",
+          "relation": "supports",
+          "source": "docs",
+          "source_ref": "docs/policy-excerpt.md",
+          "status": "active",
+          "summary": "The policy excerpt defines the required review and rationale conditions.",
+          "valid_until": null
+        }
+      ],
+      "evidence_coverage": "sufficient",
+      "gate_digest": "SG-aaf318bc6782",
+      "gate_status": "passed",
+      "object_id": "DEC-pi-review",
+      "object_type": "decision",
+      "reversibility": "partially_reversible",
+      "risk_policy": {
+        "approval": "optional",
+        "automatic_adoption": "allowed",
+        "reason": "risk_policy_allows_adoption",
+        "required_actions": [],
+        "risk_tier": "none"
+      },
+      "risk_tier": "none",
+      "risks": [],
+      "source_link_ids": [
+        "L-EVID-pi-policy-supports-DEC-pi-review"
+      ],
+      "status": "accepted",
+      "title": "Policy review constraint",
+      "warning_reasons": [
+        "partially_reversible_change"
+      ]
+    },
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [],
+      "approval_required": false,
+      "approval_satisfied": false,
+      "approval_threshold": "none",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [
+        {
+          "confidence": "medium",
+          "expires_at": null,
+          "invalidates_if_false": [
+            "DEC-pi-review",
+            "DEC-pi-scope"
+          ],
+          "is_expired": false,
+          "link_id": "L-ASSUMP-pi-current-policy-constrains-DEC-pi-scope",
+          "object_id": "ASSUMP-pi-current-policy",
+          "owner": "policy-owner",
+          "relation": "constrains",
+          "statement": "The policy excerpt is current for this request.",
+          "status": "active",
+          "validation": "Confirm with policy owner before rollout."
+        }
+      ],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [],
+        "approval_threshold": "none",
+        "assumptions": [
+          {
+            "confidence": "medium",
+            "expires_at": null,
+            "invalidates_if_false": [
+              "DEC-pi-review",
+              "DEC-pi-scope"
+            ],
+            "is_expired": false,
+            "link_id": "L-ASSUMP-pi-current-policy-constrains-DEC-pi-scope",
+            "object_id": "ASSUMP-pi-current-policy",
+            "owner": "policy-owner",
+            "relation": "constrains",
+            "statement": "The policy excerpt is current for this request.",
+            "status": "active",
+            "validation": "Confirm with policy owner before rollout."
+          }
+        ],
+        "blocking_reasons": [],
+        "domain_requirements": [],
+        "domain_safety_rules": [],
+        "evidence": [
+          {
+            "confidence": "high",
+            "domain_evidence_type": null,
+            "evidence_requirement_id": null,
+            "freshness": "current",
+            "is_stale": false,
+            "link_id": "L-EVID-pi-policy-supports-DEC-pi-scope",
+            "object_id": "EVID-pi-policy",
+            "observed_at": "2026-04-29T00:19:00Z",
+            "relation": "supports",
+            "source": "docs",
+            "source_ref": "docs/policy-excerpt.md",
+            "status": "active",
+            "summary": "The policy excerpt defines the required review and rationale conditions.",
+            "valid_until": null
+          }
+        ],
+        "evidence_coverage": "sufficient",
+        "object_id": "DEC-pi-scope",
+        "object_type": "decision",
+        "reversibility": "reversible",
+        "risk_policy": {
+          "approval": "optional",
+          "automatic_adoption": "allowed",
+          "reason": "risk_policy_allows_adoption",
+          "required_actions": [],
+          "risk_tier": "none"
+        },
+        "risk_tier": "none",
+        "risks": [],
+        "source_link_ids": [
+          "L-ASSUMP-pi-current-policy-constrains-DEC-pi-scope",
+          "L-EVID-pi-policy-supports-DEC-pi-scope"
+        ],
+        "verification_gap": null,
+        "warning_reasons": []
+      },
+      "domain_requirements": [],
+      "domain_safety_rules": [],
+      "evidence": [
+        {
+          "confidence": "high",
+          "domain_evidence_type": null,
+          "evidence_requirement_id": null,
+          "freshness": "current",
+          "is_stale": false,
+          "link_id": "L-EVID-pi-policy-supports-DEC-pi-scope",
+          "object_id": "EVID-pi-policy",
+          "observed_at": "2026-04-29T00:19:00Z",
+          "relation": "supports",
+          "source": "docs",
+          "source_ref": "docs/policy-excerpt.md",
+          "status": "active",
+          "summary": "The policy excerpt defines the required review and rationale conditions.",
+          "valid_until": null
+        }
+      ],
+      "evidence_coverage": "sufficient",
+      "gate_digest": "SG-18dcb64b02b0",
+      "gate_status": "passed",
+      "object_id": "DEC-pi-scope",
+      "object_type": "decision",
+      "reversibility": "reversible",
+      "risk_policy": {
+        "approval": "optional",
+        "automatic_adoption": "allowed",
+        "reason": "risk_policy_allows_adoption",
+        "required_actions": [],
+        "risk_tier": "none"
+      },
+      "risk_tier": "none",
+      "risks": [],
+      "source_link_ids": [
+        "L-ASSUMP-pi-current-policy-constrains-DEC-pi-scope",
+        "L-EVID-pi-policy-supports-DEC-pi-scope"
+      ],
+      "status": "accepted",
+      "title": "Policy exception scope",
+      "warning_reasons": []
+    },
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [
+        "action_verification_gap"
+      ],
+      "approval_required": true,
+      "approval_satisfied": false,
+      "approval_threshold": "none",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [
+          "action_verification_gap"
+        ],
+        "approval_threshold": "none",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [],
+        "domain_safety_rules": [],
+        "evidence": [],
+        "evidence_coverage": "insufficient",
+        "object_id": "O-action-4237a384a46d",
+        "object_type": "action",
+        "reversibility": "reversible",
+        "risk_policy": {
+          "approval": "explicit",
+          "automatic_adoption": "requires_approval",
+          "reason": "approval_threshold_requires_review",
+          "required_actions": [
+            "record_safety_approval"
+          ],
+          "risk_tier": "none"
+        },
+        "risk_tier": "none",
+        "risks": [],
+        "source_link_ids": [],
+        "verification_gap": {
+          "gap_reason": "missing_verification",
+          "gap_severity": "medium",
+          "related_link_ids": []
+        },
+        "warning_reasons": [
+          "insufficient_evidence"
+        ]
+      },
+      "domain_requirements": [],
+      "domain_safety_rules": [],
+      "evidence": [],
+      "evidence_coverage": "insufficient",
+      "gate_digest": "SG-ee2e33959e7f",
+      "gate_status": "needs_approval",
+      "object_id": "O-action-4237a384a46d",
+      "object_type": "action",
+      "reversibility": "reversible",
+      "risk_policy": {
+        "approval": "explicit",
+        "automatic_adoption": "requires_approval",
+        "reason": "approval_threshold_requires_review",
+        "required_actions": [
+          "record_safety_approval"
+        ],
+        "risk_tier": "none"
+      },
+      "risk_tier": "none",
+      "risks": [],
+      "source_link_ids": [],
+      "status": "active",
+      "title": "Policy exception scope",
+      "warning_reasons": [
+        "insufficient_evidence"
+      ]
+    },
+    {
+      "approval_artifact_ids": [],
+      "approval_reasons": [
+        "action_verification_gap"
+      ],
+      "approval_required": true,
+      "approval_satisfied": false,
+      "approval_threshold": "none",
+      "as_of": "2026-04-29T00:00:00Z",
+      "assumptions": [],
+      "blocking_reasons": [],
+      "digest_inputs": {
+        "approval_reasons": [
+          "action_verification_gap"
+        ],
+        "approval_threshold": "none",
+        "assumptions": [],
+        "blocking_reasons": [],
+        "domain_requirements": [],
+        "domain_safety_rules": [],
+        "evidence": [],
+        "evidence_coverage": "insufficient",
+        "object_id": "O-action-9f0f8d7f732b",
+        "object_type": "action",
+        "reversibility": "partially_reversible",
+        "risk_policy": {
+          "approval": "explicit",
+          "automatic_adoption": "requires_approval",
+          "reason": "approval_threshold_requires_review",
+          "required_actions": [
+            "record_safety_approval"
+          ],
+          "risk_tier": "none"
+        },
+        "risk_tier": "none",
+        "risks": [],
+        "source_link_ids": [],
+        "verification_gap": {
+          "gap_reason": "missing_verification",
+          "gap_severity": "medium",
+          "related_link_ids": []
+        },
+        "warning_reasons": [
+          "insufficient_evidence",
+          "partially_reversible_change"
+        ]
+      },
+      "domain_requirements": [],
+      "domain_safety_rules": [],
+      "evidence": [],
+      "evidence_coverage": "insufficient",
+      "gate_digest": "SG-f5ed12e646cb",
+      "gate_status": "needs_approval",
+      "object_id": "O-action-9f0f8d7f732b",
+      "object_type": "action",
+      "reversibility": "partially_reversible",
+      "risk_policy": {
+        "approval": "explicit",
+        "automatic_adoption": "requires_approval",
+        "reason": "approval_threshold_requires_review",
+        "required_actions": [
+          "record_safety_approval"
+        ],
+        "risk_tier": "none"
+      },
+      "risk_tier": "none",
+      "risks": [],
+      "source_link_ids": [],
+      "status": "active",
+      "title": "Policy review constraint",
+      "warning_reasons": [
+        "insufficient_evidence",
+        "partially_reversible_change"
+      ]
+    }
+  ],
+  "schema_version": 1,
+  "summary": {
+    "approval_required_count": 3,
+    "blocking_count": 0,
+    "by_gate_status": {
+      "needs_approval": 3,
+      "passed": 2
+    },
+    "evaluated_count": 5
+  }
+}

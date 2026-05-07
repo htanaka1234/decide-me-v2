@@ -5,7 +5,7 @@ Domain packs add declarative domain vocabulary and policy overlays without chang
 They are YAML or JSON data, not executable plugins. A pack declares domain-specific decision
 types, criteria, evidence requirements, risks, safety rules, document profiles, aliases, and
 interview hints. Packs also declare `action_types`, the action taxonomy used when an action is
-treated as the Phase 10 executable WorkUnit equivalent. The core runtime still stores
+treated as the executable WorkUnit equivalent. The core runtime still stores
 domain-neutral objects and links; pack semantics are attached through metadata such as
 `domain_pack_id`, `domain_pack_version`, `domain_pack_digest`, and `domain_decision_type`.
 
@@ -33,7 +33,7 @@ User-defined packs may be placed under `.ai/decide-me/domain-packs/` as `.yaml`,
 `.json`. YAML loading uses the runtime dependency declared in `requirements.txt` (`PyYAML>=6.0`).
 They must pass the same strict contract as built-ins. Duplicate pack IDs are rejected.
 
-Existing user-defined packs created before the Phase 10 Action-as-WorkUnit contract update must
+Existing user-defined packs created before the Action-as-WorkUnit contract update must
 add `action_types`. A minimal compatible value is:
 
 ```yaml

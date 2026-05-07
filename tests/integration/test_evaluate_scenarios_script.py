@@ -39,7 +39,7 @@ class EvaluateScenariosScriptTests(unittest.TestCase):
     def test_single_scenario_directory_input_succeeds(self) -> None:
         code, stdout, _stderr = _run_runner(
             "--scenarios",
-            str(SCENARIOS_DIR / "career_plan"),
+            str(SCENARIOS_DIR / "personal_planning"),
             "--format",
             "json",
         )
@@ -48,12 +48,12 @@ class EvaluateScenariosScriptTests(unittest.TestCase):
         summary = json.loads(stdout)
         self.assertEqual("passed", summary["status"])
         self.assertEqual(1, summary["scenario_count"])
-        self.assertEqual("career_plan", summary["scenarios"][0]["scenario_id"])
+        self.assertEqual("personal_planning", summary["scenarios"][0]["scenario_id"])
 
     def test_single_scenario_yaml_input_succeeds(self) -> None:
         code, stdout, _stderr = _run_runner(
             "--scenarios",
-            str(SCENARIOS_DIR / "career_plan" / "scenario.yaml"),
+            str(SCENARIOS_DIR / "personal_planning" / "scenario.yaml"),
             "--format",
             "json",
         )
@@ -62,7 +62,7 @@ class EvaluateScenariosScriptTests(unittest.TestCase):
         summary = json.loads(stdout)
         self.assertEqual("passed", summary["status"])
         self.assertEqual(1, summary["scenario_count"])
-        self.assertEqual("career_plan", summary["scenarios"][0]["scenario_id"])
+        self.assertEqual("personal_planning", summary["scenarios"][0]["scenario_id"])
 
     def test_json_discovery_failure_includes_diagnostic_failure(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -86,8 +86,8 @@ class EvaluateScenariosScriptTests(unittest.TestCase):
 
     def test_snapshot_mismatch_fails_without_update(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            scenarios = _copy_one_scenario(Path(tmp), "career_plan")
-            expected = scenarios / "career_plan" / "expected_outputs"
+            scenarios = _copy_one_scenario(Path(tmp), "personal_planning")
+            expected = scenarios / "personal_planning" / "expected" / "document_outputs"
             (expected / "risk-register.json").unlink()
             (expected / "evaluation-report.json").write_text('{"changed": true}\n', encoding="utf-8")
 
@@ -109,8 +109,8 @@ class EvaluateScenariosScriptTests(unittest.TestCase):
 
     def test_update_snapshots_writes_copied_scenario_baselines(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            scenarios = _copy_one_scenario(Path(tmp), "career_plan")
-            expected = scenarios / "career_plan" / "expected_outputs"
+            scenarios = _copy_one_scenario(Path(tmp), "personal_planning")
+            expected = scenarios / "personal_planning" / "expected" / "document_outputs"
             (expected / "risk-register.json").unlink()
             (expected / "project-state.json").write_text('{"changed": true}\n', encoding="utf-8")
 
@@ -143,14 +143,20 @@ class EvaluateScenariosScriptTests(unittest.TestCase):
 
     def test_update_snapshots_is_skipped_when_evaluation_fails(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            scenarios = _copy_one_scenario(Path(tmp), "career_plan")
-            scenario_file = scenarios / "career_plan" / "scenario.yaml"
-            payload = yaml.safe_load(scenario_file.read_text(encoding="utf-8"))
-            payload["evaluation"]["expected_decision_coverage"]["required_domain_decision_types"].append(
+            scenarios = _copy_one_scenario(Path(tmp), "personal_planning")
+            decisions_file = scenarios / "personal_planning" / "expected" / "decisions.yaml"
+            payload = yaml.safe_load(decisions_file.read_text(encoding="utf-8"))
+            payload["required_domain_decision_types"].append(
                 "missing_decision_type"
             )
-            scenario_file.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
-            expected_report = scenarios / "career_plan" / "expected_outputs" / "evaluation-report.json"
+            decisions_file.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+            expected_report = (
+                scenarios
+                / "personal_planning"
+                / "expected"
+                / "document_outputs"
+                / "evaluation-report.json"
+            )
             before = expected_report.read_text(encoding="utf-8")
 
             code, stdout, _stderr = _run_runner(

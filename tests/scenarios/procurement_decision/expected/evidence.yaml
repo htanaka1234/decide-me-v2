@@ -1,0 +1,6 @@
+min_linked_evidence: 3
+required_evidence_requirement_ids:
+- requirements_brief
+- budget_context
+- comparison_table
+required_source_refs: []

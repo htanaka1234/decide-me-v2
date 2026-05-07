@@ -1,0 +1,14 @@
+required_assumption_ids: []
+min_assumption_count: 0
+stale_assumptions:
+  mode: exact
+  count: 0
+stale_evidence:
+  mode: exact
+  count: 0
+verification_gaps:
+  mode: exact
+  count: 0
+due_revisits:
+  mode: min
+  count: 1
