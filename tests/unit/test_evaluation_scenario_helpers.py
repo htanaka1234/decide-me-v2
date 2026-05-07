@@ -13,6 +13,7 @@ from decide_me.lifecycle import close_session
 from decide_me.store import load_runtime, read_event_log, runtime_paths
 from tests.helpers.evaluation_assertions import validate_evaluation_report
 from tests.helpers.evaluation_scenarios import (
+    _evidence_linkage_metric,
     build_scenario_runtime,
     load_scenario,
     run_scenario_evaluation,
@@ -139,6 +140,26 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
             )
 
             with self.assertRaisesRegex(ValueError, "required_source_refs do not exist"):
+                load_scenario(root / "scenario.yaml")
+
+    def test_loader_rejects_mutually_exclusive_conflict_type_filters(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_scenario_fixture(root, _valid_scenario())
+            _overwrite_expected_yaml(
+                root,
+                "conflicts.yaml",
+                {
+                    "expected_count": 0,
+                    "allowed_conflict_types": [],
+                    "forbidden_conflict_types": [],
+                },
+            )
+
+            with self.assertRaisesRegex(
+                ValueError,
+                "allowed_conflict_types and forbidden_conflict_types are mutually exclusive",
+            ):
                 load_scenario(root / "scenario.yaml")
 
     def test_runtime_builder_uses_requested_session_ids_and_closes_marked_sessions(self) -> None:
@@ -421,6 +442,60 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
             self.assertEqual("failed", report["status"])
             self.assertIn("evidence_linkage_rate", {item["metric"] for item in report["failures"]})
             self.assertIn("protocol_or_project_brief", report["metrics"]["evidence_linkage_rate"]["missing_ids"])
+
+    def test_missing_linked_evidence_source_ref_keeps_report_schema_shaped(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "scenario"
+            work = Path(tmp) / "work"
+            payload = _valid_scenario()
+            payload["evaluation"]["expected_evidence_linkage_rate"] = {
+                "min_supporting_evidence": 1,
+                "required_evidence_requirement_ids": [],
+                "required_source_refs": [],
+                "require_all_linked_evidence_source_ref": True,
+            }
+            metadata = _evidence_metadata(None, freshness="current")
+            seed_events = [
+                *_seed_events("S-generic-minimal"),
+                _object_event(
+                    "E-seed-linked-evidence-without-source",
+                    "EVID-without-source",
+                    "evidence",
+                    "active",
+                    "Linked evidence lacks a source reference.",
+                    metadata,
+                    "2026-04-29T00:20:30Z",
+                ),
+                _link_event(
+                    "E-seed-linked-evidence-without-source-link",
+                    "L-EVID-without-source-supports-DEC-choice",
+                    "EVID-without-source",
+                    "supports",
+                    "DEC-choice",
+                    "2026-04-29T00:20:31Z",
+                ),
+            ]
+            _write_scenario_fixture(root, payload, seed_events=seed_events)
+            scenario = load_scenario(root / "scenario.yaml")
+            runtime = build_scenario_runtime(scenario, work)
+            project_state = deepcopy(runtime.bundle["project_state"])
+            for obj in project_state["objects"]:
+                if obj["id"] == "EVID-without-source":
+                    obj["metadata"].pop("source_ref")
+
+            failures: list[dict] = []
+            evidence_metric = _evidence_linkage_metric(scenario, project_state, failures)
+            report = run_scenario_evaluation(scenario, runtime)
+            report["status"] = "failed"
+            report["metrics"]["evidence_linkage_rate"] = evidence_metric
+            report["failures"] = failures
+
+            self.assertEqual([], validate_evaluation_report(report))
+            self.assertEqual("failed", report["status"])
+            self.assertEqual(0, evidence_metric["required_count"])
+            self.assertEqual(0, evidence_metric["covered_count"])
+            self.assertIn("source_ref_missing:EVID-without-source", evidence_metric["missing_ids"])
+            self.assertIn("evidence_linkage_rate", {item["metric"] for item in report["failures"]})
 
     def test_safety_gate_negative_expectations_pass_and_fail(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

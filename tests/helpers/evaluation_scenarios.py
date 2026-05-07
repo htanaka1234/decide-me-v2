@@ -354,6 +354,10 @@ def _validate_expected_conflicts(payload: dict[str, Any], path: Path) -> None:
     ):
         if key in payload:
             _require_string_list(payload, key, path)
+    if "allowed_conflict_types" in payload and "forbidden_conflict_types" in payload:
+        raise ValueError(
+            f"{path} allowed_conflict_types and forbidden_conflict_types are mutually exclusive"
+        )
 
 
 def _validate_expected_risks(payload: dict[str, Any], path: Path) -> None:
@@ -965,19 +969,20 @@ def _evidence_linkage_metric(
         for item in linked_evidence_items
         if not objects_by_id.get(item["object_id"], {}).get("metadata", {}).get("source_ref")
     ]
-    missing = [
+    coverage_missing = [
         requirement_id
         for requirement_id in expected["required_evidence_requirement_ids"]
         if requirement_id not in actual_requirement_ids
     ]
     for source_ref in expected.get("required_source_refs", []):
         if source_ref not in actual_source_refs:
-            missing.append(f"source_ref:{source_ref}")
+            coverage_missing.append(f"source_ref:{source_ref}")
+    diagnostic_missing: list[str] = []
     min_linked = expected.get("min_linked_evidence", expected.get("min_supporting_evidence", 0))
     if linked_count < min_linked:
-        missing.append(f"linked_evidence_min:{min_linked}")
+        diagnostic_missing.append(f"linked_evidence_min:{min_linked}")
     if expected.get("require_all_linked_evidence_source_ref"):
-        missing.extend(f"source_ref_missing:{object_id}" for object_id in missing_source_ref_ids)
+        diagnostic_missing.extend(f"source_ref_missing:{object_id}" for object_id in missing_source_ref_ids)
     invalid_source_refs = [
         str(ref)
         for ref in sorted(actual_source_refs)
@@ -985,13 +990,8 @@ def _evidence_linkage_metric(
     ]
 
     required_count = len(expected["required_evidence_requirement_ids"]) + len(expected.get("required_source_refs", []))
-    covered_count = required_count - len(
-        [
-            item
-            for item in missing
-            if not item.startswith("linked_evidence_min:")
-        ]
-    )
+    covered_count = max(0, required_count - len(coverage_missing))
+    missing = coverage_missing + diagnostic_missing
     passed = not missing and not invalid_source_refs
     if missing or invalid_source_refs:
         failures.append(
