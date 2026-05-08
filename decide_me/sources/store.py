@@ -4,8 +4,8 @@ import shutil
 import urllib.request
 from copy import deepcopy
 from pathlib import Path
-from urllib.parse import urlparse
 from typing import Any
+from urllib.parse import urlparse
 
 from decide_me.events import utc_now
 from decide_me.sources.decompose import decompose_document, html_to_text
@@ -29,7 +29,7 @@ from decide_me.sources.model import (
     validate_normative_unit,
     validate_source_document,
 )
-from decide_me.store import read_event_log, runtime_paths, transact_with_precommit
+from decide_me.store import load_runtime, read_event_log, runtime_paths, transact_with_precommit
 
 
 SOURCE_FORMAT_BY_SUFFIX = {
@@ -203,6 +203,14 @@ def decompose_source(
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
         old_metadata = load_source_metadata(ai_dir, source_id)
         units, parser_version, quality_flags = decompose_document(ai_dir, old_metadata, strategy=strategy)
+        linked_unit_ids = _linked_source_unit_ids(bundle["project_state"], source_id)
+        new_unit_ids = {unit["id"] for unit in units}
+        orphaned_unit_ids = sorted(linked_unit_ids - new_unit_ids)
+        if orphaned_unit_ids:
+            raise SourceValidationError(
+                f"decompose-source would orphan linked source units for {source_id}: "
+                + ", ".join(orphaned_unit_ids)
+            )
         extracted_at = utc_now()
         new_metadata = deepcopy(old_metadata)
         new_metadata.update(
@@ -297,6 +305,7 @@ def show_source_unit(ai_dir: str | Path, source_unit_id: str) -> dict[str, Any]:
 
 def validate_sources(ai_dir: str | Path) -> dict[str, Any]:
     issues: list[str] = []
+    unit_hashes_by_source: dict[str, dict[str, str]] = {}
     try:
         registry = load_registry(ai_dir)
     except SourceValidationError as exc:
@@ -316,12 +325,14 @@ def validate_sources(ai_dir: str | Path) -> dict[str, Any]:
             if not text_path.exists():
                 issues.append(f"{source_id}: missing text snapshot")
             units = load_units(ai_dir, source_id)
+            unit_hashes_by_source[source_id] = {}
             seen_unit_ids: set[str] = set()
             for unit in units:
                 validate_normative_unit(unit)
                 if unit["id"] in seen_unit_ids:
                     issues.append(f"{source_id}: duplicate unit id {unit['id']}")
                 seen_unit_ids.add(unit["id"])
+                unit_hashes_by_source[source_id][unit["id"]] = unit["content_hash"]
                 if sha256_text(unit["text_exact"]) != unit["content_hash"]:
                     issues.append(f"{unit['id']}: unit text hash mismatch")
             if metadata.get("unit_count", 0) != len(units):
@@ -329,7 +340,90 @@ def validate_sources(ai_dir: str | Path) -> dict[str, Any]:
         except (OSError, SourceValidationError, ValueError) as exc:
             issues.append(f"{source_id}: {exc}")
 
+    issues.extend(_source_store_reference_issues(ai_dir, unit_hashes_by_source))
     return {"ok": not issues, "issues": issues}
+
+
+def _linked_source_unit_ids(project_state: dict[str, Any], source_id: str) -> set[str]:
+    linked: set[str] = set()
+    for obj in project_state.get("objects", []):
+        metadata = obj.get("metadata", {})
+        if obj.get("type") == "evidence" and metadata.get("source_document_id") == source_id:
+            source_unit_id = metadata.get("source_unit_id")
+            if isinstance(source_unit_id, str) and source_unit_id:
+                linked.add(source_unit_id)
+    for link in project_state.get("links", []):
+        metadata = link.get("metadata", {})
+        if isinstance(metadata, dict) and metadata.get("source_document_id") == source_id:
+            source_unit_id = metadata.get("source_unit_id")
+            if isinstance(source_unit_id, str) and source_unit_id:
+                linked.add(source_unit_id)
+    return linked
+
+
+def _source_store_reference_issues(
+    ai_dir: str | Path,
+    unit_hashes_by_source: dict[str, dict[str, str]],
+) -> list[str]:
+    try:
+        bundle = load_runtime(runtime_paths(ai_dir))
+    except (OSError, ValueError) as exc:
+        return [f"runtime projection unavailable for source-store evidence validation: {exc}"]
+
+    issues: list[str] = []
+    for obj in bundle["project_state"].get("objects", []):
+        metadata = obj.get("metadata", {})
+        if obj.get("type") == "evidence" and metadata.get("source") == "source-store":
+            issues.extend(
+                _source_unit_reference_issues(
+                    label=f"evidence object {obj['id']}",
+                    metadata=metadata,
+                    unit_hashes_by_source=unit_hashes_by_source,
+                )
+            )
+    for link in bundle["project_state"].get("links", []):
+        metadata = link.get("metadata", {})
+        if isinstance(metadata, dict) and (
+            metadata.get("source_document_id") is not None
+            or metadata.get("source_unit_id") is not None
+        ):
+            issues.extend(
+                _source_unit_reference_issues(
+                    label=f"link {link['id']}",
+                    metadata=metadata,
+                    unit_hashes_by_source=unit_hashes_by_source,
+                )
+            )
+    return issues
+
+
+def _source_unit_reference_issues(
+    *,
+    label: str,
+    metadata: dict[str, Any],
+    unit_hashes_by_source: dict[str, dict[str, str]],
+) -> list[str]:
+    source_document_id = metadata.get("source_document_id")
+    source_unit_id = metadata.get("source_unit_id")
+    if not isinstance(source_document_id, str) or not source_document_id:
+        return [f"{label}: missing source_document_id"]
+    if not isinstance(source_unit_id, str) or not source_unit_id:
+        return [f"{label}: missing source_unit_id"]
+    if source_document_id not in unit_hashes_by_source:
+        return [f"{label}: references unknown source document {source_document_id}"]
+    source_units = unit_hashes_by_source[source_document_id]
+    if source_unit_id not in source_units:
+        return [
+            f"{label}: orphaned linked source unit {source_unit_id} "
+            f"for source document {source_document_id}"
+        ]
+    source_unit_hash = metadata.get("source_unit_hash")
+    if source_unit_hash is not None and source_unit_hash != source_units[source_unit_id]:
+        return [
+            f"{label}: source unit hash mismatch for {source_unit_id}: "
+            f"expected {source_units[source_unit_id]}, got {source_unit_hash}"
+        ]
+    return []
 
 
 def _read_source_input(

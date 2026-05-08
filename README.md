@@ -254,7 +254,9 @@ Use the Phase 12 evidence source store:
 6. For a replacement snapshot, import with `--previous-source-id SRC-...` and inspect the new source
    with `show-source-impact --include-previous-version-links` to include decisions still linked to
    the prior version.
-7. Source impact is read-only. It never invalidates decisions, creates revisit triggers, or applies
+7. Source impact also reports orphaned linked source units when projected evidence references units
+   no longer present in `units.jsonl`.
+8. Source impact is read-only. It never invalidates decisions, creates revisit triggers, or applies
    source changes automatically.
 
 Record object relationships:

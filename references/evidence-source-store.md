@@ -124,6 +124,8 @@ The evidence object represents the source unit itself and may carry `source_docu
 Per-decision usage belongs on the link metadata: `quote`, `interpretation_note`, `relevance`,
 `linked_at`, and the same source-unit IDs/hashes needed for audit. The CLI validates that any
 provided quote appears in the source unit text after whitespace and Unicode normalization.
+`evidence_linked_to_object` must reference the concrete `object_linked` link by `link_id`; full
+runtime validation checks that the audit payload and link metadata agree.
 
 Source import and decomposition run under the runtime write lock. Source-store file updates are
 written only after the corresponding event payloads validate, and they are rolled back if the audit
@@ -160,3 +162,9 @@ affected objects and downstream affected decisions. When a new source version is
 `--previous-source-id` to make the lineage explicit; then use
 `show-source-impact --include-previous-version-links` on the new source to find decisions still
 linked to the previous version.
+
+Re-running `decompose-source` refuses to overwrite `units.jsonl` when the new unit set would drop a
+source unit already referenced by source-store evidence. If older or manually edited runtime state
+has already orphaned a linked source unit, `validate-sources` reports the orphan and
+`show-source-impact` keeps that evidence in the diagnostic output under
+`orphaned_linked_source_units` instead of silently dropping affected decisions.

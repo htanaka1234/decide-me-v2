@@ -1044,8 +1044,11 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
     session_status: dict[str, str] = {SYSTEM_SESSION_ID: "active"}
     has_close_summary: dict[str, bool] = {}
     object_ids: set[str] = set()
+    object_types: dict[str, str] = {}
     object_statuses: dict[str, str] = {}
     active_link_ids: set[str] = set()
+    active_links_by_id: dict[str, dict[str, Any]] = {}
+    active_link_tx_ids: dict[str, str] = {}
     pending_questions_by_session: dict[str, dict[str, str]] = defaultdict(dict)
     pending_close_summary_session_id: str | None = None
     project_initialized_count = 0
@@ -1072,6 +1075,7 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
             for key in ("name", "objective", "current_milestone", "stop_rule"):
                 _require_non_empty_string(project.get(key), f"project_initialized.payload.project.{key}")
             object_ids.add("O-project-objective")
+            object_types["O-project-objective"] = "goal"
             object_statuses["O-project-objective"] = "active"
         elif event_type == "session_created":
             created_session_id = payload["session"]["id"]
@@ -1102,6 +1106,7 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
             if object_id in object_ids:
                 raise StateValidationError(f"duplicate object_recorded id: {object_id}")
             object_ids.add(object_id)
+            object_types[object_id] = payload["object"]["type"]
             object_statuses[object_id] = payload["object"]["status"]
         elif event_type == "object_updated":
             object_id = payload["object_id"]
@@ -1130,11 +1135,15 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
             if target_id not in object_ids:
                 raise StateValidationError(f"object_linked link {link_id} target_object_id references unknown object")
             active_link_ids.add(link_id)
+            active_links_by_id[link_id] = deepcopy(link)
+            active_link_tx_ids[link_id] = event["tx_id"]
         elif event_type == "object_unlinked":
             link_id = payload["link_id"]
             if link_id not in active_link_ids:
                 raise StateValidationError(f"object_unlinked references unknown or inactive link {link_id}")
             active_link_ids.remove(link_id)
+            active_links_by_id.pop(link_id, None)
+            active_link_tx_ids.pop(link_id, None)
         elif event_type == "session_question_asked":
             target_object_id = payload["target_object_id"]
             if target_object_id not in object_ids:
@@ -1175,6 +1184,11 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
                 raise StateValidationError(
                     f"evidence_linked_to_object references unknown target object {target_object_id}"
                 )
+            if object_types.get(evidence_object_id) != "evidence":
+                raise StateValidationError(
+                    f"evidence_linked_to_object evidence_object_id references non-evidence object {evidence_object_id}"
+                )
+            _validate_evidence_audit_link_consistency(event, active_links_by_id, active_link_tx_ids)
         if event_type == "close_summary_generated":
             has_close_summary[event["session_id"]] = True
             pending_close_summary_session_id = event["session_id"]
@@ -1193,6 +1207,54 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
     if pending_close_summary_session_id is not None:
         raise StateValidationError("close_summary_generated must be followed by matching session_closed")
     validate_event_object_metadata(events)
+
+
+def _validate_evidence_audit_link_consistency(
+    event: dict[str, Any],
+    active_links_by_id: dict[str, dict[str, Any]],
+    active_link_tx_ids: dict[str, str],
+) -> None:
+    payload = event["payload"]
+    link_id = payload["link_id"]
+    link = active_links_by_id.get(link_id)
+    if link is None:
+        raise StateValidationError(
+            f"evidence_linked_to_object references unknown or inactive link {link_id}"
+        )
+    if active_link_tx_ids.get(link_id) != event["tx_id"]:
+        raise StateValidationError(
+            f"evidence_linked_to_object link {link_id} must be created in the same transaction"
+        )
+    expected = {
+        "source_object_id": payload["evidence_object_id"],
+        "target_object_id": payload["target_object_id"],
+        "relation": payload["relevance"],
+    }
+    for key, value in expected.items():
+        if link.get(key) != value:
+            raise StateValidationError(
+                f"evidence_linked_to_object link {link_id} {key} mismatch: "
+                f"expected {value}, got {link.get(key)}"
+            )
+
+    metadata = link.get("metadata")
+    if not isinstance(metadata, dict):
+        raise StateValidationError(
+            f"evidence_linked_to_object link {link_id} must carry source-store metadata"
+        )
+    for key in (
+        "source_document_id",
+        "source_unit_id",
+        "source_unit_hash",
+        "quote",
+        "interpretation_note",
+        "linked_at",
+    ):
+        if metadata.get(key) != payload.get(key):
+            raise StateValidationError(
+                f"evidence_linked_to_object link {link_id} metadata.{key} mismatch: "
+                f"expected {payload.get(key)}, got {metadata.get(key)}"
+            )
 
 
 def validate_event_log_structure(events: list[dict[str, Any]]) -> None:

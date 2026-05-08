@@ -132,6 +132,9 @@ Source-store search and impact commands are diagnostics over `.ai/decide-me/sour
 `index/source_units.sqlite`, and projected evidence links. `show-source-impact` reports direct
 affected objects and downstream affected decisions; with `--include-previous-version-links`, it can
 include links that still point at prior source snapshots recorded by `source_version_updated`.
+It also reports `orphaned_linked_source_units` when projected source-store evidence references a
+source unit no longer present in the current `units.jsonl`. `validate-sources` treats those orphaned
+source-unit references as validation issues.
 `search-evidence`,
 `show-source-impact`, `list-sources`, `show-source`, and `show-source-unit` must not update
 runtime projections or event logs. `rebuild-evidence-index` updates only the derived SQLite index.

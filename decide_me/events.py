@@ -115,6 +115,7 @@ REQUIRED_PAYLOAD_KEYS: dict[str, tuple[str, ...]] = {
     "taxonomy_extended": ("nodes",),
     "evidence_linked_to_object": (
         "evidence_object_id",
+        "link_id",
         "target_object_id",
         "source_document_id",
         "source_unit_id",
@@ -656,8 +657,7 @@ def validate_payload(event_type: str, payload: dict[str, Any]) -> None:
                 + ", ".join(unsupported)
             )
         _require_non_empty_string(payload.get("evidence_object_id"), "evidence_linked_to_object.payload.evidence_object_id")
-        if "link_id" in payload:
-            _require_string_or_null(payload.get("link_id"), "evidence_linked_to_object.payload.link_id", non_empty=True)
+        _require_non_empty_string(payload.get("link_id"), "evidence_linked_to_object.payload.link_id")
         _require_non_empty_string(payload.get("target_object_id"), "evidence_linked_to_object.payload.target_object_id")
         _require_non_empty_string(payload.get("source_document_id"), "evidence_linked_to_object.payload.source_document_id")
         _require_non_empty_string(payload.get("source_unit_id"), "evidence_linked_to_object.payload.source_unit_id")

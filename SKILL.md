@@ -155,8 +155,10 @@ Runtime invariants:
 - Source evidence uses normal `evidence` objects with `metadata.source = "source-store"` and
   object links such as `supports`, `challenges`, `verifies`, or `constrains`. The evidence object
   represents the source unit; per-decision quote and interpretation note live on link metadata and
-  are surfaced by evidence registers and decision briefs. Source updates are read-only impact
-  diagnostics until a human applies the normal revisit, approval, or invalidation workflow.
+  are surfaced by evidence registers and decision briefs. Runtime validation checks that
+  `evidence_linked_to_object` audit payloads match the concrete link metadata. Source updates and
+  orphaned linked units are read-only impact diagnostics until a human applies the normal revisit,
+  approval, or invalidation workflow.
 - Domain packs are declarative policy overlays. Session and object pack metadata must keep
   `domain_pack_id`, `domain_pack_version`, and `domain_pack_digest` together; stale digest or
   version mismatches fail validation or pack-aware evaluation instead of silently falling back.

@@ -336,6 +336,101 @@ class Phase12EvidenceSourceStoreIntegrationTests(unittest.TestCase):
             self.assertEqual([source_id], previous_impact["included_previous_source_document_ids"])
             self.assertEqual(["D-course-registration"], previous_impact["affected_decision_ids"])
 
+    def test_orphaned_linked_source_units_are_reported_and_decompose_is_guarded(self) -> None:
+        with TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            ai_dir, session_id = _build_runtime(tmp_path)
+            source_file = tmp_path / "academic-regulation.txt"
+            source_file.write_text(
+                "第1条 学生は指定期間内に履修登録を行う。\n",
+                encoding="utf-8",
+            )
+
+            imported = run_json_cli(
+                "import-source",
+                "--ai-dir",
+                str(ai_dir),
+                "--type",
+                "academic_regulation",
+                "--title",
+                "医学部教務規則",
+                "--file",
+                str(source_file),
+                "--effective-from",
+                "2026-04-01",
+            )
+            source_id = imported["source_document"]["id"]
+            run_json_cli(
+                "decompose-source",
+                "--ai-dir",
+                str(ai_dir),
+                "--source-id",
+                source_id,
+                "--strategy",
+                "japanese-regulation-text",
+            )
+            searched = run_json_cli(
+                "search-evidence",
+                "--ai-dir",
+                str(ai_dir),
+                "--query",
+                "履修登録",
+            )
+            source_unit_id = searched["results"][0]["source_unit_id"]
+            run_json_cli(
+                "link-evidence",
+                "--ai-dir",
+                str(ai_dir),
+                "--session-id",
+                session_id,
+                "--decision-id",
+                "D-course-registration",
+                "--source-unit-id",
+                source_unit_id,
+                "--relevance",
+                "supports",
+                "--quote",
+                "履修登録を行う",
+            )
+
+            units_path = ai_dir / "sources" / "documents" / source_id / "units.jsonl"
+            units_path.write_text("", encoding="utf-8")
+            source_validation_result = run_cli("validate-sources", "--ai-dir", str(ai_dir), check=False)
+            self.assertNotEqual(0, source_validation_result.returncode)
+            source_validation = json.loads(source_validation_result.stdout)
+            self.assertFalse(source_validation["ok"])
+            self.assertTrue(any("orphaned linked source unit" in issue for issue in source_validation["issues"]))
+
+            impact = run_json_cli(
+                "show-source-impact",
+                "--ai-dir",
+                str(ai_dir),
+                "--source-id",
+                source_id,
+            )
+            self.assertEqual(["D-course-registration"], impact["affected_decision_ids"])
+            self.assertEqual(1, impact["summary"]["orphaned_linked_source_unit_count"])
+            self.assertEqual(source_unit_id, impact["orphaned_linked_source_units"][0]["source_unit_id"])
+            self.assertTrue(impact["affected_objects"][0]["source_unit_orphaned"])
+
+            original_path = ai_dir / "sources" / "documents" / source_id / "original.txt"
+            original_path.write_text(
+                "第2条 学生は別に定める期間に履修登録を行う。\n",
+                encoding="utf-8",
+            )
+            rejected = run_cli(
+                "decompose-source",
+                "--ai-dir",
+                str(ai_dir),
+                "--source-id",
+                source_id,
+                "--strategy",
+                "japanese-regulation-text",
+                check=False,
+            )
+            self.assertNotEqual(0, rejected.returncode)
+            self.assertIn("would orphan linked source units", rejected.stderr)
+
 
 def _build_runtime(tmp_path: Path) -> tuple[Path, str]:
     ai_dir = tmp_path / ".ai" / "decide-me"

@@ -190,23 +190,27 @@ def show_source_impact(
         source_ids.extend(previous_source_ids)
 
     unit_ids_by_source = {candidate_id: {unit["id"] for unit in load_units(ai_dir, candidate_id)} for candidate_id in source_ids}
-    unit_ids = set(unit_ids_by_source[source_id])
-    if source_unit_id is not None:
-        if source_unit_id not in unit_ids:
-            raise ValueError(f"source unit {source_unit_id} does not belong to source document {source_id}")
-        unit_ids = {source_unit_id}
-        unit_ids_by_source = {source_id: unit_ids}
 
     bundle = load_runtime(runtime_paths(ai_dir))
     objects_by_id = {obj["id"]: obj for obj in bundle["project_state"].get("objects", [])}
-    evidence_objects = [
-        obj
-        for obj in objects_by_id.values()
-        if obj.get("type") == "evidence"
-        and obj.get("metadata", {}).get("source_document_id") in unit_ids_by_source
-        and obj.get("metadata", {}).get("source_unit_id")
-        in unit_ids_by_source.get(obj.get("metadata", {}).get("source_document_id"), set())
-    ]
+    if source_unit_id is not None:
+        current_unit_ids = set(unit_ids_by_source[source_id])
+        has_orphaned_reference = any(
+            obj.get("type") == "evidence"
+            and obj.get("metadata", {}).get("source_document_id") == source_id
+            and obj.get("metadata", {}).get("source_unit_id") == source_unit_id
+            for obj in objects_by_id.values()
+        )
+        if source_unit_id not in current_unit_ids and not has_orphaned_reference:
+            raise ValueError(f"source unit {source_unit_id} does not belong to source document {source_id}")
+        unit_ids_by_source = {source_id: {source_unit_id}}
+
+    evidence_objects, orphaned_units = _source_store_evidence_objects(
+        objects_by_id.values(),
+        source_ids=source_ids,
+        unit_ids_by_source=unit_ids_by_source,
+        source_unit_id=source_unit_id,
+    )
     evidence_ids = {obj["id"] for obj in evidence_objects}
     affected: list[dict[str, Any]] = []
     direct_decision_ids: list[str] = []
@@ -229,6 +233,11 @@ def show_source_impact(
                 "relevance": link["relation"],
                 "source_document_id": objects_by_id[link["source_object_id"]]["metadata"]["source_document_id"],
                 "source_unit_id": objects_by_id[link["source_object_id"]]["metadata"]["source_unit_id"],
+                "source_unit_orphaned": objects_by_id[link["source_object_id"]]["metadata"]["source_unit_id"]
+                not in unit_ids_by_source.get(
+                    objects_by_id[link["source_object_id"]]["metadata"]["source_document_id"],
+                    set(),
+                ),
             }
         )
         if target.get("type") == "decision":
@@ -257,8 +266,10 @@ def show_source_impact(
             "direct_affected_decision_count": len(set(direct_decision_ids)),
             "downstream_affected_decision_count": len(set(downstream_decision_ids)),
             "affected_decision_count": len(set(decision_ids)),
+            "orphaned_linked_source_unit_count": len(orphaned_units),
         },
         "evidence_object_ids": sorted(evidence_ids),
+        "orphaned_linked_source_units": orphaned_units,
         "affected_objects": sorted(affected, key=lambda item: (item["object_id"], item["via_link_id"])),
         "downstream_affected_decisions": sorted(
             downstream,
@@ -267,6 +278,47 @@ def show_source_impact(
         "affected_decision_ids": sorted(stable_unique(decision_ids)),
         "source_link_ids": sorted(stable_unique([*link_ids, *[link_id for item in downstream for link_id in item["path_link_ids"]]])),
     }
+
+
+def _source_store_evidence_objects(
+    objects: Any,
+    *,
+    source_ids: list[str],
+    unit_ids_by_source: dict[str, set[str]],
+    source_unit_id: str | None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    source_id_set = set(source_ids)
+    evidence_objects: list[dict[str, Any]] = []
+    orphaned_units: list[dict[str, Any]] = []
+    seen_orphans: set[tuple[str, str, str]] = set()
+    for obj in objects:
+        metadata = obj.get("metadata", {})
+        source_document_id = metadata.get("source_document_id")
+        unit_id = metadata.get("source_unit_id")
+        if obj.get("type") != "evidence" or source_document_id not in source_id_set or not isinstance(unit_id, str):
+            continue
+        if source_unit_id is not None and unit_id != source_unit_id:
+            continue
+        current_unit_ids = unit_ids_by_source.get(source_document_id, set())
+        is_orphaned = unit_id not in current_unit_ids
+        evidence_objects.append(obj)
+        if is_orphaned:
+            key = (obj["id"], source_document_id, unit_id)
+            if key not in seen_orphans:
+                seen_orphans.add(key)
+                orphaned_units.append(
+                    {
+                        "evidence_object_id": obj["id"],
+                        "source_document_id": source_document_id,
+                        "source_unit_id": unit_id,
+                        "source_unit_hash": metadata.get("source_unit_hash"),
+                        "citation": metadata.get("citation"),
+                    }
+                )
+    return (
+        sorted(evidence_objects, key=lambda obj: obj["id"]),
+        sorted(orphaned_units, key=lambda item: (item["source_document_id"], item["source_unit_id"], item["evidence_object_id"])),
+    )
 
 
 def _previous_source_ids(ai_dir: str | Path, source_id: str) -> list[str]:
