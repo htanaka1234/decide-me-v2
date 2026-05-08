@@ -57,7 +57,9 @@ Projection rules:
   `schemas/link.schema.json`. Phase 12 source-store links may carry link-level metadata for the
   source unit, citation, quote, interpretation note, effective dates, and linked timestamp.
   `evidence_linked_to_object` is an audit companion to that concrete link and must match its
-  `link_id`, source object, target object, relation, and source-store metadata.
+  `link_id`, source object, target object, relation, and source-store metadata. Conversely, any
+  `object_linked` event with source-store unit metadata must have a matching
+  `evidence_linked_to_object` event in the same transaction.
 - `object_updated.payload.patch` may contain only `title`, `body`, and `metadata`.
   Object `id`, `type`, links, and status are immutable through this event.
 - `object_status_changed.payload` is `{object_id, from_status, to_status, reason, changed_at}`.

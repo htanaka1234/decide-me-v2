@@ -266,6 +266,28 @@ class EventLogValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(StateValidationError, "relation mismatch"):
             validate_event_log(events)
 
+    def test_rejects_source_store_link_without_audit_event(self) -> None:
+        events = [
+            *_base_events(),
+            _event(3, "S-001", "object_recorded", {"object": _object("O-decision", "E-test-3")}),
+            _event(4, "S-001", "object_recorded", {"object": _object("O-evidence", "E-test-4", object_type="evidence")}),
+            _event(
+                5,
+                "S-001",
+                "object_linked",
+                {
+                    "link": _link(
+                        "L-evidence-supports-decision",
+                        "E-test-5",
+                        metadata=_source_store_link_metadata(),
+                    )
+                },
+            ),
+        ]
+
+        with self.assertRaisesRegex(StateValidationError, "missing evidence_linked_to_object audit event"):
+            validate_event_log(events)
+
     def test_transaction_rejected_control_event_still_validates(self) -> None:
         events = [
             *_base_events(),

@@ -125,7 +125,9 @@ Per-decision usage belongs on the link metadata: `quote`, `interpretation_note`,
 `linked_at`, and the same source-unit IDs/hashes needed for audit. The CLI validates that any
 provided quote appears in the source unit text after whitespace and Unicode normalization.
 `evidence_linked_to_object` must reference the concrete `object_linked` link by `link_id`; full
-runtime validation checks that the audit payload and link metadata agree.
+runtime validation checks that the audit payload and link metadata agree. Full validation also
+rejects source-store `object_linked` links that have no matching `evidence_linked_to_object` in the
+same transaction.
 
 Source import and decomposition run under the runtime write lock. Source-store file updates are
 written only after the corresponding event payloads validate, and they are rolled back if the audit

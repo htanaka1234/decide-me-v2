@@ -1049,6 +1049,8 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
     active_link_ids: set[str] = set()
     active_links_by_id: dict[str, dict[str, Any]] = {}
     active_link_tx_ids: dict[str, str] = {}
+    source_store_link_ids_by_tx: dict[str, set[str]] = defaultdict(set)
+    source_store_audit_link_ids_by_tx: dict[str, set[str]] = defaultdict(set)
     pending_questions_by_session: dict[str, dict[str, str]] = defaultdict(dict)
     pending_close_summary_session_id: str | None = None
     project_initialized_count = 0
@@ -1137,6 +1139,8 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
             active_link_ids.add(link_id)
             active_links_by_id[link_id] = deepcopy(link)
             active_link_tx_ids[link_id] = event["tx_id"]
+            if _link_requires_source_store_audit(link):
+                source_store_link_ids_by_tx[event["tx_id"]].add(link_id)
         elif event_type == "object_unlinked":
             link_id = payload["link_id"]
             if link_id not in active_link_ids:
@@ -1189,6 +1193,7 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
                     f"evidence_linked_to_object evidence_object_id references non-evidence object {evidence_object_id}"
                 )
             _validate_evidence_audit_link_consistency(event, active_links_by_id, active_link_tx_ids)
+            source_store_audit_link_ids_by_tx[event["tx_id"]].add(payload["link_id"])
         if event_type == "close_summary_generated":
             has_close_summary[event["session_id"]] = True
             pending_close_summary_session_id = event["session_id"]
@@ -1206,6 +1211,10 @@ def validate_event_log(events: list[dict[str, Any]]) -> None:
             session_status[event["session_id"]] = "closed"
     if pending_close_summary_session_id is not None:
         raise StateValidationError("close_summary_generated must be followed by matching session_closed")
+    _validate_source_store_links_have_audits(
+        source_store_link_ids_by_tx,
+        source_store_audit_link_ids_by_tx,
+    )
     validate_event_object_metadata(events)
 
 
@@ -1254,6 +1263,27 @@ def _validate_evidence_audit_link_consistency(
             raise StateValidationError(
                 f"evidence_linked_to_object link {link_id} metadata.{key} mismatch: "
                 f"expected {payload.get(key)}, got {metadata.get(key)}"
+            )
+
+
+def _link_requires_source_store_audit(link: dict[str, Any]) -> bool:
+    metadata = link.get("metadata")
+    if not isinstance(metadata, dict):
+        return False
+    return metadata.get("source_document_id") is not None or metadata.get("source_unit_id") is not None
+
+
+def _validate_source_store_links_have_audits(
+    source_store_link_ids_by_tx: dict[str, set[str]],
+    source_store_audit_link_ids_by_tx: dict[str, set[str]],
+) -> None:
+    for tx_id in sorted(source_store_link_ids_by_tx):
+        missing = sorted(source_store_link_ids_by_tx[tx_id] - source_store_audit_link_ids_by_tx.get(tx_id, set()))
+        if missing:
+            raise StateValidationError(
+                f"source-store object_linked transaction {tx_id} missing "
+                "evidence_linked_to_object audit event for link(s): "
+                + ", ".join(missing)
             )
 
 
