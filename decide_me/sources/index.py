@@ -95,9 +95,11 @@ def search_evidence(
     linked = _linked_targets(ai_dir)
     with sqlite3.connect(paths["source_units_index"]) as conn:
         conn.row_factory = sqlite3.Row
-        rows = _search_fts(conn, query, source_id=source_id, limit=limit)
-        if not rows:
-            rows = _search_like(conn, query, source_id=source_id, limit=limit)
+        rows = _merge_search_rows(
+            _search_fts(conn, query, source_id=source_id, limit=limit),
+            _search_like(conn, query, source_id=source_id, limit=limit),
+            limit=limit,
+        )
     results = []
     for row in rows:
         item = dict(row)
@@ -180,7 +182,7 @@ def _search_fts(
                 FROM source_units_fts f
                 JOIN source_units u ON u.source_unit_id = f.source_unit_id
                 WHERE {where}
-                ORDER BY rank, u.source_unit_id
+                ORDER BY {_unit_type_priority_sql("u.unit_type")}, rank, u.source_unit_id
                 LIMIT ?
                 """,
                 params,
@@ -197,9 +199,14 @@ def _search_like(
     source_id: str | None,
     limit: int,
 ) -> list[sqlite3.Row]:
-    needle = f"%{query}%"
-    where = "(title LIKE ? OR citation LIKE ? OR canonical_locator LIKE ? OR text_normalized LIKE ?)"
-    params: list[Any] = [needle, needle, needle, needle]
+    tokens = _query_tokens(query)
+    where_parts = []
+    params: list[Any] = []
+    for token in tokens:
+        needle = f"%{token}%"
+        where_parts.append("(title LIKE ? OR citation LIKE ? OR canonical_locator LIKE ? OR text_normalized LIKE ?)")
+        params.extend([needle, needle, needle, needle])
+    where = " AND ".join(where_parts)
     if source_id is not None:
         where += " AND source_document_id = ?"
         params.append(source_id)
@@ -219,12 +226,47 @@ def _search_like(
                    effective_to
             FROM source_units
             WHERE {where}
-            ORDER BY source_unit_id
+            ORDER BY {_unit_type_priority_sql("unit_type")}, source_unit_id
             LIMIT ?
             """,
             params,
         )
     )
+
+
+def _query_tokens(query: str) -> list[str]:
+    return [token for token in query.split() if token] or [query]
+
+
+def _unit_type_priority_sql(column: str) -> str:
+    return (
+        "CASE "
+        f"WHEN {column} = 'paragraph' THEN 0 "
+        f"WHEN {column} = 'item' THEN 1 "
+        f"WHEN {column} = 'subitem' THEN 2 "
+        f"WHEN {column} = 'appendix_table' THEN 3 "
+        f"WHEN {column} = 'article' THEN 4 "
+        "ELSE 5 END"
+    )
+
+
+def _merge_search_rows(
+    first: list[sqlite3.Row],
+    second: list[sqlite3.Row],
+    *,
+    limit: int,
+) -> list[sqlite3.Row]:
+    rows: list[sqlite3.Row] = []
+    seen: set[str] = set()
+    for row in [*first, *second]:
+        source_unit_id = row["source_unit_id"]
+        if source_unit_id in seen:
+            continue
+        seen.add(source_unit_id)
+        rows.append(row)
+        if len(rows) >= limit:
+            break
+    return rows
 
 
 def _linked_targets(ai_dir: str | Path) -> dict[str, dict[str, set[str]]]:

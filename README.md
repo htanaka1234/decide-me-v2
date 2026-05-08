@@ -245,8 +245,12 @@ Use the Phase 12 evidence source store:
    `python3 scripts/decide_me.py import-source --ai-dir .ai/decide-me --type academic_regulation --title "医学部教務規則" --file ./rules.xml --effective-from 2026-04-01`.
 2. Decompose XML/HTML/Markdown/text sources with
    `python3 scripts/decide_me.py decompose-source --ai-dir .ai/decide-me --source-id SRC-... --strategy auto`.
+   Decomposition re-checks the immutable `original.<ext>` hash first and refuses to run if the
+   snapshot was modified after import. PDF snapshots are import-only in this MVP.
 3. Search citation units with
    `python3 scripts/decide_me.py search-evidence --ai-dir .ai/decide-me --query "履修登録 締切"`.
+   Japanese multi-term queries are supported through token-wise AND `LIKE` fallback merged with
+   SQLite FTS results.
 4. Link a source unit to a runtime decision or object with
    `python3 scripts/decide_me.py link-evidence --ai-dir .ai/decide-me --session-id S-... --decision-id D-... --source-unit-id NU-... --relevance supports --quote "..." --interpretation-note "..."`.
 5. Inspect source impact with

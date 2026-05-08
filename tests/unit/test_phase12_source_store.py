@@ -143,6 +143,34 @@ class Phase12SourceStoreUnitTests(unittest.TestCase):
             self.assertEqual(0, load_source_metadata(ai_dir, "SRC-decompose-rollback")["unit_count"])
             self.assertFalse(source_paths(ai_dir)["source_units_index"].exists())
 
+    def test_decompose_source_refuses_tampered_original_snapshot(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = Path(tmp) / ".ai" / "decide-me"
+            bootstrap_runtime(
+                ai_dir,
+                project_name="Immutable snapshot",
+                objective="Exercise source snapshot immutability.",
+                current_milestone="Phase 12",
+            )
+            source_file = Path(tmp) / "rules.txt"
+            source_file.write_text("第1条 学生は履修登録を行う。\n", encoding="utf-8")
+            import_source(
+                ai_dir,
+                document_type="academic_regulation",
+                title="医学部教務規則",
+                file=source_file,
+                source_id="SRC-tampered",
+                effective_from="2026-04-01",
+            )
+
+            original_path = source_paths(ai_dir)["documents"] / "SRC-tampered" / "original.txt"
+            original_path.write_text("第2条 学生は別に定める期間に履修登録を行う。\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(SourceValidationError, "original snapshot hash mismatch; refuse to decompose"):
+                decompose_source(ai_dir, source_id="SRC-tampered", strategy="japanese-regulation-text")
+            self.assertEqual([], load_units(ai_dir, "SRC-tampered"))
+            self.assertEqual(0, load_source_metadata(ai_dir, "SRC-tampered")["unit_count"])
+
     def test_egov_xml_decomposition_extracts_citation_units(self) -> None:
         with TemporaryDirectory() as tmp:
             ai_dir = Path(tmp) / ".ai" / "decide-me"
@@ -190,7 +218,19 @@ class Phase12SourceStoreUnitTests(unittest.TestCase):
             doc_dir.mkdir(parents=True)
             original = doc_dir / "original.txt"
             original.write_text(
-                "第1章 総則\n第1条 学生は指定期間内に履修登録を行う。\n2 締切後申請は別に定める。\n一 教務委員会が認めた場合\n別表第1 履修登録期間\n",
+                (
+                    "第1章 総則\n"
+                    "第1条\n"
+                    "学生は指定期間内に履修登録を行う。\n"
+                    "2\n"
+                    "締切後申請は別に定める。\n"
+                    "一\n"
+                    "教務委員会が認めた場合\n"
+                    "イ\n"
+                    "やむを得ない事情がある場合\n"
+                    "別表第1\n"
+                    "履修登録期間\n"
+                ),
                 encoding="utf-8",
             )
             metadata = _source_document(source_id=source_id, original_path="documents/SRC-text/original.txt", source_format="text")
@@ -201,7 +241,21 @@ class Phase12SourceStoreUnitTests(unittest.TestCase):
             self.assertIn("text_heading_rules_used", flags)
             self.assertTrue(any(unit["unit_type"] == "article" for unit in units))
             self.assertTrue(any(unit["unit_type"] == "paragraph" for unit in units))
+            self.assertTrue(any(unit["unit_type"] == "item" for unit in units))
+            self.assertTrue(any(unit["unit_type"] == "subitem" for unit in units))
             self.assertTrue(any(unit["unit_type"] == "appendix_table" for unit in units))
+            paragraph = next(unit for unit in units if unit["unit_type"] == "paragraph")
+            item = next(unit for unit in units if unit["unit_type"] == "item")
+            subitem = next(unit for unit in units if unit["unit_type"] == "subitem")
+            self.assertEqual("2", paragraph["path"]["paragraph"])
+            self.assertEqual("2", item["path"]["paragraph"])
+            self.assertEqual("一", item["path"]["item"])
+            self.assertEqual("2", subitem["path"]["paragraph"])
+            self.assertEqual("一", subitem["path"]["item"])
+            self.assertEqual("イ", subitem["path"]["subitem"])
+            self.assertIn("締切後申請", paragraph["text_exact"])
+            self.assertIn("教務委員会", item["text_exact"])
+            self.assertIn("やむを得ない", subitem["text_exact"])
 
     def test_pdf_decomposition_is_explicitly_unsupported(self) -> None:
         with TemporaryDirectory() as tmp:

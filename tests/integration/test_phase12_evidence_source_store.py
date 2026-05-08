@@ -232,7 +232,7 @@ class Phase12EvidenceSourceStoreIntegrationTests(unittest.TestCase):
             ai_dir, session_id = _build_runtime(tmp_path)
             source_file = tmp_path / "academic-regulation-v1.txt"
             source_file.write_text(
-                "第1条 学生は指定期間内に履修登録を行う。\n",
+                "第1条 学生は指定期間内に履修登録を行う。締切後の例外申請は別に定める。\n",
                 encoding="utf-8",
             )
 
@@ -264,8 +264,9 @@ class Phase12EvidenceSourceStoreIntegrationTests(unittest.TestCase):
                 "--ai-dir",
                 str(ai_dir),
                 "--query",
-                "履修登録",
+                "履修登録 締切 例外",
             )
+            self.assertGreaterEqual(searched["count"], 1)
             source_unit_id = searched["results"][0]["source_unit_id"]
 
             _record_assumption_constraining_decision(ai_dir, session_id)
@@ -429,7 +430,7 @@ class Phase12EvidenceSourceStoreIntegrationTests(unittest.TestCase):
                 check=False,
             )
             self.assertNotEqual(0, rejected.returncode)
-            self.assertIn("would orphan linked source units", rejected.stderr)
+            self.assertIn("original snapshot hash mismatch; refuse to decompose", rejected.stderr)
 
 
 def _build_runtime(tmp_path: Path) -> tuple[Path, str]:

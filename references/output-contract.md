@@ -135,6 +135,8 @@ include links that still point at prior source snapshots recorded by `source_ver
 It also reports `orphaned_linked_source_units` when projected source-store evidence references a
 source unit no longer present in the current `units.jsonl`. `validate-sources` treats those orphaned
 source-unit references as validation issues.
+`search-evidence` merges SQLite FTS results with a deterministic whitespace-token AND `LIKE`
+fallback so Japanese multi-term queries can find units even when FTS tokenization is ineffective.
 `search-evidence`,
 `show-source-impact`, `list-sources`, `show-source`, and `show-source-unit` must not update
 runtime projections or event logs. `rebuild-evidence-index` updates only the derived SQLite index.

@@ -38,8 +38,11 @@ XML_UNIT_TAGS = {
 CHAPTER_PATTERN = re.compile(r"^(第[0-9０-９一二三四五六七八九十百千]+章)\s*(.*)$")
 ARTICLE_PATTERN = re.compile(r"^(第[0-9０-９一二三四五六七八九十百千]+条(?:の[0-9０-９一二三四五六七八九十百千]+)?)\s*(.*)$")
 PARAGRAPH_PATTERN = re.compile(r"^([0-9０-９]+)\s+(.+)$")
+PARAGRAPH_STANDALONE_PATTERN = re.compile(r"^([0-9０-９]+)$")
 ITEM_PATTERN = re.compile(r"^([一二三四五六七八九十百千]+)\s+(.+)$")
+ITEM_STANDALONE_PATTERN = re.compile(r"^([一二三四五六七八九十百千]+)$")
 SUBITEM_PATTERN = re.compile(r"^([イロハニホヘトチリヌルヲワカヨタレソツネナラムウヰノオクヤマケフコエテアサキユメミシヱヒモセス])\s+(.+)$")
+SUBITEM_STANDALONE_PATTERN = re.compile(r"^([イロハニホヘトチリヌルヲワカヨタレソツネナラムウヰノオクヤマケフコエテアサキユメミシヱヒモセス])$")
 APPENDIX_PATTERN = re.compile(r"^(別表第[0-9０-９一二三四五六七八九十百千]+)\s*(.*)$")
 
 
@@ -215,26 +218,56 @@ def _decompose_japanese_regulation_text(text: str, metadata: dict[str, Any]) -> 
             continue
         match = PARAGRAPH_PATTERN.match(line)
         if match and "article" in context:
-            path = {**context, "paragraph": match.group(1)}
+            path = {**_context_through(context, "article"), "paragraph": match.group(1)}
+            context = path
             current = _new_text_record("paragraph", path, _join_label_text(match))
+            records.append(current)
+            continue
+        match = PARAGRAPH_STANDALONE_PATTERN.match(line)
+        if match and "article" in context:
+            path = {**_context_through(context, "article"), "paragraph": match.group(1)}
+            context = path
+            current = _new_text_record("paragraph", path, match.group(1))
             records.append(current)
             continue
         match = ITEM_PATTERN.match(line)
         if match and "article" in context:
-            path = {**context, "item": match.group(1)}
+            path = {**_context_through(context, "paragraph"), "item": match.group(1)}
+            context = path
             current = _new_text_record("item", path, _join_label_text(match))
+            records.append(current)
+            continue
+        match = ITEM_STANDALONE_PATTERN.match(line)
+        if match and "article" in context:
+            path = {**_context_through(context, "paragraph"), "item": match.group(1)}
+            context = path
+            current = _new_text_record("item", path, match.group(1))
             records.append(current)
             continue
         match = SUBITEM_PATTERN.match(line)
         if match and "article" in context:
-            path = {**context, "subitem": match.group(1)}
+            path = {**_context_through(context, "item"), "subitem": match.group(1)}
+            context = path
             current = _new_text_record("subitem", path, _join_label_text(match))
+            records.append(current)
+            continue
+        match = SUBITEM_STANDALONE_PATTERN.match(line)
+        if match and "article" in context:
+            path = {**_context_through(context, "item"), "subitem": match.group(1)}
+            context = path
+            current = _new_text_record("subitem", path, match.group(1))
             records.append(current)
             continue
         if current is not None:
             current["text_exact"] = normalize_text(f"{current['text_exact']} {line}")
 
     return _finalize_units(records, metadata)
+
+
+def _context_through(context: dict[str, str], deepest: str) -> dict[str, str]:
+    order = ("chapter", "article", "paragraph", "item", "subitem")
+    allowed = set(order[: order.index(deepest) + 1])
+    return {key: value for key, value in context.items() if key in allowed}
 
 
 def _new_text_record(unit_type: str, path: dict[str, str], text: str) -> dict[str, Any]:

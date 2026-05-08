@@ -73,6 +73,10 @@ python3 scripts/decide_me.py decompose-source \
   --strategy auto
 ```
 
+Before decomposition, the command re-hashes `original.<ext>` and refuses to run if it no longer
+matches `metadata.content_hash`. This protects the immutable snapshot boundary before any new
+`units.jsonl` is generated.
+
 Search and link evidence:
 
 ```bash
@@ -89,6 +93,10 @@ python3 scripts/decide_me.py link-evidence \
   --quote "学生は指定期間内に履修登録を行う。" \
   --interpretation-note "履修登録期限を制約として扱う"
 ```
+
+Search uses SQLite FTS5 when available and always merges a deterministic `LIKE` fallback. Whitespace
+separated terms such as `"履修登録 締切 例外"` are treated as token-wise AND matches in the fallback,
+which keeps Japanese regulation text searchable even when FTS tokenization is not useful.
 
 Inspection and derived maintenance:
 

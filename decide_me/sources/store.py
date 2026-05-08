@@ -202,6 +202,7 @@ def decompose_source(
 
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
         old_metadata = load_source_metadata(ai_dir, source_id)
+        _assert_original_snapshot_hash(ai_dir, old_metadata)
         units, parser_version, quality_flags = decompose_document(ai_dir, old_metadata, strategy=strategy)
         linked_unit_ids = _linked_source_unit_ids(bundle["project_state"], source_id)
         new_unit_ids = {unit["id"] for unit in units}
@@ -280,6 +281,14 @@ def decompose_source(
         "quality_flags": state["quality_flags"],
         "event_ids": [event["event_id"] for event in events],
     }
+
+
+def _assert_original_snapshot_hash(ai_dir: str | Path, metadata: dict[str, Any]) -> None:
+    original = source_path_from_metadata(ai_dir, metadata, "original_path")
+    if sha256_bytes(original.read_bytes()) != metadata["content_hash"]:
+        raise SourceValidationError(
+            f"{metadata['id']}: original snapshot hash mismatch; refuse to decompose"
+        )
 
 
 def list_sources(ai_dir: str | Path) -> dict[str, Any]:
