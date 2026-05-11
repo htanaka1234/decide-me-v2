@@ -64,6 +64,75 @@
         "minLength": 1
       },
       "uniqueItems": true
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "source_document_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "source_unit_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "source_unit_hash": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "citation": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "quote": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "interpretation_note": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "effective_from": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "effective_to": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "linked_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

@@ -54,12 +54,28 @@ class LinkSchemaTests(unittest.TestCase):
 
     def test_rejects_unknown_top_level_fields(self) -> None:
         payload = _valid_link("supports")
-        payload["metadata"] = {}
+        payload["source_id"] = "O-source"
 
         errors = list(self.validator.iter_errors(payload))
 
         self.assertTrue(errors)
         self.assertTrue(any(error.validator == "additionalProperties" for error in errors))
+
+    def test_accepts_source_store_link_metadata(self) -> None:
+        payload = _valid_link("supports")
+        payload["metadata"] = {
+            "source_document_id": "SRC-test",
+            "source_unit_id": "NU-SRC-test-unit-aaaaaaaa",
+            "source_unit_hash": "sha256:" + "a" * 64,
+            "citation": "医学部教務規則 第12条",
+            "quote": "学生は指定期間内に履修登録を行う。",
+            "interpretation_note": "履修登録期限を制約として扱う。",
+            "effective_from": "2026-04-01",
+            "effective_to": None,
+            "linked_at": "2026-05-01T00:00:00Z",
+        }
+
+        self.validator.validate(payload)
 
     def test_project_state_references_standalone_link_schema(self) -> None:
         self.assertEqual({"$ref": LINK_SCHEMA_ID}, self.project_schema["properties"]["links"]["items"])

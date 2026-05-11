@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/decide-me/normative-unit.schema.json",
+  "title": "Decide Me Normative Unit",
+  "type": "object",
+  "required": [
+    "id",
+    "source_document_id",
+    "order",
+    "unit_type",
+    "path",
+    "citation",
+    "canonical_locator",
+    "text_exact",
+    "text_normalized",
+    "content_hash",
+    "anchors",
+    "effective_from",
+    "effective_to"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^NU-[A-Za-z0-9_.:-]+$"
+    },
+    "source_document_id": {
+      "type": "string",
+      "pattern": "^SRC-[A-Za-z0-9_.:-]+$"
+    },
+    "order": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "unit_type": {
+      "type": "string",
+      "minLength": 1
+    },
+    "path": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "citation": {
+      "type": "string",
+      "minLength": 1
+    },
+    "canonical_locator": {
+      "type": "string",
+      "minLength": 1
+    },
+    "text_exact": {
+      "type": "string",
+      "minLength": 1
+    },
+    "text_normalized": {
+      "type": "string",
+      "minLength": 1
+    },
+    "content_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "anchors": {
+      "type": "object",
+      "properties": {
+        "page": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "xpath": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "effective_from": {
+      "type": "string",
+      "format": "date"
+    },
+    "effective_to": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    }
+  },
+  "additionalProperties": false
+}

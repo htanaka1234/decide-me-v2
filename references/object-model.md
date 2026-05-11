@@ -35,6 +35,11 @@ Object boundary rules:
 - An option is its own object. A proposal may recommend an option through a link.
 - A risk is its own object. It is not a decision kind or a decision attribute.
 - Evidence is its own object. It supports or challenges other objects through links.
+- Source-store evidence is still a normal `evidence` object. It cites a source unit from
+  `.ai/decide-me/sources/` with metadata such as `source_document_id`, `source_unit_id`,
+  `source_unit_hash`, `citation`, and effective dates; the full source document remains in the
+  source store. The decision-specific quote and interpretation are stored on the object link,
+  not on the source-unit evidence object.
 - An action is its own object. It is not embedded in a close summary.
 - A revisit trigger is its own object. It revisits another object through a link.
 - Relationships such as dependency, support, challenge, recommendation, acceptance, verification,
@@ -48,6 +53,9 @@ Typed metadata contracts:
 
 - `evidence.metadata` requires `source`, `source_ref`, `summary`, `confidence`, `freshness`,
   `observed_at`, and `valid_until`. Public exports may still present `source_ref` as `ref`.
+  Phase 12 adds `source-store` as an evidence source and allows optional source-unit citation
+  fields. Source-store link metadata carries per-link quote, interpretation note, relevance, and
+  linked timestamp.
 - `assumption.metadata` requires `statement`, `confidence`, `validation`,
   `invalidates_if_false`, `expires_at`, and `owner`.
 - `risk.metadata` requires `statement`, `severity`, `likelihood`, `risk_tier`,

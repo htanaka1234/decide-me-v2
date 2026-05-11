@@ -153,7 +153,8 @@
         "tests",
         "external",
         "existing-decisions",
-        "close-summaries"
+        "close-summaries",
+        "source-store"
       ]
     },
     "risk_severity": {
@@ -323,9 +324,19 @@
             "freshness",
             "observed_at",
             "valid_until",
+            "source_document_id",
+            "source_unit_id",
+            "source_unit_hash",
+            "citation",
+            "quote",
+            "interpretation_note",
+            "effective_from",
+            "effective_to",
             "supports_object_ids",
             "challenges_object_ids",
             "verifies_object_ids",
+            "constrains_object_ids",
+            "source_store_links",
             "related_link_ids"
           ],
           "properties": {
@@ -352,6 +363,62 @@
             "valid_until": {
               "$ref": "#/$defs/nullable_date_time"
             },
+            "source_document_id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 1
+            },
+            "source_unit_id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 1
+            },
+            "source_unit_hash": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            "citation": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 1
+            },
+            "quote": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 1
+            },
+            "interpretation_note": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 1
+            },
+            "effective_from": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date"
+            },
+            "effective_to": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date"
+            },
             "supports_object_ids": {
               "$ref": "#/$defs/string_array"
             },
@@ -361,12 +428,112 @@
             "verifies_object_ids": {
               "$ref": "#/$defs/string_array"
             },
+            "constrains_object_ids": {
+              "$ref": "#/$defs/string_array"
+            },
+            "source_store_links": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/source_store_link"
+              }
+            },
             "related_link_ids": {
               "$ref": "#/$defs/string_array"
             }
           }
         }
       ]
+    },
+    "source_store_link": {
+      "type": "object",
+      "required": [
+        "link_id",
+        "target_object_id",
+        "relevance",
+        "source_document_id",
+        "source_unit_id",
+        "source_unit_hash",
+        "citation",
+        "quote",
+        "interpretation_note",
+        "effective_from",
+        "effective_to",
+        "linked_at"
+      ],
+      "properties": {
+        "link_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_object_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "relevance": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_document_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "source_unit_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "source_unit_hash": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "citation": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "quote": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "interpretation_note": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "effective_from": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "effective_to": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "linked_at": {
+          "$ref": "#/$defs/nullable_date_time"
+        }
+      },
+      "additionalProperties": false
     },
     "assumption_item": {
       "unevaluatedProperties": false,

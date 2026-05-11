@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from decide_me.constants import (
@@ -25,6 +25,7 @@ from decide_me.constants import (
 
 DOMAIN_PACK_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 DOMAIN_PACK_DIGEST_PATTERN = re.compile(r"^DP-[0-9a-f]{12}$")
+SHA256_HASH_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
 PACK_METADATA_KEYS = ("domain_pack_id", "domain_pack_version", "domain_pack_digest")
 OPEN_DECISION_STATUSES = {"unresolved", "proposed", "blocked"}
 ALL_DECISION_STATUSES = OPEN_DECISION_STATUSES | {
@@ -180,6 +181,14 @@ class _MetadataValidator:
         for key in ("domain_evidence_type", "evidence_requirement_id"):
             if key in metadata:
                 self._require_domain_pack_identifier(metadata[key], f"{label}.{key}")
+        for key in ("source_document_id", "source_unit_id", "citation"):
+            if key in metadata:
+                self._require_optional_non_empty_string(metadata.get(key), f"{label}.{key}")
+        if "source_unit_hash" in metadata:
+            self._require_optional_hash(metadata.get("source_unit_hash"), f"{label}.source_unit_hash")
+        for key in ("effective_from", "effective_to"):
+            if key in metadata:
+                self._require_optional_date(metadata.get(key), f"{label}.{key}")
 
     def _validate_assumption(self, metadata: dict[str, Any], label: str) -> None:
         self._require_keys(
@@ -362,6 +371,24 @@ class _MetadataValidator:
         if value is None:
             return
         self._require_timestamp(value, label)
+
+    def _require_optional_date(self, value: Any, label: str) -> None:
+        if value is None:
+            return
+        if not isinstance(value, str) or not value.strip():
+            self._error(f"{label} must be a non-empty date or null")
+            return
+        try:
+            date.fromisoformat(value)
+        except ValueError:
+            self._error(f"{label} must be YYYY-MM-DD")
+
+    def _require_optional_hash(self, value: Any, label: str) -> None:
+        if value is None:
+            return
+        self._require_non_empty_string(value, label)
+        if isinstance(value, str) and not SHA256_HASH_PATTERN.fullmatch(value):
+            self._error(f"{label} must be sha256:<64 lowercase hex chars>")
 
     def _require_non_empty_string(self, value: Any, label: str) -> None:
         if not isinstance(value, str) or not value.strip():

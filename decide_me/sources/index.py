@@ -1,0 +1,346 @@
+from __future__ import annotations
+
+import sqlite3
+from pathlib import Path
+from typing import Any
+
+from decide_me.sources.model import load_registry, load_source_metadata, load_units, source_paths
+from decide_me.store import load_runtime, runtime_paths
+
+
+SOURCE_INDEX_SCHEMA_VERSION = 2
+
+
+def rebuild_evidence_index(ai_dir: str | Path) -> dict[str, Any]:
+    paths = source_paths(ai_dir)
+    paths["index_dir"].mkdir(parents=True, exist_ok=True)
+    registry = load_registry(ai_dir)
+    row_count = 0
+    with sqlite3.connect(paths["source_units_index"]) as conn:
+        _reset_schema(conn)
+        fts_enabled = _create_fts(conn)
+        for entry in registry.get("documents", []):
+            metadata = load_source_metadata(ai_dir, entry["id"])
+            for unit in load_units(ai_dir, entry["id"]):
+                row_count += 1
+                source_canonical = bool(entry.get("canonical", metadata.get("canonical", True)))
+                source_superseded_by = entry.get("superseded_by", metadata.get("superseded_by"))
+                source_effective_to = entry.get("effective_to", metadata.get("effective_to"))
+                conn.execute(
+                    """
+                    INSERT INTO source_units(
+                        source_unit_id,
+                        source_document_id,
+                        title,
+                        citation,
+                        canonical_locator,
+                        unit_type,
+                        text_exact,
+                        text_normalized,
+                        content_hash,
+                        effective_from,
+                        effective_to,
+                        source_canonical,
+                        source_superseded_by,
+                        source_effective_to
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        unit["id"],
+                        unit["source_document_id"],
+                        metadata["title"],
+                        unit["citation"],
+                        unit["canonical_locator"],
+                        unit["unit_type"],
+                        unit["text_exact"],
+                        unit["text_normalized"],
+                        unit["content_hash"],
+                        unit["effective_from"],
+                        unit["effective_to"],
+                        int(source_canonical),
+                        source_superseded_by,
+                        source_effective_to,
+                    ),
+                )
+                if fts_enabled:
+                    conn.execute(
+                        """
+                        INSERT INTO source_units_fts(source_unit_id, title, citation, canonical_locator, text_normalized)
+                        VALUES (?, ?, ?, ?, ?)
+                        """,
+                        (
+                            unit["id"],
+                            metadata["title"],
+                            unit["citation"],
+                            unit["canonical_locator"],
+                            unit["text_normalized"],
+                        ),
+                    )
+        conn.execute(
+            "INSERT INTO source_index_meta(key, value) VALUES (?, ?)",
+            ("schema_version", str(SOURCE_INDEX_SCHEMA_VERSION)),
+        )
+        conn.execute("INSERT INTO source_index_meta(key, value) VALUES (?, ?)", ("fts_enabled", str(int(fts_enabled))))
+        conn.commit()
+    return {"status": "ok", "path": str(paths["source_units_index"]), "unit_count": row_count, "fts_enabled": fts_enabled}
+
+
+def search_evidence(
+    ai_dir: str | Path,
+    *,
+    query: str,
+    source_id: str | None = None,
+    limit: int = 20,
+    include_superseded: bool = False,
+) -> dict[str, Any]:
+    query = query.strip()
+    if not query:
+        raise ValueError("query must be a non-empty string")
+    if limit < 1:
+        raise ValueError("limit must be positive")
+    paths = source_paths(ai_dir)
+    if _index_needs_rebuild(paths["source_units_index"]):
+        rebuild_evidence_index(ai_dir)
+    linked = _linked_targets(ai_dir)
+    with sqlite3.connect(paths["source_units_index"]) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = _merge_search_rows(
+            _search_fts(conn, query, source_id=source_id, include_superseded=include_superseded, limit=limit),
+            _search_like(conn, query, source_id=source_id, include_superseded=include_superseded, limit=limit),
+            limit=limit,
+        )
+    results = []
+    for row in rows:
+        item = dict(row)
+        unit_links = linked.get(item["source_unit_id"], {})
+        item["linked_object_ids"] = sorted(
+            {target for targets in unit_links.values() for target in targets}
+        )
+        item["linked_by_relevance"] = {
+            relation: sorted(targets) for relation, targets in sorted(unit_links.items())
+        }
+        results.append(item)
+    return {"status": "ok", "query": query, "count": len(results), "results": results}
+
+
+def _reset_schema(conn: sqlite3.Connection) -> None:
+    conn.execute("DROP TABLE IF EXISTS source_index_meta")
+    conn.execute("DROP TABLE IF EXISTS source_units")
+    conn.execute("DROP TABLE IF EXISTS source_units_fts")
+    conn.execute("CREATE TABLE source_index_meta(key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+    conn.execute(
+        """
+        CREATE TABLE source_units(
+            source_unit_id TEXT PRIMARY KEY,
+            source_document_id TEXT NOT NULL,
+            title TEXT NOT NULL,
+            citation TEXT NOT NULL,
+            canonical_locator TEXT NOT NULL,
+            unit_type TEXT NOT NULL,
+            text_exact TEXT NOT NULL,
+            text_normalized TEXT NOT NULL,
+            content_hash TEXT NOT NULL,
+            effective_from TEXT NOT NULL,
+            effective_to TEXT,
+            source_canonical INTEGER NOT NULL,
+            source_superseded_by TEXT,
+            source_effective_to TEXT
+        )
+        """
+    )
+    conn.execute("CREATE INDEX source_units_document_idx ON source_units(source_document_id)")
+
+
+def _create_fts(conn: sqlite3.Connection) -> bool:
+    try:
+        conn.execute(
+            """
+            CREATE VIRTUAL TABLE source_units_fts
+            USING fts5(source_unit_id, title, citation, canonical_locator, text_normalized)
+            """
+        )
+    except sqlite3.OperationalError:
+        return False
+    return True
+
+
+def _search_fts(
+    conn: sqlite3.Connection,
+    query: str,
+    *,
+    source_id: str | None,
+    include_superseded: bool,
+    limit: int,
+) -> list[sqlite3.Row]:
+    try:
+        where = "source_units_fts MATCH ?"
+        params: list[Any] = [query]
+        source_filter, source_params = _source_scope_filter(
+            "u",
+            source_id=source_id,
+            include_superseded=include_superseded,
+        )
+        if source_filter:
+            where += f" AND {source_filter}"
+            params.extend(source_params)
+        params.append(limit)
+        return list(
+            conn.execute(
+                f"""
+                SELECT u.source_unit_id,
+                       u.source_document_id,
+                       u.title,
+                       u.citation,
+                       u.canonical_locator,
+                       u.unit_type,
+                       u.text_exact,
+                       u.content_hash,
+                       u.effective_from,
+                       u.effective_to
+                FROM source_units_fts f
+                JOIN source_units u ON u.source_unit_id = f.source_unit_id
+                WHERE {where}
+                ORDER BY {_unit_type_priority_sql("u.unit_type")}, rank, u.source_unit_id
+                LIMIT ?
+                """,
+                params,
+            )
+        )
+    except sqlite3.OperationalError:
+        return []
+
+
+def _search_like(
+    conn: sqlite3.Connection,
+    query: str,
+    *,
+    source_id: str | None,
+    include_superseded: bool,
+    limit: int,
+) -> list[sqlite3.Row]:
+    tokens = _query_tokens(query)
+    where_parts = []
+    params: list[Any] = []
+    for token in tokens:
+        needle = f"%{token}%"
+        where_parts.append("(title LIKE ? OR citation LIKE ? OR canonical_locator LIKE ? OR text_normalized LIKE ?)")
+        params.extend([needle, needle, needle, needle])
+    where = " AND ".join(where_parts)
+    source_filter, source_params = _source_scope_filter(
+        None,
+        source_id=source_id,
+        include_superseded=include_superseded,
+    )
+    if source_filter:
+        where += f" AND {source_filter}"
+        params.extend(source_params)
+    params.append(limit)
+    return list(
+        conn.execute(
+            f"""
+            SELECT source_unit_id,
+                   source_document_id,
+                   title,
+                   citation,
+                   canonical_locator,
+                   unit_type,
+                   text_exact,
+                   content_hash,
+                   effective_from,
+                   effective_to
+            FROM source_units
+            WHERE {where}
+            ORDER BY {_unit_type_priority_sql("unit_type")}, source_unit_id
+            LIMIT ?
+            """,
+            params,
+        )
+    )
+
+
+def _query_tokens(query: str) -> list[str]:
+    return [token for token in query.split() if token] or [query]
+
+
+def _source_scope_filter(
+    alias: str | None,
+    *,
+    source_id: str | None,
+    include_superseded: bool,
+) -> tuple[str, list[Any]]:
+    prefix = f"{alias}." if alias else ""
+    if source_id is not None:
+        return f"{prefix}source_document_id = ?", [source_id]
+    if include_superseded:
+        return "", []
+    return (
+        f"{prefix}source_canonical = 1 "
+        f"AND {prefix}source_superseded_by IS NULL "
+        f"AND {prefix}source_effective_to IS NULL",
+        [],
+    )
+
+
+def _index_needs_rebuild(index_path: Path) -> bool:
+    if not index_path.exists():
+        return True
+    try:
+        with sqlite3.connect(index_path) as conn:
+            row = conn.execute("SELECT value FROM source_index_meta WHERE key = ?", ("schema_version",)).fetchone()
+    except sqlite3.Error:
+        return True
+    return row is None or row[0] != str(SOURCE_INDEX_SCHEMA_VERSION)
+
+
+def _unit_type_priority_sql(column: str) -> str:
+    return (
+        "CASE "
+        f"WHEN {column} = 'paragraph' THEN 0 "
+        f"WHEN {column} = 'item' THEN 1 "
+        f"WHEN {column} = 'subitem' THEN 2 "
+        f"WHEN {column} = 'appendix_table' THEN 3 "
+        f"WHEN {column} = 'article' THEN 4 "
+        "ELSE 5 END"
+    )
+
+
+def _merge_search_rows(
+    first: list[sqlite3.Row],
+    second: list[sqlite3.Row],
+    *,
+    limit: int,
+) -> list[sqlite3.Row]:
+    rows: list[sqlite3.Row] = []
+    seen: set[str] = set()
+    for row in [*first, *second]:
+        source_unit_id = row["source_unit_id"]
+        if source_unit_id in seen:
+            continue
+        seen.add(source_unit_id)
+        rows.append(row)
+        if len(rows) >= limit:
+            break
+    return rows
+
+
+def _linked_targets(ai_dir: str | Path) -> dict[str, dict[str, set[str]]]:
+    try:
+        bundle = load_runtime(runtime_paths(ai_dir))
+    except Exception:
+        return {}
+    evidence_by_id = {
+        obj["id"]: obj
+        for obj in bundle["project_state"].get("objects", [])
+        if obj.get("type") == "evidence" and obj.get("metadata", {}).get("source_unit_id")
+    }
+    result: dict[str, dict[str, set[str]]] = {}
+    for link in bundle["project_state"].get("links", []):
+        evidence = evidence_by_id.get(link.get("source_object_id"))
+        if evidence is None:
+            continue
+        source_unit_id = evidence["metadata"]["source_unit_id"]
+        by_relation = result.setdefault(source_unit_id, {})
+        targets = by_relation.setdefault(link["relation"], set())
+        targets.add(link["target_object_id"])
+    return result

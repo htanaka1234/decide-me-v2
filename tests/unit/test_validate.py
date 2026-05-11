@@ -229,6 +229,65 @@ class EventLogValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(StateValidationError, "unknown or inactive link L-001"):
             validate_event_log(events)
 
+    def test_validates_evidence_audit_matches_same_transaction_link_metadata(self) -> None:
+        events = [
+            *_base_events(),
+            *_source_store_evidence_events(),
+        ]
+
+        validate_event_log(events)
+
+    def test_rejects_evidence_audit_without_same_transaction_link(self) -> None:
+        events = [
+            *_base_events(),
+            *_source_store_evidence_events(link_tx_id="T-link", audit_tx_id="T-audit"),
+        ]
+
+        with self.assertRaisesRegex(StateValidationError, "must be created in the same transaction"):
+            validate_event_log(events)
+
+    def test_rejects_evidence_audit_link_metadata_mismatch(self) -> None:
+        events = [
+            *_base_events(),
+            *_source_store_evidence_events(
+                link_metadata={**_source_store_link_metadata(), "quote": "別の引用"}
+            ),
+        ]
+
+        with self.assertRaisesRegex(StateValidationError, "metadata.quote mismatch"):
+            validate_event_log(events)
+
+    def test_rejects_evidence_audit_link_relation_mismatch(self) -> None:
+        events = [
+            *_base_events(),
+            *_source_store_evidence_events(link_relation="challenges"),
+        ]
+
+        with self.assertRaisesRegex(StateValidationError, "relation mismatch"):
+            validate_event_log(events)
+
+    def test_rejects_source_store_link_without_audit_event(self) -> None:
+        events = [
+            *_base_events(),
+            _event(3, "S-001", "object_recorded", {"object": _object("O-decision", "E-test-3")}),
+            _event(4, "S-001", "object_recorded", {"object": _object("O-evidence", "E-test-4", object_type="evidence")}),
+            _event(
+                5,
+                "S-001",
+                "object_linked",
+                {
+                    "link": _link(
+                        "L-evidence-supports-decision",
+                        "E-test-5",
+                        metadata=_source_store_link_metadata(),
+                    )
+                },
+            ),
+        ]
+
+        with self.assertRaisesRegex(StateValidationError, "missing evidence_linked_to_object audit event"):
+            validate_event_log(events)
+
     def test_transaction_rejected_control_event_still_validates(self) -> None:
         events = [
             *_base_events(),
@@ -330,15 +389,94 @@ def _object(object_id: str, event_id: str, *, object_type: str = "decision") -> 
     }
 
 
-def _link(link_id: str, event_id: str) -> dict:
-    return {
+def _link(
+    link_id: str,
+    event_id: str,
+    *,
+    source_object_id: str = "O-evidence",
+    relation: str = "supports",
+    target_object_id: str = "O-decision",
+    metadata: dict | None = None,
+) -> dict:
+    payload = {
         "id": link_id,
-        "source_object_id": "O-evidence",
-        "relation": "supports",
-        "target_object_id": "O-decision",
+        "source_object_id": source_object_id,
+        "relation": relation,
+        "target_object_id": target_object_id,
         "rationale": "Evidence supports it.",
         "created_at": "2026-04-23T12:00:00Z",
         "source_event_ids": [event_id],
+    }
+    if metadata is not None:
+        payload["metadata"] = metadata
+    return payload
+
+
+def _source_store_evidence_events(
+    *,
+    link_tx_id: str = "T-source-store-link",
+    audit_tx_id: str = "T-source-store-link",
+    link_metadata: dict | None = None,
+    link_relation: str = "supports",
+) -> list[dict]:
+    metadata = link_metadata if link_metadata is not None else _source_store_link_metadata()
+    return [
+        _event(3, "S-001", "object_recorded", {"object": _object("O-decision", "E-test-3")}),
+        _event(4, "S-001", "object_recorded", {"object": _object("O-evidence", "E-test-4", object_type="evidence")}),
+        _event(
+            5,
+            "S-001",
+            "object_linked",
+            {
+                "link": _link(
+                    "L-evidence-supports-decision",
+                    "E-test-5",
+                    relation=link_relation,
+                    metadata=metadata,
+                )
+            },
+            tx_id=link_tx_id,
+            tx_index=1,
+            tx_size=1 if link_tx_id != audit_tx_id else 2,
+        ),
+        _event(
+            6,
+            "S-001",
+            "evidence_linked_to_object",
+            _evidence_audit_payload(),
+            tx_id=audit_tx_id,
+            tx_index=1 if link_tx_id != audit_tx_id else 2,
+            tx_size=1 if link_tx_id != audit_tx_id else 2,
+        ),
+    ]
+
+
+def _source_store_link_metadata() -> dict:
+    return {
+        "source_document_id": "SRC-test",
+        "source_unit_id": "NU-SRC-test-article-aaaaaaaa",
+        "source_unit_hash": "sha256:" + "a" * 64,
+        "citation": "医学部教務規則 第1条",
+        "quote": "学生は指定期間内に履修登録を行う。",
+        "interpretation_note": "履修登録期限を制約として扱う。",
+        "effective_from": "2026-04-01",
+        "effective_to": None,
+        "linked_at": "2026-05-01T00:00:00Z",
+    }
+
+
+def _evidence_audit_payload() -> dict:
+    return {
+        "evidence_object_id": "O-evidence",
+        "link_id": "L-evidence-supports-decision",
+        "target_object_id": "O-decision",
+        "source_document_id": "SRC-test",
+        "source_unit_id": "NU-SRC-test-article-aaaaaaaa",
+        "source_unit_hash": "sha256:" + "a" * 64,
+        "relevance": "supports",
+        "quote": "学生は指定期間内に履修登録を行う。",
+        "interpretation_note": "履修登録期限を制約として扱う。",
+        "linked_at": "2026-05-01T00:00:00Z",
     }
 
 
