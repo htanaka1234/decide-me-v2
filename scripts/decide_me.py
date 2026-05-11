@@ -285,6 +285,11 @@ def main(argv: list[str] | None = None) -> int:
     search_evidence_cmd.add_argument("--query", required=True)
     search_evidence_cmd.add_argument("--source-id")
     search_evidence_cmd.add_argument("--limit", type=int, default=20)
+    search_evidence_cmd.add_argument(
+        "--include-superseded",
+        action="store_true",
+        help="include superseded or non-current source snapshots in search results",
+    )
 
     link_evidence_cmd = subparsers.add_parser(
         "link-evidence",
@@ -699,6 +704,7 @@ def main(argv: list[str] | None = None) -> int:
                     query=args.query,
                     source_id=args.source_id,
                     limit=args.limit,
+                    include_superseded=args.include_superseded,
                 )
             )
         elif args.command == "link-evidence":

@@ -137,6 +137,8 @@ source unit no longer present in the current `units.jsonl`. `validate-sources` t
 source-unit references as validation issues.
 `search-evidence` merges SQLite FTS results with a deterministic whitespace-token AND `LIKE`
 fallback so Japanese multi-term queries can find units even when FTS tokenization is ineffective.
+By default it searches only current canonical source snapshots. Replaced snapshots require
+`--include-superseded` or an explicit `--source-id`.
 `search-evidence`,
 `show-source-impact`, `list-sources`, `show-source`, and `show-source-unit` must not update
 runtime projections or event logs. `rebuild-evidence-index` updates only the derived SQLite index.

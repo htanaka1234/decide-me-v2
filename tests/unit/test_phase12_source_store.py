@@ -80,7 +80,20 @@ class Phase12SourceStoreUnitTests(unittest.TestCase):
                         "effective_to": None,
                         "retrieved_at": "2026-05-01T00:00:00Z",
                         "source_uri": "fixtures/source.xml",
-                    }
+                    },
+                    {
+                        "id": "SRC-superseded",
+                        "title": document["title"],
+                        "document_type": document["document_type"],
+                        "content_hash": "sha256:" + "c" * 64,
+                        "metadata_path": "documents/SRC-superseded/metadata.yaml",
+                        "canonical": False,
+                        "effective_from": "2025-04-01",
+                        "effective_to": "2026-04-01",
+                        "retrieved_at": "2025-05-01T00:00:00Z",
+                        "source_uri": "fixtures/source-v1.xml",
+                        "superseded_by": document["id"],
+                    },
                 ],
             }
         )
@@ -130,6 +143,7 @@ class Phase12SourceStoreUnitTests(unittest.TestCase):
                 source_id="SRC-decompose-rollback",
                 effective_from="2026-04-01",
             )
+            original_index = source_paths(ai_dir)["source_units_index"].read_bytes()
 
             with patch("decide_me.store._write_transaction", side_effect=RuntimeError("audit write failed")):
                 with self.assertRaisesRegex(RuntimeError, "audit write failed"):
@@ -141,7 +155,7 @@ class Phase12SourceStoreUnitTests(unittest.TestCase):
 
             self.assertEqual([], load_units(ai_dir, "SRC-decompose-rollback"))
             self.assertEqual(0, load_source_metadata(ai_dir, "SRC-decompose-rollback")["unit_count"])
-            self.assertFalse(source_paths(ai_dir)["source_units_index"].exists())
+            self.assertEqual(original_index, source_paths(ai_dir)["source_units_index"].read_bytes())
 
     def test_decompose_source_refuses_tampered_original_snapshot(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -247,15 +261,18 @@ class Phase12SourceStoreUnitTests(unittest.TestCase):
             paragraph = next(unit for unit in units if unit["unit_type"] == "paragraph")
             item = next(unit for unit in units if unit["unit_type"] == "item")
             subitem = next(unit for unit in units if unit["unit_type"] == "subitem")
+            appendix = next(unit for unit in units if unit["unit_type"] == "appendix_table")
             self.assertEqual("2", paragraph["path"]["paragraph"])
             self.assertEqual("2", item["path"]["paragraph"])
             self.assertEqual("一", item["path"]["item"])
             self.assertEqual("2", subitem["path"]["paragraph"])
             self.assertEqual("一", subitem["path"]["item"])
             self.assertEqual("イ", subitem["path"]["subitem"])
+            self.assertEqual({"chapter": "第1章 総則", "appendix": "別表第1"}, appendix["path"])
             self.assertIn("締切後申請", paragraph["text_exact"])
             self.assertIn("教務委員会", item["text_exact"])
             self.assertIn("やむを得ない", subitem["text_exact"])
+            self.assertIn("履修登録期間", appendix["text_exact"])
 
     def test_pdf_decomposition_is_explicitly_unsupported(self) -> None:
         with TemporaryDirectory() as tmp:

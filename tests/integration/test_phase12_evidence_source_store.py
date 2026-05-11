@@ -325,6 +325,51 @@ class Phase12EvidenceSourceStoreIntegrationTests(unittest.TestCase):
                 and event["payload"]["source_document_id"] == new_source_id
             ]
             self.assertEqual(source_id, version_events[-1]["payload"]["previous_source_document_id"])
+            old_source = run_json_cli("show-source", "--ai-dir", str(ai_dir), "--source-id", source_id)
+            self.assertFalse(old_source["source_document"]["canonical"])
+            self.assertEqual("2026-04-01", old_source["source_document"]["effective_to"])
+            self.assertEqual(new_source_id, old_source["source_document"]["superseded_by"])
+            run_json_cli(
+                "decompose-source",
+                "--ai-dir",
+                str(ai_dir),
+                "--source-id",
+                new_source_id,
+                "--strategy",
+                "japanese-regulation-text",
+            )
+            current_search = run_json_cli(
+                "search-evidence",
+                "--ai-dir",
+                str(ai_dir),
+                "--query",
+                "履修登録",
+                "--limit",
+                "10",
+            )
+            self.assertEqual({new_source_id}, {item["source_document_id"] for item in current_search["results"]})
+            superseded_search = run_json_cli(
+                "search-evidence",
+                "--ai-dir",
+                str(ai_dir),
+                "--query",
+                "履修登録",
+                "--include-superseded",
+                "--limit",
+                "10",
+            )
+            self.assertIn(source_id, {item["source_document_id"] for item in superseded_search["results"]})
+            self.assertIn(new_source_id, {item["source_document_id"] for item in superseded_search["results"]})
+            explicit_old_search = run_json_cli(
+                "search-evidence",
+                "--ai-dir",
+                str(ai_dir),
+                "--query",
+                "履修登録",
+                "--source-id",
+                source_id,
+            )
+            self.assertEqual({source_id}, {item["source_document_id"] for item in explicit_old_search["results"]})
 
             previous_impact = run_json_cli(
                 "show-source-impact",

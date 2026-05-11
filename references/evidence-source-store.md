@@ -62,7 +62,9 @@ python3 scripts/decide_me.py import-source \
 ```
 
 When importing a known replacement version, add `--previous-source-id SRC-...` so update impact can
-include links that still point at the previous snapshot.
+include links that still point at the previous snapshot. The previous source metadata and registry
+entry are marked with `canonical: false`, `effective_to: <new effective_from>`, and
+`superseded_by: <new source id>`.
 
 Decompose into citation units:
 
@@ -97,6 +99,8 @@ python3 scripts/decide_me.py link-evidence \
 Search uses SQLite FTS5 when available and always merges a deterministic `LIKE` fallback. Whitespace
 separated terms such as `"履修登録 締切 例外"` are treated as token-wise AND matches in the fallback,
 which keeps Japanese regulation text searchable even when FTS tokenization is not useful.
+Default search returns only current canonical source snapshots. Superseded or non-current snapshots
+are searchable only with `--include-superseded` or an explicit `--source-id`.
 
 Inspection and derived maintenance:
 

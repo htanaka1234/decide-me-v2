@@ -104,9 +104,16 @@ def import_source(
     old_registry: dict[str, Any] | None = None
     new_registry: dict[str, Any] | None = None
     selected_previous: dict[str, Any] | None = None
+    old_previous_metadata: dict[str, Any] | None = None
+    old_previous_units: list[dict[str, Any]] | None = None
+    updated_previous_metadata: dict[str, Any] | None = None
+    updated_previous_units: list[dict[str, Any]] | None = None
+    old_index: bytes | None = None
 
     def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
         nonlocal old_registry, new_registry, selected_previous
+        nonlocal old_previous_metadata, old_previous_units, updated_previous_metadata, updated_previous_units
+        nonlocal old_index
         if target_dir.exists():
             existing = load_source_metadata(ai_dir, source_id)
             if existing["content_hash"] != content_hash:
@@ -121,6 +128,7 @@ def import_source(
             return []
 
         old_registry = load_registry(ai_dir)
+        old_index = _read_index_snapshot(ai_dir)
         selected_previous = _select_previous_source(
             ai_dir,
             old_registry,
@@ -130,6 +138,18 @@ def import_source(
             previous_source_id=previous_source_id,
         )
         new_registry = deepcopy(old_registry)
+        if selected_previous is not None:
+            old_previous_metadata = load_source_metadata(ai_dir, selected_previous["id"])
+            old_previous_units = load_units(ai_dir, selected_previous["id"])
+            updated_previous_metadata = _superseded_source_metadata(
+                old_previous_metadata,
+                superseded_by=source_id,
+                effective_to=effective_from,
+            )
+            updated_previous_units = _units_with_effective_to(old_previous_units, effective_to=effective_from)
+            for entry in new_registry.get("documents", []):
+                if entry["id"] == selected_previous["id"]:
+                    entry.update(_registry_entry(updated_previous_metadata))
         new_registry["documents"] = sorted(
             [
                 *new_registry.get("documents", []),
@@ -175,14 +195,22 @@ def import_source(
         original_path.write_bytes(raw)
         text_path.write_text(_source_snapshot_text(raw, source_format), encoding="utf-8")
         units_path.write_text("", encoding="utf-8")
+        if updated_previous_metadata is not None and updated_previous_units is not None:
+            save_source_metadata(ai_dir, updated_previous_metadata)
+            save_units(ai_dir, updated_previous_metadata["id"], updated_previous_units)
         save_source_metadata(ai_dir, metadata)
         save_registry(ai_dir, new_registry)
+        rebuild_evidence_index(ai_dir)
 
     def rollback(exc: BaseException) -> None:
         if target_dir.exists():
             shutil.rmtree(target_dir)
+        if old_previous_metadata is not None and old_previous_units is not None:
+            save_source_metadata(ai_dir, old_previous_metadata)
+            save_units(ai_dir, old_previous_metadata["id"], old_previous_units)
         if old_registry is not None:
             save_registry(ai_dir, old_registry)
+        _restore_index_snapshot(ai_dir, old_index)
 
     events, _ = transact_with_precommit(ai_dir, builder, precommit=precommit, rollback=rollback)
     return {
@@ -465,7 +493,7 @@ def _source_snapshot_text(raw: bytes, source_format: str) -> str:
 
 
 def _registry_entry(metadata: dict[str, Any]) -> dict[str, Any]:
-    return {
+    entry = {
         "id": metadata["id"],
         "title": metadata["title"],
         "document_type": metadata["document_type"],
@@ -479,6 +507,33 @@ def _registry_entry(metadata: dict[str, Any]) -> dict[str, Any]:
         "source_uri": metadata["source_uri"],
         "unit_count": metadata.get("unit_count", 0),
     }
+    if metadata.get("parser_version") is not None:
+        entry["parser_version"] = metadata["parser_version"]
+    if metadata.get("superseded_by") is not None:
+        entry["superseded_by"] = metadata["superseded_by"]
+    return entry
+
+
+def _superseded_source_metadata(
+    metadata: dict[str, Any],
+    *,
+    superseded_by: str,
+    effective_to: str,
+) -> dict[str, Any]:
+    updated = deepcopy(metadata)
+    updated["canonical"] = False
+    updated["effective_to"] = effective_to
+    updated["superseded_by"] = superseded_by
+    validate_source_document(updated)
+    return updated
+
+
+def _units_with_effective_to(units: list[dict[str, Any]], *, effective_to: str) -> list[dict[str, Any]]:
+    updated_units = deepcopy(units)
+    for unit in updated_units:
+        unit["effective_to"] = effective_to
+        validate_normative_unit(unit)
+    return updated_units
 
 
 def _select_previous_source(

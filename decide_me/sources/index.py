@@ -8,7 +8,7 @@ from decide_me.sources.model import load_registry, load_source_metadata, load_un
 from decide_me.store import load_runtime, runtime_paths
 
 
-SOURCE_INDEX_SCHEMA_VERSION = 1
+SOURCE_INDEX_SCHEMA_VERSION = 2
 
 
 def rebuild_evidence_index(ai_dir: str | Path) -> dict[str, Any]:
@@ -23,6 +23,9 @@ def rebuild_evidence_index(ai_dir: str | Path) -> dict[str, Any]:
             metadata = load_source_metadata(ai_dir, entry["id"])
             for unit in load_units(ai_dir, entry["id"]):
                 row_count += 1
+                source_canonical = bool(entry.get("canonical", metadata.get("canonical", True)))
+                source_superseded_by = entry.get("superseded_by", metadata.get("superseded_by"))
+                source_effective_to = entry.get("effective_to", metadata.get("effective_to"))
                 conn.execute(
                     """
                     INSERT INTO source_units(
@@ -36,9 +39,12 @@ def rebuild_evidence_index(ai_dir: str | Path) -> dict[str, Any]:
                         text_normalized,
                         content_hash,
                         effective_from,
-                        effective_to
+                        effective_to,
+                        source_canonical,
+                        source_superseded_by,
+                        source_effective_to
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         unit["id"],
@@ -52,6 +58,9 @@ def rebuild_evidence_index(ai_dir: str | Path) -> dict[str, Any]:
                         unit["content_hash"],
                         unit["effective_from"],
                         unit["effective_to"],
+                        int(source_canonical),
+                        source_superseded_by,
+                        source_effective_to,
                     ),
                 )
                 if fts_enabled:
@@ -83,6 +92,7 @@ def search_evidence(
     query: str,
     source_id: str | None = None,
     limit: int = 20,
+    include_superseded: bool = False,
 ) -> dict[str, Any]:
     query = query.strip()
     if not query:
@@ -90,14 +100,14 @@ def search_evidence(
     if limit < 1:
         raise ValueError("limit must be positive")
     paths = source_paths(ai_dir)
-    if not paths["source_units_index"].exists():
+    if _index_needs_rebuild(paths["source_units_index"]):
         rebuild_evidence_index(ai_dir)
     linked = _linked_targets(ai_dir)
     with sqlite3.connect(paths["source_units_index"]) as conn:
         conn.row_factory = sqlite3.Row
         rows = _merge_search_rows(
-            _search_fts(conn, query, source_id=source_id, limit=limit),
-            _search_like(conn, query, source_id=source_id, limit=limit),
+            _search_fts(conn, query, source_id=source_id, include_superseded=include_superseded, limit=limit),
+            _search_like(conn, query, source_id=source_id, include_superseded=include_superseded, limit=limit),
             limit=limit,
         )
     results = []
@@ -132,7 +142,10 @@ def _reset_schema(conn: sqlite3.Connection) -> None:
             text_normalized TEXT NOT NULL,
             content_hash TEXT NOT NULL,
             effective_from TEXT NOT NULL,
-            effective_to TEXT
+            effective_to TEXT,
+            source_canonical INTEGER NOT NULL,
+            source_superseded_by TEXT,
+            source_effective_to TEXT
         )
         """
     )
@@ -157,14 +170,20 @@ def _search_fts(
     query: str,
     *,
     source_id: str | None,
+    include_superseded: bool,
     limit: int,
 ) -> list[sqlite3.Row]:
     try:
         where = "source_units_fts MATCH ?"
         params: list[Any] = [query]
-        if source_id is not None:
-            where += " AND u.source_document_id = ?"
-            params.append(source_id)
+        source_filter, source_params = _source_scope_filter(
+            "u",
+            source_id=source_id,
+            include_superseded=include_superseded,
+        )
+        if source_filter:
+            where += f" AND {source_filter}"
+            params.extend(source_params)
         params.append(limit)
         return list(
             conn.execute(
@@ -197,6 +216,7 @@ def _search_like(
     query: str,
     *,
     source_id: str | None,
+    include_superseded: bool,
     limit: int,
 ) -> list[sqlite3.Row]:
     tokens = _query_tokens(query)
@@ -207,9 +227,14 @@ def _search_like(
         where_parts.append("(title LIKE ? OR citation LIKE ? OR canonical_locator LIKE ? OR text_normalized LIKE ?)")
         params.extend([needle, needle, needle, needle])
     where = " AND ".join(where_parts)
-    if source_id is not None:
-        where += " AND source_document_id = ?"
-        params.append(source_id)
+    source_filter, source_params = _source_scope_filter(
+        None,
+        source_id=source_id,
+        include_superseded=include_superseded,
+    )
+    if source_filter:
+        where += f" AND {source_filter}"
+        params.extend(source_params)
     params.append(limit)
     return list(
         conn.execute(
@@ -236,6 +261,36 @@ def _search_like(
 
 def _query_tokens(query: str) -> list[str]:
     return [token for token in query.split() if token] or [query]
+
+
+def _source_scope_filter(
+    alias: str | None,
+    *,
+    source_id: str | None,
+    include_superseded: bool,
+) -> tuple[str, list[Any]]:
+    prefix = f"{alias}." if alias else ""
+    if source_id is not None:
+        return f"{prefix}source_document_id = ?", [source_id]
+    if include_superseded:
+        return "", []
+    return (
+        f"{prefix}source_canonical = 1 "
+        f"AND {prefix}source_superseded_by IS NULL "
+        f"AND {prefix}source_effective_to IS NULL",
+        [],
+    )
+
+
+def _index_needs_rebuild(index_path: Path) -> bool:
+    if not index_path.exists():
+        return True
+    try:
+        with sqlite3.connect(index_path) as conn:
+            row = conn.execute("SELECT value FROM source_index_meta WHERE key = ?", ("schema_version",)).fetchone()
+    except sqlite3.Error:
+        return True
+    return row is None or row[0] != str(SOURCE_INDEX_SCHEMA_VERSION)
 
 
 def _unit_type_priority_sql(column: str) -> str:

@@ -115,6 +115,10 @@
         "minLength": 1
       },
       "uniqueItems": true
+    },
+    "superseded_by": {
+      "type": "string",
+      "pattern": "^SRC-[A-Za-z0-9_.:-]+$"
     }
   },
   "additionalProperties": false

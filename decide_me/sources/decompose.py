@@ -207,7 +207,9 @@ def _decompose_japanese_regulation_text(text: str, metadata: dict[str, Any]) -> 
             continue
         match = APPENDIX_PATTERN.match(line)
         if match:
-            current = _new_text_record("appendix_table", {**context, "appendix": match.group(1)}, _join_label_text(match))
+            path = {**_context_through(context, "chapter"), "appendix": match.group(1)}
+            context = path
+            current = _new_text_record("appendix_table", path, _join_label_text(match))
             records.append(current)
             continue
         match = ARTICLE_PATTERN.match(line)

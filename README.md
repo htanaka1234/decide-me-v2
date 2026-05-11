@@ -250,14 +250,16 @@ Use the Phase 12 evidence source store:
 3. Search citation units with
    `python3 scripts/decide_me.py search-evidence --ai-dir .ai/decide-me --query "履修登録 締切"`.
    Japanese multi-term queries are supported through token-wise AND `LIKE` fallback merged with
-   SQLite FTS results.
+   SQLite FTS results. Default search returns current canonical sources only; use
+   `--include-superseded` or an explicit `--source-id` to search replaced snapshots.
 4. Link a source unit to a runtime decision or object with
    `python3 scripts/decide_me.py link-evidence --ai-dir .ai/decide-me --session-id S-... --decision-id D-... --source-unit-id NU-... --relevance supports --quote "..." --interpretation-note "..."`.
 5. Inspect source impact with
    `python3 scripts/decide_me.py show-source-impact --ai-dir .ai/decide-me --source-id SRC-...`.
 6. For a replacement snapshot, import with `--previous-source-id SRC-...` and inspect the new source
    with `show-source-impact --include-previous-version-links` to include decisions still linked to
-   the prior version.
+   the prior version. The previous source is marked non-canonical with `superseded_by` and
+   `effective_to`, so it is excluded from default evidence search.
 7. Source impact also reports orphaned linked source units when projected evidence references units
    no longer present in `units.jsonl`.
 8. Source impact is read-only. It never invalidates decisions, creates revisit triggers, or applies

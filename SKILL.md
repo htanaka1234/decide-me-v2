@@ -157,8 +157,11 @@ Runtime invariants:
   represents the source unit; per-decision quote and interpretation note live on link metadata and
   are surfaced by evidence registers and decision briefs. Runtime validation checks that source-store
   links and `evidence_linked_to_object` audit payloads exist together in the same transaction and
-  agree on concrete link metadata. Source updates and orphaned linked units are read-only impact
-  diagnostics until a human applies the normal revisit, approval, or invalidation workflow.
+  agree on concrete link metadata. Replacement imports mark the previous source as non-canonical
+  with `superseded_by`; default evidence search excludes those superseded snapshots unless the user
+  passes `--include-superseded` or a specific `--source-id`. Source updates and orphaned linked units
+  are read-only impact diagnostics until a human applies the normal revisit, approval, or
+  invalidation workflow.
 - Domain packs are declarative policy overlays. Session and object pack metadata must keep
   `domain_pack_id`, `domain_pack_version`, and `domain_pack_digest` together; stale digest or
   version mismatches fail validation or pack-aware evaluation instead of silently falling back.

@@ -168,6 +168,8 @@ def validate_registry(registry: dict[str, Any]) -> None:
             raise SourceValidationError(f"registry.documents[{index}].unit_count must be a non-negative integer")
         if "parser_version" in item:
             _require_non_empty_string(item["parser_version"], f"registry.documents[{index}].parser_version")
+        if "superseded_by" in item:
+            _require_source_id(item["superseded_by"], f"registry.documents[{index}].superseded_by")
         if item["id"] in seen:
             raise SourceValidationError(f"duplicate source document id in registry: {item['id']}")
         seen.add(item["id"])
@@ -214,6 +216,8 @@ def validate_source_document(document: dict[str, Any]) -> None:
         not isinstance(document["unit_count"], int) or document["unit_count"] < 0
     ):
         raise SourceValidationError("source_document.unit_count must be a non-negative integer")
+    if "superseded_by" in document:
+        _require_source_id(document["superseded_by"], "source_document.superseded_by")
 
 
 def validate_normative_unit(unit: dict[str, Any]) -> None:

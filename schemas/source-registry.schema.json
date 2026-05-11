@@ -79,6 +79,10 @@
           },
           "parser_version": {
             "type": "string"
+          },
+          "superseded_by": {
+            "type": "string",
+            "pattern": "^SRC-[A-Za-z0-9_.:-]+$"
           }
         },
         "additionalProperties": false
