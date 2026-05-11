@@ -18,6 +18,8 @@ Startup checklist:
    `python3 <skill-root>/scripts/decide_me.py bootstrap --ai-dir <repo-root>/.ai/decide-me ...`,
    or tell the user to run the equivalent command. For session advancement and replies, pass
    `--repo-root <repo-root>` when the Skill package is not located at the target repository root.
+   Use `--ai-dir <repo-root>/.ai/decide-me` for every CLI command that operates on the target
+   runtime; do not rely on `.ai/decide-me` relative to the current working directory.
 3. Validate event and projection consistency before trusting the current state.
    If validation reports an unresolved same-session merge conflict, run
    `python3 <skill-root>/scripts/decide_me.py detect-merge-conflicts --ai-dir <repo-root>/.ai/decide-me`
