@@ -13,12 +13,16 @@ Startup checklist:
 1. Load the derived projections and `.ai/decide-me/runtime-index.json` when they exist. Use full
    event-log replay only for `validate-state`, `validate-state --full`, conflict detection,
    `compact-runtime`, or `rebuild-projections`.
-2. If the runtime is missing, bootstrap it or tell the user to run `python3 scripts/decide_me.py bootstrap ...`.
+2. Resolve the bundled CLI path from this Skill package; do not assume the target repository
+   contains `scripts/decide_me.py`. If the runtime is missing, bootstrap it with
+   `python3 <skill-root>/scripts/decide_me.py bootstrap --ai-dir <repo-root>/.ai/decide-me ...`,
+   or tell the user to run the equivalent command. For session advancement and replies, pass
+   `--repo-root <repo-root>` when the Skill package is not located at the target repository root.
 3. Validate event and projection consistency before trusting the current state.
    If validation reports an unresolved same-session merge conflict, run
-   `python3 scripts/decide_me.py detect-merge-conflicts --ai-dir .ai/decide-me` and ask the user
-   which candidate transaction to keep from the selected option's `surviving_tx_ids` before
-   resolving it.
+   `python3 <skill-root>/scripts/decide_me.py detect-merge-conflicts --ai-dir <repo-root>/.ai/decide-me`
+   and ask the user which candidate transaction to keep from the selected option's
+   `surviving_tx_ids` before resolving it.
    If plan generation reports semantic conflicts across related sessions, inspect
    `show-session-graph` and use `detect-session-conflicts --include-related` before asking the
    user which session's scoped answer should win.
@@ -56,7 +60,7 @@ Read only the reference file needed for the turn:
 
 Bundled assets:
 
-- deterministic CLI: `python3 scripts/decide_me.py ...`
+- deterministic CLI: `python3 <skill-root>/scripts/decide_me.py ...`
 - JSON contracts: `schemas/*.json`
 - export templates: `templates/`
 - runtime requirements: `requirements.txt` (`PyYAML` is required for declarative Domain Pack YAML)
