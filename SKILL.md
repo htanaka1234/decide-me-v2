@@ -90,6 +90,8 @@ User-facing commands:
 - `Advance session S-...`
 - `Handle reply for session S-...`
 - `Export impact report for object O-...`
+- `Review draft set DS-...`
+- `Export draft set DS-...`
 - `Export GitHub issue templates`
 - `Export GitHub issue drafts from sessions S-..., S-...`
 - `Export agent instructions for AGENTS.md, Cursor, Claude, or Codex`
@@ -158,6 +160,12 @@ Runtime invariants:
   GitHub issue draft, agent instruction, arc42 architecture, traceability matrix, and verification gap files are derived
   exports, not runtime state. Software-oriented exports are allowed, but they must be derived from
   the domain-neutral object/link core.
+- `.ai/decide-me/draft-sets/DS-.../draft-set.json` is a draft sidecar, not canonical event-log
+  state. `review-draft-set` may write only the derived
+  `.ai/decide-me/draft-sets/DS-.../review-queue.json`; `export-draft-set` may write that JSON and
+  the four Markdown draft exports under `exports/`. These outputs must state
+  `DRAFT / NOT ACCEPTED`, must not create accepted decisions or proposals, and must not update
+  events, `project-state.json`, `taxonomy-state.json`, or `sessions/*.json`.
 - Source evidence uses normal `evidence` objects with `metadata.source = "source-store"` and
   object links such as `supports`, `challenges`, `verifies`, or `constrains`. The evidence object
   represents the source unit; per-decision quote and interpretation note live on link metadata and

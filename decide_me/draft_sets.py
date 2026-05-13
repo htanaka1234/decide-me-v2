@@ -114,6 +114,10 @@ def load_draft_set(ai_dir: str | Path, draft_set_id: str) -> dict[str, Any]:
     return payload
 
 
+def draft_set_dir(ai_dir: str | Path, draft_set_id: str) -> Path:
+    return _draft_set_dir(Path(ai_dir), draft_set_id)
+
+
 def show_draft_set(ai_dir: str | Path, draft_set_id: str) -> dict[str, Any]:
     draft_set = load_draft_set(ai_dir, draft_set_id)
     return {

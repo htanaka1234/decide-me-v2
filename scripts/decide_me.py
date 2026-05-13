@@ -13,6 +13,7 @@ sys.path.insert(0, REPO_ROOT_STR)
 
 from decide_me.conflicts import detect_merge_conflicts, resolve_merge_conflict
 from decide_me.domains import DomainPack, domain_pack_digest, load_domain_registry
+from decide_me.draft_export import export_draft_set, review_draft_set
 from decide_me.draft_sets import create_draft_set, list_draft_sets, show_draft_set
 from decide_me.exports import (
     export_adr,
@@ -160,6 +161,24 @@ def main(argv: list[str] | None = None) -> int:
         help="list draft decision set sidecars",
     )
     list_draft_sets_cmd.add_argument("--ai-dir", required=True)
+
+    review_draft_set_cmd = subparsers.add_parser(
+        "review-draft-set",
+        help="build a deterministic review queue for a draft decision set",
+    )
+    review_draft_set_cmd.add_argument("--ai-dir", required=True)
+    review_draft_set_cmd.add_argument("--draft-set-id", required=True)
+    review_draft_set_cmd.add_argument("--now")
+
+    export_draft_set_cmd = subparsers.add_parser(
+        "export-draft-set",
+        help="export readable markdown files for a draft decision set",
+    )
+    export_draft_set_cmd.add_argument("--ai-dir", required=True)
+    export_draft_set_cmd.add_argument("--draft-set-id", required=True)
+    export_draft_set_cmd.add_argument("--format", choices=("markdown",), default="markdown")
+    export_draft_set_cmd.add_argument("--now")
+    export_draft_set_cmd.add_argument("--force", action="store_true")
 
     compact = subparsers.add_parser("compact-runtime", help="refresh the object/link projection checkpoint index")
     compact.add_argument("--ai-dir", required=True)
@@ -606,6 +625,25 @@ def main(argv: list[str] | None = None) -> int:
             _print_json(show_draft_set(args.ai_dir, args.draft_set_id))
         elif args.command == "list-draft-sets":
             _print_json(list_draft_sets(args.ai_dir))
+        elif args.command == "review-draft-set":
+            _print_json(
+                review_draft_set(
+                    args.ai_dir,
+                    args.draft_set_id,
+                    now=args.now,
+                    persist=True,
+                )
+            )
+        elif args.command == "export-draft-set":
+            _print_json(
+                export_draft_set(
+                    args.ai_dir,
+                    args.draft_set_id,
+                    format=args.format,
+                    now=args.now,
+                    force=args.force,
+                )
+            )
         elif args.command == "compact-runtime":
             _print_json(compact_runtime(args.ai_dir))
         elif args.command == "benchmark-runtime":

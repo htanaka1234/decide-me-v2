@@ -149,11 +149,34 @@ Derived export commands:
 - `export-traceability --format csv|markdown`
 - `export-verification-gaps`
 - `export-document --type decision-brief|action-plan|risk-register|review-memo|research-plan|comparison-table --format markdown|json|csv`
+- `review-draft-set --draft-set-id DS-...`
+- `export-draft-set --draft-set-id DS-... --format markdown`
 
 When `--session-id` is omitted, derived exports use all closed sessions sorted by session ID.
 Repeated `--session-id` narrows the closed-session set. Unknown or non-closed sessions must fail.
 
 Derived exports must fail before writing output when unresolved planner conflicts exist.
+
+Draft set review and export are sidecar-derived outputs. They consume
+`.ai/decide-me/draft-sets/DS-.../draft-set.json` and may write only
+`.ai/decide-me/draft-sets/DS-.../review-queue.json` plus these Markdown files under that draft
+set's `exports/` directory:
+
+- `preflight.md`
+- `draft-decisions.md`
+- `review-queue.md`
+- `assumptions-risks.md`
+
+Every Markdown draft export must include `DRAFT / NOT ACCEPTED`, and managed generated regions
+must preserve the trailing `## Human Notes` section on regeneration. The review queue is a
+deterministic promotion-input queue, not promotion itself: high or critical risk items, challenged
+or missing evidence, conflicts, explicit individual-review flags, and blocked draft fields must not
+enter the bulk candidate list. PR-2 must treat `promotion.promoted_decision_ids` as sidecar
+metadata only; until PR-3 can verify promotion against canonical runtime records, it must not let a
+draft bypass blocked or individual-review classification. `review-draft-set` and
+`export-draft-set` must not emit events, create accepted decisions, create canonical proposals, or
+update `project-state.json`, `taxonomy-state.json`, or `sessions/*.json`. A stale project head is
+reported as a warning and does not block draft export.
 
 Traceability rows must include these matrix columns:
 
