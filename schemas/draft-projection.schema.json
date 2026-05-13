@@ -1,0 +1,353 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/decide-me/draft-projection.schema.json",
+  "title": "Decide Me Draft Projection",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "draft_set_id",
+    "generated_at",
+    "project_head_at_generation",
+    "current_project_head",
+    "stale",
+    "canonical_summary",
+    "draft_summary",
+    "nodes",
+    "links",
+    "gap_diagnostics",
+    "convergence"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "draft_set_id": {
+      "type": "string",
+      "pattern": "^DS-[0-9]{8}-[0-9]{3}$"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "project_head_at_generation": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "current_project_head": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "stale": {
+      "type": "boolean"
+    },
+    "canonical_summary": {
+      "type": "object",
+      "required": [
+        "object_count",
+        "link_count",
+        "accepted_decision_count",
+        "open_decision_count"
+      ],
+      "properties": {
+        "object_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "link_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "accepted_decision_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "open_decision_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "draft_summary": {
+      "type": "object",
+      "required": [
+        "draft_decision_count",
+        "draft_assumption_count",
+        "draft_risk_count",
+        "draft_action_count",
+        "draft_verification_count",
+        "promoted_decision_count"
+      ],
+      "properties": {
+        "draft_decision_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "draft_assumption_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "draft_risk_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "draft_action_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "draft_verification_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "promoted_decision_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/node"
+      }
+    },
+    "links": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/link"
+      }
+    },
+    "gap_diagnostics": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/gap_diagnostic"
+      }
+    },
+    "convergence": {
+      "$ref": "#/$defs/convergence"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "node": {
+      "type": "object",
+      "required": [
+        "node_id",
+        "source",
+        "object_id",
+        "object_type",
+        "status"
+      ],
+      "properties": {
+        "node_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "canonical",
+            "draft"
+          ]
+        },
+        "object_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "object_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "priority": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "risk_tier": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "layer": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "promoted": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "link": {
+      "type": "object",
+      "required": [
+        "link_id",
+        "source",
+        "relation",
+        "source_node_id",
+        "target_node_id"
+      ],
+      "properties": {
+        "link_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "canonical",
+            "draft"
+          ]
+        },
+        "relation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_node_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_node_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "gap_diagnostic": {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "severity",
+        "scope",
+        "target_id",
+        "target_kind",
+        "blocks_convergence",
+        "blocks_bulk_promotion",
+        "reason",
+        "suggested_resolution",
+        "suggested_draft_decision"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^GAP-[0-9]{3}$"
+        },
+        "type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "info",
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "target_kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "blocks_convergence": {
+          "type": "boolean"
+        },
+        "blocks_bulk_promotion": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "suggested_resolution": {
+          "type": "string",
+          "minLength": 1
+        },
+        "suggested_draft_decision": {
+          "type": [
+            "object",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "convergence": {
+      "type": "object",
+      "required": [
+        "status",
+        "stop_reason",
+        "new_gap_count",
+        "blocking_gap_count",
+        "iterations",
+        "max_iterations",
+        "explanation"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "converged",
+            "budget_exhausted",
+            "blocked",
+            "stopped",
+            "failed"
+          ]
+        },
+        "stop_reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "new_gap_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blocking_gap_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "iterations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_iterations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "explanation": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

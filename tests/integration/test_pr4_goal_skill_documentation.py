@@ -20,14 +20,15 @@ class PR4GoalSkillDocumentationTests(unittest.TestCase):
         self.assertIn("create-draft-set", skill)
         self.assertIn("export-draft-set", skill)
 
-    def test_goal_reference_documents_existing_cli_not_future_cli(self) -> None:
+    def test_goal_reference_documents_pr5_autopilot_cli_boundary(self) -> None:
         ref = (REPO_ROOT / "references" / "goal-autopilot-drafting.md").read_text(encoding="utf-8")
 
         self.assertIn("create-draft-set", ref)
         self.assertIn("export-draft-set", ref)
+        self.assertIn("autopilot-draft", ref)
+        self.assertIn("deterministic gap iteration", ref)
         self.assertIn("DRAFT / NOT ACCEPTED", ref)
-        self.assertIn("Skill-only", ref)
-        self.assertIn("An `autopilot-draft` CLI does not exist", ref)
+        self.assertIn("does not create accepted decisions", ref)
 
     def test_draft_set_reference_documents_sidecar_boundary(self) -> None:
         ref = (REPO_ROOT / "references" / "draft-decision-sets.md").read_text(encoding="utf-8")
@@ -35,6 +36,7 @@ class PR4GoalSkillDocumentationTests(unittest.TestCase):
         self.assertIn("sidecar", ref)
         self.assertIn("not canonical", ref)
         self.assertIn("promotion-log.jsonl", ref)
+        self.assertIn("draft-projection.json", ref)
         self.assertIn("draft_origin", ref)
         self.assertIn("DRAFT / NOT ACCEPTED", ref)
 
@@ -44,18 +46,22 @@ class PR4GoalSkillDocumentationTests(unittest.TestCase):
         document_compiler = (REPO_ROOT / "references" / "document-compiler.md").read_text(encoding="utf-8")
 
         self.assertIn("`/goal` Skill command, not a CLI subcommand", output_contract)
+        self.assertIn("autopilot-draft", output_contract)
+        self.assertIn("project-draft-set", output_contract)
         self.assertIn("Draft sidecar commands:", output_contract)
         self.assertIn("Draft promotion commands:", output_contract)
         self.assertIn("Other derived export commands:", output_contract)
         self.assertIn("create-draft-set", output_contract)
         self.assertIn("Draft set files under `.ai/decide-me/draft-sets/` are not canonical", event_model)
+        self.assertIn("draft projection", event_model)
         self.assertIn("promotion-log.jsonl", event_model)
         self.assertIn("not produced by the generic Document Compiler", document_compiler)
 
-    def test_root_cli_help_does_not_expose_autopilot_draft_command(self) -> None:
+    def test_root_cli_help_exposes_autopilot_draft_command_after_pr5(self) -> None:
         result = run_cli("--help", cwd=REPO_ROOT)
 
-        self.assertNotIn("autopilot-draft", result.stdout + result.stderr)
+        self.assertIn("autopilot-draft", result.stdout + result.stderr)
+        self.assertIn("project-draft-set", result.stdout + result.stderr)
 
     def test_readme_documents_goal_quick_start(self) -> None:
         readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")

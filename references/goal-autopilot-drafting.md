@@ -1,23 +1,26 @@
 # Goal Autopilot Drafting
 
-`/goal` is a Skill-only decision preflight flow. It expands a user goal into a structured
-DraftDecisionSet sidecar, exports readable review files, and returns a review summary. It does not
-create accepted decisions.
+`/goal` is a Skill command, not a CLI subcommand. It expands a user goal into a structured
+DraftDecisionSet sidecar, can pass that seed to the deterministic `autopilot-draft` CLI for gap
+iteration, exports readable review files, and returns a review summary. It does not create accepted
+decisions.
 
 ## Purpose
 
 Use `/goal` when the user wants the decision space expanded before accepting individual decisions. The
 flow is optimized for early visibility, low user fatigue, and safe handoff into normal proposal review.
 
-The result is a single-pass draft set. It reflects the goal, available runtime evidence, search budget,
-and risk threshold used for the turn. It does not prove convergence and must not claim that no
-undiscovered issues remain.
+The result is a draft working set. It reflects the goal, available runtime evidence, search budget,
+risk threshold, and deterministic gap diagnostics used for the turn. `converged` means no configured
+P0/P1 blocking gap remains in the draft projection; it does not mean promotion is approved, evidence is
+complete, or undiscovered issues cannot exist.
 
 ## Non-goals
 
-PR-4 does not add a Python generator, new schema, external API integration, automatic file edits, or an
-`autopilot-draft` CLI. An `autopilot-draft` CLI does not exist in this version, so the Skill must not
-document or invoke it as an available command.
+The Python runtime does not contain LLM generation or external provider integration. High-quality
+initial issue generation remains the Skill orchestration layer's responsibility. The PR-5
+`autopilot-draft` CLI is a deterministic gap iteration and persistence tool: it may add conservative
+coverage, evidence-collection, and verification draft objects, but it does not create accepted decisions.
 
 `/goal` must not call promotion commands. It creates a draft set and readable exports only. Promotion is
 a later explicit user handoff.
@@ -74,9 +77,12 @@ Normalize free-form input into these fields:
 6. Generate draft decisions across Decision Stack layers.
 7. Generate loose draft assumptions, risks, actions, and verifications when they clarify review.
 8. Write a temporary `draft-set.input.json`.
-9. Run `create-draft-set --generated-by skill`.
-10. Run `export-draft-set --format markdown`.
-11. Present the draft set ID, counts, review summary, export paths, and `DRAFT / NOT ACCEPTED` notice.
+9. Prefer `autopilot-draft --seed-draft-json` to persist the draft set, run deterministic gap
+   iteration, write `draft-projection.json`, and export Markdown.
+10. If deterministic iteration is not needed, run `create-draft-set`, then `project-draft-set`, then
+    `export-draft-set --format markdown`.
+11. Present the draft set ID, counts, convergence stop reason, gap summary, review summary, export
+    paths, and `DRAFT / NOT ACCEPTED` notice.
 
 Required validation command:
 
@@ -86,7 +92,18 @@ python3 <skill-root>/scripts/decide_me.py validate-state \
   --cached
 ```
 
-Required create command:
+Preferred PR-5 autopilot command:
+
+```bash
+python3 <skill-root>/scripts/decide_me.py autopilot-draft \
+  --ai-dir <repo-root>/.ai/decide-me \
+  --seed-draft-json <tmp>/draft-set.input.json \
+  --max-iterations 3 \
+  --max-draft-decisions 30 \
+  --risk-threshold medium
+```
+
+Equivalent explicit sidecar commands:
 
 ```bash
 python3 <skill-root>/scripts/decide_me.py create-draft-set \
@@ -95,7 +112,11 @@ python3 <skill-root>/scripts/decide_me.py create-draft-set \
   --generated-by skill
 ```
 
-Required export command:
+```bash
+python3 <skill-root>/scripts/decide_me.py project-draft-set \
+  --ai-dir <repo-root>/.ai/decide-me \
+  --draft-set-id DS-YYYYMMDD-NNN
+```
 
 ```bash
 python3 <skill-root>/scripts/decide_me.py export-draft-set \
@@ -104,7 +125,18 @@ python3 <skill-root>/scripts/decide_me.py export-draft-set \
   --format markdown
 ```
 
-`review-draft-set` is optional for `/goal` because `export-draft-set` also writes `review-queue.json`.
+Goal-only fallback:
+
+```bash
+python3 <skill-root>/scripts/decide_me.py autopilot-draft \
+  --ai-dir <repo-root>/.ai/decide-me \
+  --goal "Add goal-based draft decision sets to decide-me" \
+  --max-iterations 3
+```
+
+Goal-only mode creates a conservative skeleton. It does not infer recommendations beyond generic
+purpose, constraint, evidence, verification, and review boundaries. `review-draft-set` is optional for
+`/goal` because `export-draft-set` also writes `review-queue.json`.
 
 ## Draft Generation Heuristics
 
@@ -240,6 +272,8 @@ Draft set: DS-YYYYMMDD-NNN
 Status: created/exported
 Counts: draft_decisions=N, draft_assumptions=N, draft_risks=N, draft_actions=N, draft_verifications=N
 Review summary: blocked=N, individual=N, bulk candidates=N
+Convergence: status=blocked|budget_exhausted|converged, stop_reason=...
+Gap summary: total=N, blocking=N
 Exports:
 - preflight.md
 - draft-decisions.md

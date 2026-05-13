@@ -102,9 +102,10 @@ state, and avoids treating stale proposals as silently accepted.
 ### Goal-based draft decision sets
 
 Use `/goal` when the user wants a decision space expanded before individual decisions are accepted.
-The Skill normalizes the goal, generates a structured DraftDecisionSet sidecar, stores it with
-`create-draft-set`, and exports readable `DRAFT / NOT ACCEPTED` Markdown files. This does not create
-accepted decisions. Promotion is a separate explicit handoff to a normal proposal flow.
+The Skill normalizes the goal, generates a structured DraftDecisionSet seed, can pass it through
+`autopilot-draft` for deterministic gap iteration, stores sidecar artifacts, and exports readable
+`DRAFT / NOT ACCEPTED` Markdown files. This does not create accepted decisions. Promotion is a
+separate explicit handoff to a normal proposal flow.
 
 ```text
 /goal
@@ -113,6 +114,16 @@ constraints:
 - canonical runtime must not be mutated during drafting
 - readable export should be reviewed by humans
 - accepted decisions must not be created automatically
+```
+
+Useful draft-sidecar commands:
+
+```bash
+python3 scripts/decide_me.py autopilot-draft --ai-dir .ai/decide-me --goal "Clarify the next milestone"
+python3 scripts/decide_me.py project-draft-set --ai-dir .ai/decide-me --draft-set-id DS-YYYYMMDD-NNN
+python3 scripts/decide_me.py create-draft-set --ai-dir .ai/decide-me --draft-json /tmp/draft-set.input.json
+python3 scripts/decide_me.py show-draft-set --ai-dir .ai/decide-me --draft-set-id DS-YYYYMMDD-NNN
+python3 scripts/decide_me.py list-draft-sets --ai-dir .ai/decide-me
 ```
 
 Before asking the user, the Skill should inspect available evidence:

@@ -74,8 +74,21 @@ Projection rules:
 ## Draft Set Sidecars
 
 Draft set files under `.ai/decide-me/draft-sets/` are not canonical event-log state. They are
-generated review artifacts used to prepare human decisions. Creating, showing, listing, reviewing,
-and exporting draft sets must not emit events or mutate projections.
+generated review artifacts used to prepare human decisions. Creating, showing, listing, projecting,
+reviewing, exporting, and deterministic `autopilot-draft` iteration must not emit events or mutate
+canonical projections.
+
+Canonical projection means the rebuildable `project-state.json`, `taxonomy-state.json`, and session
+state produced from committed runtime events. A draft projection is different: `draft-projection.json`
+is a derived sidecar built from the current canonical projection plus one DraftDecisionSet. It is not
+replayed from the event log, is not used to prove canonical freshness, and may be regenerated or
+discarded without changing runtime truth.
+
+`project-draft-set` writes only `draft-projection.json`. `autopilot-draft` writes draft sidecars and
+exports only; it does not create accepted decisions or canonical events. Gap diagnostics may report
+missing recommendations, insufficient evidence, unsafe bulk review, dangling references, and conflicts
+with accepted canonical decisions, but resolving those gaps still requires normal human review or the
+existing promotion commands.
 
 Promotion is the only draft operation that writes canonical events, and it must use existing event
 types. The sidecar `.ai/decide-me/draft-sets/DS-.../promotion-log.jsonl` is an audit file, not an

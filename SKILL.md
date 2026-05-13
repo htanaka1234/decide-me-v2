@@ -30,9 +30,10 @@ Startup checklist:
    user which session's scoped answer should win.
 4. When the user starts with `/goal`, run the goal-autopilot-drafting flow instead of the normal
    one-question interview. Treat `/goal` as Skill orchestration: generate a structured draft-set
-   input, persist it with `create-draft-set`, export it with `export-draft-set`, and present the
-   review queue. Do not create accepted decisions, do not call promotion commands, and do not
-   document or invoke a non-existent `autopilot-draft` CLI command.
+   input, pass it to `autopilot-draft --seed-draft-json` when deterministic gap iteration is useful,
+   or use `create-draft-set`, `project-draft-set`, and `export-draft-set` explicitly when needed.
+   Present the draft projection plus review queue. Do not create accepted decisions and do not call
+   promotion commands from `/goal`.
 5. Create a session when the user starts a new decision thread; resume an existing one only when
    the user explicitly asks or the runtime already identifies the current session.
 6. Before asking a question, scan the codebase, docs, tests, existing sessions, and prior
@@ -101,6 +102,8 @@ User-facing commands:
 - `Create draft decision set from goal`
 - `List draft sets`
 - `Show draft set DS-...`
+- `Project draft set DS-...`
+- `Autopilot draft from seed JSON or goal`
 - `Review draft set DS-...`
 - `Export draft set DS-...`
 - `Promote draft decision DD-... from draft set DS-...`
@@ -173,15 +176,15 @@ Runtime invariants:
   GitHub issue draft, agent instruction, arc42 architecture, traceability matrix, and verification gap files are derived
   exports, not runtime state. Software-oriented exports are allowed, but they must be derived from
   the domain-neutral object/link core.
-- `/goal` is a Skill-only orchestration flow. It may create a sidecar draft set and readable
-  exports, but it must not emit canonical events. Canonical events are written only by explicit
-  promotion commands.
+- `/goal` is a Skill-only orchestration flow. It may create a sidecar draft set, run deterministic
+  `autopilot-draft` gap iteration, and write readable exports, but it must not emit canonical events.
+  Canonical events are written only by explicit promotion commands.
 - `.ai/decide-me/draft-sets/DS-.../draft-set.json` is a draft sidecar, not canonical event-log
-  state. `review-draft-set` may write only the derived
-  `.ai/decide-me/draft-sets/DS-.../review-queue.json`; `export-draft-set` may write that JSON and
-  the four Markdown draft exports under `exports/`. These outputs must state
-  `DRAFT / NOT ACCEPTED`, must not create accepted decisions or proposals, and must not update
-  events, `project-state.json`, `taxonomy-state.json`, or `sessions/*.json`.
+  state. `project-draft-set` may write only `draft-projection.json`; `review-draft-set` may write
+  only the derived `.ai/decide-me/draft-sets/DS-.../review-queue.json`; `export-draft-set` may write
+  that JSON and the four Markdown draft exports under `exports/`. These outputs must state
+  `DRAFT / NOT ACCEPTED`, must not create accepted decisions or proposals, and must not update events,
+  `project-state.json`, `taxonomy-state.json`, or `sessions/*.json`.
 - `promote-draft-decision` is the only draft-set command that materializes canonical runtime
   objects. It must create a normal `decision` plus active `proposal` and `session_question_asked`
   using existing event types, preserve `decision.metadata.draft_origin`, create a canonical risk

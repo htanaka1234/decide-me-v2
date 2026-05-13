@@ -6,8 +6,9 @@ any canonical decision is promoted into a normal session proposal flow.
 ## Boundary
 
 `.ai/decide-me/draft-sets/DS-.../draft-set.json` is not canonical event-log state and is not the
-runtime source of truth. Creating, showing, listing, reviewing, and exporting draft sets must not emit
-events, mutate `project-state.json`, update `taxonomy-state.json`, or edit `sessions/*.json`.
+runtime source of truth. Creating, showing, listing, projecting, reviewing, exporting, and
+`autopilot-draft` iteration must not emit events, mutate `project-state.json`, update
+`taxonomy-state.json`, or edit `sessions/*.json`.
 
 Draft sets may contain recommendations, risks, assumptions, actions, verification notes, and promotion
 metadata, but those fields remain draft sidecar data until a user explicitly promotes a draft decision.
@@ -19,6 +20,7 @@ Every human-readable draft export must clearly say `DRAFT / NOT ACCEPTED`.
 .ai/decide-me/draft-sets/
   DS-YYYYMMDD-NNN/
     draft-set.json
+    draft-projection.json
     review-queue.json
     promotion-log.jsonl
     exports/
@@ -28,9 +30,11 @@ Every human-readable draft export must clearly say `DRAFT / NOT ACCEPTED`.
       assumptions-risks.md
 ```
 
-`draft-set.json` is the structured sidecar. `review-queue.json` and the Markdown files are derived
-from it plus the current project head. `promotion-log.jsonl` is an audit sidecar for promotion
-attempts; it is not part of the canonical event whitelist.
+`draft-set.json` is the structured sidecar. `draft-projection.json` is a derived sidecar artifact built
+from the canonical projection plus the draft set; it is not source of truth and is not replayed from the
+event log. `review-queue.json` and the Markdown files are derived from draft sidecars plus the current
+project head. `promotion-log.jsonl` is an audit sidecar for promotion attempts; it is not part of the
+canonical event whitelist.
 
 ## Schema Summary
 
@@ -94,6 +98,35 @@ Use `list-draft-sets` to list sidecars with summaries:
 python3 <skill-root>/scripts/decide_me.py list-draft-sets \
   --ai-dir <repo-root>/.ai/decide-me
 ```
+
+## Draft Projection
+
+`project-draft-set` builds `draft-projection.json` and reports deterministic gap diagnostics:
+
+```bash
+python3 <skill-root>/scripts/decide_me.py project-draft-set \
+  --ai-dir <repo-root>/.ai/decide-me \
+  --draft-set-id DS-YYYYMMDD-NNN
+```
+
+The projection combines committed runtime state and the sidecar draft set without changing either. It
+summarizes canonical objects, draft objects, graph links, stale project-head state, convergence status,
+and gap diagnostics such as missing P0/P1 recommendations, insufficient evidence, high-risk bulk
+review, dangling references, and conflicts with accepted decisions.
+
+`autopilot-draft` can create a draft set from a Skill-generated seed JSON or a conservative goal-only
+skeleton, run iterative gap detection, persist `draft-projection.json`, and optionally export Markdown:
+
+```bash
+python3 <skill-root>/scripts/decide_me.py autopilot-draft \
+  --ai-dir <repo-root>/.ai/decide-me \
+  --seed-draft-json <tmp>/draft-set.input.json \
+  --max-iterations 3
+```
+
+It may add supplemental draft decisions, actions, or verifications for structural coverage gaps. It must
+not upgrade evidence coverage, resolve conflicts with accepted decisions, relax high/critical risk bulk
+rules, or create accepted decisions.
 
 ## Review Queue
 

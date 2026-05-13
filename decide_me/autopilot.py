@@ -1,0 +1,680 @@
+from __future__ import annotations
+
+import json
+import re
+from copy import deepcopy
+from pathlib import Path
+from typing import Any
+
+from decide_me.draft_export import export_draft_set
+from decide_me.draft_projection import build_draft_projection, project_draft_set
+from decide_me.draft_sets import create_draft_set
+from decide_me.events import utc_now
+from decide_me.store import load_runtime, runtime_paths
+
+
+STOP_REASON_STATUS = {
+    "converged": "converged",
+    "budget_exhausted": "budget_exhausted",
+    "risk_gate_triggered": "blocked",
+    "evidence_gap_blocked": "blocked",
+    "conflict_blocked": "blocked",
+    "user_review_required": "blocked",
+}
+AUTO_REMEDIABLE_GAP_TYPES = {
+    "action_without_verification",
+    "missing_purpose_layer",
+    "missing_constraint_layer",
+    "missing_verification_layer",
+    "missing_review_plan",
+    "no_draft_decisions",
+    "p0_p1_partial_evidence",
+}
+VALID_RISK_THRESHOLDS = {"low", "medium", "high", "critical"}
+LAYER_GAP_SPECS = {
+    "missing_purpose_layer": {
+        "id": "DD-GAP-PURPOSE",
+        "layer": "purpose",
+        "priority": "P1",
+        "question": "What purpose and success criteria should this draft set optimize for?",
+        "recommendation": "Review and record the goal, success criteria, and explicit non-goals before promotion.",
+        "rationale": "A purpose layer keeps later draft decisions tied to an inspectable outcome.",
+        "alternative": "Skip purpose review",
+        "reason_not_recommended": "Reviewers may promote decisions without a shared definition of success.",
+    },
+    "missing_constraint_layer": {
+        "id": "DD-GAP-CONSTRAINT",
+        "layer": "constraint",
+        "priority": "P1",
+        "question": "Which source-of-truth and safety constraints must this draft set preserve?",
+        "recommendation": "Keep drafting in sidecar artifacts and reserve canonical events for explicit promotion.",
+        "rationale": "The draft flow must not make recommendations look like accepted runtime state.",
+        "alternative": "Let drafting write canonical decisions directly",
+        "reason_not_recommended": "That would bypass review and blur the source-of-truth boundary.",
+    },
+    "missing_verification_layer": {
+        "id": "DD-GAP-VERIFICATION",
+        "layer": "verification",
+        "priority": "P1",
+        "question": "What verification criteria should reviewers apply before promotion?",
+        "recommendation": "Require each P0/P1 draft decision to show either evidence coverage or explicit missing evidence.",
+        "rationale": "Reviewers need to separate validated decisions from unresolved assumptions.",
+        "alternative": "Promote without verification criteria",
+        "reason_not_recommended": "Promotion could carry unexamined assumptions into canonical proposal review.",
+    },
+    "missing_review_plan": {
+        "id": "DD-GAP-REVIEW",
+        "layer": "review",
+        "priority": "P1",
+        "question": "How should this draft set be reviewed before any promotion?",
+        "recommendation": "Review P0/P1 and medium-or-higher risk items individually; bulk review only low-risk eligible items.",
+        "rationale": "Human review boundaries keep deterministic drafting from becoming automatic adoption.",
+        "alternative": "Use one bulk review for every draft item",
+        "reason_not_recommended": "High-impact or underspecified items need individual review.",
+    },
+}
+
+
+class AutopilotDraftError(ValueError):
+    pass
+
+
+def run_autopilot_draft(
+    ai_dir: str | Path,
+    *,
+    goal: str | None = None,
+    goal_file: str | None = None,
+    seed_draft_json: str | None = None,
+    draft_set_id: str | None = None,
+    max_iterations: int = 3,
+    max_draft_decisions: int = 30,
+    risk_threshold: str = "medium",
+    now: str | None = None,
+    export: bool = True,
+    force_export: bool = False,
+) -> dict[str, Any]:
+    """Create a deterministic draft set, iterate diagnostics, and persist sidecar artifacts."""
+    _validate_options(
+        goal=goal,
+        goal_file=goal_file,
+        max_iterations=max_iterations,
+        max_draft_decisions=max_draft_decisions,
+        risk_threshold=risk_threshold,
+    )
+    timestamp = now or utc_now()
+    paths = runtime_paths(ai_dir)
+    bundle = load_runtime(paths)
+    project_state = bundle["project_state"]
+    current_project_head = _current_project_head(project_state)
+    goal_text = _read_goal_text(goal=goal, goal_file=goal_file)
+    draft_payload = _initial_draft_payload(
+        seed_draft_json=seed_draft_json,
+        goal_text=goal_text,
+        now=timestamp,
+        current_project_head=current_project_head,
+    )
+    final_draft_set, _iteration_projection = iterate_draft_set(
+        project_state=project_state,
+        draft_set=draft_payload,
+        current_project_head=current_project_head,
+        max_iterations=max_iterations,
+        max_draft_decisions=max_draft_decisions,
+        risk_threshold=risk_threshold,
+        now=timestamp,
+    )
+    if final_draft_set.get("id") == "DS-19700101-000":
+        final_draft_set.pop("id", None)
+    created = create_draft_set(
+        paths.ai_dir,
+        final_draft_set,
+        draft_set_id=draft_set_id,
+        generated_by="autopilot",
+        now=timestamp,
+    )
+    persisted_id = created["draft_set_id"]
+    projection = build_draft_projection(
+        paths.ai_dir,
+        draft_set_id=persisted_id,
+        now=timestamp,
+        persist=True,
+    )
+    exports: dict[str, str] = {}
+    if export:
+        export_result = export_draft_set(
+            paths.ai_dir,
+            persisted_id,
+            format="markdown",
+            now=timestamp,
+            force=force_export,
+        )
+        exports = dict(export_result["paths"])
+    convergence = projection["convergence"]
+    return {
+        "status": "ok",
+        "draft_set_id": persisted_id,
+        "draft_set_path": created["path"],
+        "projection_path": str(paths.ai_dir / "draft-sets" / persisted_id / "draft-projection.json"),
+        "exports": exports,
+        "convergence": {
+            "status": convergence["status"],
+            "stop_reason": convergence["stop_reason"],
+            "iterations": convergence["iterations"],
+            "gap_count": convergence["new_gap_count"],
+            "blocking_gap_count": convergence["blocking_gap_count"],
+        },
+        "canonical_events_created": False,
+    }
+
+
+def iterate_draft_set(
+    *,
+    project_state: dict[str, Any],
+    draft_set: dict[str, Any],
+    current_project_head: str | None,
+    max_iterations: int,
+    max_draft_decisions: int,
+    risk_threshold: str,
+    now: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Return final draft-set payload and final projection without writing files."""
+    _validate_iteration_limits(max_iterations=max_iterations, max_draft_decisions=max_draft_decisions)
+    if risk_threshold not in VALID_RISK_THRESHOLDS:
+        raise AutopilotDraftError("risk_threshold must be one of: low, medium, high, critical")
+
+    current = _normalize_working_draft_set(draft_set, now=now, current_project_head=current_project_head)
+    trace: list[dict[str, Any]] = []
+    stop_reason = "budget_exhausted"
+
+    for iteration in range(1, max_iterations + 1):
+        projection = project_draft_set(
+            project_state=project_state,
+            draft_set=current,
+            current_project_head=current_project_head,
+            generated_at=now,
+        )
+        gaps = projection["gap_diagnostics"]
+        blocking = [gap for gap in gaps if gap["blocks_convergence"]]
+        stop_reason = _classify_stop_reason(
+            gaps,
+            current,
+            max_draft_decisions=max_draft_decisions,
+            risk_threshold=risk_threshold,
+        )
+        trace.append(
+            {
+                "iteration": iteration,
+                "gap_count": len(gaps),
+                "blocking_gap_count": len(blocking),
+                "stop_reason": stop_reason,
+            }
+        )
+        if stop_reason != "continue":
+            break
+        if iteration >= max_iterations or len(_items(current, "draft_decisions")) >= max_draft_decisions:
+            stop_reason = "budget_exhausted"
+            trace[-1]["stop_reason"] = stop_reason
+            break
+        additions = synthesize_gap_resolutions(
+            draft_set=current,
+            projection=projection,
+            max_new_decisions=max_draft_decisions - len(_items(current, "draft_decisions")),
+        )
+        if not _has_effective_additions(current, additions):
+            stop_reason = "user_review_required"
+            trace[-1]["stop_reason"] = stop_reason
+            break
+        _apply_additions(current, additions)
+    else:
+        stop_reason = "budget_exhausted"
+
+    if stop_reason == "continue":
+        stop_reason = "budget_exhausted"
+    current["convergence"] = _draft_set_convergence(stop_reason, iterations=len(trace), trace=trace)
+    final_projection = project_draft_set(
+        project_state=project_state,
+        draft_set=current,
+        current_project_head=current_project_head,
+        generated_at=now,
+    )
+    final_projection["convergence"]["status"] = STOP_REASON_STATUS[stop_reason]
+    final_projection["convergence"]["stop_reason"] = stop_reason
+    final_projection["convergence"]["iterations"] = len(trace)
+    final_projection["convergence"]["max_iterations"] = max_iterations
+    final_projection["convergence"]["explanation"] = _final_projection_explanation(stop_reason, final_projection)
+    return current, final_projection
+
+
+def synthesize_gap_resolutions(
+    *,
+    draft_set: dict[str, Any],
+    projection: dict[str, Any],
+    max_new_decisions: int,
+) -> dict[str, list[dict[str, Any]]]:
+    """Create deterministic supplemental draft decisions/actions/verifications for auto-remediable gaps."""
+    additions: dict[str, list[dict[str, Any]]] = {
+        "draft_decisions": [],
+        "draft_actions": [],
+        "draft_verifications": [],
+    }
+    existing_ids = _draft_object_ids(draft_set)
+    for gap in projection.get("gap_diagnostics", []):
+        gap_type = gap.get("type")
+        if gap_type in LAYER_GAP_SPECS and len(additions["draft_decisions"]) < max_new_decisions:
+            decision = _coverage_decision(LAYER_GAP_SPECS[str(gap_type)])
+            if decision["id"] not in existing_ids:
+                additions["draft_decisions"].append(decision)
+                existing_ids.add(decision["id"])
+        elif gap_type == "no_draft_decisions":
+            for spec in LAYER_GAP_SPECS.values():
+                if len(additions["draft_decisions"]) >= max_new_decisions:
+                    break
+                decision = _coverage_decision(spec)
+                if decision["id"] not in existing_ids:
+                    additions["draft_decisions"].append(decision)
+                    existing_ids.add(decision["id"])
+        elif gap_type == "action_without_verification":
+            action_id = gap.get("target_id")
+            if isinstance(action_id, str) and action_id:
+                verification = _verification_for_action(action_id)
+                if verification["id"] not in existing_ids:
+                    additions["draft_verifications"].append(verification)
+                    existing_ids.add(verification["id"])
+        elif gap_type == "p0_p1_partial_evidence":
+            draft_id = gap.get("target_id")
+            if isinstance(draft_id, str) and draft_id:
+                action = _evidence_action_for_decision(draft_id)
+                if action["id"] not in existing_ids:
+                    additions["draft_actions"].append(action)
+                    existing_ids.add(action["id"])
+    return additions
+
+
+def _initial_draft_payload(
+    *,
+    seed_draft_json: str | None,
+    goal_text: str | None,
+    now: str,
+    current_project_head: str | None,
+) -> dict[str, Any]:
+    if seed_draft_json:
+        payload = _read_seed_json(seed_draft_json)
+        if not isinstance(payload, dict):
+            raise AutopilotDraftError("seed-draft-json must contain an object")
+        payload = deepcopy(payload)
+        if "goal" not in payload or not isinstance(payload.get("goal"), dict):
+            payload["goal"] = _goal_from_text(goal_text or "Review draft decision set", now=now)
+        return payload
+    if goal_text is None or not goal_text.strip():
+        raise AutopilotDraftError("autopilot-draft requires --seed-draft-json, --goal, or --goal-file")
+    return _goal_only_skeleton(goal_text, now=now, current_project_head=current_project_head)
+
+
+def _goal_only_skeleton(goal_text: str, *, now: str, current_project_head: str | None) -> dict[str, Any]:
+    goal = _goal_from_text(goal_text, now=now)
+    decisions = [
+        _skeleton_decision(
+            "DD-GOAL-PURPOSE",
+            layer="purpose",
+            priority="P0",
+            question="How should the goal and success criteria be defined before promotion review?",
+            recommendation="Review the goal statement, desired outcome, and non-goals before promoting any draft decision.",
+            rationale="Goal-only autopilot cannot infer accepted scope; it can only produce a conservative review scaffold.",
+        ),
+        _skeleton_decision(
+            "DD-GOAL-CONSTRAINT",
+            layer="constraint",
+            priority="P0",
+            question="How should canonical runtime state be protected during drafting?",
+            recommendation="Keep all autopilot output in draft-set sidecars until a user explicitly promotes a decision.",
+            rationale="This preserves the event log as the source of truth and prevents draft text from becoming accepted state.",
+        ),
+        _skeleton_decision(
+            "DD-GOAL-EVIDENCE",
+            layer="verification",
+            priority="P1",
+            question="How should missing evidence be handled before promotion?",
+            recommendation="Treat missing evidence as review input and add evidence collection actions instead of upgrading coverage.",
+            rationale="The deterministic runtime must not claim evidence that was not inspected.",
+        ),
+        _skeleton_decision(
+            "DD-GOAL-REVIEW",
+            layer="review",
+            priority="P1",
+            question="What approval boundary should govern this draft set?",
+            recommendation="Review P0/P1 items individually and allow bulk materialization only for low-risk eligible drafts.",
+            rationale="Promotion creates canonical proposals, so review boundaries must remain explicit.",
+        ),
+    ]
+    return {
+        "schema_version": 1,
+        "id": "DS-19700101-000",
+        "status": "generated",
+        "mode": "autopilot-draft",
+        "created_at": now,
+        "generated_by": "autopilot",
+        "goal": goal,
+        "source_context": {
+            "project_head_at_generation": current_project_head or "unknown",
+            "project_state_ref": "project-state.json",
+            "included_session_ids": [],
+            "included_object_ids": [],
+            "domain_pack_id": "generic",
+        },
+        "convergence": {
+            "status": "budget_exhausted",
+            "iterations": 0,
+            "stop_reason": "not_iterated",
+            "note": "Goal-only skeleton before deterministic gap iteration.",
+        },
+        "draft_decisions": decisions,
+        "draft_assumptions": [],
+        "draft_risks": [],
+        "draft_actions": [],
+        "draft_verifications": [],
+        "conflicts": [],
+        "review_queue": [],
+        "promotion": {
+            "promoted_decision_ids": [],
+            "bulk_promotable_ids": [],
+            "individual_review_required_ids": [],
+        },
+    }
+
+
+def _normalize_working_draft_set(
+    draft_set: dict[str, Any],
+    *,
+    now: str,
+    current_project_head: str | None,
+) -> dict[str, Any]:
+    current = deepcopy(draft_set)
+    current.setdefault("schema_version", 1)
+    current.setdefault("id", "DS-19700101-000")
+    current.setdefault("status", "generated")
+    current.setdefault("mode", "autopilot-draft")
+    current.setdefault("created_at", now)
+    current.setdefault("generated_by", "autopilot")
+    current.setdefault("goal", _goal_from_text("Review draft decision set", now=now))
+    source_context = current.setdefault("source_context", {})
+    if isinstance(source_context, dict):
+        source_context.setdefault("project_head_at_generation", current_project_head or "unknown")
+        source_context.setdefault("project_state_ref", "project-state.json")
+        source_context.setdefault("included_session_ids", [])
+        source_context.setdefault("included_object_ids", [])
+        source_context.setdefault("domain_pack_id", "generic")
+    for field in (
+        "draft_decisions",
+        "draft_assumptions",
+        "draft_risks",
+        "draft_actions",
+        "draft_verifications",
+        "conflicts",
+        "review_queue",
+    ):
+        current.setdefault(field, [])
+    current.setdefault(
+        "promotion",
+        {
+            "promoted_decision_ids": [],
+            "bulk_promotable_ids": [],
+            "individual_review_required_ids": [],
+        },
+    )
+    return current
+
+
+def _classify_stop_reason(
+    gaps: list[dict[str, Any]],
+    draft_set: dict[str, Any],
+    *,
+    max_draft_decisions: int,
+    risk_threshold: str,
+) -> str:
+    gap_types = {str(gap.get("type")) for gap in gaps}
+    if "accepted_conflict" in gap_types:
+        return "conflict_blocked"
+    if "unsafe_bulk_review" in gap_types or "bulk_promotion_blocked" in gap_types:
+        return "risk_gate_triggered"
+    if any(gap.get("type") == "insufficient_evidence" and gap.get("blocks_convergence") is True for gap in gaps):
+        return "evidence_gap_blocked"
+    if len(_items(draft_set, "draft_decisions")) >= max_draft_decisions and any(
+        gap.get("type") in AUTO_REMEDIABLE_GAP_TYPES for gap in gaps
+    ):
+        return "budget_exhausted"
+    if any(gap.get("blocks_convergence") is True for gap in gaps):
+        return "user_review_required"
+    if any(gap.get("type") in AUTO_REMEDIABLE_GAP_TYPES for gap in gaps):
+        return "continue"
+    unresolved = [gap for gap in gaps if _severity_at_or_above(str(gap.get("severity")), risk_threshold)]
+    if unresolved:
+        return "user_review_required"
+    return "converged"
+
+
+def _draft_set_convergence(stop_reason: str, *, iterations: int, trace: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "status": STOP_REASON_STATUS[stop_reason],
+        "iterations": iterations,
+        "stop_reason": stop_reason,
+        "note": "Deterministic autopilot iteration trace: " + json.dumps(trace, ensure_ascii=False, separators=(",", ":")),
+    }
+
+
+def _final_projection_explanation(stop_reason: str, projection: dict[str, Any]) -> str:
+    gap_count = projection["convergence"]["new_gap_count"]
+    blocking_gap_count = projection["convergence"]["blocking_gap_count"]
+    if stop_reason == "converged":
+        return "Autopilot converged under the configured deterministic diagnostics."
+    return f"Autopilot stopped with {gap_count} gap(s), including {blocking_gap_count} blocking gap(s)."
+
+
+def _apply_additions(draft_set: dict[str, Any], additions: dict[str, list[dict[str, Any]]]) -> None:
+    for field, items in additions.items():
+        existing_ids = _draft_object_ids(draft_set)
+        target = draft_set.setdefault(field, [])
+        if not isinstance(target, list):
+            draft_set[field] = []
+            target = draft_set[field]
+        for item in items:
+            item_id = item.get("id")
+            if isinstance(item_id, str) and item_id not in existing_ids:
+                target.append(item)
+                existing_ids.add(item_id)
+
+
+def _has_effective_additions(draft_set: dict[str, Any], additions: dict[str, list[dict[str, Any]]]) -> bool:
+    existing_ids = _draft_object_ids(draft_set)
+    for items in additions.values():
+        for item in items:
+            item_id = item.get("id")
+            if isinstance(item_id, str) and item_id not in existing_ids:
+                return True
+    return False
+
+
+def _coverage_decision(spec: dict[str, str]) -> dict[str, Any]:
+    return {
+        "id": spec["id"],
+        "status": "recommended",
+        "layer": spec["layer"],
+        "priority": spec["priority"],
+        "frontier": "now",
+        "kind": "choice",
+        "question": spec["question"],
+        "recommendation": spec["recommendation"],
+        "rationale": spec["rationale"],
+        "alternatives": [
+            {
+                "option": spec["alternative"],
+                "reason_not_recommended": spec["reason_not_recommended"],
+            }
+        ],
+        "risk_tier": "medium",
+        "reversibility": "reversible",
+        "evidence_coverage": {
+            "status": "partial",
+            "supporting_object_ids": [],
+            "source_unit_ids": [],
+            "missing": ["human review of deterministic supplemental draft"],
+        },
+        "human_review": {
+            "required": True,
+            "mode": "individual",
+            "bulk_promotable": False,
+            "reason": "Supplemental gap-resolution draft decisions require human review.",
+        },
+        "promotion_recipe": {
+            "canonical_object_type": "decision",
+            "canonical_initial_status": "unresolved",
+            "proposal_required": True,
+            "acceptance_mode_allowed": ["explicit"],
+            "blocked_for_bulk_acceptance": True,
+        },
+    }
+
+
+def _skeleton_decision(
+    draft_id: str,
+    *,
+    layer: str,
+    priority: str,
+    question: str,
+    recommendation: str,
+    rationale: str,
+) -> dict[str, Any]:
+    decision = _coverage_decision(
+        {
+            "id": draft_id,
+            "layer": layer,
+            "priority": priority,
+            "question": question,
+            "recommendation": recommendation,
+            "rationale": rationale,
+            "alternative": "Skip this review decision",
+            "reason_not_recommended": "Goal-only drafting needs explicit human review before promotion.",
+        }
+    )
+    decision["evidence_coverage"]["missing"] = ["goal-specific human review"]
+    return decision
+
+
+def _verification_for_action(action_id: str) -> dict[str, Any]:
+    suffix = _safe_id_suffix(action_id)
+    return {
+        "id": f"DV-GAP-{suffix}",
+        "statement": f"Verify completion criteria for action {action_id}.",
+        "target_ids": [action_id],
+        "method": "human_review",
+        "evidence_coverage": {
+            "status": "none",
+            "missing": ["verification evidence"],
+        },
+    }
+
+
+def _evidence_action_for_decision(draft_id: str) -> dict[str, Any]:
+    suffix = _safe_id_suffix(draft_id)
+    return {
+        "id": f"DACTION-GAP-{suffix}",
+        "statement": f"Collect or review missing evidence for draft decision {draft_id}.",
+        "purpose": "evidence_collection",
+        "target_ids": [draft_id],
+        "linked_decision_ids": [draft_id],
+        "evidence_coverage": {
+            "status": "none",
+            "missing": ["evidence collection result"],
+        },
+    }
+
+
+def _goal_from_text(goal_text: str, *, now: str) -> dict[str, Any]:
+    title = " ".join(goal_text.strip().split()) or "Review draft decision set"
+    date_part = _yyyymmdd(now)
+    return {
+        "id": f"G-{date_part}-001",
+        "title": title,
+        "desired_outcome": f"Create a reviewable draft decision set for: {title}",
+        "constraints": [
+            "Do not mutate canonical runtime during drafting",
+            "Do not create accepted decisions",
+            "Keep deterministic autopilot output reviewable",
+        ],
+    }
+
+
+def _read_goal_text(*, goal: str | None, goal_file: str | None) -> str | None:
+    if goal is not None and goal_file is not None:
+        raise AutopilotDraftError("--goal and --goal-file cannot be used together")
+    if goal_file is not None:
+        return Path(goal_file).read_text(encoding="utf-8")
+    return goal
+
+
+def _read_seed_json(path: str) -> dict[str, Any]:
+    try:
+        if path == "-":
+            raise AutopilotDraftError("seed-draft-json '-' is not supported by run_autopilot_draft")
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise AutopilotDraftError(f"seed-draft-json contains malformed JSON: {exc.msg}") from exc
+
+
+def _validate_options(
+    *,
+    goal: str | None,
+    goal_file: str | None,
+    max_iterations: int,
+    max_draft_decisions: int,
+    risk_threshold: str,
+) -> None:
+    if goal is not None and goal_file is not None:
+        raise AutopilotDraftError("--goal and --goal-file cannot be used together")
+    _validate_iteration_limits(max_iterations=max_iterations, max_draft_decisions=max_draft_decisions)
+    if risk_threshold not in VALID_RISK_THRESHOLDS:
+        raise AutopilotDraftError("--risk-threshold must be one of: low, medium, high, critical")
+
+
+def _validate_iteration_limits(*, max_iterations: int, max_draft_decisions: int) -> None:
+    if max_iterations < 1 or max_iterations > 10:
+        raise AutopilotDraftError("--max-iterations must be between 1 and 10")
+    if max_draft_decisions < 1 or max_draft_decisions > 100:
+        raise AutopilotDraftError("--max-draft-decisions must be between 1 and 100")
+
+
+def _current_project_head(project_state: dict[str, Any]) -> str | None:
+    value = project_state.get("state", {}).get("project_head")
+    return value if isinstance(value, str) and value else None
+
+
+def _draft_object_ids(draft_set: dict[str, Any]) -> set[str]:
+    ids: set[str] = set()
+    for field in (
+        "draft_decisions",
+        "draft_assumptions",
+        "draft_risks",
+        "draft_actions",
+        "draft_verifications",
+    ):
+        for item in _items(draft_set, field):
+            if isinstance(item, dict) and isinstance(item.get("id"), str):
+                ids.add(item["id"])
+    return ids
+
+
+def _items(value: dict[str, Any], key: str) -> list[Any]:
+    item = value.get(key)
+    return item if isinstance(item, list) else []
+
+
+def _severity_at_or_above(severity: str, threshold: str) -> bool:
+    rank = {"low": 3, "medium": 2, "high": 1, "critical": 0}
+    return rank.get(severity, 99) <= rank[threshold]
+
+
+def _safe_id_suffix(value: str) -> str:
+    sanitized = re.sub(r"[^A-Za-z0-9]+", "-", value).strip("-").upper()
+    return sanitized or "ITEM"
+
+
+def _yyyymmdd(value: str) -> str:
+    return value[:10].replace("-", "") if len(value) >= 10 else "19700101"
