@@ -1,0 +1,529 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/decide-me/draft-decision-set.schema.json",
+  "title": "Decide Me Draft Decision Set",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "status",
+    "mode",
+    "created_at",
+    "generated_by",
+    "goal",
+    "source_context",
+    "convergence",
+    "draft_decisions"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^DS-[0-9]{8}-[0-9]{3}$"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "generated"
+      ]
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "autopilot-draft"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "generated_by": {
+      "type": "string",
+      "minLength": 1
+    },
+    "goal": {
+      "$ref": "#/$defs/goal"
+    },
+    "source_context": {
+      "$ref": "#/$defs/source_context"
+    },
+    "convergence": {
+      "$ref": "#/$defs/convergence"
+    },
+    "draft_decisions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/draft_decision"
+      }
+    },
+    "draft_assumptions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/draft_annotation"
+      },
+      "default": []
+    },
+    "draft_risks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/draft_annotation"
+      },
+      "default": []
+    },
+    "draft_actions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/draft_annotation"
+      },
+      "default": []
+    },
+    "draft_verifications": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/draft_annotation"
+      },
+      "default": []
+    },
+    "conflicts": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "default": []
+    },
+    "review_queue": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "default": []
+    },
+    "promotion": {
+      "$ref": "#/$defs/promotion",
+      "default": {
+        "promoted_decision_ids": [],
+        "bulk_promotable_ids": [],
+        "individual_review_required_ids": []
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "goal": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "desired_outcome",
+        "constraints"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "desired_outcome": {
+          "type": "string",
+          "minLength": 1
+        },
+        "constraints": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "source_context": {
+      "type": "object",
+      "required": [
+        "project_head_at_generation",
+        "project_state_ref",
+        "included_session_ids",
+        "included_object_ids",
+        "domain_pack_id"
+      ],
+      "properties": {
+        "project_head_at_generation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "project_state_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "included_session_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "included_object_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "domain_pack_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "convergence": {
+      "type": "object",
+      "required": [
+        "status",
+        "iterations",
+        "stop_reason"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "budget_exhausted",
+            "converged",
+            "blocked",
+            "stopped",
+            "failed"
+          ]
+        },
+        "iterations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stop_reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "draft_decision": {
+      "type": "object",
+      "required": [
+        "id",
+        "status",
+        "layer",
+        "priority",
+        "frontier",
+        "kind",
+        "question",
+        "recommendation",
+        "rationale",
+        "alternatives",
+        "risk_tier",
+        "reversibility",
+        "evidence_coverage",
+        "human_review",
+        "promotion_recipe"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "draft",
+            "recommended"
+          ]
+        },
+        "layer": {
+          "$ref": "#/$defs/decision_stack_layer"
+        },
+        "priority": {
+          "$ref": "#/$defs/priority"
+        },
+        "frontier": {
+          "$ref": "#/$defs/frontier"
+        },
+        "kind": {
+          "$ref": "#/$defs/decision_kind"
+        },
+        "question": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recommendation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "alternatives": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/alternative"
+          }
+        },
+        "risk_tier": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
+        },
+        "reversibility": {
+          "type": "string",
+          "enum": [
+            "reversible",
+            "partially_reversible",
+            "hard-to-reverse",
+            "irreversible",
+            "other"
+          ]
+        },
+        "evidence_coverage": {
+          "$ref": "#/$defs/evidence_coverage"
+        },
+        "human_review": {
+          "$ref": "#/$defs/human_review"
+        },
+        "promotion_recipe": {
+          "$ref": "#/$defs/promotion_recipe"
+        }
+      },
+      "additionalProperties": false
+    },
+    "alternative": {
+      "type": "object",
+      "required": [
+        "option",
+        "reason_not_recommended"
+      ],
+      "properties": {
+        "option": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason_not_recommended": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "evidence_coverage": {
+      "type": "object",
+      "required": [
+        "status",
+        "supporting_object_ids",
+        "source_unit_ids",
+        "missing"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "none",
+            "partial",
+            "complete",
+            "unknown"
+          ]
+        },
+        "supporting_object_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "source_unit_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "missing": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "human_review": {
+      "type": "object",
+      "required": [
+        "required",
+        "mode",
+        "bulk_promotable",
+        "reason"
+      ],
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "individual",
+            "bulk",
+            "none"
+          ]
+        },
+        "bulk_promotable": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "promotion_recipe": {
+      "type": "object",
+      "required": [
+        "canonical_object_type",
+        "canonical_initial_status",
+        "proposal_required",
+        "acceptance_mode_allowed",
+        "blocked_for_bulk_acceptance"
+      ],
+      "properties": {
+        "canonical_object_type": {
+          "type": "string",
+          "enum": [
+            "decision",
+            "proposal",
+            "assumption",
+            "risk",
+            "action",
+            "verification"
+          ]
+        },
+        "canonical_initial_status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "proposal_required": {
+          "type": "boolean"
+        },
+        "acceptance_mode_allowed": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "explicit",
+              "ok",
+              "evidence"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "blocked_for_bulk_acceptance": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "draft_annotation": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "promotion": {
+      "type": "object",
+      "required": [
+        "promoted_decision_ids",
+        "bulk_promotable_ids",
+        "individual_review_required_ids"
+      ],
+      "properties": {
+        "promoted_decision_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "bulk_promotable_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "individual_review_required_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "decision_stack_layer": {
+      "type": "string",
+      "enum": [
+        "purpose",
+        "principle",
+        "constraint",
+        "strategy",
+        "design",
+        "execution",
+        "verification",
+        "review"
+      ]
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "P0",
+        "P1",
+        "P2"
+      ]
+    },
+    "frontier": {
+      "type": "string",
+      "enum": [
+        "now",
+        "later",
+        "discovered-later",
+        "deferred"
+      ]
+    },
+    "decision_kind": {
+      "type": "string",
+      "enum": [
+        "choice",
+        "constraint",
+        "risk",
+        "dependency"
+      ]
+    }
+  }
+}
