@@ -137,6 +137,7 @@ def run_autopilot_draft(
         draft_set_id=persisted_id,
         now=timestamp,
         persist=True,
+        max_iterations=max_iterations,
     )
     exports: dict[str, str] = {}
     if export:
@@ -441,10 +442,16 @@ def _classify_stop_reason(
         gap.get("type") in AUTO_REMEDIABLE_GAP_TYPES for gap in gaps
     ):
         return "budget_exhausted"
-    if any(gap.get("blocks_convergence") is True for gap in gaps):
-        return "user_review_required"
-    if any(gap.get("type") in AUTO_REMEDIABLE_GAP_TYPES for gap in gaps):
+    auto_remediable = [gap for gap in gaps if gap.get("type") in AUTO_REMEDIABLE_GAP_TYPES]
+    non_auto_blocking = [
+        gap
+        for gap in gaps
+        if gap.get("blocks_convergence") is True and gap.get("type") not in AUTO_REMEDIABLE_GAP_TYPES
+    ]
+    if auto_remediable and not non_auto_blocking:
         return "continue"
+    if non_auto_blocking:
+        return "user_review_required"
     unresolved = [gap for gap in gaps if _severity_at_or_above(str(gap.get("severity")), risk_threshold)]
     if unresolved:
         return "user_review_required"

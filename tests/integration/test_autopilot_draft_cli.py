@@ -84,6 +84,35 @@ class AutopilotDraftCliTests(unittest.TestCase):
             self.assertFalse((ai_dir / "draft-sets" / "DS-20260513-001" / "review-queue.json").exists())
             self.assertFalse((ai_dir / "draft-sets" / "DS-20260513-001" / "exports").exists())
 
+    def test_project_draft_set_cli_no_persist_does_not_write_projection(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = _bootstrap(Path(tmp))
+            seed = _write_seed(Path(tmp), _seed_payload())
+            run_json_cli(
+                "create-draft-set",
+                "--ai-dir",
+                str(ai_dir),
+                "--draft-json",
+                str(seed),
+                "--draft-set-id",
+                "DS-20260513-001",
+            )
+            projection_path = ai_dir / "draft-sets" / "DS-20260513-001" / "draft-projection.json"
+
+            result = run_json_cli(
+                "project-draft-set",
+                "--ai-dir",
+                str(ai_dir),
+                "--draft-set-id",
+                "DS-20260513-001",
+                "--now",
+                "2026-05-13T03:00:00Z",
+                "--no-persist",
+            )
+
+            self.assertEqual("ok", result["status"])
+            self.assertFalse(projection_path.exists())
+
     def test_autopilot_draft_cli_reports_stop_reason(self) -> None:
         with TemporaryDirectory() as tmp:
             ai_dir = _bootstrap(Path(tmp))
@@ -117,6 +146,27 @@ class AutopilotDraftCliTests(unittest.TestCase):
             )
 
             self.assertLessEqual(result["convergence"]["iterations"], 1)
+
+    def test_autopilot_draft_cli_persists_requested_max_iterations(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = _bootstrap(Path(tmp))
+            seed = _write_seed(Path(tmp), _seed_payload())
+
+            result = run_json_cli(
+                "autopilot-draft",
+                "--ai-dir",
+                str(ai_dir),
+                "--seed-draft-json",
+                str(seed),
+                "--max-iterations",
+                "3",
+                "--now",
+                "2026-05-13T03:00:00Z",
+                "--no-export",
+            )
+            projection = json.loads(Path(result["projection_path"]).read_text(encoding="utf-8"))
+
+            self.assertEqual(3, projection["convergence"]["max_iterations"])
 
     def test_autopilot_draft_cli_respects_max_draft_decisions(self) -> None:
         with TemporaryDirectory() as tmp:

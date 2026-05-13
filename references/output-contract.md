@@ -198,6 +198,11 @@ PR-5 `/goal` is a Skill command, not a Python CLI subcommand. It may use the det
 `draft-projection.json`, `review-queue.json`, and Markdown exports. It must not create accepted
 decisions or canonical events.
 
+Standalone `project-draft-set` may report `stop_reason=stopped` when diagnostics contain only
+non-blocking gaps. `autopilot-draft` uses the deterministic iteration stop reasons `converged`,
+`budget_exhausted`, `risk_gate_triggered`, `evidence_gap_blocked`, `conflict_blocked`, and
+`user_review_required`.
+
 `draft-projection.json` must match `schemas/draft-projection.schema.json`. Its required top-level
 fields are `schema_version`, `draft_set_id`, `generated_at`, `project_head_at_generation`,
 `current_project_head`, `stale`, `canonical_summary`, `draft_summary`, `nodes`, `links`,

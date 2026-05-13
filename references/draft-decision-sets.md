@@ -114,6 +114,10 @@ summarizes canonical objects, draft objects, graph links, stale project-head sta
 and gap diagnostics such as missing P0/P1 recommendations, insufficient evidence, high-risk bulk
 review, dangling references, and conflicts with accepted decisions.
 
+Because `project-draft-set` is a standalone diagnostic command, it may return
+`stop_reason=stopped` when the projection has non-blocking diagnostics but no autopilot iteration was
+requested. `autopilot-draft` narrows stop reasons to its deterministic iteration outcomes.
+
 `autopilot-draft` can create a draft set from a Skill-generated seed JSON or a conservative goal-only
 skeleton, run iterative gap detection, persist `draft-projection.json`, and optionally export Markdown:
 

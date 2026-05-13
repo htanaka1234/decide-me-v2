@@ -84,6 +84,34 @@ class DraftExportCliTests(unittest.TestCase):
             self.assertIn("## Draft Assumptions", assumptions_risks)
             self.assertIn("## AI Inference / Missing Evidence", assumptions_risks)
 
+    def test_export_draft_set_preflight_includes_gap_summary_when_projection_exists(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = _bootstrap(Path(tmp))
+            draft_json = _write_draft_json(Path(tmp), _draft_input())
+            _create_draft(ai_dir, draft_json)
+            run_json_cli(
+                "project-draft-set",
+                "--ai-dir",
+                str(ai_dir),
+                "--draft-set-id",
+                "DS-20260513-001",
+            )
+
+            result = run_json_cli(
+                "export-draft-set",
+                "--ai-dir",
+                str(ai_dir),
+                "--draft-set-id",
+                "DS-20260513-001",
+                "--format",
+                "markdown",
+            )
+            preflight = Path(result["paths"]["preflight"]).read_text(encoding="utf-8")
+
+            self.assertIn("## Gap Diagnostics", preflight)
+            self.assertIn("Stop reason", preflight)
+            self.assertIn("missing_purpose_layer", preflight)
+
     def test_export_draft_set_does_not_modify_project_state_or_event_log(self) -> None:
         with TemporaryDirectory() as tmp:
             ai_dir = _bootstrap(Path(tmp))

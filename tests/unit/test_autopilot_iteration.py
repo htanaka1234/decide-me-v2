@@ -36,6 +36,16 @@ class AutopilotIterationTests(unittest.TestCase):
             {draft["id"] for draft in final["draft_decisions"]}
         ))
 
+    def test_autopilot_adds_coverage_decisions_for_empty_draft_set(self) -> None:
+        draft_set = _complete_draft_set()
+        draft_set["draft_decisions"] = []
+
+        final, _projection = _iterate(draft_set, max_iterations=2)
+
+        self.assertTrue({"DD-GAP-PURPOSE", "DD-GAP-CONSTRAINT", "DD-GAP-VERIFICATION", "DD-GAP-REVIEW"}.issubset(
+            {draft["id"] for draft in final["draft_decisions"]}
+        ))
+
     def test_autopilot_stops_on_evidence_gap_blocked(self) -> None:
         draft_set = _complete_draft_set()
         draft_set["draft_decisions"][0]["priority"] = "P0"

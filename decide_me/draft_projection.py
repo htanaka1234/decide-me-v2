@@ -65,6 +65,7 @@ def build_draft_projection(
     draft_set_id: str,
     now: str | None = None,
     persist: bool = True,
+    max_iterations: int | None = None,
 ) -> dict[str, Any]:
     """Load runtime + draft-set, build a derived draft projection, and optionally persist it."""
     paths = runtime_paths(ai_dir)
@@ -78,6 +79,7 @@ def build_draft_projection(
             draft_set=draft_set,
             current_project_head=current_project_head,
             generated_at=generated_at,
+            max_iterations=max_iterations,
         )
         validate_draft_projection(projection)
         if persist:
@@ -95,6 +97,7 @@ def project_draft_set(
     draft_set: dict[str, Any],
     current_project_head: str | None,
     generated_at: str,
+    max_iterations: int | None = None,
 ) -> dict[str, Any]:
     """Pure projection function for diagnostics and autopilot iteration."""
     project_state_copy = deepcopy(project_state)
@@ -109,6 +112,7 @@ def project_draft_set(
     convergence = _projection_convergence(
         gap_diagnostics,
         draft_set=draft_set_copy,
+        max_iterations=max_iterations,
     )
     projection = {
         "schema_version": 1,
@@ -687,7 +691,12 @@ def _coverage_gaps(draft_set: dict[str, Any]) -> list[dict[str, Any]]:
     return gaps
 
 
-def _projection_convergence(gaps: list[dict[str, Any]], *, draft_set: dict[str, Any]) -> dict[str, Any]:
+def _projection_convergence(
+    gaps: list[dict[str, Any]],
+    *,
+    draft_set: dict[str, Any],
+    max_iterations: int | None,
+) -> dict[str, Any]:
     blocking = [gap for gap in gaps if gap["blocks_convergence"]]
     draft_convergence = _dict_field(draft_set, "convergence")
     draft_stop_reason = draft_convergence.get("stop_reason")
@@ -697,13 +706,14 @@ def _projection_convergence(gaps: list[dict[str, Any]], *, draft_set: dict[str, 
         stop_reason = _classify_projection_stop_reason(gaps)
     status = _projection_status(stop_reason)
     iterations = int(draft_convergence.get("iterations") or 0)
+    iteration_budget = int(max_iterations) if max_iterations is not None else iterations
     return {
         "status": status,
         "stop_reason": stop_reason,
         "new_gap_count": len(gaps),
         "blocking_gap_count": len(blocking),
         "iterations": iterations,
-        "max_iterations": iterations,
+        "max_iterations": iteration_budget,
         "explanation": _projection_explanation(stop_reason, len(gaps), len(blocking)),
     }
 

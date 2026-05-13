@@ -48,6 +48,26 @@ class DraftProjectionTests(unittest.TestCase):
         gap = _gap_by_type(projection, "insufficient_evidence")
         self.assertEqual("high", gap["severity"])
 
+    def test_projection_detects_unknown_evidence(self) -> None:
+        draft_set = _draft_set()
+        draft_set["draft_decisions"][0]["evidence_coverage"]["status"] = "unknown"
+
+        projection = _project(draft_set)
+
+        gap = _gap_by_type(projection, "insufficient_evidence")
+        self.assertEqual("DD-001", gap["target_id"])
+        self.assertTrue(gap["blocks_convergence"])
+
+    def test_projection_detects_dangling_supporting_object(self) -> None:
+        draft_set = _draft_set()
+        draft_set["draft_decisions"][0]["evidence_coverage"]["supporting_object_ids"] = ["OBJ-missing"]
+
+        projection = _project(draft_set)
+
+        gap = _gap_by_type(projection, "dangling_supporting_object")
+        self.assertEqual("high", gap["severity"])
+        self.assertTrue(gap["blocks_convergence"])
+
     def test_projection_rejects_high_risk_bulk_review(self) -> None:
         draft_set = _draft_set()
         draft_set["draft_decisions"][0]["risk_tier"] = "high"
@@ -99,6 +119,16 @@ class DraftProjectionTests(unittest.TestCase):
         gap = _gap_by_type(projection, "accepted_conflict")
         self.assertEqual("critical", gap["severity"])
         self.assertEqual("conflict_blocked", projection["convergence"]["stop_reason"])
+
+    def test_projection_detects_promoted_but_missing_canonical(self) -> None:
+        draft_set = _draft_set()
+        draft_set["promotion"]["promoted_decision_ids"] = ["DD-001"]
+
+        projection = _project(draft_set)
+
+        gap = _gap_by_type(projection, "promoted_but_missing_canonical")
+        self.assertEqual("high", gap["severity"])
+        self.assertTrue(gap["blocks_convergence"])
 
     def test_projection_does_not_mutate_project_state_or_draft_set(self) -> None:
         draft_set = _draft_set()
