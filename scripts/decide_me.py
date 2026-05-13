@@ -13,6 +13,7 @@ sys.path.insert(0, REPO_ROOT_STR)
 
 from decide_me.conflicts import detect_merge_conflicts, resolve_merge_conflict
 from decide_me.domains import DomainPack, domain_pack_digest, load_domain_registry
+from decide_me.draft_sets import create_draft_set, list_draft_sets, show_draft_set
 from decide_me.exports import (
     export_adr,
     export_agent_instructions,
@@ -137,6 +138,28 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="validate only the persisted projection checkpoint and runtime index",
     )
+
+    create_draft_set_cmd = subparsers.add_parser(
+        "create-draft-set",
+        help="create a draft decision set sidecar without mutating the canonical event log",
+    )
+    create_draft_set_cmd.add_argument("--ai-dir", required=True)
+    create_draft_set_cmd.add_argument("--draft-json", required=True)
+    create_draft_set_cmd.add_argument("--draft-set-id")
+    create_draft_set_cmd.add_argument("--generated-by", default="cli")
+
+    show_draft_set_cmd = subparsers.add_parser(
+        "show-draft-set",
+        help="show one draft decision set sidecar",
+    )
+    show_draft_set_cmd.add_argument("--ai-dir", required=True)
+    show_draft_set_cmd.add_argument("--draft-set-id", required=True)
+
+    list_draft_sets_cmd = subparsers.add_parser(
+        "list-draft-sets",
+        help="list draft decision set sidecars",
+    )
+    list_draft_sets_cmd.add_argument("--ai-dir", required=True)
 
     compact = subparsers.add_parser("compact-runtime", help="refresh the object/link projection checkpoint index")
     compact.add_argument("--ai-dir", required=True)
@@ -569,6 +592,20 @@ def main(argv: list[str] | None = None) -> int:
             issues = validate_runtime(args.ai_dir, full=not args.cached)
             _print_json({"ok": not issues, "issues": issues})
             return 0 if not issues else 1
+        elif args.command == "create-draft-set":
+            draft_payload = _read_json_arg(args.draft_json)
+            _print_json(
+                create_draft_set(
+                    args.ai_dir,
+                    draft_payload,
+                    draft_set_id=args.draft_set_id,
+                    generated_by=args.generated_by,
+                )
+            )
+        elif args.command == "show-draft-set":
+            _print_json(show_draft_set(args.ai_dir, args.draft_set_id))
+        elif args.command == "list-draft-sets":
+            _print_json(list_draft_sets(args.ai_dir))
         elif args.command == "compact-runtime":
             _print_json(compact_runtime(args.ai_dir))
         elif args.command == "benchmark-runtime":
@@ -923,6 +960,15 @@ def main(argv: list[str] | None = None) -> int:
 
 def _print_json(payload: object) -> None:
     print(json.dumps(payload, ensure_ascii=False, indent=2))
+
+
+def _read_json_arg(path: str) -> object:
+    try:
+        if path == "-":
+            return json.loads(sys.stdin.read())
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"draft-json contains malformed JSON: {exc.msg}") from exc
 
 
 def _list_domain_packs(ai_dir: str) -> dict[str, object]:

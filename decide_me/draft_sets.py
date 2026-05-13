@@ -1,0 +1,315 @@
+from __future__ import annotations
+
+import json
+import re
+from copy import deepcopy
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+from jsonschema import Draft202012Validator, FormatChecker, ValidationError
+
+from decide_me.events import utc_now
+from decide_me.store import _atomic_write_json, _write_lock, load_json, load_runtime, runtime_paths
+
+
+DRAFT_SET_ID_PATTERN = re.compile(r"^DS-[0-9]{8}-[0-9]{3}$")
+DRAFT_SET_SCHEMA_PATH = Path(__file__).resolve().parents[1] / "schemas" / "draft-decision-set.schema.json"
+DRAFT_SET_COUNTS = (
+    "draft_decisions",
+    "draft_assumptions",
+    "draft_risks",
+    "draft_actions",
+    "draft_verifications",
+)
+OPTIONAL_ARRAY_FIELDS = (
+    "draft_assumptions",
+    "draft_risks",
+    "draft_actions",
+    "draft_verifications",
+    "conflicts",
+    "review_queue",
+)
+DEFAULT_CONVERGENCE = {
+    "status": "budget_exhausted",
+    "iterations": 1,
+    "stop_reason": "mvp_single_pass",
+    "note": "PR1 stores a single-pass structured draft; it does not prove convergence.",
+}
+DEFAULT_PROMOTION = {
+    "promoted_decision_ids": [],
+    "bulk_promotable_ids": [],
+    "individual_review_required_ids": [],
+}
+
+
+class DraftSetError(ValueError):
+    pass
+
+
+class DraftSetValidationError(DraftSetError):
+    pass
+
+
+class DraftSetNotFoundError(DraftSetError):
+    pass
+
+
+class DraftSetHeadMismatchError(DraftSetError):
+    pass
+
+
+def create_draft_set(
+    ai_dir: str | Path,
+    draft_payload: dict[str, Any],
+    *,
+    draft_set_id: str | None = None,
+    generated_by: str | None = None,
+    now: str | None = None,
+) -> dict[str, Any]:
+    paths = runtime_paths(ai_dir)
+    timestamp = now or utc_now()
+    with _write_lock(paths.lock_path):
+        bundle = load_runtime(paths)
+        current_head = _current_project_head(bundle)
+        normalized = _normalize_draft_set(
+            draft_payload,
+            current_head=current_head,
+            draft_set_id=draft_set_id,
+            generated_by=generated_by,
+            now=timestamp,
+            ai_dir=paths.ai_dir,
+        )
+        validate_draft_set(normalized)
+
+        target_dir = _draft_set_dir(paths.ai_dir, normalized["id"])
+        target_path = target_dir / "draft-set.json"
+        if target_dir.exists():
+            raise DraftSetError(f"draft set already exists: {normalized['id']}")
+        _atomic_write_json(target_path, normalized)
+
+    return {
+        "status": "created",
+        "draft_set_id": normalized["id"],
+        "path": str(target_path),
+        "project_head_at_generation": normalized["source_context"]["project_head_at_generation"],
+        "is_stale": False,
+        "counts": _counts(normalized),
+    }
+
+
+def load_draft_set(ai_dir: str | Path, draft_set_id: str) -> dict[str, Any]:
+    _validate_draft_set_id(draft_set_id)
+    path = _draft_set_dir(Path(ai_dir), draft_set_id) / "draft-set.json"
+    if not path.exists():
+        raise DraftSetNotFoundError(f"draft set not found: {draft_set_id}")
+    payload = load_json(path)
+    if not isinstance(payload, dict):
+        raise DraftSetValidationError("draft-set validation failed: draft-set.json must contain an object")
+    validate_draft_set(payload)
+    if payload["id"] != draft_set_id:
+        raise DraftSetValidationError(
+            f"draft-set validation failed: draft-set id {payload['id']} does not match path {draft_set_id}"
+        )
+    return payload
+
+
+def show_draft_set(ai_dir: str | Path, draft_set_id: str) -> dict[str, Any]:
+    draft_set = load_draft_set(ai_dir, draft_set_id)
+    return {
+        "status": "ok",
+        "draft_set": draft_set,
+        "runtime_status": draft_set_staleness(ai_dir, draft_set),
+    }
+
+
+def list_draft_sets(ai_dir: str | Path) -> dict[str, Any]:
+    paths = runtime_paths(ai_dir)
+    current_head = _current_project_head(load_runtime(paths))
+    draft_root = paths.ai_dir / "draft-sets"
+    summaries: list[dict[str, Any]] = []
+    if draft_root.exists():
+        for path in sorted(draft_root.glob("DS-*/draft-set.json")):
+            draft_set_id = path.parent.name
+            if not DRAFT_SET_ID_PATTERN.fullmatch(draft_set_id):
+                continue
+            draft_set = load_draft_set(paths.ai_dir, draft_set_id)
+            summaries.append(_summary(draft_set, current_head=current_head, path=path))
+
+    summaries.sort(key=lambda item: (item["created_at"], item["id"]), reverse=True)
+    return {
+        "status": "ok",
+        "count": len(summaries),
+        "draft_sets": summaries,
+    }
+
+
+def validate_draft_set(payload: dict[str, Any]) -> None:
+    if not isinstance(payload, dict):
+        raise DraftSetValidationError("draft-set validation failed: payload must be an object")
+    errors = sorted(_schema_validator().iter_errors(payload), key=lambda error: list(error.path))
+    if errors:
+        raise DraftSetValidationError(f"draft-set validation failed: {_format_validation_error(errors[0])}")
+
+
+def draft_set_staleness(ai_dir: str | Path, draft_set: dict[str, Any]) -> dict[str, Any]:
+    paths = runtime_paths(ai_dir)
+    current_head = _current_project_head(load_runtime(paths))
+    generated_head = draft_set["source_context"]["project_head_at_generation"]
+    is_stale = generated_head != current_head
+    return {
+        "project_head_at_generation": generated_head,
+        "current_project_head": current_head,
+        "is_stale": is_stale,
+        "reason": "project-head-changed" if is_stale else None,
+    }
+
+
+def _normalize_draft_set(
+    draft_payload: dict[str, Any],
+    *,
+    current_head: str,
+    draft_set_id: str | None,
+    generated_by: str | None,
+    now: str,
+    ai_dir: Path,
+) -> dict[str, Any]:
+    if not isinstance(draft_payload, dict):
+        raise DraftSetValidationError("draft-set validation failed: payload must be an object")
+    if draft_set_id is not None:
+        _validate_draft_set_id(draft_set_id)
+
+    normalized = deepcopy(draft_payload)
+    normalized.setdefault("schema_version", 1)
+    normalized.setdefault("status", "generated")
+    normalized.setdefault("mode", "autopilot-draft")
+    normalized["created_at"] = now
+    normalized.setdefault("generated_by", "skill" if generated_by is None else generated_by)
+    normalized.setdefault("convergence", deepcopy(DEFAULT_CONVERGENCE))
+    normalized.setdefault("promotion", deepcopy(DEFAULT_PROMOTION))
+    for field in OPTIONAL_ARRAY_FIELDS:
+        normalized.setdefault(field, [])
+
+    payload_id = normalized.get("id")
+    if draft_set_id is not None and payload_id is not None and payload_id != draft_set_id:
+        raise DraftSetError(f"draft payload id does not match --draft-set-id: {payload_id} != {draft_set_id}")
+    normalized["id"] = draft_set_id or payload_id or _next_draft_set_id(ai_dir, now)
+    _validate_draft_set_id(normalized["id"])
+
+    source_context = normalized.setdefault("source_context", {})
+    if not isinstance(source_context, dict):
+        raise DraftSetValidationError("draft-set validation failed: source_context must be an object")
+    legacy_head = source_context.pop("project_head", None)
+    generated_head = source_context.get("project_head_at_generation")
+    if legacy_head is not None and generated_head is not None and legacy_head != generated_head:
+        raise DraftSetHeadMismatchError(
+            "draft payload project_head_at_generation does not match source_context.project_head"
+        )
+    if generated_head is None and legacy_head is not None:
+        generated_head = legacy_head
+    if generated_head is not None and generated_head != current_head:
+        raise DraftSetHeadMismatchError(
+            "draft payload project_head_at_generation does not match current project_head"
+        )
+    source_context["project_head_at_generation"] = generated_head or current_head
+    source_context.setdefault("project_state_ref", "project-state.json")
+    source_context.setdefault("included_session_ids", [])
+    source_context.setdefault("included_object_ids", [])
+    source_context.setdefault("domain_pack_id", "generic")
+    return normalized
+
+
+def _next_draft_set_id(ai_dir: Path, now: str) -> str:
+    date_part = _yyyymmdd_utc(now)
+    draft_root = ai_dir / "draft-sets"
+    existing_numbers: list[int] = []
+    if draft_root.exists():
+        for path in draft_root.glob(f"DS-{date_part}-*"):
+            match = DRAFT_SET_ID_PATTERN.fullmatch(path.name)
+            if match is not None:
+                existing_numbers.append(int(path.name.rsplit("-", 1)[1]))
+    next_number = max(existing_numbers, default=0) + 1
+    return f"DS-{date_part}-{next_number:03d}"
+
+
+def _yyyymmdd_utc(value: str) -> str:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise DraftSetValidationError(f"draft-set validation failed: created_at must be a date-time") from exc
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc).strftime("%Y%m%d")
+
+
+def _current_project_head(bundle: dict[str, Any]) -> str:
+    project_head = bundle["project_state"]["state"].get("project_head")
+    if not isinstance(project_head, str) or not project_head:
+        raise DraftSetError("current project_head is unavailable")
+    return project_head
+
+
+def _draft_set_dir(ai_dir: Path, draft_set_id: str) -> Path:
+    _validate_draft_set_id(draft_set_id)
+    return Path(ai_dir) / "draft-sets" / draft_set_id
+
+
+def _validate_draft_set_id(draft_set_id: str) -> None:
+    if not isinstance(draft_set_id, str) or DRAFT_SET_ID_PATTERN.fullmatch(draft_set_id) is None:
+        raise DraftSetError(f"invalid draft set id: {draft_set_id}")
+
+
+def _counts(draft_set: dict[str, Any]) -> dict[str, int]:
+    return {field: len(draft_set.get(field, [])) for field in DRAFT_SET_COUNTS}
+
+
+def _summary(draft_set: dict[str, Any], *, current_head: str, path: Path) -> dict[str, Any]:
+    generated_head = draft_set["source_context"]["project_head_at_generation"]
+    is_stale = generated_head != current_head
+    return {
+        "id": draft_set["id"],
+        "status": draft_set["status"],
+        "mode": draft_set["mode"],
+        "created_at": draft_set["created_at"],
+        "goal_title": draft_set["goal"]["title"],
+        "draft_decision_count": len(draft_set.get("draft_decisions", [])),
+        "project_head_at_generation": generated_head,
+        "current_project_head": current_head,
+        "is_stale": is_stale,
+        "path": str(path),
+    }
+
+
+def _schema_validator() -> Draft202012Validator:
+    if not hasattr(_schema_validator, "_validator"):
+        schema = json.loads(DRAFT_SET_SCHEMA_PATH.read_text(encoding="utf-8"))
+        Draft202012Validator.check_schema(schema)
+        _schema_validator._validator = Draft202012Validator(schema, format_checker=FormatChecker())  # type: ignore[attr-defined]
+    return _schema_validator._validator  # type: ignore[attr-defined]
+
+
+def _format_validation_error(error: ValidationError) -> str:
+    path = _format_error_path(list(error.path))
+    if error.validator == "enum":
+        allowed = ", ".join(str(item) for item in error.validator_value)
+        return f"{path} must be one of: {allowed}"
+    if error.validator == "required":
+        missing = str(error.message).split("'")[1] if "'" in str(error.message) else str(error.message)
+        if path == "payload":
+            return f"missing required field: {missing}"
+        return f"{path} missing required field: {missing}"
+    if error.validator == "additionalProperties":
+        return f"{path} contains unknown field"
+    return f"{path}: {error.message}"
+
+
+def _format_error_path(path: list[Any]) -> str:
+    if not path:
+        return "payload"
+    rendered = str(path[0])
+    for part in path[1:]:
+        if isinstance(part, int):
+            rendered += f"[{part}]"
+        else:
+            rendered += f".{part}"
+    return rendered
