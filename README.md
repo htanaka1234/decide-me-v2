@@ -99,6 +99,22 @@ For a new thread, the Skill creates a session and binds discovered objects to
 that session. For a continuing thread, it resumes the existing session, validates
 state, and avoids treating stale proposals as silently accepted.
 
+### Goal-based draft decision sets
+
+Use `/goal` when the user wants a decision space expanded before individual decisions are accepted.
+The Skill normalizes the goal, generates a structured DraftDecisionSet sidecar, stores it with
+`create-draft-set`, and exports readable `DRAFT / NOT ACCEPTED` Markdown files. This does not create
+accepted decisions. Promotion is a separate explicit handoff to a normal proposal flow.
+
+```text
+/goal
+goal: Add goal-based draft decision sets to decide-me.
+constraints:
+- canonical runtime must not be mutated during drafting
+- readable export should be reviewed by humans
+- accepted decisions must not be created automatically
+```
+
 Before asking the user, the Skill should inspect available evidence:
 
 - repository code
@@ -377,6 +393,8 @@ reference. Common maintainer operations include:
 - `show-stale-assumptions`, `show-stale-evidence`, `show-verification-gaps`, and
   `show-revisit-due` for read-only Phase 7 stale diagnostics
 - `export-impact-report` to write a derived Markdown impact report without changing runtime state
+- `create-draft-set`, `show-draft-set`, and `list-draft-sets` to store and inspect DraftDecisionSet
+  sidecars without changing canonical runtime state
 - `review-draft-set` and `export-draft-set --format markdown` to inspect DraftDecisionSet sidecars
   through `review-queue.json` and four `DRAFT / NOT ACCEPTED` Markdown files without changing
   canonical runtime state

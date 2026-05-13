@@ -143,8 +143,12 @@ By default it searches only current canonical source snapshots. Replaced snapsho
 `show-source-impact`, `list-sources`, `show-source`, and `show-source-unit` must not update
 runtime projections or event logs. `rebuild-evidence-index` updates only the derived SQLite index.
 
-Derived export commands:
+Draft sidecar and derived export commands:
 
+- `/goal` Skill command, not a CLI subcommand
+- `create-draft-set --draft-json <path>`
+- `show-draft-set --draft-set-id DS-...`
+- `list-draft-sets`
 - `export-architecture-doc --format arc42`
 - `export-traceability --format csv|markdown`
 - `export-verification-gaps`
@@ -152,12 +156,25 @@ Derived export commands:
 - `review-draft-set --draft-set-id DS-...`
 - `export-draft-set --draft-set-id DS-... --format markdown`
 - `promote-draft-decision --draft-set-id DS-... --draft-decision-id DD-... --session-id S-...`
-- `promote-draft-set --draft-set-id DS-... --session-id S-... --only-bulk-promotable`
+- `promote-draft-set --draft-set-id DS-... --session-map-json <path> --only-bulk-promotable`
 
 When `--session-id` is omitted, derived exports use all closed sessions sorted by session ID.
 Repeated `--session-id` narrows the closed-session set. Unknown or non-closed sessions must fail.
 
 Derived exports must fail before writing output when unresolved planner conflicts exist.
+
+PR-4 `/goal` is a Skill command, not a Python CLI subcommand. It must report:
+
+- `draft_set_id`
+- counts for draft decisions, assumptions, risks, actions, and verifications
+- review summary counts for blocked, individual-review, and bulk candidate items
+- export paths for `preflight.md`, `draft-decisions.md`, `review-queue.md`, and
+  `assumptions-risks.md`
+- an explicit `DRAFT / NOT ACCEPTED` notice
+
+`create-draft-set` returns `status`, `draft_set_id`, `path`, `project_head_at_generation`,
+`is_stale`, and `counts`. `show-draft-set` returns `status`, `draft_set`, and `runtime_status`.
+`list-draft-sets` returns `status`, `count`, and `draft_sets[]`.
 
 Draft set review and export are sidecar-derived outputs. They consume
 `.ai/decide-me/draft-sets/DS-.../draft-set.json` and may write only
