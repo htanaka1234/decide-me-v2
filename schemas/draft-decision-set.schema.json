@@ -397,6 +397,30 @@
     },
     "promotion_recipe": {
       "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "canonical_object_type": {
+                "const": "decision"
+              }
+            },
+            "required": [
+              "canonical_object_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "canonical_initial_status": {
+                "const": "unresolved"
+              },
+              "proposal_required": {
+                "const": true
+              }
+            }
+          }
+        }
+      ],
       "required": [
         "canonical_object_type",
         "canonical_initial_status",
@@ -442,6 +466,7 @@
       "additionalProperties": false
     },
     "draft_annotation": {
+      "$comment": "PR1 intentionally keeps draft assumption/risk/action/verification payloads loose sidecar data. PR2/PR3 must tighten these shapes before promotion consumes them.",
       "type": "object",
       "required": [
         "id"

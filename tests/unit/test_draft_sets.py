@@ -92,6 +92,18 @@ class DraftSetTests(unittest.TestCase):
             self.assertEqual("DS-20260513-001", first["draft_set_id"])
             self.assertEqual("DS-20260513-002", second["draft_set_id"])
 
+    def test_create_normalizes_created_at_to_now_and_ids_from_now(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = _bootstrap(Path(tmp))
+            payload = _draft_input()
+            payload["created_at"] = "2026-05-14T00:00:00Z"
+
+            result = create_draft_set(ai_dir, payload, now="2026-05-13T03:00:00Z")
+
+            persisted = load_draft_set(ai_dir, result["draft_set_id"])
+            self.assertEqual("DS-20260513-001", result["draft_set_id"])
+            self.assertEqual("2026-05-13T03:00:00Z", persisted["created_at"])
+
     def test_load_rejects_path_traversal_id(self) -> None:
         with TemporaryDirectory() as tmp:
             ai_dir = _bootstrap(Path(tmp))

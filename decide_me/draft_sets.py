@@ -183,7 +183,7 @@ def _normalize_draft_set(
     normalized.setdefault("schema_version", 1)
     normalized.setdefault("status", "generated")
     normalized.setdefault("mode", "autopilot-draft")
-    normalized.setdefault("created_at", now)
+    normalized["created_at"] = now
     normalized.setdefault("generated_by", "skill" if generated_by is None else generated_by)
     normalized.setdefault("convergence", deepcopy(DEFAULT_CONVERGENCE))
     normalized.setdefault("promotion", deepcopy(DEFAULT_PROMOTION))

@@ -46,6 +46,34 @@ class DraftSetSchemaTests(unittest.TestCase):
         self.assertTrue(errors)
         self.assertTrue(any(list(error.path) == ["draft_decisions", 0, "status"] for error in errors))
 
+    def test_schema_rejects_decision_promotion_to_accepted_status(self) -> None:
+        payload = minimal_valid_draft_set()
+        payload["draft_decisions"][0]["promotion_recipe"]["canonical_initial_status"] = "accepted"
+
+        errors = list(self.validator.iter_errors(payload))
+
+        self.assertTrue(errors)
+        self.assertTrue(
+            any(
+                list(error.path) == ["draft_decisions", 0, "promotion_recipe", "canonical_initial_status"]
+                for error in errors
+            )
+        )
+
+    def test_schema_requires_decision_promotion_to_start_with_proposal_review(self) -> None:
+        payload = minimal_valid_draft_set()
+        payload["draft_decisions"][0]["promotion_recipe"]["proposal_required"] = False
+
+        errors = list(self.validator.iter_errors(payload))
+
+        self.assertTrue(errors)
+        self.assertTrue(
+            any(
+                list(error.path) == ["draft_decisions", 0, "promotion_recipe", "proposal_required"]
+                for error in errors
+            )
+        )
+
     def test_schema_rejects_unknown_top_level_field(self) -> None:
         payload = minimal_valid_draft_set()
         payload["project_state"] = {}
@@ -92,6 +120,20 @@ class DraftSetSchemaTests(unittest.TestCase):
             "review_queue",
         ):
             payload[field] = []
+
+        self.validator.validate(payload)
+
+    def test_schema_intentionally_allows_loose_draft_annotation_payloads_for_pr1(self) -> None:
+        payload = minimal_valid_draft_set()
+        payload["draft_risks"] = [
+            {
+                "id": "DR-001",
+                "future_shape": {
+                    "severity": "high",
+                    "approval_threshold": "human_review",
+                },
+            }
+        ]
 
         self.validator.validate(payload)
 
