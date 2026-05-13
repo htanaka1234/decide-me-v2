@@ -143,23 +143,30 @@ By default it searches only current canonical source snapshots. Replaced snapsho
 `show-source-impact`, `list-sources`, `show-source`, and `show-source-unit` must not update
 runtime projections or event logs. `rebuild-evidence-index` updates only the derived SQLite index.
 
-Draft sidecar and derived export commands:
+Draft sidecar commands:
 
 - `/goal` Skill command, not a CLI subcommand
 - `create-draft-set --draft-json <path>`
 - `show-draft-set --draft-set-id DS-...`
 - `list-draft-sets`
+- `review-draft-set --draft-set-id DS-...`
+- `export-draft-set --draft-set-id DS-... --format markdown`
+
+Draft promotion commands:
+
+- `promote-draft-decision --draft-set-id DS-... --draft-decision-id DD-... --session-id S-...`
+- `promote-draft-set --draft-set-id DS-... --session-map-json <path> --only-bulk-promotable`
+
+Other derived export commands:
+
 - `export-architecture-doc --format arc42`
 - `export-traceability --format csv|markdown`
 - `export-verification-gaps`
 - `export-document --type decision-brief|action-plan|risk-register|review-memo|research-plan|comparison-table --format markdown|json|csv`
-- `review-draft-set --draft-set-id DS-...`
-- `export-draft-set --draft-set-id DS-... --format markdown`
-- `promote-draft-decision --draft-set-id DS-... --draft-decision-id DD-... --session-id S-...`
-- `promote-draft-set --draft-set-id DS-... --session-map-json <path> --only-bulk-promotable`
 
-When `--session-id` is omitted, derived exports use all closed sessions sorted by session ID.
-Repeated `--session-id` narrows the closed-session set. Unknown or non-closed sessions must fail.
+For derived exports that accept `--session-id`, omitting it uses all closed sessions sorted by
+session ID. Repeated `--session-id` narrows the closed-session set. Unknown or non-closed sessions
+must fail.
 
 Derived exports must fail before writing output when unresolved planner conflicts exist.
 

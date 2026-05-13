@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from tests.helpers.distribution_artifact import BuiltArtifact
+from tests.helpers.cli import run_cli
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -43,10 +44,18 @@ class PR4GoalSkillDocumentationTests(unittest.TestCase):
         document_compiler = (REPO_ROOT / "references" / "document-compiler.md").read_text(encoding="utf-8")
 
         self.assertIn("`/goal` Skill command, not a CLI subcommand", output_contract)
+        self.assertIn("Draft sidecar commands:", output_contract)
+        self.assertIn("Draft promotion commands:", output_contract)
+        self.assertIn("Other derived export commands:", output_contract)
         self.assertIn("create-draft-set", output_contract)
         self.assertIn("Draft set files under `.ai/decide-me/draft-sets/` are not canonical", event_model)
         self.assertIn("promotion-log.jsonl", event_model)
         self.assertIn("not produced by the generic Document Compiler", document_compiler)
+
+    def test_root_cli_help_does_not_expose_autopilot_draft_command(self) -> None:
+        result = run_cli("--help", cwd=REPO_ROOT)
+
+        self.assertNotIn("autopilot-draft", result.stdout + result.stderr)
 
     def test_readme_documents_goal_quick_start(self) -> None:
         readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
