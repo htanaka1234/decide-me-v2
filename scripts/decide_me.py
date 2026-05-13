@@ -13,7 +13,9 @@ sys.path.insert(0, REPO_ROOT_STR)
 
 from decide_me.conflicts import detect_merge_conflicts, resolve_merge_conflict
 from decide_me.domains import DomainPack, domain_pack_digest, load_domain_registry
+from decide_me.autopilot import run_autopilot_draft
 from decide_me.draft_export import export_draft_set, review_draft_set
+from decide_me.draft_projection import build_draft_projection, draft_projection_path
 from decide_me.draft_promote import promote_draft_decision, promote_draft_set
 from decide_me.draft_sets import create_draft_set, list_draft_sets, show_draft_set
 from decide_me.exports import (
@@ -180,6 +182,35 @@ def main(argv: list[str] | None = None) -> int:
     export_draft_set_cmd.add_argument("--format", choices=("markdown",), default="markdown")
     export_draft_set_cmd.add_argument("--now")
     export_draft_set_cmd.add_argument("--force", action="store_true")
+
+    project_draft_set_cmd = subparsers.add_parser(
+        "project-draft-set",
+        help="build a derived draft projection and gap diagnostics for a draft decision set",
+    )
+    project_draft_set_cmd.add_argument("--ai-dir", required=True)
+    project_draft_set_cmd.add_argument("--draft-set-id", required=True)
+    project_draft_set_cmd.add_argument("--now")
+    project_draft_set_cmd.add_argument("--no-persist", action="store_true")
+
+    autopilot_draft_cmd = subparsers.add_parser(
+        "autopilot-draft",
+        help="create a deterministic draft set and run iterative draft gap diagnostics",
+    )
+    autopilot_draft_cmd.add_argument("--ai-dir", required=True)
+    autopilot_draft_cmd.add_argument("--draft-set-id")
+    autopilot_draft_cmd.add_argument("--goal")
+    autopilot_draft_cmd.add_argument("--goal-file")
+    autopilot_draft_cmd.add_argument("--seed-draft-json")
+    autopilot_draft_cmd.add_argument("--max-iterations", type=int, default=3)
+    autopilot_draft_cmd.add_argument("--max-draft-decisions", type=int, default=30)
+    autopilot_draft_cmd.add_argument(
+        "--risk-threshold",
+        choices=("low", "medium", "high", "critical"),
+        default="medium",
+    )
+    autopilot_draft_cmd.add_argument("--now")
+    autopilot_draft_cmd.add_argument("--no-export", action="store_true")
+    autopilot_draft_cmd.add_argument("--force", action="store_true")
 
     promote_draft_decision_cmd = subparsers.add_parser(
         "promote-draft-decision",
@@ -663,6 +694,40 @@ def main(argv: list[str] | None = None) -> int:
                     format=args.format,
                     now=args.now,
                     force=args.force,
+                )
+            )
+        elif args.command == "project-draft-set":
+            projection = build_draft_projection(
+                args.ai_dir,
+                draft_set_id=args.draft_set_id,
+                now=args.now,
+                persist=not args.no_persist,
+            )
+            _print_json(
+                {
+                    "status": "ok",
+                    "draft_set_id": args.draft_set_id,
+                    "projection_path": str(draft_projection_path(args.ai_dir, args.draft_set_id)),
+                    "stale": projection["stale"],
+                    "gap_count": len(projection["gap_diagnostics"]),
+                    "blocking_gap_count": projection["convergence"]["blocking_gap_count"],
+                    "stop_reason": projection["convergence"]["stop_reason"],
+                }
+            )
+        elif args.command == "autopilot-draft":
+            _print_json(
+                run_autopilot_draft(
+                    args.ai_dir,
+                    goal=args.goal,
+                    goal_file=args.goal_file,
+                    seed_draft_json=args.seed_draft_json,
+                    draft_set_id=args.draft_set_id,
+                    max_iterations=args.max_iterations,
+                    max_draft_decisions=args.max_draft_decisions,
+                    risk_threshold=args.risk_threshold,
+                    now=args.now,
+                    export=not args.no_export,
+                    force_export=args.force,
                 )
             )
         elif args.command == "promote-draft-decision":

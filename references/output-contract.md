@@ -146,9 +146,11 @@ runtime projections or event logs. `rebuild-evidence-index` updates only the der
 Draft sidecar commands:
 
 - `/goal` Skill command, not a CLI subcommand
+- `autopilot-draft --seed-draft-json <path>|--goal <text>`
 - `create-draft-set --draft-json <path>`
 - `show-draft-set --draft-set-id DS-...`
 - `list-draft-sets`
+- `project-draft-set --draft-set-id DS-...`
 - `review-draft-set --draft-set-id DS-...`
 - `export-draft-set --draft-set-id DS-... --format markdown`
 
@@ -170,10 +172,13 @@ must fail.
 
 Derived exports must fail before writing output when unresolved planner conflicts exist.
 
-PR-4 `/goal` is a Skill command, not a Python CLI subcommand. It must report:
+PR-5 `/goal` is a Skill command, not a Python CLI subcommand. It may use the deterministic
+`autopilot-draft` CLI after generating a seed DraftDecisionSet. It must report:
 
 - `draft_set_id`
 - counts for draft decisions, assumptions, risks, actions, and verifications
+- draft projection path and gap summary
+- convergence `status`, `stop_reason`, and `iterations`
 - review summary counts for blocked, individual-review, and bulk candidate items
 - export paths for `preflight.md`, `draft-decisions.md`, `review-queue.md`, and
   `assumptions-risks.md`
@@ -182,6 +187,27 @@ PR-4 `/goal` is a Skill command, not a Python CLI subcommand. It must report:
 `create-draft-set` returns `status`, `draft_set_id`, `path`, `project_head_at_generation`,
 `is_stale`, and `counts`. `show-draft-set` returns `status`, `draft_set`, and `runtime_status`.
 `list-draft-sets` returns `status`, `count`, and `draft_sets[]`.
+
+`project-draft-set` returns `status`, `draft_set_id`, `projection_path`, `stale`, `gap_count`,
+`blocking_gap_count`, and `stop_reason`. With persistence enabled, it writes only
+`.ai/decide-me/draft-sets/DS-.../draft-projection.json`.
+
+`autopilot-draft` returns `status`, `draft_set_id`, `draft_set_path`, `projection_path`, `exports`,
+`convergence`, and `canonical_events_created=false`. Its `convergence` object includes `status`,
+`stop_reason`, `iterations`, `gap_count`, and `blocking_gap_count`. It may write `draft-set.json`,
+`draft-projection.json`, `review-queue.json`, and Markdown exports. It must not create accepted
+decisions or canonical events.
+
+Standalone `project-draft-set` may report `stop_reason=stopped` when diagnostics contain only
+non-blocking gaps. `autopilot-draft` uses the deterministic iteration stop reasons `converged`,
+`budget_exhausted`, `risk_gate_triggered`, `evidence_gap_blocked`, `conflict_blocked`, and
+`user_review_required`.
+
+`draft-projection.json` must match `schemas/draft-projection.schema.json`. Its required top-level
+fields are `schema_version`, `draft_set_id`, `generated_at`, `project_head_at_generation`,
+`current_project_head`, `stale`, `canonical_summary`, `draft_summary`, `nodes`, `links`,
+`gap_diagnostics`, and `convergence`. Gap diagnostics include `type`, `severity`, `target_id`,
+`blocks_convergence`, `blocks_bulk_promotion`, `reason`, and `suggested_resolution`.
 
 Draft set review and export are sidecar-derived outputs. They consume
 `.ai/decide-me/draft-sets/DS-.../draft-set.json` and may write only

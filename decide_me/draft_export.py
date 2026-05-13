@@ -13,7 +13,7 @@ from decide_me.documents.merge import marker_warnings_for_path, merge_managed_co
 from decide_me.draft_sets import draft_set_dir, load_draft_set
 from decide_me.events import utc_now
 from decide_me.exporters.render import render_table_cell
-from decide_me.store import _atomic_write_json, _atomic_write_text, _write_lock, load_runtime, runtime_paths
+from decide_me.store import _atomic_write_json, _atomic_write_text, _write_lock, load_json, load_runtime, runtime_paths
 
 
 DRAFT_REVIEW_QUEUE_SCHEMA_PATH = Path(__file__).resolve().parents[1] / "schemas" / "draft-review-queue.schema.json"
@@ -116,6 +116,7 @@ def export_draft_set(
             generated_at=generated_at,
         )
         draft_dir = draft_set_dir(paths.ai_dir, draft_set_id)
+        draft_projection = _load_draft_projection(draft_dir)
         exports_dir = draft_dir / "exports"
         output_paths = _draft_export_paths(exports_dir)
         _extend_warnings(
@@ -129,6 +130,7 @@ def export_draft_set(
             review_queue,
             current_project_head=current_project_head,
             generated_at=generated_at,
+            draft_projection=draft_projection,
         )
         prepared = _prepare_markdown_writes(
             output_paths,
@@ -245,12 +247,19 @@ def render_draft_exports(
     *,
     current_project_head: str | None,
     generated_at: str,
+    draft_projection: dict[str, Any] | None = None,
 ) -> dict[str, str]:
     """Return markdown bodies keyed by filename."""
     return {
         "preflight.md": _apply_template(
             "preflight.md",
-            _render_preflight(draft_set, review_queue, current_project_head=current_project_head, generated_at=generated_at),
+            _render_preflight(
+                draft_set,
+                review_queue,
+                current_project_head=current_project_head,
+                generated_at=generated_at,
+                draft_projection=draft_projection,
+            ),
         ),
         "draft-decisions.md": _apply_template("draft-decisions.md", _render_draft_decisions(draft_set, review_queue)),
         "review-queue.md": _apply_template("review-queue.md", _render_review_queue(review_queue)),
@@ -419,6 +428,7 @@ def _render_preflight(
     *,
     current_project_head: str | None,
     generated_at: str,
+    draft_projection: dict[str, Any] | None,
 ) -> str:
     goal = _dict_field(draft_set, "goal")
     source_context = _dict_field(draft_set, "source_context")
@@ -461,6 +471,9 @@ def _render_preflight(
             ],
         ),
         "",
+        "## Gap Diagnostics",
+        _render_gap_diagnostics(draft_projection),
+        "",
         "## Human Approval Plan",
         "- Review blocked items first.",
         "- Review P0/P1 individual items next.",
@@ -487,6 +500,39 @@ def _render_preflight(
         "",
         "## Warnings",
         _bullet_list(review_queue.get("warnings")),
+    ]
+    return "\n".join(lines)
+
+
+def _render_gap_diagnostics(draft_projection: dict[str, Any] | None) -> str:
+    if not isinstance(draft_projection, dict):
+        return "- draft-projection.json not generated"
+    convergence = _dict_field(draft_projection, "convergence")
+    lines = [
+        _table(
+            ["Metric", "Value"],
+            [
+                ["Status", convergence.get("status")],
+                ["Stop reason", convergence.get("stop_reason")],
+                ["Gap count", convergence.get("new_gap_count")],
+                ["Blocking gaps", convergence.get("blocking_gap_count")],
+            ],
+        ),
+        "",
+        _table(
+            ["ID", "Type", "Severity", "Target", "Blocks", "Reason"],
+            [
+                [
+                    gap.get("id"),
+                    gap.get("type"),
+                    gap.get("severity"),
+                    gap.get("target_id"),
+                    gap.get("blocks_convergence"),
+                    gap.get("reason"),
+                ]
+                for gap in _list_field(draft_projection, "gap_diagnostics")
+            ],
+        ),
     ]
     return "\n".join(lines)
 
@@ -765,6 +811,14 @@ def _has_missing_evidence(draft: dict[str, Any]) -> bool:
 
 def _draft_export_paths(exports_dir: Path) -> dict[str, Path]:
     return {key: exports_dir / filename for key, (filename, _document_type) in DRAFT_EXPORT_SPECS.items()}
+
+
+def _load_draft_projection(draft_dir: Path) -> dict[str, Any] | None:
+    path = draft_dir / "draft-projection.json"
+    if not path.exists():
+        return None
+    payload = load_json(path)
+    return payload if isinstance(payload, dict) else None
 
 
 def _marker_warnings(output_paths: dict[str, Path], *, project_head: str | None) -> list[str]:
