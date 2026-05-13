@@ -380,6 +380,9 @@ reference. Common maintainer operations include:
 - `review-draft-set` and `export-draft-set --format markdown` to inspect DraftDecisionSet sidecars
   through `review-queue.json` and four `DRAFT / NOT ACCEPTED` Markdown files without changing
   canonical runtime state
+- `promote-draft-decision` to materialize one draft decision as a canonical `decision` plus active
+  `proposal` without accepting it; `promote-draft-set --only-bulk-promotable` is limited to a
+  single low-risk bulk candidate so one session never receives multiple active proposals
 - `export-document --type decision-brief|action-plan|risk-register|review-memo|research-plan|comparison-table`
   to write generic Markdown, JSON, or supported CSV documents under `.ai/decide-me/exports/documents/`
   and `export-document --domain-pack <id>` to apply a pack document profile when the pack defines

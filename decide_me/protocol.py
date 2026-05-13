@@ -298,6 +298,256 @@ def issue_proposal(
     return proposal_view(bundle["project_state"], proposal_id)
 
 
+def materialize_decision_with_proposal(
+    ai_dir: str,
+    session_id: str,
+    *,
+    decision: dict[str, Any],
+    proposal: dict[str, Any],
+    supporting_object_ids: list[str] | None = None,
+    risk_scaffold: dict[str, Any] | None = None,
+    now: str | None = None,
+    tx_id: str | None = None,
+) -> dict[str, Any]:
+    sanitized_decision = _sanitize_discovered_decision(decision)
+    if sanitized_decision["status"] != "unresolved":
+        raise ValueError("materialized proposal decisions must start as unresolved")
+    question = _require_non_empty_text(proposal.get("question"), "proposal.question")
+    recommendation = _require_non_empty_text(proposal.get("recommendation"), "proposal.recommendation")
+    why = _require_non_empty_text(proposal.get("why"), "proposal.why")
+    if_not = _require_non_empty_text(proposal.get("if_not"), "proposal.if_not")
+    proposal_metadata = deepcopy(proposal.get("metadata") or {})
+    if not isinstance(proposal_metadata, dict):
+        raise ValueError("proposal.metadata must be an object")
+    supporting_object_ids = stable_unique(str(item).strip() for item in supporting_object_ids or [] if str(item).strip())
+    created_at = now or utc_now()
+    decision_id = sanitized_decision["id"]
+    question_id = str(proposal.get("question_id") or new_entity_id("Q"))
+    option_id = str(proposal.get("option_id") or new_entity_id("O-option"))
+    proposal_id = str(proposal.get("id") or new_entity_id("P"))
+    decision_event_id = new_event_id()
+    option_event_id = new_event_id()
+    proposal_event_id = new_event_id()
+    status_event_id = new_event_id()
+    addresses_link_event_id = new_event_id()
+    recommends_link_event_id = new_event_id()
+    risk_event_id = new_event_id()
+    risk_link_event_id = new_event_id()
+    support_link_event_ids = {object_id: new_event_id() for object_id in supporting_object_ids}
+    outcome: dict[str, Any] = {}
+
+    def builder(bundle: dict[str, Any]) -> list[dict[str, Any]]:
+        session = _require_mutable_session(bundle, session_id)
+        _require_no_other_active_proposal(bundle, session, decision_id)
+        if _decision_exists(bundle, decision_id):
+            raise ValueError(f"decision {decision_id} already exists")
+        _require_no_object_id(bundle, option_id, "option")
+        _require_no_object_id(bundle, proposal_id, "proposal")
+        for supporting_id in supporting_object_ids:
+            if _find_object(bundle, supporting_id) is None:
+                raise ValueError(f"supporting_object_id {supporting_id} referenced by {decision_id} does not exist")
+
+        event_decision = _apply_session_domain_pack(ai_dir, session, sanitized_decision)
+        event_decision["requirement_id"] = next_requirement_id(decision_views(bundle["project_state"]))
+        decision_object = _decision_object_from_payload(event_decision, created_at, decision_event_id)
+        option = _object_payload(
+            object_id=option_id,
+            object_type="option",
+            title=recommendation,
+            body=None,
+            status="active",
+            created_at=created_at,
+            event_id=option_event_id,
+            metadata={
+                "origin_session_id": session_id,
+                "source": proposal_metadata.get("source", "recommendation"),
+                **deepcopy(proposal_metadata.get("option_metadata") or {}),
+            },
+        )
+        proposal_object = _object_payload(
+            object_id=proposal_id,
+            object_type="proposal",
+            title=recommendation,
+            body=why,
+            status="active",
+            created_at=created_at,
+            event_id=proposal_event_id,
+            metadata={
+                "origin_session_id": session_id,
+                "recommendation_version": len(proposals_for_decision(bundle["project_state"], decision_id)) + 1,
+                "based_on_project_head": bundle["project_state"]["state"].get("project_head"),
+                "question_id": question_id,
+                "question": question,
+                "why": why,
+                "if_not": if_not,
+                "activated_at": created_at,
+                "author": proposal_metadata.get("author", "assistant"),
+                **{
+                    key: deepcopy(value)
+                    for key, value in proposal_metadata.items()
+                    if key not in {"author", "option_metadata"}
+                },
+            },
+        )
+        specs: list[dict[str, Any]] = [
+            {
+                "event_id": decision_event_id,
+                "session_id": session_id,
+                "event_type": "object_recorded",
+                "payload": {"object": decision_object},
+            },
+        ]
+        risk_object_ids: list[str] = []
+        if risk_scaffold is not None:
+            risk_object = _risk_scaffold_payload(risk_scaffold, created_at, risk_event_id)
+            _require_no_object_id(bundle, risk_object["id"], "risk")
+            risk_object_ids.append(risk_object["id"])
+            specs.extend(
+                [
+                    {
+                        "event_id": risk_event_id,
+                        "session_id": session_id,
+                        "event_type": "object_recorded",
+                        "payload": {"object": risk_object},
+                    },
+                    {
+                        "event_id": risk_link_event_id,
+                        "session_id": session_id,
+                        "event_type": "object_linked",
+                        "payload": {
+                            "link": _link_payload(
+                                link_id=f"L-{risk_object['id']}-challenges-{decision_id}",
+                                source_object_id=risk_object["id"],
+                                relation="challenges",
+                                target_object_id=decision_id,
+                                rationale=risk_scaffold.get("rationale")
+                                or f"Risk scaffold challenges {decision_id}.",
+                                created_at=created_at,
+                                event_id=risk_link_event_id,
+                            )
+                        },
+                    },
+                ]
+            )
+        for supporting_id in supporting_object_ids:
+            link_id = f"L-{supporting_id}-supports-{decision_id}"
+            existing_link = _find_link(bundle, link_id)
+            if existing_link is not None:
+                raise ValueError(f"supporting link id collision: {link_id}")
+            specs.append(
+                {
+                    "event_id": support_link_event_ids[supporting_id],
+                    "session_id": session_id,
+                    "event_type": "object_linked",
+                    "payload": {
+                        "link": _link_payload(
+                            link_id=link_id,
+                            source_object_id=supporting_id,
+                            relation="supports",
+                            target_object_id=decision_id,
+                            rationale=f"Draft promotion supporting evidence for {decision_id}.",
+                            created_at=created_at,
+                            event_id=support_link_event_ids[supporting_id],
+                        )
+                    },
+                }
+            )
+        specs.extend(
+            [
+                {
+                    "event_id": status_event_id,
+                    "session_id": session_id,
+                    "event_type": "object_status_changed",
+                    "payload": {
+                        "object_id": decision_id,
+                        "from_status": "unresolved",
+                        "to_status": "proposed",
+                        "reason": "Proposal issued for session question.",
+                        "changed_at": created_at,
+                    },
+                },
+                {
+                    "event_id": option_event_id,
+                    "session_id": session_id,
+                    "event_type": "object_recorded",
+                    "payload": {"object": option},
+                },
+                {
+                    "event_id": proposal_event_id,
+                    "session_id": session_id,
+                    "event_type": "object_recorded",
+                    "payload": {"object": proposal_object},
+                },
+                {
+                    "event_id": addresses_link_event_id,
+                    "session_id": session_id,
+                    "event_type": "object_linked",
+                    "payload": {
+                        "link": _link_payload(
+                            link_id=f"L-{proposal_id}-addresses-{decision_id}",
+                            source_object_id=proposal_id,
+                            relation="addresses",
+                            target_object_id=decision_id,
+                            rationale=question,
+                            created_at=created_at,
+                            event_id=addresses_link_event_id,
+                        )
+                    },
+                },
+                {
+                    "event_id": recommends_link_event_id,
+                    "session_id": session_id,
+                    "event_type": "object_linked",
+                    "payload": {
+                        "link": _link_payload(
+                            link_id=f"L-{proposal_id}-recommends-{option_id}",
+                            source_object_id=proposal_id,
+                            relation="recommends",
+                            target_object_id=option_id,
+                            rationale=why,
+                            created_at=created_at,
+                            event_id=recommends_link_event_id,
+                        )
+                    },
+                },
+                {
+                    "session_id": session_id,
+                    "event_type": "session_question_asked",
+                    "payload": {
+                        "question_id": question_id,
+                        "proposal_id": proposal_id,
+                        "target_object_id": decision_id,
+                        "question": question,
+                    },
+                },
+            ]
+        )
+        outcome.update(
+            {
+                "project_head_before_promotion": bundle["project_state"]["state"].get("project_head"),
+                "risk_object_ids": risk_object_ids,
+            }
+        )
+        return specs
+
+    events, bundle = transact(ai_dir, builder, tx_id=tx_id)
+    return {
+        "events": events,
+        "decision": _lookup_decision(bundle, decision_id),
+        "proposal": proposal_view(bundle["project_state"], proposal_id),
+        "decision_id": decision_id,
+        "proposal_id": proposal_id,
+        "option_id": option_id,
+        "question_id": question_id,
+        "risk_object_ids": outcome.get("risk_object_ids", []),
+        "tx_id": events[0]["tx_id"] if events else tx_id,
+        "event_ids": [event["event_id"] for event in events],
+        "project_head_before_promotion": outcome.get("project_head_before_promotion"),
+        "project_head_after_promotion": bundle["project_state"]["state"].get("project_head"),
+        "bundle": bundle,
+    }
+
+
 def accept_proposal(
     ai_dir: str,
     session_id: str,
@@ -329,6 +579,7 @@ def accept_proposal(
         else:
             mode = acceptance_mode or "explicit"
         _require_acceptance_mode(mode)
+        _require_proposal_acceptance_mode(bundle, target["proposal_id"], mode)
         safety_approval_events = _safety_gate_acceptance_specs(
             bundle,
             session_id,
@@ -504,6 +755,7 @@ def answer_proposal(
         if not answer:
             raise ValueError("answer_summary must not be empty")
         _require_acceptance_mode(acceptance_mode)
+        _require_proposal_acceptance_mode(bundle, target["proposal_id"], acceptance_mode)
         safety_approval_events = _safety_gate_acceptance_specs(
             bundle,
             session_id,
@@ -1148,6 +1400,12 @@ def _find_link(bundle: dict[str, Any], link_id: str) -> dict[str, Any] | None:
     return None
 
 
+def _require_no_object_id(bundle: dict[str, Any], object_id: str, object_type: str) -> None:
+    existing = _find_object(bundle, object_id)
+    if existing is not None:
+        raise ValueError(f"{object_type} id already exists: {object_id}")
+
+
 def _evidence_resolution_event_specs(
     bundle: dict[str, Any],
     session_id: str,
@@ -1315,6 +1573,27 @@ def _link_payload(
     }
 
 
+def _risk_scaffold_payload(risk_scaffold: dict[str, Any], created_at: str, event_id: str) -> dict[str, Any]:
+    if not isinstance(risk_scaffold, dict):
+        raise ValueError("risk_scaffold must be an object")
+    risk_id = risk_scaffold.get("id")
+    if not isinstance(risk_id, str) or not risk_id.strip():
+        raise ValueError("risk_scaffold.id must not be empty")
+    metadata = risk_scaffold.get("metadata")
+    if not isinstance(metadata, dict):
+        raise ValueError("risk_scaffold.metadata must be an object")
+    return _object_payload(
+        object_id=risk_id,
+        object_type="risk",
+        title=risk_scaffold.get("title"),
+        body=risk_scaffold.get("body"),
+        status=risk_scaffold.get("status") or "open",
+        created_at=created_at,
+        event_id=event_id,
+        metadata=metadata,
+    )
+
+
 def _decision_object_from_payload(decision: dict[str, Any], created_at: str, event_id: str) -> dict[str, Any]:
     metadata = {
         "requirement_id": decision["requirement_id"],
@@ -1338,6 +1617,11 @@ def _decision_object_from_payload(decision: dict[str, Any], created_at: str, eve
         "domain_criteria",
         "depends_on",
         "blocked_by",
+        "draft_origin",
+        "acceptance_mode_allowed",
+        "layer",
+        "draft_risk_tier",
+        "draft_evidence_coverage",
     ):
         if key in decision:
             metadata[key] = deepcopy(decision[key])
@@ -1526,6 +1810,21 @@ def _require_acceptance_mode(mode: str) -> None:
     if mode not in ACCEPTED_VIA_VALUES - {"evidence"}:
         allowed = ", ".join(sorted(ACCEPTED_VIA_VALUES - {"evidence"}))
         raise ValueError(f"accepted_via must be one of: {allowed}")
+
+
+def _require_proposal_acceptance_mode(bundle: dict[str, Any], proposal_id: str, mode: str) -> None:
+    proposal = _lookup_object(bundle, proposal_id)
+    allowed = proposal.get("metadata", {}).get("acceptance_mode_allowed")
+    if allowed is None:
+        return
+    if not isinstance(allowed, list) or not all(isinstance(item, str) and item for item in allowed):
+        raise ValueError(f"proposal {proposal_id} has invalid acceptance_mode_allowed metadata")
+    if mode not in allowed:
+        allowed_modes = ", ".join(sorted(allowed))
+        raise ValueError(
+            f"proposal {proposal_id} does not allow {mode} acceptance; "
+            f"allowed modes: {allowed_modes}"
+        )
 
 
 def _require_non_empty_text(value: Any, label: str) -> str:

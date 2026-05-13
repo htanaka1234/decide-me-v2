@@ -6,7 +6,7 @@ from decide_me.object_views import active_proposal_view, related_decision_ids
 from decide_me.projections import OPEN_DECISION_STATUSES, decision_is_invalidated, visible_decision_ids
 
 
-PRIORITY_RANK = {"P0": 0, "P1": 1, "P2": 2}
+PRIORITY_RANK = {"P0": 0, "P1": 1, "P2": 2, "P3": 3}
 FRONTIER_RANK = {"now": 0, "later": 1, "discovered-later": 2, "deferred": 3}
 
 
