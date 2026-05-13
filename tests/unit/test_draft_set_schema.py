@@ -123,6 +123,16 @@ class DraftSetSchemaTests(unittest.TestCase):
 
         self.validator.validate(payload)
 
+    def test_schema_allows_pr2_review_evidence_statuses_and_p3_priority(self) -> None:
+        payload = minimal_valid_draft_set()
+        payload["draft_decisions"][0]["priority"] = "P3"
+        payload["draft_decisions"][0]["evidence_coverage"]["status"] = "challenged"
+
+        self.validator.validate(payload)
+
+        payload["draft_decisions"][0]["evidence_coverage"]["status"] = "sufficient"
+        self.validator.validate(payload)
+
     def test_schema_intentionally_allows_loose_draft_annotation_payloads_for_pr1(self) -> None:
         payload = minimal_valid_draft_set()
         payload["draft_risks"] = [

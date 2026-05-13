@@ -338,6 +338,8 @@
           "enum": [
             "none",
             "partial",
+            "sufficient",
+            "challenged",
             "complete",
             "unknown"
           ]
@@ -529,7 +531,8 @@
       "enum": [
         "P0",
         "P1",
-        "P2"
+        "P2",
+        "P3"
       ]
     },
     "frontier": {

@@ -1,0 +1,203 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/decide-me/draft-review-queue.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "draft_set_id",
+    "status",
+    "generated_at",
+    "project_head_at_generation",
+    "current_project_head",
+    "stale",
+    "summary",
+    "review_order",
+    "bulk_promotable",
+    "individual_review_required",
+    "blocked",
+    "must_not_bulk_promote",
+    "warnings"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "draft_set_id": {
+      "type": "string",
+      "pattern": "^DS-[0-9]{8}-[0-9]{3}$"
+    },
+    "status": {
+      "enum": [
+        "ok",
+        "warning"
+      ]
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "project_head_at_generation": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "current_project_head": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "stale": {
+      "type": "boolean"
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "draft_decision_count",
+        "blocked_count",
+        "individual_review_required_count",
+        "bulk_promotable_count",
+        "high_risk_count",
+        "missing_evidence_count"
+      ],
+      "properties": {
+        "draft_decision_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blocked_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "individual_review_required_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "bulk_promotable_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "high_risk_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missing_evidence_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "review_order": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/review_item"
+      }
+    },
+    "bulk_promotable": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "individual_review_required": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "blocked": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "must_not_bulk_promote": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "$defs": {
+    "review_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "draft_decision_id",
+        "priority",
+        "layer",
+        "risk_tier",
+        "review_mode",
+        "promotion_readiness",
+        "rank",
+        "reasons",
+        "required_action"
+      ],
+      "properties": {
+        "draft_decision_id": {
+          "type": "string"
+        },
+        "priority": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "layer": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "risk_tier": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "review_mode": {
+          "enum": [
+            "blocked",
+            "individual",
+            "bulk",
+            "already_promoted"
+          ]
+        },
+        "promotion_readiness": {
+          "enum": [
+            "blocked",
+            "review_required",
+            "bulk_materialize_candidate",
+            "already_promoted"
+          ]
+        },
+        "rank": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "required_action": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

@@ -377,6 +377,9 @@ reference. Common maintainer operations include:
 - `show-stale-assumptions`, `show-stale-evidence`, `show-verification-gaps`, and
   `show-revisit-due` for read-only Phase 7 stale diagnostics
 - `export-impact-report` to write a derived Markdown impact report without changing runtime state
+- `review-draft-set` and `export-draft-set --format markdown` to inspect DraftDecisionSet sidecars
+  through `review-queue.json` and four `DRAFT / NOT ACCEPTED` Markdown files without changing
+  canonical runtime state
 - `export-document --type decision-brief|action-plan|risk-register|review-memo|research-plan|comparison-table`
   to write generic Markdown, JSON, or supported CSV documents under `.ai/decide-me/exports/documents/`
   and `export-document --domain-pack <id>` to apply a pack document profile when the pack defines
