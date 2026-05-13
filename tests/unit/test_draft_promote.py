@@ -6,7 +6,7 @@ from copy import deepcopy
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from decide_me.draft_promote import DraftPromotionError, promote_draft_decision, promote_draft_set
+from decide_me.draft_promote import DraftBulkPromotionError, DraftPromotionError, promote_draft_decision, promote_draft_set
 from decide_me.draft_sets import DraftSetHeadMismatchError, create_draft_set
 from decide_me.lifecycle import create_session
 from decide_me.store import bootstrap_runtime, load_runtime, read_event_log, runtime_paths, validate_runtime
@@ -107,6 +107,36 @@ class DraftPromoteTests(unittest.TestCase):
 
             self.assertTrue(result["decision"]["draft_origin"]["stale_promoted"])
 
+    def test_medium_or_higher_risk_cannot_disable_risk_scaffold(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir, session_id = _bootstrap_with_session(Path(tmp))
+            create_draft_set(ai_dir, _draft_input(), draft_set_id="DS-20260513-001")
+            before_events = read_event_log(runtime_paths(ai_dir))
+
+            with self.assertRaisesRegex(DraftPromotionError, "must materialize a canonical risk scaffold"):
+                promote_draft_decision(
+                    ai_dir,
+                    "DS-20260513-001",
+                    "DD-001",
+                    session_id=session_id,
+                    materialize_risk_scaffold=False,
+                )
+
+            self.assertEqual(before_events, read_event_log(runtime_paths(ai_dir)))
+
+    def test_missing_supporting_object_rejects_before_event_write(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir, session_id = _bootstrap_with_session(Path(tmp))
+            payload = _draft_input()
+            payload["draft_decisions"][0]["evidence_coverage"]["supporting_object_ids"] = ["E-missing"]
+            create_draft_set(ai_dir, payload, draft_set_id="DS-20260513-001")
+            before_events = read_event_log(runtime_paths(ai_dir))
+
+            with self.assertRaisesRegex(DraftPromotionError, "supporting_object_id E-missing"):
+                promote_draft_decision(ai_dir, "DS-20260513-001", "DD-001", session_id=session_id)
+
+            self.assertEqual(before_events, read_event_log(runtime_paths(ai_dir)))
+
     def test_bulk_promotion_rejects_explicit_high_risk_bulk_request(self) -> None:
         with TemporaryDirectory() as tmp:
             ai_dir, session_id = _bootstrap_with_session(Path(tmp))
@@ -125,6 +155,46 @@ class DraftPromoteTests(unittest.TestCase):
                     session_id=session_id,
                     only_bulk_promotable=True,
                 )
+
+    def test_bulk_promotion_with_session_map_preflights_and_materializes_all_candidates(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir, first_session = _bootstrap_with_session(Path(tmp))
+            second_session = create_session(str(ai_dir), context="Second bulk promotion session")["session"]["id"]
+            payload = _two_low_risk_bulk_draft_input()
+            create_draft_set(ai_dir, payload, draft_set_id="DS-20260513-001")
+
+            result = promote_draft_set(
+                ai_dir,
+                "DS-20260513-001",
+                session_map={"DD-001": first_session, "DD-002": second_session},
+                only_bulk_promotable=True,
+            )
+
+            self.assertEqual("ok", result["status"])
+            self.assertEqual(2, result["promoted_count"])
+            self.assertEqual(["promoted", "promoted"], [item["status"] for item in result["promoted"]])
+            bundle = load_runtime(runtime_paths(ai_dir))
+            objects = {obj["id"]: obj for obj in bundle["project_state"]["objects"]}
+            self.assertEqual("proposed", objects[result["promoted"][0]["decision_id"]]["status"])
+            self.assertEqual("proposed", objects[result["promoted"][1]["decision_id"]]["status"])
+            self.assertEqual([], validate_runtime(ai_dir))
+
+    def test_bulk_promotion_rejects_duplicate_session_map_before_event_write(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir, session_id = _bootstrap_with_session(Path(tmp))
+            payload = _two_low_risk_bulk_draft_input()
+            create_draft_set(ai_dir, payload, draft_set_id="DS-20260513-001")
+            before_events = read_event_log(runtime_paths(ai_dir))
+
+            with self.assertRaisesRegex(DraftBulkPromotionError, "same session"):
+                promote_draft_set(
+                    ai_dir,
+                    "DS-20260513-001",
+                    session_map={"DD-001": session_id, "DD-002": session_id},
+                    only_bulk_promotable=True,
+                )
+
+            self.assertEqual(before_events, read_event_log(runtime_paths(ai_dir)))
 
 
 def _bootstrap_with_session(tmp: Path) -> tuple[Path, str]:
@@ -166,6 +236,35 @@ def _draft_input() -> dict:
         }
     ]
     return deepcopy(payload)
+
+
+def _two_low_risk_bulk_draft_input() -> dict:
+    payload = _draft_input()
+    first = payload["draft_decisions"][0]
+    first["risk_tier"] = "low"
+    first["priority"] = "P2"
+    first["frontier"] = "later"
+    first["human_review"] = {
+        "required": False,
+        "mode": "bulk",
+        "bulk_promotable": True,
+        "reason": "Low-risk reversible draft.",
+    }
+    first["promotion_recipe"]["acceptance_mode_allowed"] = ["explicit", "ok"]
+    first["promotion_recipe"]["blocked_for_bulk_acceptance"] = False
+
+    second = deepcopy(first)
+    second["id"] = "DD-002"
+    second["question"] = "How should draft promotion be surfaced in CLI docs?"
+    second["recommendation"] = "Document promotion as a canonical proposal handoff."
+    second["rationale"] = "Users need to know promotion is not acceptance."
+    payload["draft_decisions"].append(second)
+    payload["promotion"] = {
+        "promoted_decision_ids": [],
+        "bulk_promotable_ids": ["DD-001", "DD-002"],
+        "individual_review_required_ids": [],
+    }
+    return payload
 
 
 def _promotion_log_lines(ai_dir: Path) -> list[dict]:

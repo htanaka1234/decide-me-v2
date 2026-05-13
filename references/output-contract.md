@@ -182,11 +182,13 @@ reported as a warning and does not block draft export.
 Draft promotion is separate from draft review/export. `promote-draft-decision` may write canonical
 events, but it must use only existing event types: `object_recorded`, `object_status_changed`,
 `object_linked`, and `session_question_asked`. Promotion materializes a normal proposed decision,
-active proposal, option, optional risk scaffold, and question state; it never creates an accepted
-decision. Canonical provenance lives in `decision.metadata.draft_origin`, while
+active proposal, option, required risk scaffold for `medium`/`high`/`critical` draft risk, and
+question state; it never creates an accepted decision. Canonical provenance lives in
+`decision.metadata.draft_origin`, while
 `.ai/decide-me/draft-sets/DS-.../promotion-log.jsonl` is an audit sidecar. Stale draft sets fail
-promotion unless `--allow-stale` is explicit, in which case `draft_origin.stale_promoted` is true.
-Proposal acceptance must still pass the normal explicit/plain-OK guard and safety gate flow.
+single promotion unless `--allow-stale` is explicit, in which case `draft_origin.stale_promoted`
+is true; bulk promotion always rejects stale draft sets. Proposal acceptance must still pass the
+normal explicit/plain-OK guard and safety gate flow.
 
 Traceability rows must include these matrix columns:
 

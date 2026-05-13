@@ -1814,7 +1814,13 @@ def _require_acceptance_mode(mode: str) -> None:
 
 def _require_proposal_acceptance_mode(bundle: dict[str, Any], proposal_id: str, mode: str) -> None:
     proposal = _lookup_object(bundle, proposal_id)
-    allowed = proposal.get("metadata", {}).get("acceptance_mode_allowed")
+    decision = _lookup_decision(bundle, proposal_decision_id(bundle["project_state"], proposal_id))
+    draft_origin = decision.get("draft_origin") if isinstance(decision.get("draft_origin"), dict) else {}
+    allowed = (
+        proposal.get("metadata", {}).get("acceptance_mode_allowed")
+        or decision.get("acceptance_mode_allowed")
+        or draft_origin.get("acceptance_mode_allowed")
+    )
     if allowed is None:
         return
     if not isinstance(allowed, list) or not all(isinstance(item, str) and item for item in allowed):

@@ -190,12 +190,6 @@ def main(argv: list[str] | None = None) -> int:
     promote_draft_decision_cmd.add_argument("--draft-decision-id", required=True)
     promote_draft_decision_cmd.add_argument("--session-id", required=True)
     promote_draft_decision_cmd.add_argument("--allow-stale", action="store_true")
-    promote_draft_decision_cmd.add_argument(
-        "--no-risk-scaffold",
-        dest="materialize_risk_scaffold",
-        action="store_false",
-        default=True,
-    )
 
     promote_draft_set_cmd = subparsers.add_parser(
         "promote-draft-set",
@@ -206,7 +200,6 @@ def main(argv: list[str] | None = None) -> int:
     promote_draft_set_cmd.add_argument("--session-id")
     promote_draft_set_cmd.add_argument("--session-map-json")
     promote_draft_set_cmd.add_argument("--only-bulk-promotable", action="store_true")
-    promote_draft_set_cmd.add_argument("--allow-stale", action="store_true")
 
     compact = subparsers.add_parser("compact-runtime", help="refresh the object/link projection checkpoint index")
     compact.add_argument("--ai-dir", required=True)
@@ -680,7 +673,6 @@ def main(argv: list[str] | None = None) -> int:
                     args.draft_decision_id,
                     session_id=args.session_id,
                     allow_stale=args.allow_stale,
-                    materialize_risk_scaffold=args.materialize_risk_scaffold,
                 )
             )
         elif args.command == "promote-draft-set":
@@ -694,7 +686,6 @@ def main(argv: list[str] | None = None) -> int:
                     session_id=args.session_id,
                     session_map=session_map,
                     only_bulk_promotable=args.only_bulk_promotable,
-                    allow_stale=args.allow_stale,
                 )
             )
         elif args.command == "compact-runtime":

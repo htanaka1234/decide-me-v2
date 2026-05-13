@@ -29,6 +29,26 @@ class DraftPromotionError(DraftSetError):
     pass
 
 
+class DraftDecisionNotFoundError(DraftPromotionError):
+    pass
+
+
+class DraftDecisionNotPromotableError(DraftPromotionError):
+    pass
+
+
+class DraftDecisionAlreadyPromotedError(DraftPromotionError):
+    pass
+
+
+class DraftPromotionStaleError(DraftSetHeadMismatchError, DraftPromotionError):
+    pass
+
+
+class DraftBulkPromotionError(DraftPromotionError):
+    pass
+
+
 def promote_draft_decision(
     ai_dir: str | Path,
     draft_set_id: str,
@@ -40,10 +60,12 @@ def promote_draft_decision(
     materialize_risk_scaffold: bool = True,
     promotion_mode: str = "single",
     now: str | None = None,
+    expected_project_head: str | None = None,
 ) -> dict[str, Any]:
     draft_set = load_draft_set(ai_dir, draft_set_id)
     draft = _require_draft_decision(draft_set, draft_decision_id)
     _validate_promotion_recipe(draft)
+    _require_risk_scaffold_policy(draft, materialize_risk_scaffold=materialize_risk_scaffold)
     if bulk:
         _require_bulk_promotable(draft)
         promotion_mode = "bulk"
@@ -59,7 +81,8 @@ def promote_draft_decision(
     session = _require_mutable_session(bundle, session_id)
     current_head = _current_project_head(bundle)
     generated_head = _project_head_at_generation(draft_set)
-    stale = generated_head != current_head
+    staleness_head = expected_project_head or current_head
+    stale = generated_head != staleness_head
     existing = _find_promoted_decision(bundle, draft_set_id, draft_decision_id)
     if existing is not None:
         proposal = latest_proposal_for_decision(bundle["project_state"], existing["id"])
@@ -81,14 +104,15 @@ def promote_draft_decision(
             "proposal": proposal_view(bundle["project_state"], proposal["id"]),
         }
     if stale and not allow_stale:
-        raise DraftSetHeadMismatchError(
+        raise DraftPromotionStaleError(
             "draft set is stale: "
-            f"generated at project_head {generated_head}, current project_head is {current_head}"
+            f"generated at project_head {generated_head}, current project_head is {staleness_head}"
         )
     _require_no_other_active_proposal(bundle, session, decision_id)
     _require_no_id_collision(bundle, decision_id, "decision")
     _require_no_id_collision(bundle, option_id, "option")
     _require_no_id_collision(bundle, proposal_id, "proposal")
+    _require_supporting_objects(bundle, draft, decision_id)
 
     origin = _draft_origin(
         draft_set_id,
@@ -174,13 +198,15 @@ def promote_draft_set(
     allow_stale: bool = False,
 ) -> dict[str, Any]:
     if not only_bulk_promotable:
-        raise DraftPromotionError("promote-draft-set requires --only-bulk-promotable")
+        raise DraftBulkPromotionError("promote-draft-set requires --only-bulk-promotable")
+    if allow_stale:
+        raise DraftBulkPromotionError("bulk promotion does not support allow_stale")
     draft_set = load_draft_set(ai_dir, draft_set_id)
     bundle = current_bundle(str(ai_dir))
     generated_head = _project_head_at_generation(draft_set)
     current_head = _current_project_head(bundle)
     if generated_head != current_head:
-        raise DraftSetHeadMismatchError(
+        raise DraftPromotionStaleError(
             "bulk promotion rejects stale draft sets: "
             f"generated at project_head {generated_head}, current project_head is {current_head}"
         )
@@ -193,28 +219,33 @@ def promote_draft_set(
     }
     candidates = [draft_id for draft_id in requested_ids if _is_bulk_promotable(drafts.get(draft_id, {}))]
     if not session_id and not session_map and candidates:
-        raise DraftPromotionError("promote-draft-set requires --session-id or --session-map-json")
+        raise DraftBulkPromotionError("promote-draft-set requires --session-id or --session-map-json")
     if session_id and session_map:
-        raise DraftPromotionError("promote-draft-set accepts either --session-id or --session-map-json, not both")
+        raise DraftBulkPromotionError("promote-draft-set accepts either --session-id or --session-map-json, not both")
     if session_id and len(candidates) > 1:
-        raise DraftPromotionError(
+        raise DraftBulkPromotionError(
             "bulk promotion would create multiple active proposals in one session; "
             "use --session-map-json to assign separate sessions"
         )
+    target_sessions = _bulk_target_sessions(candidates, session_id=session_id, session_map=session_map)
+    _preflight_bulk_promotions(
+        bundle,
+        draft_set,
+        candidates,
+        target_sessions=target_sessions,
+        draft_set_id=draft_set_id,
+    )
     promoted = []
     for draft_id in candidates:
-        target_session_id = session_id or (session_map or {}).get(draft_id)
-        if not target_session_id:
-            raise DraftPromotionError(f"session_map is missing draft decision {draft_id}")
         promoted.append(
             promote_draft_decision(
                 ai_dir,
                 draft_set_id,
                 draft_id,
-                session_id=target_session_id,
-                allow_stale=allow_stale,
+                session_id=target_sessions[draft_id],
                 bulk=True,
                 promotion_mode="bulk",
+                expected_project_head=current_head,
             )
         )
     return {
@@ -233,45 +264,55 @@ def _require_draft_decision(draft_set: dict[str, Any], draft_decision_id: str) -
         if isinstance(draft, dict) and draft.get("id") == draft_decision_id
     ]
     if not matches:
-        raise DraftPromotionError(
+        raise DraftDecisionNotFoundError(
             f"draft decision {draft_decision_id} not found in draft set {draft_set.get('id')}"
         )
     if len(matches) > 1:
-        raise DraftPromotionError(f"draft decision id is duplicated: {draft_decision_id}")
+        raise DraftDecisionNotPromotableError(f"draft decision id is duplicated: {draft_decision_id}")
     return matches[0]
 
 
 def _validate_promotion_recipe(draft: dict[str, Any]) -> None:
     if draft.get("status") != "recommended":
-        raise DraftPromotionError(
+        raise DraftDecisionNotPromotableError(
             f"draft decision {draft.get('id')} is not promotable: status must be recommended"
         )
     for key in ("question", "recommendation", "rationale"):
         if not isinstance(draft.get(key), str) or not draft[key].strip():
-            raise DraftPromotionError(f"draft decision {draft.get('id')} is not promotable: {key} must not be empty")
+            raise DraftDecisionNotPromotableError(
+                f"draft decision {draft.get('id')} is not promotable: {key} must not be empty"
+            )
     recipe = draft.get("promotion_recipe")
     if not isinstance(recipe, dict):
-        raise DraftPromotionError("draft decision promotion_recipe is missing")
+        raise DraftDecisionNotPromotableError("draft decision promotion_recipe is missing")
     if recipe.get("canonical_object_type") != "decision":
-        raise DraftPromotionError("promotion_recipe.canonical_object_type must be decision")
+        raise DraftDecisionNotPromotableError("promotion_recipe.canonical_object_type must be decision")
     if recipe.get("canonical_initial_status") != "unresolved":
-        raise DraftPromotionError("promotion_recipe.canonical_initial_status must be unresolved")
+        raise DraftDecisionNotPromotableError("promotion_recipe.canonical_initial_status must be unresolved")
     if recipe.get("proposal_required") is not True:
-        raise DraftPromotionError("promotion_recipe.proposal_required must be true")
+        raise DraftDecisionNotPromotableError("promotion_recipe.proposal_required must be true")
     modes = _acceptance_modes(draft)
     if not modes:
-        raise DraftPromotionError("promotion_recipe.acceptance_mode_allowed must not be empty")
+        raise DraftDecisionNotPromotableError("promotion_recipe.acceptance_mode_allowed must not be empty")
     invalid = sorted(set(modes) - ACCEPTED_VIA_VALUES)
     if invalid:
-        raise DraftPromotionError(
+        raise DraftDecisionNotPromotableError(
             "promotion_recipe.acceptance_mode_allowed contains invalid modes: "
             + ", ".join(invalid)
         )
 
 
+def _require_risk_scaffold_policy(draft: dict[str, Any], *, materialize_risk_scaffold: bool) -> None:
+    if _needs_risk_scaffold(draft) and not materialize_risk_scaffold:
+        raise DraftDecisionNotPromotableError(
+            f"draft decision {draft.get('id')} with risk_tier={draft.get('risk_tier')} "
+            "must materialize a canonical risk scaffold"
+        )
+
+
 def _require_bulk_promotable(draft: dict[str, Any]) -> None:
     if not _is_bulk_promotable(draft):
-        raise DraftPromotionError(
+        raise DraftBulkPromotionError(
             f"draft decision {draft.get('id')} is not eligible for bulk promotion"
         )
 
@@ -304,10 +345,79 @@ def _reject_explicit_forbidden_bulk_requests(draft_set: dict[str, Any]) -> None:
         if draft_id not in drafts or not _is_bulk_promotable(drafts[draft_id])
     ]
     if forbidden:
-        raise DraftPromotionError(
+        raise DraftBulkPromotionError(
             "promotion.bulk_promotable_ids contains non-bulk-promotable draft decisions: "
             + ", ".join(forbidden)
         )
+
+
+def _bulk_target_sessions(
+    candidates: list[str],
+    *,
+    session_id: str | None,
+    session_map: dict[str, str] | None,
+) -> dict[str, str]:
+    if not candidates:
+        return {}
+    targets: dict[str, str] = {}
+    if session_id:
+        targets[candidates[0]] = session_id
+        return targets
+    assert session_map is not None
+    for draft_id in candidates:
+        target_session_id = session_map.get(draft_id)
+        if not isinstance(target_session_id, str) or not target_session_id.strip():
+            raise DraftBulkPromotionError(f"session_map is missing draft decision {draft_id}")
+        targets[draft_id] = target_session_id.strip()
+    by_session: dict[str, list[str]] = {}
+    for draft_id, target_session_id in targets.items():
+        by_session.setdefault(target_session_id, []).append(draft_id)
+    duplicated = {
+        target_session_id: draft_ids
+        for target_session_id, draft_ids in by_session.items()
+        if len(draft_ids) > 1
+    }
+    if duplicated:
+        details = "; ".join(
+            f"{target_session_id}: {', '.join(draft_ids)}"
+            for target_session_id, draft_ids in sorted(duplicated.items())
+        )
+        raise DraftBulkPromotionError(
+            "session_map assigns multiple draft decisions to the same session: " + details
+        )
+    return targets
+
+
+def _preflight_bulk_promotions(
+    bundle: dict[str, Any],
+    draft_set: dict[str, Any],
+    candidates: list[str],
+    *,
+    target_sessions: dict[str, str],
+    draft_set_id: str,
+) -> None:
+    for draft_id in candidates:
+        draft = _require_draft_decision(draft_set, draft_id)
+        _validate_promotion_recipe(draft)
+        _require_bulk_promotable(draft)
+        decision_id, option_id, proposal_id, risk_id = _canonical_ids(draft_set_id, draft_id)
+        existing = _find_promoted_decision(bundle, draft_set_id, draft_id)
+        if existing is not None:
+            proposal = latest_proposal_for_decision(bundle["project_state"], existing["id"])
+            if proposal is None:
+                raise DraftBulkPromotionError(
+                    f"draft decision {draft_id} was promoted to {existing['id']} "
+                    "but has no canonical proposal"
+                )
+            continue
+        session = _require_mutable_session(bundle, target_sessions[draft_id])
+        _require_no_other_active_proposal(bundle, session, decision_id)
+        _require_no_id_collision(bundle, decision_id, "decision")
+        _require_no_id_collision(bundle, option_id, "option")
+        _require_no_id_collision(bundle, proposal_id, "proposal")
+        if _needs_risk_scaffold(draft):
+            _require_no_id_collision(bundle, risk_id, "risk")
+        _require_supporting_objects(bundle, draft, decision_id)
 
 
 def _bulk_skips(draft_set: dict[str, Any]) -> list[dict[str, Any]]:
@@ -505,6 +615,17 @@ def _supporting_object_ids(draft: dict[str, Any]) -> list[str]:
     return stable_unique(str(item).strip() for item in coverage.get("supporting_object_ids", []) if str(item).strip())
 
 
+def _require_supporting_objects(bundle: dict[str, Any], draft: dict[str, Any], decision_id: str) -> None:
+    for supporting_id in _supporting_object_ids(draft):
+        if _find_object(bundle, supporting_id) is None:
+            raise DraftDecisionNotPromotableError(
+                f"supporting_object_id {supporting_id} referenced by {draft.get('id')} does not exist"
+            )
+        link_id = f"L-{supporting_id}-supports-{decision_id}"
+        if _find_link(bundle, link_id) is not None:
+            raise DraftDecisionNotPromotableError(f"supporting link id collision: {link_id}")
+
+
 def _find_promoted_decision(
     bundle: dict[str, Any],
     draft_set_id: str,
@@ -532,6 +653,30 @@ def _require_no_id_collision(bundle: dict[str, Any], object_id: str, expected_ty
             raise DraftPromotionError(
                 f"canonical {expected_type} id collision while promoting draft: {object_id}"
             )
+
+
+def _find_object(bundle: dict[str, Any], object_id: str) -> dict[str, Any] | None:
+    for obj in bundle["project_state"].get("objects", []):
+        if obj.get("id") == object_id:
+            return obj
+    return None
+
+
+def _find_link(bundle: dict[str, Any], link_id: str) -> dict[str, Any] | None:
+    for link in bundle["project_state"].get("links", []):
+        if link.get("id") == link_id:
+            return link
+    return None
+
+
+def _canonical_ids(draft_set_id: str, draft_decision_id: str) -> tuple[str, str, str, str]:
+    suffix = _stable_suffix(draft_set_id, draft_decision_id)
+    return (
+        f"D-draft-{suffix}",
+        f"O-option-draft-{suffix}",
+        f"P-draft-{suffix}",
+        f"R-draft-{suffix}",
+    )
 
 
 def _promotion_log_path(ai_dir: str | Path, draft_set_id: str) -> Path:

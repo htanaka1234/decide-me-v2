@@ -13,6 +13,10 @@ from tests.unit.test_draft_set_schema import minimal_valid_draft_set
 
 
 class DraftPromotionCliTests(unittest.TestCase):
+    def test_promote_draft_decision_cli_does_not_expose_no_risk_scaffold(self) -> None:
+        result = run_cli("promote-draft-decision", "--help")
+        self.assertNotIn("--no-risk-scaffold", result.stdout)
+
     def test_promote_draft_decision_cli_materializes_canonical_proposal(self) -> None:
         with TemporaryDirectory() as tmp:
             ai_dir = _bootstrap(Path(tmp))
