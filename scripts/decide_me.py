@@ -14,6 +14,7 @@ sys.path.insert(0, REPO_ROOT_STR)
 from decide_me.conflicts import detect_merge_conflicts, resolve_merge_conflict
 from decide_me.domains import DomainPack, domain_pack_digest, load_domain_registry
 from decide_me.draft_export import export_draft_set, review_draft_set
+from decide_me.draft_promote import promote_draft_decision, promote_draft_set
 from decide_me.draft_sets import create_draft_set, list_draft_sets, show_draft_set
 from decide_me.exports import (
     export_adr,
@@ -179,6 +180,26 @@ def main(argv: list[str] | None = None) -> int:
     export_draft_set_cmd.add_argument("--format", choices=("markdown",), default="markdown")
     export_draft_set_cmd.add_argument("--now")
     export_draft_set_cmd.add_argument("--force", action="store_true")
+
+    promote_draft_decision_cmd = subparsers.add_parser(
+        "promote-draft-decision",
+        help="materialize one draft decision as a canonical decision plus active proposal",
+    )
+    promote_draft_decision_cmd.add_argument("--ai-dir", required=True)
+    promote_draft_decision_cmd.add_argument("--draft-set-id", required=True)
+    promote_draft_decision_cmd.add_argument("--draft-decision-id", required=True)
+    promote_draft_decision_cmd.add_argument("--session-id", required=True)
+    promote_draft_decision_cmd.add_argument("--allow-stale", action="store_true")
+
+    promote_draft_set_cmd = subparsers.add_parser(
+        "promote-draft-set",
+        help="bulk materialize eligible low-risk draft decisions without accepting them",
+    )
+    promote_draft_set_cmd.add_argument("--ai-dir", required=True)
+    promote_draft_set_cmd.add_argument("--draft-set-id", required=True)
+    promote_draft_set_cmd.add_argument("--session-id")
+    promote_draft_set_cmd.add_argument("--session-map-json")
+    promote_draft_set_cmd.add_argument("--only-bulk-promotable", action="store_true")
 
     compact = subparsers.add_parser("compact-runtime", help="refresh the object/link projection checkpoint index")
     compact.add_argument("--ai-dir", required=True)
@@ -642,6 +663,29 @@ def main(argv: list[str] | None = None) -> int:
                     format=args.format,
                     now=args.now,
                     force=args.force,
+                )
+            )
+        elif args.command == "promote-draft-decision":
+            _print_json(
+                promote_draft_decision(
+                    args.ai_dir,
+                    args.draft_set_id,
+                    args.draft_decision_id,
+                    session_id=args.session_id,
+                    allow_stale=args.allow_stale,
+                )
+            )
+        elif args.command == "promote-draft-set":
+            session_map = _read_json_arg(args.session_map_json) if args.session_map_json else None
+            if session_map is not None and not isinstance(session_map, dict):
+                raise ValueError("session-map-json must contain an object")
+            _print_json(
+                promote_draft_set(
+                    args.ai_dir,
+                    args.draft_set_id,
+                    session_id=args.session_id,
+                    session_map=session_map,
+                    only_bulk_promotable=args.only_bulk_promotable,
                 )
             )
         elif args.command == "compact-runtime":

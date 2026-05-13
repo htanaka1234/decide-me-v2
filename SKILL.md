@@ -166,6 +166,12 @@ Runtime invariants:
   the four Markdown draft exports under `exports/`. These outputs must state
   `DRAFT / NOT ACCEPTED`, must not create accepted decisions or proposals, and must not update
   events, `project-state.json`, `taxonomy-state.json`, or `sessions/*.json`.
+- `promote-draft-decision` is the only draft-set command that materializes canonical runtime
+  objects. It must create a normal `decision` plus active `proposal` and `session_question_asked`
+  using existing event types, preserve `decision.metadata.draft_origin`, create a canonical risk
+  scaffold for `medium`/`high`/`critical` draft risk, append the sidecar `promotion-log.jsonl`, and
+  leave acceptance to the normal proposal acceptance and safety gate flow. It must not create an
+  accepted decision directly.
 - Source evidence uses normal `evidence` objects with `metadata.source = "source-store"` and
   object links such as `supports`, `challenges`, `verifies`, or `constrains`. The evidence object
   represents the source unit; per-decision quote and interpretation note live on link metadata and

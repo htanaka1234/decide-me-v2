@@ -655,7 +655,7 @@ def _merge_actions(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def _action_sort_key(item: dict[str, Any]) -> tuple[int, int, int, str]:
-    priority_rank = {"P0": 0, "P1": 1, "P2": 2}
+    priority_rank = {"P0": 0, "P1": 1, "P2": 2, "P3": 3}
     return (
         0 if item.get("evidence_backed") else 1,
         0 if item.get("implementation_ready") else 1,

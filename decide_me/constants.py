@@ -137,6 +137,11 @@ DISCOVERABLE_DECISION_FIELDS = {
     "bundle_id",
     "agent_relevant",
     "requirement_id",
+    "draft_origin",
+    "acceptance_mode_allowed",
+    "layer",
+    "draft_risk_tier",
+    "draft_evidence_coverage",
 }
 DISCOVERABLE_DECISION_STATUSES = {"unresolved", "blocked"}
 FORBIDDEN_DISCOVERED_DECISION_FIELDS = {

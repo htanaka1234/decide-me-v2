@@ -33,6 +33,8 @@ Acceptance rules:
 - `Accept P-0007` always wins over plain `OK`.
 - Plain `OK` is valid only for the immediate next reply in the same session and only when the
   proposal's `based_on_project_head` still matches the current project head.
+- A proposal may further restrict acceptance with `metadata.acceptance_mode_allowed`; promoted
+  draft proposals commonly set this to `["explicit"]`, which rejects plain `OK`.
 - Plain `OK` can accept only when the target decision's safety gate is `passed`.
 - Explicit `Accept P-...` can satisfy only `explicit_acceptance_required` inline. Higher approval
   thresholds require `approve-safety-gate` first.

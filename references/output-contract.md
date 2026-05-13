@@ -151,6 +151,8 @@ Derived export commands:
 - `export-document --type decision-brief|action-plan|risk-register|review-memo|research-plan|comparison-table --format markdown|json|csv`
 - `review-draft-set --draft-set-id DS-...`
 - `export-draft-set --draft-set-id DS-... --format markdown`
+- `promote-draft-decision --draft-set-id DS-... --draft-decision-id DD-... --session-id S-...`
+- `promote-draft-set --draft-set-id DS-... --session-id S-... --only-bulk-promotable`
 
 When `--session-id` is omitted, derived exports use all closed sessions sorted by session ID.
 Repeated `--session-id` narrows the closed-session set. Unknown or non-closed sessions must fail.
@@ -171,12 +173,22 @@ Every Markdown draft export must include `DRAFT / NOT ACCEPTED`, and managed gen
 must preserve the trailing `## Human Notes` section on regeneration. The review queue is a
 deterministic promotion-input queue, not promotion itself: high or critical risk items, challenged
 or missing evidence, conflicts, explicit individual-review flags, and blocked draft fields must not
-enter the bulk candidate list. PR-2 must treat `promotion.promoted_decision_ids` as sidecar
-metadata only; until PR-3 can verify promotion against canonical runtime records, it must not let a
-draft bypass blocked or individual-review classification. `review-draft-set` and
+enter the bulk candidate list. `promotion.promoted_decision_ids` remains sidecar metadata only and
+must not let a draft bypass blocked or individual-review classification. `review-draft-set` and
 `export-draft-set` must not emit events, create accepted decisions, create canonical proposals, or
 update `project-state.json`, `taxonomy-state.json`, or `sessions/*.json`. A stale project head is
 reported as a warning and does not block draft export.
+
+Draft promotion is separate from draft review/export. `promote-draft-decision` may write canonical
+events, but it must use only existing event types: `object_recorded`, `object_status_changed`,
+`object_linked`, and `session_question_asked`. Promotion materializes a normal proposed decision,
+active proposal, option, required risk scaffold for `medium`/`high`/`critical` draft risk, and
+question state; it never creates an accepted decision. Canonical provenance lives in
+`decision.metadata.draft_origin`, while
+`.ai/decide-me/draft-sets/DS-.../promotion-log.jsonl` is an audit sidecar. Stale draft sets fail
+single promotion unless `--allow-stale` is explicit, in which case `draft_origin.stale_promoted`
+is true; bulk promotion always rejects stale draft sets. Proposal acceptance must still pass the
+normal explicit/plain-OK guard and safety gate flow.
 
 Traceability rows must include these matrix columns:
 

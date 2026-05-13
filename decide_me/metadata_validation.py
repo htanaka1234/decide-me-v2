@@ -34,7 +34,7 @@ ALL_DECISION_STATUSES = OPEN_DECISION_STATUSES | {
     "resolved-by-evidence",
     "invalidated",
 }
-PRIORITIES = {"P0", "P1", "P2"}
+PRIORITIES = {"P0", "P1", "P2", "P3"}
 FRONTIERS = {"now", "later", "discovered-later", "deferred"}
 KINDS = {"choice", "constraint", "risk", "dependency"}
 RESOLVABLE_BY = {"human", "codebase", "docs", "tests", "external"}
