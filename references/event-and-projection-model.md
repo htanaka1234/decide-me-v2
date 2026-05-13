@@ -71,6 +71,16 @@ Projection rules:
 - `project_state.state.project_head` is a SHA-256 chain hash over canonical event content and the
   previous project head.
 
+## Draft Set Sidecars
+
+Draft set files under `.ai/decide-me/draft-sets/` are not canonical event-log state. They are
+generated review artifacts used to prepare human decisions. Creating, showing, listing, reviewing,
+and exporting draft sets must not emit events or mutate projections.
+
+Promotion is the only draft operation that writes canonical events, and it must use existing event
+types. The sidecar `.ai/decide-me/draft-sets/DS-.../promotion-log.jsonl` is an audit file, not an
+accepted event type and not an input to projection rebuild.
+
 Legacy runtime layout:
 
 - `.ai/decide-me/event-log.jsonl` is rejected by this runtime. Automatic migration is not

@@ -28,15 +28,20 @@ Startup checklist:
    If plan generation reports semantic conflicts across related sessions, inspect
    `show-session-graph` and use `detect-session-conflicts --include-related` before asking the
    user which session's scoped answer should win.
-4. Create a session when the user starts a new decision thread; resume an existing one only when
+4. When the user starts with `/goal`, run the goal-autopilot-drafting flow instead of the normal
+   one-question interview. Treat `/goal` as Skill orchestration: generate a structured draft-set
+   input, persist it with `create-draft-set`, export it with `export-draft-set`, and present the
+   review queue. Do not create accepted decisions, do not call promotion commands, and do not
+   document or invoke a non-existent `autopilot-draft` CLI command.
+5. Create a session when the user starts a new decision thread; resume an existing one only when
    the user explicitly asks or the runtime already identifies the current session.
-5. Before asking a question, scan the codebase, docs, tests, existing sessions, and prior
+6. Before asking a question, scan the codebase, docs, tests, existing sessions, and prior
    object/link close summaries for evidence that already resolves the decision.
-6. Ask exactly one question at a time, and always include `Decision:`, `Proposal:`,
-   `Recommendation:`, `Why:`, and `If not:`.
-7. Treat plain `OK` as acceptance only when the same session still has a valid active proposal.
+7. Ask exactly one question at a time, and always include `Decision:`, `Proposal:`,
+   `Question:`, `Recommendation:`, `Why:`, and `If not:`.
+8. Treat plain `OK` as acceptance only when the same session still has a valid active proposal.
    If the proposal is stale or ambiguous, require `Accept P-...`.
-8. When closing a session, generate a schema-shaped close summary whose runtime payload is
+9. When closing a session, generate a schema-shaped close summary whose runtime payload is
    `close_summary.object_ids` and `close_summary.link_ids`; do not ask a new question in the same
    response.
 
@@ -56,6 +61,8 @@ Read only the reference file needed for the turn:
 - [references/plan-generation.md](references/plan-generation.md)
 - [references/output-contract.md](references/output-contract.md)
 - [references/document-compiler.md](references/document-compiler.md)
+- [references/draft-decision-sets.md](references/draft-decision-sets.md)
+- [references/goal-autopilot-drafting.md](references/goal-autopilot-drafting.md)
 - [references/domain-packs.md](references/domain-packs.md)
 - [references/evidence-source-store.md](references/evidence-source-store.md)
 - [references/examples.md](references/examples.md)
@@ -90,8 +97,14 @@ User-facing commands:
 - `Advance session S-...`
 - `Handle reply for session S-...`
 - `Export impact report for object O-...`
+- `/goal`
+- `Create draft decision set from goal`
+- `List draft sets`
+- `Show draft set DS-...`
 - `Review draft set DS-...`
 - `Export draft set DS-...`
+- `Promote draft decision DD-... from draft set DS-...`
+- `Promote low-risk bulk draft candidates from draft set DS-...`
 - `Export GitHub issue templates`
 - `Export GitHub issue drafts from sessions S-..., S-...`
 - `Export agent instructions for AGENTS.md, Cursor, Claude, or Codex`
@@ -160,6 +173,9 @@ Runtime invariants:
   GitHub issue draft, agent instruction, arc42 architecture, traceability matrix, and verification gap files are derived
   exports, not runtime state. Software-oriented exports are allowed, but they must be derived from
   the domain-neutral object/link core.
+- `/goal` is a Skill-only orchestration flow. It may create a sidecar draft set and readable
+  exports, but it must not emit canonical events. Canonical events are written only by explicit
+  promotion commands.
 - `.ai/decide-me/draft-sets/DS-.../draft-set.json` is a draft sidecar, not canonical event-log
   state. `review-draft-set` may write only the derived
   `.ai/decide-me/draft-sets/DS-.../review-queue.json`; `export-draft-set` may write that JSON and
