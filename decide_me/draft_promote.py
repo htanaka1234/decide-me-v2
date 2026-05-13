@@ -401,6 +401,7 @@ def _preflight_bulk_promotions(
         _validate_promotion_recipe(draft)
         _require_bulk_promotable(draft)
         decision_id, option_id, proposal_id, risk_id = _canonical_ids(draft_set_id, draft_id)
+        session = _require_bulk_session(bundle, draft_id, target_sessions[draft_id])
         existing = _find_promoted_decision(bundle, draft_set_id, draft_id)
         if existing is not None:
             proposal = latest_proposal_for_decision(bundle["project_state"], existing["id"])
@@ -410,7 +411,6 @@ def _preflight_bulk_promotions(
                     "but has no canonical proposal"
                 )
             continue
-        session = _require_mutable_session(bundle, target_sessions[draft_id])
         _require_no_other_active_proposal(bundle, session, decision_id)
         _require_no_id_collision(bundle, decision_id, "decision")
         _require_no_id_collision(bundle, option_id, "option")
@@ -418,6 +418,15 @@ def _preflight_bulk_promotions(
         if _needs_risk_scaffold(draft):
             _require_no_id_collision(bundle, risk_id, "risk")
         _require_supporting_objects(bundle, draft, decision_id)
+
+
+def _require_bulk_session(bundle: dict[str, Any], draft_id: str, session_id: str) -> dict[str, Any]:
+    try:
+        return _require_mutable_session(bundle, session_id)
+    except ValueError as exc:
+        raise DraftBulkPromotionError(
+            f"session_map target for draft decision {draft_id} is invalid: {exc}"
+        ) from exc
 
 
 def _bulk_skips(draft_set: dict[str, Any]) -> list[dict[str, Any]]:

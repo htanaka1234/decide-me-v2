@@ -9,6 +9,7 @@ from tempfile import TemporaryDirectory
 from decide_me.draft_promote import DraftBulkPromotionError, DraftPromotionError, promote_draft_decision, promote_draft_set
 from decide_me.draft_sets import DraftSetHeadMismatchError, create_draft_set
 from decide_me.lifecycle import create_session
+from decide_me.protocol import materialize_decision_with_proposal
 from decide_me.store import bootstrap_runtime, load_runtime, read_event_log, runtime_paths, validate_runtime
 from tests.unit.test_draft_set_schema import minimal_valid_draft_set
 
@@ -196,6 +197,25 @@ class DraftPromoteTests(unittest.TestCase):
 
             self.assertEqual(before_events, read_event_log(runtime_paths(ai_dir)))
 
+    def test_bulk_promotion_preflights_already_promoted_candidate_session_before_writes(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir, first_session = _bootstrap_with_session(Path(tmp))
+            second_session = create_session(str(ai_dir), context="Already promoted candidate session")["session"]["id"]
+            _materialize_existing_promoted_draft(ai_dir, second_session, draft_decision_id="DD-002")
+            payload = _two_low_risk_bulk_draft_input()
+            create_draft_set(ai_dir, payload, draft_set_id="DS-20260513-001")
+            before_events = read_event_log(runtime_paths(ai_dir))
+
+            with self.assertRaisesRegex(DraftBulkPromotionError, "DD-002.*unknown session"):
+                promote_draft_set(
+                    ai_dir,
+                    "DS-20260513-001",
+                    session_map={"DD-001": first_session, "DD-002": "S-missing"},
+                    only_bulk_promotable=True,
+                )
+
+            self.assertEqual(before_events, read_event_log(runtime_paths(ai_dir)))
+
 
 def _bootstrap_with_session(tmp: Path) -> tuple[Path, str]:
     ai_dir = tmp / ".ai" / "decide-me"
@@ -265,6 +285,45 @@ def _two_low_risk_bulk_draft_input() -> dict:
         "individual_review_required_ids": [],
     }
     return payload
+
+
+def _materialize_existing_promoted_draft(ai_dir: Path, session_id: str, *, draft_decision_id: str) -> None:
+    materialize_decision_with_proposal(
+        str(ai_dir),
+        session_id,
+        decision={
+            "id": f"D-existing-{draft_decision_id}",
+            "title": f"Decide: existing promoted {draft_decision_id}",
+            "question": f"Was {draft_decision_id} already promoted?",
+            "context": "Seed canonical provenance for a mixed bulk rerun.",
+            "kind": "choice",
+            "priority": "P2",
+            "frontier": "later",
+            "resolvable_by": "human",
+            "reversibility": "reversible",
+            "draft_origin": {
+                "draft_set_id": "DS-20260513-001",
+                "draft_decision_id": draft_decision_id,
+                "acceptance_mode_allowed": ["explicit", "ok"],
+            },
+            "acceptance_mode_allowed": ["explicit", "ok"],
+            "status": "unresolved",
+        },
+        proposal={
+            "id": f"P-existing-{draft_decision_id}",
+            "option_id": f"O-option-existing-{draft_decision_id}",
+            "question_id": f"Q-existing-{draft_decision_id}",
+            "question": f"Was {draft_decision_id} already promoted?",
+            "recommendation": "Treat the existing canonical proposal as the promoted result.",
+            "why": "The decision carries matching draft_origin provenance.",
+            "if_not": "The bulk rerun should still validate all session_map entries before writing.",
+            "metadata": {
+                "author": "assistant",
+                "source": "test",
+                "acceptance_mode_allowed": ["explicit", "ok"],
+            },
+        },
+    )
 
 
 def _promotion_log_lines(ai_dir: Path) -> list[dict]:
