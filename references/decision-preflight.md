@@ -59,6 +59,27 @@ If the user omits `mode`, treat it as `autopilot-draft`. If the user writes `acc
 `execute`, or similar terms, keep the flow in draft mode and do not create accepted decisions or
 external side effects.
 
+## Compatibility Policy
+
+Raw `/goal` is retired as a public decide-me command. Codex native `/goal` remains the outer objective
+mechanism that may wrap Decision Preflight, but the inner decide-me flow is named Decision Preflight.
+
+If raw `/goal` text reaches the Skill surface, do not treat it as a silent legacy alias. If the
+request clearly asks for draft decision expansion, interpret it as Decision Preflight and mention the
+preferred names: `Decision Preflight` or `decide-me:preflight`. Otherwise, treat raw `/goal` as
+Codex-owned syntax rather than a decide-me command.
+
+Interpret raw `/goal` as Decision Preflight only when the surrounding text clearly asks to preflight
+an objective, expand a goal into draft decisions, or create a DRAFT / NOT ACCEPTED DraftDecisionSet.
+In that migration case, include this note once before the normal draft-set result:
+
+```text
+Interpreting this as Decision Preflight. In Codex CLI, raw /goal belongs to Codex; decide-me uses Decision Preflight / decide-me:preflight.
+```
+
+Do not include the note in normal Decision Preflight responses that already use `Decision Preflight`,
+`Create decision preflight from goal`, or `decide-me:preflight`.
+
 ## Input Normalization
 
 Normalize free-form input into these fields:

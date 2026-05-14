@@ -31,11 +31,17 @@ Startup checklist:
 4. When the user asks for `Decision Preflight`, `Create decision preflight from goal`, or
    `decide-me:preflight`, run the decision-preflight flow instead of the normal one-question
    interview. Do not advertise raw `/goal` as a decide-me Skill command. In Codex CLI, `/goal` is
-   the outer Codex objective mechanism and may wrap this flow. Generate a structured draft-set input,
-   pass it to `autopilot-draft --seed-draft-json` when deterministic gap iteration is useful, or use
-   `create-draft-set`, `project-draft-set`, and `export-draft-set` explicitly when needed. Present
-   the draft projection plus review queue. Do not create accepted decisions and do not call promotion
-   commands from Decision Preflight.
+   the outer Codex objective mechanism and may wrap this flow. If raw `/goal` text reaches the Skill
+   surface, do not treat it as a silent legacy alias. If the request clearly asks for draft decision
+   expansion, interpret it as Decision Preflight and mention the preferred names: `Decision Preflight`
+   or `decide-me:preflight`. Otherwise, treat raw `/goal` as Codex-owned syntax rather than a decide-me
+   command. When interpreting ambiguous raw `/goal` input as Decision Preflight, include this migration
+   note once in the response: `Interpreting this as Decision Preflight. In Codex CLI, raw /goal
+   belongs to Codex; decide-me uses Decision Preflight / decide-me:preflight.`
+   Generate a structured draft-set input, pass it to `autopilot-draft --seed-draft-json` when
+   deterministic gap iteration is useful, or use `create-draft-set`, `project-draft-set`, and
+   `export-draft-set` explicitly when needed. Present the draft projection plus review queue. Do not
+   create accepted decisions and do not call promotion commands from Decision Preflight.
 5. Create a session when the user starts a new decision thread; resume an existing one only when
    the user explicitly asks or the runtime already identifies the current session.
 6. Before asking a question, scan the codebase, docs, tests, existing sessions, and prior

@@ -8,6 +8,10 @@ from tests.helpers.cli import run_cli
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+MIGRATION_NOTE = (
+    "Interpreting this as Decision Preflight. In Codex CLI, raw /goal belongs to Codex; "
+    "decide-me uses Decision Preflight / decide-me:preflight."
+)
 
 
 def _section(text: str, start: str, end: str) -> str:
@@ -31,6 +35,12 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
         self.assertNotIn("`/goal`", user_facing_commands_section)
         self.assertNotIn("When the user starts with `/goal`", startup_checklist_section)
         self.assertIn("When the user asks for `Decision Preflight`", startup_checklist_section)
+        self.assertIn("do not treat it as a silent legacy alias", startup_checklist_section)
+        self.assertIn("clearly asks for draft decision", startup_checklist_section)
+        self.assertIn("expansion", startup_checklist_section)
+        self.assertIn("Otherwise, treat raw `/goal` as", startup_checklist_section)
+        self.assertIn("Codex-owned syntax", startup_checklist_section)
+        self.assertIn("Interpreting this as Decision Preflight", startup_checklist_section)
         self.assertIn("Decision Preflight", skill)
         self.assertIn("decide-me:preflight", skill)
         self.assertIn("Create decision preflight from goal", user_facing_commands_section)
@@ -52,6 +62,13 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
         self.assertIn("outer durable objective mechanism", ref)
         self.assertIn("Decision Preflight:", ref)
         self.assertIn("inner decide-me draft decision set flow", ref)
+        self.assertIn("Raw `/goal` is retired as a public decide-me command.", ref)
+        self.assertIn("do not treat it as a silent legacy alias", ref)
+        self.assertIn("clearly asks for draft decision expansion", ref)
+        self.assertIn("Otherwise, treat raw `/goal` as", ref)
+        self.assertIn("Codex-owned syntax", ref)
+        self.assertIn(MIGRATION_NOTE, ref)
+        self.assertIn("Do not include the note in normal Decision Preflight responses", ref)
         self.assertNotIn("# Goal Autopilot Drafting", ref)
         self.assertNotIn("goal-autopilot-drafting", ref)
         self.assertIn("create-draft-set", ref)
@@ -88,6 +105,10 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
         self.assertIn("Decision Preflight is the decide-me Skill flow", output_contract)
         self.assertNotIn("goal-autopilot-drafting", output_contract)
         self.assertIn("Raw `/goal` is a Codex CLI namespace", output_contract)
+        self.assertIn("do not treat\nit as a silent legacy alias", output_contract)
+        self.assertIn("clearly asks for draft decision expansion", output_contract)
+        self.assertIn("Otherwise, treat raw `/goal` as Codex-owned syntax", output_contract)
+        self.assertIn(MIGRATION_NOTE, output_contract)
         self.assertNotIn("`/goal`", draft_sidecar_commands)
         self.assertNotIn("/goal", draft_sidecar_commands)
         self.assertIn("Projection convergence must fail closed", output_contract)
@@ -130,7 +151,7 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
     def test_readme_documents_goal_quick_start(self) -> None:
         readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
 
-        self.assertIn("### Goal-based draft decision sets", readme)
+        self.assertIn("### Decision Preflight Draft Decision Sets", readme)
         self.assertIn("Create decision preflight from goal:", readme)
         self.assertIn(
             "Use decide-me to create a DRAFT / NOT ACCEPTED decision set for",
@@ -156,7 +177,7 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
         self.assertIn("show-draft-set", readme)
         self.assertIn("list-draft-sets", readme)
 
-    def test_distribution_contains_pr4_goal_references(self) -> None:
+    def test_distribution_contains_decision_preflight_references(self) -> None:
         with BuiltArtifact() as artifact:
             names = artifact.names()
 
