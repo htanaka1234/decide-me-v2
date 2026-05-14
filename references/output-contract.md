@@ -145,7 +145,7 @@ runtime projections or event logs. `rebuild-evidence-index` updates only the der
 
 Draft sidecar commands:
 
-- Codex native `/goal` may wrap decide-me goal-autopilot-drafting as an outer durable objective
+- Codex native `/goal` may wrap decide-me Decision Preflight as an outer durable objective
 - `autopilot-draft --seed-draft-json <path>|--goal <text>`
 - `create-draft-set --draft-json <path>`
 - `show-draft-set --draft-set-id DS-...`
@@ -173,7 +173,7 @@ must fail.
 
 Derived exports must fail before writing output when unresolved planner conflicts exist.
 
-PR-5 goal-autopilot-drafting is the decide-me Skill flow that may run inside a Codex native `/goal`.
+Decision Preflight is the decide-me Skill flow that may run inside a Codex native `/goal`.
 Raw `/goal` is a Codex CLI namespace when goals are enabled, so decide-me must not require that raw
 slash command to reach the Skill unchanged. The flow may use the deterministic `autopilot-draft` CLI
 after generating a seed DraftDecisionSet. It must report:

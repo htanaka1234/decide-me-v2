@@ -1,13 +1,20 @@
-# Goal Autopilot Drafting
+# Decision Preflight
 
-Codex native `/goal` is the outer durable objective mechanism in Codex CLI when goals are enabled. It
-sets what the long-running Codex task should achieve, preserve, verify, and stop on. On that surface,
-raw `/goal` input may be handled by Codex before any Skill sees it.
+Decision Preflight is the decide-me Skill flow for expanding a user objective into a DRAFT / NOT
+ACCEPTED DraftDecisionSet sidecar.
 
-decide-me goal-autopilot-drafting is the inner Skill flow to run inside that Codex goal. It expands a
-user objective into a structured DraftDecisionSet sidecar, can pass that seed to the deterministic
-`autopilot-draft` CLI for gap iteration, exports readable review files, and returns a review summary.
-It does not create accepted decisions.
+It may run inside a Codex native `/goal`, but it is not itself named `/goal`.
+
+Codex native `/goal`:
+
+- outer durable objective mechanism
+
+Decision Preflight:
+
+- inner decide-me draft decision set flow
+
+It can pass a normalized seed to the deterministic `autopilot-draft` CLI for gap iteration, export
+readable review files, and return a review summary. It does not create accepted decisions.
 
 ## Purpose
 
@@ -27,7 +34,7 @@ initial issue generation remains the Skill orchestration layer's responsibility.
 `autopilot-draft` CLI is a deterministic gap iteration and persistence tool: it may add conservative
 coverage, evidence-collection, and verification draft objects, but it does not create accepted decisions.
 
-The goal-autopilot flow must not call promotion commands. It creates a draft set and readable exports
+The Decision Preflight flow must not call promotion commands. It creates a draft set and readable exports
 only. Promotion is a later explicit user handoff.
 
 ## Codex Goal Boundary
@@ -39,7 +46,7 @@ CLI goal run, the recommended outer command shape is:
 Example:
 
 ```text
-/goal Use decide-me to create a DRAFT / NOT ACCEPTED decision set for Add goal-based draft decision sets to decide-me.
+/goal Run decide-me Decision Preflight for Add goal-based draft decision sets to decide-me.
 Done when:
 - validate-state --cached passes
 - autopilot-draft or create/project/export completes
@@ -160,7 +167,7 @@ python3 <skill-root>/scripts/decide_me.py autopilot-draft \
 
 Goal-only mode creates a conservative skeleton. It does not infer recommendations beyond generic
 purpose, constraint, evidence, verification, and review boundaries. `review-draft-set` is optional for
-goal-autopilot drafting because `export-draft-set` also writes `review-queue.json`.
+Decision Preflight because `export-draft-set` also writes `review-queue.json`.
 
 ## Draft Generation Heuristics
 
@@ -205,7 +212,7 @@ top-level sidecar fields.
 {
   "goal": {
     "id": "G-20260513-001",
-    "title": "Add /goal-based draft decision sets",
+    "title": "Add goal-based draft decision sets",
     "desired_outcome": "Expose a safe preflight flow that humans can review before promotion.",
     "constraints": [
       "Do not mutate canonical runtime during drafting",
@@ -221,8 +228,8 @@ top-level sidecar fields.
       "priority": "P0",
       "frontier": "now",
       "kind": "choice",
-      "question": "Should /goal be documented as Skill orchestration rather than a new CLI?",
-      "recommendation": "Document /goal as Skill orchestration over create-draft-set and export-draft-set.",
+      "question": "Should Decision Preflight be documented as Skill orchestration rather than a new CLI?",
+      "recommendation": "Document Decision Preflight as Skill orchestration over create-draft-set and export-draft-set.",
       "rationale": "The runtime already has draft sidecars, readable export, and promotion; this PR fixes the safe operating contract.",
       "alternatives": [
         {
@@ -261,7 +268,7 @@ top-level sidecar fields.
     "status": "budget_exhausted",
     "iterations": 1,
     "stop_reason": "mvp_single_pass",
-    "note": "Single-pass /goal draft. It does not prove convergence."
+    "note": "Single-pass Decision Preflight draft. It does not prove convergence."
   }
 }
 ```
@@ -363,7 +370,7 @@ Safety Gate approval remains mandatory when the normal gate requires it.
 | `validate-state --cached` fails | Run `validate-state --full`, report the failing runtime state, and stop drafting |
 | runtime is missing | Guide bootstrap, or propose bootstrap when the user provided enough initial context |
 | draft JSON validation fails | Fix the generated JSON and retry once; do not expose a long raw schema error as the main user response |
-| draft set ID collision | Let the CLI auto-number IDs; avoid explicit IDs in normal `/goal` use |
+| draft set ID collision | Let the CLI auto-number IDs; avoid explicit IDs in normal Decision Preflight use |
 | unmarked Markdown exists at export path | Do not pass `--force` automatically; explain that existing human files are protected |
 | stale project head | Report as an export warning; reject promotion unless the user explicitly allows stale single promotion |
 | high or critical bulk request | Refuse bulk promotion and ask for individual review |

@@ -65,7 +65,7 @@ Read only the reference file needed for the turn:
 - [references/output-contract.md](references/output-contract.md)
 - [references/document-compiler.md](references/document-compiler.md)
 - [references/draft-decision-sets.md](references/draft-decision-sets.md)
-- [references/goal-autopilot-drafting.md](references/goal-autopilot-drafting.md)
+- [references/decision-preflight.md](references/decision-preflight.md)
 - [references/domain-packs.md](references/domain-packs.md)
 - [references/evidence-source-store.md](references/evidence-source-store.md)
 - [references/examples.md](references/examples.md)
