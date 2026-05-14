@@ -158,6 +158,7 @@ not a decide-me command:
 Done when:
 - validate-state --cached passes
 - draft sidecars and Markdown exports are generated
+- review queue summary is reported
 - canonical event count is unchanged
 ```
 

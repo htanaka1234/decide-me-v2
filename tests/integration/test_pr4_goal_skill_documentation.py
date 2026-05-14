@@ -83,6 +83,15 @@ class PR4GoalSkillDocumentationTests(unittest.TestCase):
         self.assertIn("User-facing Decision Preflight requests:", output_contract)
         self.assertIn("Create decision preflight from goal:", output_contract)
         self.assertIn("/goal Run decide-me Decision Preflight for <objective>.", output_contract)
+        self.assertIn(
+            "/goal Run decide-me Decision Preflight for <objective>.\n"
+            "Done when:\n"
+            "- validate-state --cached passes\n"
+            "- draft sidecars and Markdown exports are generated\n"
+            "- review queue summary is reported\n"
+            "- canonical event count is unchanged",
+            output_contract,
+        )
         self.assertNotIn(
             "/goal Use decide-me to create a DRAFT / NOT ACCEPTED decision set for",
             output_contract,
@@ -110,6 +119,15 @@ class PR4GoalSkillDocumentationTests(unittest.TestCase):
         )
         self.assertIn("Codex native `/goal` can wrap Decision Preflight", readme)
         self.assertIn("/goal Run decide-me Decision Preflight for", readme)
+        self.assertIn(
+            "/goal Run decide-me Decision Preflight for Add goal-based draft decision sets to decide-me.\n"
+            "Done when:\n"
+            "- validate-state --cached passes\n"
+            "- draft sidecars and Markdown exports are generated\n"
+            "- review queue summary is reported\n"
+            "- canonical event count is unchanged",
+            readme,
+        )
         self.assertNotIn(
             "/goal Use decide-me to create a DRAFT / NOT ACCEPTED decision set for",
             readme,
