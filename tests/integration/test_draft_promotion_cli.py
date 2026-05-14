@@ -112,6 +112,135 @@ class DraftPromotionCliTests(unittest.TestCase):
             self.assertEqual(1, result["promoted_count"])
             self.assertEqual("promoted", result["promoted"][0]["status"])
 
+    def test_reconcile_draft_promotions_reports_sidecar_drift_without_writing(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = _bootstrap(Path(tmp))
+            session_id = _create_session(ai_dir)
+            draft_json = _write_draft_json(Path(tmp), _draft_input())
+            run_json_cli(
+                "create-draft-set",
+                "--ai-dir",
+                str(ai_dir),
+                "--draft-json",
+                str(draft_json),
+                "--draft-set-id",
+                "DS-20260513-001",
+            )
+            run_json_cli(
+                "promote-draft-decision",
+                "--ai-dir",
+                str(ai_dir),
+                "--draft-set-id",
+                "DS-20260513-001",
+                "--draft-decision-id",
+                "DD-001",
+                "--session-id",
+                session_id,
+            )
+            draft_set_path = ai_dir / "draft-sets" / "DS-20260513-001" / "draft-set.json"
+            _set_promoted_decision_ids(draft_set_path, [])
+            before_sidecar = draft_set_path.read_bytes()
+            before_events = read_event_log(runtime_paths(ai_dir))
+
+            result = run_json_cli(
+                "reconcile-draft-promotions",
+                "--ai-dir",
+                str(ai_dir),
+                "--draft-set-id",
+                "DS-20260513-001",
+            )
+
+            self.assertEqual("ok", result["status"])
+            self.assertEqual(["DD-001"], result["canonical_promoted_decision_ids"])
+            self.assertEqual([], result["sidecar_promoted_decision_ids"])
+            self.assertEqual(["DD-001"], result["missing_in_sidecar"])
+            self.assertEqual([], result["stale_in_sidecar"])
+            self.assertFalse(result["repaired"])
+            self.assertEqual(before_sidecar, draft_set_path.read_bytes())
+            self.assertEqual(before_events, read_event_log(runtime_paths(ai_dir)))
+
+    def test_reconcile_draft_promotions_repair_rebuilds_sidecar_from_canonical_origin(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = _bootstrap(Path(tmp))
+            session_id = _create_session(ai_dir)
+            draft_json = _write_draft_json(Path(tmp), _draft_input())
+            run_json_cli(
+                "create-draft-set",
+                "--ai-dir",
+                str(ai_dir),
+                "--draft-json",
+                str(draft_json),
+                "--draft-set-id",
+                "DS-20260513-001",
+            )
+            run_json_cli(
+                "promote-draft-decision",
+                "--ai-dir",
+                str(ai_dir),
+                "--draft-set-id",
+                "DS-20260513-001",
+                "--draft-decision-id",
+                "DD-001",
+                "--session-id",
+                session_id,
+            )
+            draft_set_path = ai_dir / "draft-sets" / "DS-20260513-001" / "draft-set.json"
+            promotion_log_path = ai_dir / "draft-sets" / "DS-20260513-001" / "promotion-log.jsonl"
+            _set_promoted_decision_ids(draft_set_path, [])
+            promotion_log_path.write_text("not-json\n", encoding="utf-8")
+            before_events = read_event_log(runtime_paths(ai_dir))
+
+            result = run_json_cli(
+                "reconcile-draft-promotions",
+                "--ai-dir",
+                str(ai_dir),
+                "--draft-set-id",
+                "DS-20260513-001",
+                "--repair",
+            )
+
+            self.assertTrue(result["repaired"])
+            repaired_draft_set = json.loads(draft_set_path.read_text(encoding="utf-8"))
+            self.assertEqual(["DD-001"], repaired_draft_set["promotion"]["promoted_decision_ids"])
+            log_lines = [json.loads(line) for line in promotion_log_path.read_text(encoding="utf-8").splitlines()]
+            self.assertEqual(1, len(log_lines))
+            self.assertEqual("draft_decision_promoted", log_lines[0]["entry_type"])
+            self.assertEqual("DD-001", log_lines[0]["draft_decision_id"])
+            self.assertTrue(log_lines[0]["reconstructed"])
+            self.assertEqual(before_events, read_event_log(runtime_paths(ai_dir)))
+
+    def test_reconcile_draft_promotions_reports_stale_sidecar_ids(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = _bootstrap(Path(tmp))
+            draft_json = _write_draft_json(Path(tmp), _draft_input())
+            run_json_cli(
+                "create-draft-set",
+                "--ai-dir",
+                str(ai_dir),
+                "--draft-json",
+                str(draft_json),
+                "--draft-set-id",
+                "DS-20260513-001",
+            )
+            draft_set_path = ai_dir / "draft-sets" / "DS-20260513-001" / "draft-set.json"
+            _set_promoted_decision_ids(draft_set_path, ["DD-001"])
+            before_events = read_event_log(runtime_paths(ai_dir))
+
+            result = run_json_cli(
+                "reconcile-draft-promotions",
+                "--ai-dir",
+                str(ai_dir),
+                "--draft-set-id",
+                "DS-20260513-001",
+            )
+
+            self.assertEqual([], result["canonical_promoted_decision_ids"])
+            self.assertEqual(["DD-001"], result["sidecar_promoted_decision_ids"])
+            self.assertEqual([], result["missing_in_sidecar"])
+            self.assertEqual(["DD-001"], result["stale_in_sidecar"])
+            self.assertFalse(result["repaired"])
+            self.assertEqual(before_events, read_event_log(runtime_paths(ai_dir)))
+
 
 def _bootstrap(tmp: Path) -> Path:
     ai_dir = tmp / ".ai" / "decide-me"
@@ -138,6 +267,12 @@ def _write_draft_json(tmp: Path, payload: dict) -> Path:
     path = tmp / "draft-set.input.json"
     path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
     return path
+
+
+def _set_promoted_decision_ids(draft_set_path: Path, promoted_decision_ids: list[str]) -> None:
+    draft_set = json.loads(draft_set_path.read_text(encoding="utf-8"))
+    draft_set.setdefault("promotion", {})["promoted_decision_ids"] = promoted_decision_ids
+    draft_set_path.write_text(json.dumps(draft_set, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def _draft_input() -> dict:

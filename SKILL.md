@@ -176,9 +176,11 @@ Runtime invariants:
   GitHub issue draft, agent instruction, arc42 architecture, traceability matrix, and verification gap files are derived
   exports, not runtime state. Software-oriented exports are allowed, but they must be derived from
   the domain-neutral object/link core.
-- `/goal` is a Skill-only orchestration flow. It may create a sidecar draft set, run deterministic
-  `autopilot-draft` gap iteration, and write readable exports, but it must not emit canonical events.
-  Canonical events are written only by explicit promotion commands.
+- Codex native `/goal` is the outer durable objective mechanism when available. The decide-me
+  goal-autopilot-drafting flow runs inside that goal or when the user otherwise asks for a draft
+  decision set. It may create a sidecar draft set, run deterministic `autopilot-draft` gap iteration,
+  and write readable exports, but it must not emit canonical events. Canonical events are written only
+  by explicit promotion commands.
 - `.ai/decide-me/draft-sets/DS-.../draft-set.json` is a draft sidecar, not canonical event-log
   state. `project-draft-set` may write only `draft-projection.json`; `review-draft-set` may write
   only the derived `.ai/decide-me/draft-sets/DS-.../review-queue.json`; `export-draft-set` may write
@@ -191,6 +193,9 @@ Runtime invariants:
   scaffold for `medium`/`high`/`critical` draft risk, append the sidecar `promotion-log.jsonl`, and
   leave acceptance to the normal proposal acceptance and safety gate flow. It must not create an
   accepted decision directly.
+- `reconcile-draft-promotions` is sidecar repair only. It may compare or repair
+  `promotion.promoted_decision_ids` and `promotion-log.jsonl` from canonical
+  `decision.metadata.draft_origin`, but it must not write canonical events.
 - Source evidence uses normal `evidence` objects with `metadata.source = "source-store"` and
   object links such as `supports`, `challenges`, `verifies`, or `constrains`. The evidence object
   represents the source unit; per-decision quote and interpretation note live on link metadata and

@@ -116,7 +116,13 @@ review, dangling references, and conflicts with accepted decisions.
 
 Because `project-draft-set` is a standalone diagnostic command, it may return
 `stop_reason=stopped` when the projection has non-blocking diagnostics but no autopilot iteration was
-requested. `autopilot-draft` narrows stop reasons to its deterministic iteration outcomes.
+requested. `autopilot-draft` narrows stop reasons to its deterministic iteration outcomes. User-facing
+Codex `/goal` reports should not present standalone `stopped` as completion; normalize it to a review
+handoff such as `user_review_required` unless an autopilot run explicitly reports `converged`.
+
+Projection convergence is fail-closed: when the current projection contains any blocking gap, the
+projection reports the current blocking classification and `status=blocked` even if the saved draft-set
+convergence says `converged`.
 
 `autopilot-draft` can create a draft set from a Skill-generated seed JSON or a conservative goal-only
 skeleton, run iterative gap detection, persist `draft-projection.json`, and optionally export Markdown:
@@ -196,6 +202,19 @@ Draft-derived canonical objects must preserve:
 
 The canonical event log remains the source of truth after promotion. The sidecar provenance is for
 traceability, not for rebuilding canonical state.
+
+If canonical promotion succeeds but sidecar promotion metadata is missing or stale, use
+`reconcile-draft-promotions` to compare canonical `decision.metadata.draft_origin` against the sidecar:
+
+```bash
+python3 <skill-root>/scripts/decide_me.py reconcile-draft-promotions \
+  --ai-dir <repo-root>/.ai/decide-me \
+  --draft-set-id DS-YYYYMMDD-NNN
+```
+
+The command is report-only by default. Add `--repair` only when sidecar reconciliation is desired; it
+rewrites `promotion.promoted_decision_ids` and `promotion-log.jsonl` from canonical provenance without
+writing canonical events.
 
 ## Safety Constraints
 
