@@ -101,19 +101,26 @@ state, and avoids treating stale proposals as silently accepted.
 
 ### Goal-based draft decision sets
 
-Use Codex native `/goal` as the outer durable objective when the user wants a decision space expanded
-before individual decisions are accepted. Inside that goal, the decide-me goal-autopilot flow
-normalizes the objective, generates a structured DraftDecisionSet seed, can pass it through
+Use Decision Preflight when the user wants a decision space expanded before individual decisions are
+accepted. The decide-me Decision Preflight flow normalizes the objective, generates a structured
+DraftDecisionSet seed, can pass it through
 `autopilot-draft` for deterministic gap iteration, stores sidecar artifacts, and exports readable
 `DRAFT / NOT ACCEPTED` Markdown files. This does not create accepted decisions. Promotion is a separate
 explicit handoff to a normal proposal flow.
 
 ```text
-/goal Use decide-me to create a DRAFT / NOT ACCEPTED decision set for Add goal-based draft decision sets to decide-me.
+Create decision preflight from goal:
+Use decide-me to create a DRAFT / NOT ACCEPTED decision set for Add goal-based draft decision sets to decide-me.
+```
+
+Codex native `/goal` can wrap Decision Preflight as the outer durable objective. In that case, `/goal`
+belongs to Codex, not decide-me:
+
+```text
+/goal Run decide-me Decision Preflight for Add goal-based draft decision sets to decide-me.
 Done when:
 - validate-state --cached passes
 - draft sidecars and Markdown exports are generated
-- review queue summary is reported
 - canonical event count is unchanged
 ```
 

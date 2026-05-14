@@ -80,6 +80,14 @@ class PR4GoalSkillDocumentationTests(unittest.TestCase):
         self.assertIn("reconcile-draft-promotions", output_contract)
         self.assertIn("Other derived export commands:", output_contract)
         self.assertIn("create-draft-set", output_contract)
+        self.assertIn("User-facing Decision Preflight requests:", output_contract)
+        self.assertIn("Create decision preflight from goal:", output_contract)
+        self.assertIn("/goal Run decide-me Decision Preflight for <objective>.", output_contract)
+        self.assertNotIn(
+            "/goal Use decide-me to create a DRAFT / NOT ACCEPTED decision set for",
+            output_contract,
+        )
+        self.assertNotIn("- Codex native `/goal`", output_contract)
         self.assertIn("Draft set files under `.ai/decide-me/draft-sets/` are not canonical", event_model)
         self.assertIn("draft projection", event_model)
         self.assertIn("promotion-log.jsonl", event_model)
@@ -95,7 +103,17 @@ class PR4GoalSkillDocumentationTests(unittest.TestCase):
         readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
 
         self.assertIn("### Goal-based draft decision sets", readme)
-        self.assertIn("`/goal`", readme)
+        self.assertIn("Create decision preflight from goal:", readme)
+        self.assertIn(
+            "Use decide-me to create a DRAFT / NOT ACCEPTED decision set for",
+            readme,
+        )
+        self.assertIn("Codex native `/goal` can wrap Decision Preflight", readme)
+        self.assertIn("/goal Run decide-me Decision Preflight for", readme)
+        self.assertNotIn(
+            "/goal Use decide-me to create a DRAFT / NOT ACCEPTED decision set for",
+            readme,
+        )
         self.assertIn("DRAFT / NOT ACCEPTED", readme)
         self.assertIn("create-draft-set", readme)
         self.assertIn("show-draft-set", readme)

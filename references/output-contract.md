@@ -143,9 +143,26 @@ By default it searches only current canonical source snapshots. Replaced snapsho
 `show-source-impact`, `list-sources`, `show-source`, and `show-source-unit` must not update
 runtime projections or event logs. `rebuild-evidence-index` updates only the derived SQLite index.
 
+User-facing Decision Preflight requests:
+
+```text
+Create decision preflight from goal:
+Use decide-me to create a DRAFT / NOT ACCEPTED decision set for <objective>.
+```
+
+Codex native `/goal` may wrap decide-me Decision Preflight as an outer durable objective, but it is
+not a decide-me command:
+
+```text
+/goal Run decide-me Decision Preflight for <objective>.
+Done when:
+- validate-state --cached passes
+- draft sidecars and Markdown exports are generated
+- canonical event count is unchanged
+```
+
 Draft sidecar commands:
 
-- Codex native `/goal` may wrap decide-me Decision Preflight as an outer durable objective
 - `autopilot-draft --seed-draft-json <path>|--goal <text>`
 - `create-draft-set --draft-json <path>`
 - `show-draft-set --draft-set-id DS-...`
