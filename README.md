@@ -99,7 +99,7 @@ For a new thread, the Skill creates a session and binds discovered objects to
 that session. For a continuing thread, it resumes the existing session, validates
 state, and avoids treating stale proposals as silently accepted.
 
-### Goal-based draft decision sets
+### Decision Preflight Draft Decision Sets
 
 Use Decision Preflight when the user wants a decision space expanded before individual decisions are
 accepted. The decide-me Decision Preflight flow normalizes the objective, generates a structured
