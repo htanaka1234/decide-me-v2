@@ -10,18 +10,27 @@ from tests.helpers.cli import run_cli
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-class PR4GoalSkillDocumentationTests(unittest.TestCase):
+def _section(text: str, start: str, end: str) -> str:
+    return text.split(start, 1)[1].split(end, 1)[0]
+
+
+class DecisionPreflightDocumentationTests(unittest.TestCase):
     def test_skill_lists_decision_preflight_without_public_goal_command(self) -> None:
         skill = (REPO_ROOT / "SKILL.md").read_text(encoding="utf-8")
-        user_facing_commands_section = skill.split("User-facing commands:", 1)[1].split(
-            "Runtime invariants:", 1
-        )[0]
+        startup_checklist_section = _section(
+            skill,
+            "Startup checklist:",
+            "Read only the reference file needed for the turn:",
+        )
+        user_facing_commands_section = _section(skill, "User-facing commands:", "Runtime invariants:")
 
         self.assertIn("references/decision-preflight.md", skill)
         self.assertNotIn("references/goal-autopilot-drafting.md", skill)
         self.assertIn("references/draft-decision-sets.md", skill)
         self.assertNotIn("- `/goal`", user_facing_commands_section)
-        self.assertNotIn("When the user starts with `/goal`", skill)
+        self.assertNotIn("`/goal`", user_facing_commands_section)
+        self.assertNotIn("When the user starts with `/goal`", startup_checklist_section)
+        self.assertIn("When the user asks for `Decision Preflight`", startup_checklist_section)
         self.assertIn("Decision Preflight", skill)
         self.assertIn("decide-me:preflight", skill)
         self.assertIn("Create decision preflight from goal", user_facing_commands_section)
@@ -35,7 +44,10 @@ class PR4GoalSkillDocumentationTests(unittest.TestCase):
         ref = (REPO_ROOT / "references" / "decision-preflight.md").read_text(encoding="utf-8")
 
         self.assertIn("# Decision Preflight", ref)
-        self.assertIn("It may run inside a Codex native `/goal`, but it is not itself named `/goal`.", ref)
+        self.assertIn(
+            "It may run inside a Codex native `/goal`, but it is not itself named `/goal`.",
+            ref,
+        )
         self.assertIn("Codex native `/goal`:", ref)
         self.assertIn("outer durable objective mechanism", ref)
         self.assertIn("Decision Preflight:", ref)
@@ -66,11 +78,18 @@ class PR4GoalSkillDocumentationTests(unittest.TestCase):
         output_contract = (REPO_ROOT / "references" / "output-contract.md").read_text(encoding="utf-8")
         event_model = (REPO_ROOT / "references" / "event-and-projection-model.md").read_text(encoding="utf-8")
         document_compiler = (REPO_ROOT / "references" / "document-compiler.md").read_text(encoding="utf-8")
+        draft_sidecar_commands = _section(
+            output_contract,
+            "Draft sidecar commands:",
+            "Draft promotion commands:",
+        )
 
         self.assertIn("Codex native `/goal` may wrap decide-me Decision Preflight", output_contract)
         self.assertIn("Decision Preflight is the decide-me Skill flow", output_contract)
         self.assertNotIn("goal-autopilot-drafting", output_contract)
         self.assertIn("Raw `/goal` is a Codex CLI namespace", output_contract)
+        self.assertNotIn("`/goal`", draft_sidecar_commands)
+        self.assertNotIn("/goal", draft_sidecar_commands)
         self.assertIn("Projection convergence must fail closed", output_contract)
         self.assertIn("canonical event count unchanged", output_contract)
         self.assertIn("autopilot-draft", output_contract)
