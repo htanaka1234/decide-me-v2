@@ -9,7 +9,7 @@ from typing import Any
 from decide_me.constants import ACCEPTED_VIA_VALUES
 from decide_me.draft_sets import DraftSetError, DraftSetHeadMismatchError, draft_set_dir, load_draft_set
 from decide_me.events import utc_now
-from decide_me.object_views import latest_proposal_for_decision, proposal_view
+from decide_me.object_views import latest_proposal_for_decision, proposal_view, proposals_for_decision
 from decide_me.protocol import (
     current_bundle,
     materialize_decision_with_proposal,
@@ -277,7 +277,13 @@ def reconcile_draft_promotions(
         draft_set = load_draft_set(paths.ai_dir, draft_set_id)
         bundle = load_runtime(paths)
         events_by_id = {event["event_id"]: event for event in read_event_log(paths) if event.get("event_id")}
-        canonical_promotions = _canonical_promotions(bundle, draft_set_id, events_by_id=events_by_id)
+        warnings: list[dict[str, Any]] = []
+        canonical_promotions = _canonical_promotions(
+            bundle,
+            draft_set_id,
+            events_by_id=events_by_id,
+            warnings=warnings,
+        )
         canonical_ids = stable_unique(item["draft_decision_id"] for item in canonical_promotions)
         sidecar_ids = _sidecar_promoted_decision_ids(draft_set)
         canonical_id_set = set(canonical_ids)
@@ -324,6 +330,7 @@ def reconcile_draft_promotions(
         "missing_in_promotion_log": missing_in_promotion_log,
         "stale_in_promotion_log": stale_in_promotion_log,
         "promotion_log_parse_errors": log_errors,
+        "warnings": warnings,
         "promotion_log_path": str(log_path),
         "draft_set_path": str(draft_set_path),
         "repaired": repair,
@@ -800,6 +807,7 @@ def _canonical_promotions(
     draft_set_id: str,
     *,
     events_by_id: dict[str, dict[str, Any]],
+    warnings: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     project_state = bundle["project_state"]
     promotions: list[dict[str, Any]] = []
@@ -812,7 +820,13 @@ def _canonical_promotions(
         draft_decision_id = str(origin.get("draft_decision_id") or "").strip()
         if not draft_decision_id:
             continue
-        proposal = latest_proposal_for_decision(project_state, obj["id"])
+        proposal = _promotion_proposal_for_draft(
+            project_state,
+            decision_id=obj["id"],
+            draft_set_id=draft_set_id,
+            draft_decision_id=draft_decision_id,
+            warnings=warnings,
+        )
         proposal_metadata = _dict_field(proposal, "metadata") if proposal else {}
         proposal_id = proposal.get("id") if proposal else None
         option_id = _proposal_option_id(project_state, proposal_id)
@@ -844,6 +858,66 @@ def _canonical_promotions(
             str(item.get("decision_id") or ""),
         ),
     )
+
+
+def _promotion_proposal_for_draft(
+    project_state: dict[str, Any],
+    *,
+    decision_id: str,
+    draft_set_id: str,
+    draft_decision_id: str,
+    warnings: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    matches = []
+    for proposal in proposals_for_decision(project_state, decision_id):
+        metadata = _dict_field(proposal, "metadata")
+        origin = _dict_field(metadata, "draft_origin")
+        if origin.get("draft_set_id") != draft_set_id:
+            continue
+        if origin.get("draft_decision_id") != draft_decision_id:
+            continue
+        matches.append(proposal)
+    if not matches:
+        warnings.append(
+            {
+                "type": "proposal_missing_for_promoted_draft",
+                "draft_set_id": draft_set_id,
+                "draft_decision_id": draft_decision_id,
+                "decision_id": decision_id,
+                "message": "No canonical proposal has matching draft_origin metadata for this promoted draft.",
+            }
+        )
+        return None
+    source_matches = [
+        proposal
+        for proposal in matches
+        if _dict_field(proposal, "metadata").get("source") == "draft-promotion"
+    ]
+    if len(source_matches) == 1:
+        return source_matches[0]
+    if len(matches) == 1:
+        warnings.append(
+            {
+                "type": "promotion_proposal_source_mismatch",
+                "draft_set_id": draft_set_id,
+                "draft_decision_id": draft_decision_id,
+                "decision_id": decision_id,
+                "proposal_id": matches[0].get("id"),
+                "message": "Matched proposal by draft_origin, but proposal.metadata.source is not draft-promotion.",
+            }
+        )
+        return matches[0]
+    warnings.append(
+        {
+            "type": "ambiguous_promotion_proposal",
+            "draft_set_id": draft_set_id,
+            "draft_decision_id": draft_decision_id,
+            "decision_id": decision_id,
+            "proposal_ids": [proposal.get("id") for proposal in matches],
+            "message": "Multiple canonical proposals have matching draft_origin metadata for this promoted draft.",
+        }
+    )
+    return None
 
 
 def _reconciled_promotion_record(promotion: dict[str, Any], *, reconciled_at: str) -> dict[str, Any]:

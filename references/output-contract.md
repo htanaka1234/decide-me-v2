@@ -258,7 +258,10 @@ With `--repair`, it rewrites only the sidecar `draft-set.json` promotion ids and
 from canonical provenance. It must not emit events or mutate canonical projections.
 Its required output fields are `status`, `draft_set_id`, `canonical_promoted_decision_ids`,
 `sidecar_promoted_decision_ids`, `missing_in_sidecar`, `stale_in_sidecar`, `promotion_log_path`,
-`draft_set_path`, and `repaired`.
+`draft_set_path`, and `repaired`. It may also report `warnings`, including
+`proposal_missing_for_promoted_draft`, `promotion_proposal_source_mismatch`, or
+`ambiguous_promotion_proposal`, when canonical draft-origin provenance exists but the original
+promotion proposal cannot be identified cleanly.
 
 Traceability rows must include these matrix columns:
 

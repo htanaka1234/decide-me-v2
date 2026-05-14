@@ -7,6 +7,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from decide_me.events import EVENT_TYPES
+from decide_me.protocol import issue_proposal, reject_proposal
 from decide_me.store import bootstrap_runtime, read_event_log, runtime_paths, validate_runtime
 from tests.helpers.cli import run_cli, run_json_cli
 from tests.unit.test_draft_set_schema import minimal_valid_draft_set
@@ -208,6 +209,61 @@ class DraftPromotionCliTests(unittest.TestCase):
             self.assertEqual("DD-001", log_lines[0]["draft_decision_id"])
             self.assertTrue(log_lines[0]["reconstructed"])
             self.assertEqual(before_events, read_event_log(runtime_paths(ai_dir)))
+
+    def test_reconcile_draft_promotions_repair_uses_matching_draft_origin_proposal(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = _bootstrap(Path(tmp))
+            session_id = _create_session(ai_dir)
+            draft_json = _write_draft_json(Path(tmp), _draft_input())
+            run_json_cli(
+                "create-draft-set",
+                "--ai-dir",
+                str(ai_dir),
+                "--draft-json",
+                str(draft_json),
+                "--draft-set-id",
+                "DS-20260513-001",
+            )
+            promoted = run_json_cli(
+                "promote-draft-decision",
+                "--ai-dir",
+                str(ai_dir),
+                "--draft-set-id",
+                "DS-20260513-001",
+                "--draft-decision-id",
+                "DD-001",
+                "--session-id",
+                session_id,
+            )
+            reject_proposal(str(ai_dir), session_id, proposal_id=promoted["proposal_id"], reason="Needs another option.")
+            followup = issue_proposal(
+                str(ai_dir),
+                session_id,
+                decision_id=promoted["decision_id"],
+                question="Should the promoted decision use a later proposal?",
+                recommendation="Use a later non-draft proposal.",
+                why="This simulates normal proposal iteration after draft promotion.",
+                if_not="The reconcile repair must still identify the original draft-promotion proposal.",
+            )
+            draft_set_path = ai_dir / "draft-sets" / "DS-20260513-001" / "draft-set.json"
+            promotion_log_path = ai_dir / "draft-sets" / "DS-20260513-001" / "promotion-log.jsonl"
+            _set_promoted_decision_ids(draft_set_path, [])
+            promotion_log_path.write_text("", encoding="utf-8")
+
+            result = run_json_cli(
+                "reconcile-draft-promotions",
+                "--ai-dir",
+                str(ai_dir),
+                "--draft-set-id",
+                "DS-20260513-001",
+                "--repair",
+            )
+
+            log_lines = [json.loads(line) for line in promotion_log_path.read_text(encoding="utf-8").splitlines()]
+            self.assertTrue(result["repaired"])
+            self.assertEqual([], result["warnings"])
+            self.assertEqual(promoted["proposal_id"], log_lines[0]["proposal_id"])
+            self.assertNotEqual(followup["proposal_id"], log_lines[0]["proposal_id"])
 
     def test_reconcile_draft_promotions_reports_stale_sidecar_ids(self) -> None:
         with TemporaryDirectory() as tmp:
