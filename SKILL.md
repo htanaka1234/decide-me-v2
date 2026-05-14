@@ -28,12 +28,14 @@ Startup checklist:
    If plan generation reports semantic conflicts across related sessions, inspect
    `show-session-graph` and use `detect-session-conflicts --include-related` before asking the
    user which session's scoped answer should win.
-4. When the user starts with `/goal`, run the goal-autopilot-drafting flow instead of the normal
-   one-question interview. Treat `/goal` as Skill orchestration: generate a structured draft-set
-   input, pass it to `autopilot-draft --seed-draft-json` when deterministic gap iteration is useful,
-   or use `create-draft-set`, `project-draft-set`, and `export-draft-set` explicitly when needed.
-   Present the draft projection plus review queue. Do not create accepted decisions and do not call
-   promotion commands from `/goal`.
+4. When the user asks for `Decision Preflight`, `Create decision preflight from goal`, or
+   `decide-me:preflight`, run the decision-preflight flow instead of the normal one-question
+   interview. Do not advertise raw `/goal` as a decide-me Skill command. In Codex CLI, `/goal` is
+   the outer Codex objective mechanism and may wrap this flow. Generate a structured draft-set input,
+   pass it to `autopilot-draft --seed-draft-json` when deterministic gap iteration is useful, or use
+   `create-draft-set`, `project-draft-set`, and `export-draft-set` explicitly when needed. Present
+   the draft projection plus review queue. Do not create accepted decisions and do not call promotion
+   commands from Decision Preflight.
 5. Create a session when the user starts a new decision thread; resume an existing one only when
    the user explicitly asks or the runtime already identifies the current session.
 6. Before asking a question, scan the codebase, docs, tests, existing sessions, and prior
@@ -98,7 +100,10 @@ User-facing commands:
 - `Advance session S-...`
 - `Handle reply for session S-...`
 - `Export impact report for object O-...`
-- `/goal`
+- `Create decision preflight from goal`
+- `Run decision preflight`
+- `Show decision preflight DS-...`
+- `Export decision preflight DS-...`
 - `Create draft decision set from goal`
 - `List draft sets`
 - `Show draft set DS-...`
@@ -177,10 +182,10 @@ Runtime invariants:
   exports, not runtime state. Software-oriented exports are allowed, but they must be derived from
   the domain-neutral object/link core.
 - Codex native `/goal` is the outer durable objective mechanism when available. The decide-me
-  goal-autopilot-drafting flow runs inside that goal or when the user otherwise asks for a draft
-  decision set. It may create a sidecar draft set, run deterministic `autopilot-draft` gap iteration,
-  and write readable exports, but it must not emit canonical events. Canonical events are written only
-  by explicit promotion commands.
+  Decision Preflight flow runs inside that goal or when the user otherwise asks for a draft decision
+  set. It may create a sidecar draft set, run deterministic `autopilot-draft` gap iteration, and
+  write readable exports, but it must not emit canonical events. Canonical events are written only by
+  explicit promotion commands.
 - `.ai/decide-me/draft-sets/DS-.../draft-set.json` is a draft sidecar, not canonical event-log
   state. `project-draft-set` may write only `draft-projection.json`; `review-draft-set` may write
   only the derived `.ai/decide-me/draft-sets/DS-.../review-queue.json`; `export-draft-set` may write
