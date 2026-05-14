@@ -17,7 +17,8 @@ class PR4GoalSkillDocumentationTests(unittest.TestCase):
             "Runtime invariants:", 1
         )[0]
 
-        self.assertIn("references/goal-autopilot-drafting.md", skill)
+        self.assertIn("references/decision-preflight.md", skill)
+        self.assertNotIn("references/goal-autopilot-drafting.md", skill)
         self.assertIn("references/draft-decision-sets.md", skill)
         self.assertNotIn("- `/goal`", user_facing_commands_section)
         self.assertNotIn("When the user starts with `/goal`", skill)
@@ -30,17 +31,23 @@ class PR4GoalSkillDocumentationTests(unittest.TestCase):
         self.assertIn("create-draft-set", skill)
         self.assertIn("export-draft-set", skill)
 
-    def test_goal_reference_documents_pr5_autopilot_cli_boundary(self) -> None:
-        ref = (REPO_ROOT / "references" / "goal-autopilot-drafting.md").read_text(encoding="utf-8")
+    def test_decision_preflight_reference_documents_autopilot_cli_boundary(self) -> None:
+        ref = (REPO_ROOT / "references" / "decision-preflight.md").read_text(encoding="utf-8")
 
+        self.assertIn("# Decision Preflight", ref)
+        self.assertIn("It may run inside a Codex native `/goal`, but it is not itself named `/goal`.", ref)
+        self.assertIn("Codex native `/goal`:", ref)
+        self.assertIn("outer durable objective mechanism", ref)
+        self.assertIn("Decision Preflight:", ref)
+        self.assertIn("inner decide-me draft decision set flow", ref)
+        self.assertNotIn("# Goal Autopilot Drafting", ref)
+        self.assertNotIn("goal-autopilot-drafting", ref)
         self.assertIn("create-draft-set", ref)
         self.assertIn("export-draft-set", ref)
         self.assertIn("autopilot-draft", ref)
         self.assertIn("deterministic gap iteration", ref)
         self.assertIn("DRAFT / NOT ACCEPTED", ref)
         self.assertIn("does not create accepted decisions", ref)
-        self.assertIn("Codex native `/goal`", ref)
-        self.assertIn("raw `/goal` input may be handled by Codex", ref)
         self.assertIn("canonical event count is unchanged", ref)
 
     def test_draft_set_reference_documents_sidecar_boundary(self) -> None:
@@ -60,7 +67,9 @@ class PR4GoalSkillDocumentationTests(unittest.TestCase):
         event_model = (REPO_ROOT / "references" / "event-and-projection-model.md").read_text(encoding="utf-8")
         document_compiler = (REPO_ROOT / "references" / "document-compiler.md").read_text(encoding="utf-8")
 
-        self.assertIn("Codex native `/goal` may wrap decide-me goal-autopilot-drafting", output_contract)
+        self.assertIn("Codex native `/goal` may wrap decide-me Decision Preflight", output_contract)
+        self.assertIn("Decision Preflight is the decide-me Skill flow", output_contract)
+        self.assertNotIn("goal-autopilot-drafting", output_contract)
         self.assertIn("Raw `/goal` is a Codex CLI namespace", output_contract)
         self.assertIn("Projection convergence must fail closed", output_contract)
         self.assertIn("canonical event count unchanged", output_contract)
@@ -96,7 +105,8 @@ class PR4GoalSkillDocumentationTests(unittest.TestCase):
         with BuiltArtifact() as artifact:
             names = artifact.names()
 
-        self.assertIn("decide-me/references/goal-autopilot-drafting.md", names)
+        self.assertIn("decide-me/references/decision-preflight.md", names)
+        self.assertNotIn("decide-me/references/goal-autopilot-drafting.md", names)
         self.assertIn("decide-me/references/draft-decision-sets.md", names)
 
 

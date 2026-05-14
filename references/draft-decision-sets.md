@@ -219,7 +219,7 @@ writing canonical events.
 ## Safety Constraints
 
 - Draft sets must display `DRAFT / NOT ACCEPTED` in readable exports and user summaries.
-- `/goal` and draft export flows must not create accepted decisions.
+- Decision Preflight and draft export flows must not create accepted decisions.
 - Promotion must not bypass active proposal checks, explicit acceptance requirements, or Safety Gate.
 - P0/P1, medium/high/critical risk, missing evidence, challenged evidence, conflicts, and individual
   review items require individual review.
