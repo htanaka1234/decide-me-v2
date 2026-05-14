@@ -193,8 +193,17 @@ Derived exports must fail before writing output when unresolved planner conflict
 
 Decision Preflight is the decide-me Skill flow that may run inside a Codex native `/goal`.
 Raw `/goal` is a Codex CLI namespace when goals are enabled, so decide-me must not require that raw
-slash command to reach the Skill unchanged. The flow may use the deterministic `autopilot-draft` CLI
-after generating a seed DraftDecisionSet. It must report:
+slash command to reach the Skill unchanged. If raw `/goal` reaches decide-me anyway, do not silently
+run it as a legacy alias. Treat it as Decision Preflight only when the input clearly asks to preflight
+or expand an objective into a DRAFT / NOT ACCEPTED DraftDecisionSet, and include this migration note
+once:
+
+```text
+Interpreting this as Decision Preflight. In Codex CLI, raw /goal belongs to Codex; decide-me uses Decision Preflight / decide-me:preflight.
+```
+
+The flow may use the deterministic `autopilot-draft` CLI after generating a seed DraftDecisionSet. It
+must report:
 
 - `draft_set_id`
 - counts for draft decisions, assumptions, risks, actions, and verifications
