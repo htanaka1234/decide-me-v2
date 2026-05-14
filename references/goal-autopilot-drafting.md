@@ -1,14 +1,19 @@
 # Goal Autopilot Drafting
 
-`/goal` is a Skill command, not a CLI subcommand. It expands a user goal into a structured
-DraftDecisionSet sidecar, can pass that seed to the deterministic `autopilot-draft` CLI for gap
-iteration, exports readable review files, and returns a review summary. It does not create accepted
-decisions.
+Codex native `/goal` is the outer durable objective mechanism in Codex CLI when goals are enabled. It
+sets what the long-running Codex task should achieve, preserve, verify, and stop on. On that surface,
+raw `/goal` input may be handled by Codex before any Skill sees it.
+
+decide-me goal-autopilot-drafting is the inner Skill flow to run inside that Codex goal. It expands a
+user objective into a structured DraftDecisionSet sidecar, can pass that seed to the deterministic
+`autopilot-draft` CLI for gap iteration, exports readable review files, and returns a review summary.
+It does not create accepted decisions.
 
 ## Purpose
 
-Use `/goal` when the user wants the decision space expanded before accepting individual decisions. The
-flow is optimized for early visibility, low user fatigue, and safe handoff into normal proposal review.
+Use this flow when the user wants the decision space expanded before accepting individual decisions.
+The flow is optimized for early visibility, low user fatigue, and safe handoff into normal proposal
+review.
 
 The result is a draft working set. It reflects the goal, available runtime evidence, search budget,
 risk threshold, and deterministic gap diagnostics used for the turn. `converged` means no configured
@@ -22,25 +27,25 @@ initial issue generation remains the Skill orchestration layer's responsibility.
 `autopilot-draft` CLI is a deterministic gap iteration and persistence tool: it may add conservative
 coverage, evidence-collection, and verification draft objects, but it does not create accepted decisions.
 
-`/goal` must not call promotion commands. It creates a draft set and readable exports only. Promotion is
-a later explicit user handoff.
+The goal-autopilot flow must not call promotion commands. It creates a draft set and readable exports
+only. Promotion is a later explicit user handoff.
 
-## User Command
+## Codex Goal Boundary
 
-The Skill starts this flow when the user input begins with `/goal`, or when the user clearly asks to
-create a draft decision set, preflight a goal, or expand a goal into draft decisions instead of running
-the normal one-question interview.
+The Skill starts this flow when the user clearly asks to create a draft decision set, preflight a goal,
+or expand a goal into draft decisions instead of running the normal one-question interview. In a Codex
+CLI goal run, the recommended outer command shape is:
 
 Example:
 
 ```text
-/goal
-goal: Add goal-based draft decision sets to decide-me.
-constraints:
-- do not mutate canonical runtime
-- readable export must be reviewed by humans
-- accepted decisions must not be created automatically
-mode: autopilot-draft
+/goal Use decide-me to create a DRAFT / NOT ACCEPTED decision set for Add goal-based draft decision sets to decide-me.
+Done when:
+- validate-state --cached passes
+- autopilot-draft or create/project/export completes
+- preflight.md, draft-decisions.md, review-queue.md, and assumptions-risks.md exist
+- review queue summary is reported
+- no accepted decision is created
 ```
 
 If the user omits `mode`, treat it as `autopilot-draft`. If the user writes `accept`, `auto-accept`,
@@ -83,6 +88,25 @@ Normalize free-form input into these fields:
     `export-draft-set --format markdown`.
 11. Present the draft set ID, counts, convergence stop reason, gap summary, review summary, export
     paths, and `DRAFT / NOT ACCEPTED` notice.
+
+During a Codex `/goal` run, keep a short progress log in the agent status or final summary:
+
+- current `draft_set_id`
+- last command run
+- validation result
+- export paths
+- convergence status and `stop_reason`
+- blocking gap count
+- next checkpoint
+
+Done when:
+
+- `validate-state --cached` passes before drafting
+- the draft set is persisted
+- `draft-projection.json` is generated
+- `preflight.md`, `draft-decisions.md`, `review-queue.md`, and `assumptions-risks.md` are exported
+- the review summary is reported
+- canonical event count is unchanged unless explicit promotion was separately requested
 
 Required validation command:
 
@@ -136,7 +160,7 @@ python3 <skill-root>/scripts/decide_me.py autopilot-draft \
 
 Goal-only mode creates a conservative skeleton. It does not infer recommendations beyond generic
 purpose, constraint, evidence, verification, and review boundaries. `review-draft-set` is optional for
-`/goal` because `export-draft-set` also writes `review-queue.json`.
+goal-autopilot drafting because `export-draft-set` also writes `review-queue.json`.
 
 ## Draft Generation Heuristics
 
@@ -262,6 +286,19 @@ evidence, conflict-free, and safe to place into proposal review without individu
 
 `bulk_promotable=true` never means accepted. It only means "eligible for
 `promote-draft-set --only-bulk-promotable`."
+
+## Stop Reason Reporting
+
+`project-draft-set` may use `stop_reason=stopped` as a standalone diagnostic result when only
+non-blocking gaps are present and no autopilot iteration was requested. Codex `/goal` user-facing
+reports should normalize that diagnostic:
+
+- `project-draft-set stopped` with no blocking gaps: report projection completion and route next work
+  to `user_review_required` unless an autopilot run explicitly reported `converged`
+- `project-draft-set stopped` with only non-blocking gaps: report `user_review_required`
+
+Saved draft-set convergence is not authoritative when the current projection has blocking gaps. In
+that case, report the current blocking classification and `status=blocked`.
 
 ## Review/export Contract
 

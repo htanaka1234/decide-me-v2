@@ -101,19 +101,20 @@ state, and avoids treating stale proposals as silently accepted.
 
 ### Goal-based draft decision sets
 
-Use `/goal` when the user wants a decision space expanded before individual decisions are accepted.
-The Skill normalizes the goal, generates a structured DraftDecisionSet seed, can pass it through
+Use Codex native `/goal` as the outer durable objective when the user wants a decision space expanded
+before individual decisions are accepted. Inside that goal, the decide-me goal-autopilot flow
+normalizes the objective, generates a structured DraftDecisionSet seed, can pass it through
 `autopilot-draft` for deterministic gap iteration, stores sidecar artifacts, and exports readable
-`DRAFT / NOT ACCEPTED` Markdown files. This does not create accepted decisions. Promotion is a
-separate explicit handoff to a normal proposal flow.
+`DRAFT / NOT ACCEPTED` Markdown files. This does not create accepted decisions. Promotion is a separate
+explicit handoff to a normal proposal flow.
 
 ```text
-/goal
-goal: Add goal-based draft decision sets to decide-me.
-constraints:
-- canonical runtime must not be mutated during drafting
-- readable export should be reviewed by humans
-- accepted decisions must not be created automatically
+/goal Use decide-me to create a DRAFT / NOT ACCEPTED decision set for Add goal-based draft decision sets to decide-me.
+Done when:
+- validate-state --cached passes
+- draft sidecars and Markdown exports are generated
+- review queue summary is reported
+- canonical event count is unchanged
 ```
 
 Useful draft-sidecar commands:
@@ -124,6 +125,7 @@ python3 scripts/decide_me.py project-draft-set --ai-dir .ai/decide-me --draft-se
 python3 scripts/decide_me.py create-draft-set --ai-dir .ai/decide-me --draft-json /tmp/draft-set.input.json
 python3 scripts/decide_me.py show-draft-set --ai-dir .ai/decide-me --draft-set-id DS-YYYYMMDD-NNN
 python3 scripts/decide_me.py list-draft-sets --ai-dir .ai/decide-me
+python3 scripts/decide_me.py reconcile-draft-promotions --ai-dir .ai/decide-me --draft-set-id DS-YYYYMMDD-NNN
 ```
 
 Before asking the user, the Skill should inspect available evidence:
@@ -413,6 +415,8 @@ reference. Common maintainer operations include:
   `proposal` without accepting it; `promote-draft-set --only-bulk-promotable` is limited to
   low-risk bulk candidates and requires separate sessions through a session map when promoting
   multiple drafts
+- `reconcile-draft-promotions` to report or repair sidecar promotion metadata from canonical
+  `decision.metadata.draft_origin` without changing canonical events
 - `export-document --type decision-brief|action-plan|risk-register|review-memo|research-plan|comparison-table`
   to write generic Markdown, JSON, or supported CSV documents under `.ai/decide-me/exports/documents/`
   and `export-document --domain-pack <id>` to apply a pack document profile when the pack defines

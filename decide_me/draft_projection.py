@@ -700,7 +700,9 @@ def _projection_convergence(
     blocking = [gap for gap in gaps if gap["blocks_convergence"]]
     draft_convergence = _dict_field(draft_set, "convergence")
     draft_stop_reason = draft_convergence.get("stop_reason")
-    if isinstance(draft_stop_reason, str) and draft_stop_reason in AUTHORITATIVE_DRAFT_SET_STOP_REASONS:
+    if blocking:
+        stop_reason = _classify_projection_stop_reason(gaps)
+    elif isinstance(draft_stop_reason, str) and draft_stop_reason in AUTHORITATIVE_DRAFT_SET_STOP_REASONS:
         stop_reason = draft_stop_reason
     else:
         stop_reason = _classify_projection_stop_reason(gaps)
@@ -745,6 +747,8 @@ def _projection_status(stop_reason: str) -> str:
 
 def _projection_explanation(stop_reason: str, gap_count: int, blocking_gap_count: int) -> str:
     if stop_reason == "converged":
+        if gap_count:
+            return "No blocking gap diagnostics were detected for this draft projection."
         return "No gap diagnostics were detected for this draft projection."
     return f"Detected {gap_count} draft gap(s), including {blocking_gap_count} blocking gap(s)."
 

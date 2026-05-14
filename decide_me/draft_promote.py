@@ -9,14 +9,21 @@ from typing import Any
 from decide_me.constants import ACCEPTED_VIA_VALUES
 from decide_me.draft_sets import DraftSetError, DraftSetHeadMismatchError, draft_set_dir, load_draft_set
 from decide_me.events import utc_now
-from decide_me.object_views import latest_proposal_for_decision, proposal_view
+from decide_me.object_views import latest_proposal_for_decision, proposal_view, proposals_for_decision
 from decide_me.protocol import (
     current_bundle,
     materialize_decision_with_proposal,
     _require_mutable_session,
     _require_no_other_active_proposal,
 )
-from decide_me.store import _atomic_write_json
+from decide_me.store import (
+    _atomic_write_json,
+    _atomic_write_text,
+    _write_lock,
+    load_runtime,
+    read_event_log,
+    runtime_paths,
+)
 from decide_me.taxonomy import stable_unique
 
 
@@ -254,6 +261,79 @@ def promote_draft_set(
         "promoted_count": len(promoted),
         "promoted": promoted,
         "skipped": _bulk_skips(draft_set),
+    }
+
+
+def reconcile_draft_promotions(
+    ai_dir: str | Path,
+    draft_set_id: str,
+    *,
+    repair: bool = False,
+    now: str | None = None,
+) -> dict[str, Any]:
+    """Compare draft promotion sidecar metadata against canonical draft_origin provenance."""
+    paths = runtime_paths(ai_dir)
+    with _write_lock(paths.lock_path):
+        draft_set = load_draft_set(paths.ai_dir, draft_set_id)
+        bundle = load_runtime(paths)
+        events_by_id = {event["event_id"]: event for event in read_event_log(paths) if event.get("event_id")}
+        warnings: list[dict[str, Any]] = []
+        canonical_promotions = _canonical_promotions(
+            bundle,
+            draft_set_id,
+            events_by_id=events_by_id,
+            warnings=warnings,
+        )
+        canonical_ids = stable_unique(item["draft_decision_id"] for item in canonical_promotions)
+        sidecar_ids = _sidecar_promoted_decision_ids(draft_set)
+        canonical_id_set = set(canonical_ids)
+        sidecar_id_set = set(sidecar_ids)
+        missing_in_sidecar = [draft_id for draft_id in canonical_ids if draft_id not in sidecar_id_set]
+        stale_in_sidecar = [draft_id for draft_id in sidecar_ids if draft_id not in canonical_id_set]
+        log_path = _promotion_log_path(paths.ai_dir, draft_set_id)
+        draft_set_path = draft_set_dir(paths.ai_dir, draft_set_id) / "draft-set.json"
+        log_ids, log_errors = _promotion_log_promoted_decision_ids(log_path)
+        log_id_set = set(log_ids)
+        missing_in_promotion_log = [draft_id for draft_id in canonical_ids if draft_id not in log_id_set]
+        stale_in_promotion_log = [draft_id for draft_id in log_ids if draft_id not in canonical_id_set]
+
+        if repair:
+            updated_draft_set = deepcopy(draft_set)
+            promotion = updated_draft_set.setdefault("promotion", {})
+            promotion["promoted_decision_ids"] = canonical_ids
+            promotion.setdefault("bulk_promotable_ids", [])
+            promotion.setdefault("individual_review_required_ids", [])
+            _atomic_write_json(draft_set_path, updated_draft_set)
+            reconciled_at = now or utc_now()
+            _atomic_write_text(
+                log_path,
+                "".join(
+                    json.dumps(
+                        _reconciled_promotion_record(item, reconciled_at=reconciled_at),
+                        ensure_ascii=False,
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    )
+                    + "\n"
+                    for item in canonical_promotions
+                ),
+            )
+
+    return {
+        "status": "ok",
+        "draft_set_id": draft_set_id,
+        "canonical_promoted_decision_ids": canonical_ids,
+        "sidecar_promoted_decision_ids": sidecar_ids,
+        "missing_in_sidecar": missing_in_sidecar,
+        "stale_in_sidecar": stale_in_sidecar,
+        "promotion_log_promoted_decision_ids": log_ids,
+        "missing_in_promotion_log": missing_in_promotion_log,
+        "stale_in_promotion_log": stale_in_promotion_log,
+        "promotion_log_parse_errors": log_errors,
+        "warnings": warnings,
+        "promotion_log_path": str(log_path),
+        "draft_set_path": str(draft_set_path),
+        "repaired": repair,
     }
 
 
@@ -690,6 +770,248 @@ def _canonical_ids(draft_set_id: str, draft_decision_id: str) -> tuple[str, str,
 
 def _promotion_log_path(ai_dir: str | Path, draft_set_id: str) -> Path:
     return draft_set_dir(ai_dir, draft_set_id) / "promotion-log.jsonl"
+
+
+def _sidecar_promoted_decision_ids(draft_set: dict[str, Any]) -> list[str]:
+    promotion = draft_set.get("promotion")
+    if not isinstance(promotion, dict):
+        return []
+    return stable_unique(
+        str(item).strip()
+        for item in promotion.get("promoted_decision_ids", [])
+        if str(item).strip()
+    )
+
+
+def _promotion_log_promoted_decision_ids(log_path: Path) -> tuple[list[str], list[str]]:
+    if not log_path.exists():
+        return [], []
+    ids: list[str] = []
+    errors: list[str] = []
+    for line_number, line in enumerate(log_path.read_text(encoding="utf-8").splitlines(), start=1):
+        if not line.strip():
+            continue
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError as exc:
+            errors.append(f"line {line_number}: {exc.msg}")
+            continue
+        draft_id = str(record.get("draft_decision_id") or "").strip() if isinstance(record, dict) else ""
+        if draft_id:
+            ids.append(draft_id)
+    return stable_unique(ids), errors
+
+
+def _canonical_promotions(
+    bundle: dict[str, Any],
+    draft_set_id: str,
+    *,
+    events_by_id: dict[str, dict[str, Any]],
+    warnings: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    project_state = bundle["project_state"]
+    promotions: list[dict[str, Any]] = []
+    for obj in project_state.get("objects", []):
+        if obj.get("type") != "decision":
+            continue
+        origin = _dict_field(_dict_field(obj, "metadata"), "draft_origin")
+        if origin.get("draft_set_id") != draft_set_id:
+            continue
+        draft_decision_id = str(origin.get("draft_decision_id") or "").strip()
+        if not draft_decision_id:
+            continue
+        proposal = _promotion_proposal_for_draft(
+            project_state,
+            decision_id=obj["id"],
+            draft_set_id=draft_set_id,
+            draft_decision_id=draft_decision_id,
+            warnings=warnings,
+        )
+        proposal_metadata = _dict_field(proposal, "metadata") if proposal else {}
+        proposal_id = proposal.get("id") if proposal else None
+        option_id = _proposal_option_id(project_state, proposal_id)
+        event_ids = _promotion_source_event_ids(project_state, obj, proposal, option_id)
+        promotions.append(
+            {
+                "draft_set_id": draft_set_id,
+                "draft_decision_id": draft_decision_id,
+                "decision_id": obj["id"],
+                "proposal_id": proposal_id,
+                "option_id": option_id,
+                "question_id": proposal_metadata.get("question_id"),
+                "session_id": proposal_metadata.get("origin_session_id"),
+                "risk_object_ids": _promotion_risk_object_ids(project_state, obj["id"]),
+                "tx_id": _first_tx_id(event_ids, events_by_id),
+                "project_head_at_generation": origin.get("project_head_at_generation"),
+                "project_head_before_promotion": origin.get("project_head_before_promotion"),
+                "project_head_after_promotion": origin.get("project_head_after_promotion"),
+                "promoted_at": origin.get("promoted_at") or obj.get("created_at"),
+                "event_ids": event_ids,
+                "promotion_version": origin.get("promotion_version") or PROMOTION_VERSION,
+            }
+        )
+    return sorted(
+        promotions,
+        key=lambda item: (
+            str(item.get("promoted_at") or ""),
+            str(item.get("draft_decision_id") or ""),
+            str(item.get("decision_id") or ""),
+        ),
+    )
+
+
+def _promotion_proposal_for_draft(
+    project_state: dict[str, Any],
+    *,
+    decision_id: str,
+    draft_set_id: str,
+    draft_decision_id: str,
+    warnings: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    matches = []
+    for proposal in proposals_for_decision(project_state, decision_id):
+        metadata = _dict_field(proposal, "metadata")
+        origin = _dict_field(metadata, "draft_origin")
+        if origin.get("draft_set_id") != draft_set_id:
+            continue
+        if origin.get("draft_decision_id") != draft_decision_id:
+            continue
+        matches.append(proposal)
+    if not matches:
+        warnings.append(
+            {
+                "type": "proposal_missing_for_promoted_draft",
+                "draft_set_id": draft_set_id,
+                "draft_decision_id": draft_decision_id,
+                "decision_id": decision_id,
+                "message": "No canonical proposal has matching draft_origin metadata for this promoted draft.",
+            }
+        )
+        return None
+    source_matches = [
+        proposal
+        for proposal in matches
+        if _dict_field(proposal, "metadata").get("source") == "draft-promotion"
+    ]
+    if len(source_matches) == 1:
+        return source_matches[0]
+    if len(matches) == 1:
+        warnings.append(
+            {
+                "type": "promotion_proposal_source_mismatch",
+                "draft_set_id": draft_set_id,
+                "draft_decision_id": draft_decision_id,
+                "decision_id": decision_id,
+                "proposal_id": matches[0].get("id"),
+                "message": "Matched proposal by draft_origin, but proposal.metadata.source is not draft-promotion.",
+            }
+        )
+        return matches[0]
+    warnings.append(
+        {
+            "type": "ambiguous_promotion_proposal",
+            "draft_set_id": draft_set_id,
+            "draft_decision_id": draft_decision_id,
+            "decision_id": decision_id,
+            "proposal_ids": [proposal.get("id") for proposal in matches],
+            "message": "Multiple canonical proposals have matching draft_origin metadata for this promoted draft.",
+        }
+    )
+    return None
+
+
+def _reconciled_promotion_record(promotion: dict[str, Any], *, reconciled_at: str) -> dict[str, Any]:
+    return {
+        "schema_version": 1,
+        "entry_type": "draft_decision_promoted",
+        "promotion_version": promotion.get("promotion_version") or PROMOTION_VERSION,
+        "draft_set_id": promotion["draft_set_id"],
+        "draft_decision_id": promotion["draft_decision_id"],
+        "session_id": promotion.get("session_id"),
+        "decision_id": promotion["decision_id"],
+        "proposal_id": promotion.get("proposal_id"),
+        "option_id": promotion.get("option_id"),
+        "question_id": promotion.get("question_id"),
+        "risk_object_ids": promotion.get("risk_object_ids", []),
+        "tx_id": promotion.get("tx_id"),
+        "project_head_at_generation": promotion.get("project_head_at_generation"),
+        "project_head_before_promotion": promotion.get("project_head_before_promotion"),
+        "project_head_after_promotion": promotion.get("project_head_after_promotion"),
+        "promoted_at": promotion.get("promoted_at"),
+        "event_ids": promotion.get("event_ids", []),
+        "reconstructed": True,
+        "reconciled_at": reconciled_at,
+        "reconciled_by": "reconcile-draft-promotions",
+    }
+
+
+def _proposal_option_id(project_state: dict[str, Any], proposal_id: Any) -> str | None:
+    if not proposal_id:
+        return None
+    for link in project_state.get("links", []):
+        if link.get("source_object_id") == proposal_id and link.get("relation") == "recommends":
+            option_id = str(link.get("target_object_id") or "").strip()
+            return option_id or None
+    return None
+
+
+def _promotion_risk_object_ids(project_state: dict[str, Any], decision_id: str) -> list[str]:
+    object_types = {
+        obj.get("id"): obj.get("type")
+        for obj in project_state.get("objects", [])
+        if obj.get("id")
+    }
+    return stable_unique(
+        str(link.get("source_object_id")).strip()
+        for link in project_state.get("links", [])
+        if link.get("relation") == "challenges"
+        and link.get("target_object_id") == decision_id
+        and object_types.get(link.get("source_object_id")) == "risk"
+        and str(link.get("source_object_id") or "").strip()
+    )
+
+
+def _promotion_source_event_ids(
+    project_state: dict[str, Any],
+    decision: dict[str, Any],
+    proposal: dict[str, Any] | None,
+    option_id: str | None,
+) -> list[str]:
+    object_ids = {decision.get("id")}
+    if proposal:
+        object_ids.add(proposal.get("id"))
+    if option_id:
+        object_ids.add(option_id)
+    object_ids.update(_promotion_risk_object_ids(project_state, str(decision.get("id"))))
+    event_ids: list[str] = []
+    for obj in project_state.get("objects", []):
+        if obj.get("id") in object_ids:
+            event_ids.extend(_string_values(obj.get("source_event_ids", [])))
+    for link in project_state.get("links", []):
+        if link.get("source_object_id") in object_ids or link.get("target_object_id") in object_ids:
+            event_ids.extend(_string_values(link.get("source_event_ids", [])))
+    return stable_unique(event_ids)
+
+
+def _first_tx_id(event_ids: list[str], events_by_id: dict[str, dict[str, Any]]) -> str | None:
+    for event_id in event_ids:
+        tx_id = events_by_id.get(event_id, {}).get("tx_id")
+        if isinstance(tx_id, str) and tx_id:
+            return tx_id
+    return None
+
+
+def _string_values(values: Any) -> list[str]:
+    if not isinstance(values, list):
+        return []
+    return [str(item).strip() for item in values if str(item).strip()]
+
+
+def _dict_field(value: Any, key: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {}
+    nested = value.get(key)
+    return nested if isinstance(nested, dict) else {}
 
 
 def _record_promotion_sidecar(

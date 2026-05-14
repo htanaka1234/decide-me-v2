@@ -58,6 +58,7 @@ CLI_HELP_COMMANDS = (
     ("export-draft-set",),
     ("promote-draft-decision",),
     ("promote-draft-set",),
+    ("reconcile-draft-promotions",),
     ("compact-runtime",),
     ("benchmark-runtime",),
     ("detect-merge-conflicts",),

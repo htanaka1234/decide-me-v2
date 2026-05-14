@@ -16,7 +16,7 @@ from decide_me.domains import DomainPack, domain_pack_digest, load_domain_regist
 from decide_me.autopilot import run_autopilot_draft
 from decide_me.draft_export import export_draft_set, review_draft_set
 from decide_me.draft_projection import build_draft_projection, draft_projection_path
-from decide_me.draft_promote import promote_draft_decision, promote_draft_set
+from decide_me.draft_promote import promote_draft_decision, promote_draft_set, reconcile_draft_promotions
 from decide_me.draft_sets import create_draft_set, list_draft_sets, show_draft_set
 from decide_me.exports import (
     export_adr,
@@ -231,6 +231,14 @@ def main(argv: list[str] | None = None) -> int:
     promote_draft_set_cmd.add_argument("--session-id")
     promote_draft_set_cmd.add_argument("--session-map-json")
     promote_draft_set_cmd.add_argument("--only-bulk-promotable", action="store_true")
+
+    reconcile_draft_promotions_cmd = subparsers.add_parser(
+        "reconcile-draft-promotions",
+        help="compare or repair draft promotion sidecar metadata from canonical draft_origin provenance",
+    )
+    reconcile_draft_promotions_cmd.add_argument("--ai-dir", required=True)
+    reconcile_draft_promotions_cmd.add_argument("--draft-set-id", required=True)
+    reconcile_draft_promotions_cmd.add_argument("--repair", action="store_true")
 
     compact = subparsers.add_parser("compact-runtime", help="refresh the object/link projection checkpoint index")
     compact.add_argument("--ai-dir", required=True)
@@ -751,6 +759,14 @@ def main(argv: list[str] | None = None) -> int:
                     session_id=args.session_id,
                     session_map=session_map,
                     only_bulk_promotable=args.only_bulk_promotable,
+                )
+            )
+        elif args.command == "reconcile-draft-promotions":
+            _print_json(
+                reconcile_draft_promotions(
+                    args.ai_dir,
+                    args.draft_set_id,
+                    repair=args.repair,
                 )
             )
         elif args.command == "compact-runtime":

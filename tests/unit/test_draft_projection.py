@@ -130,6 +130,22 @@ class DraftProjectionTests(unittest.TestCase):
         self.assertEqual("high", gap["severity"])
         self.assertTrue(gap["blocks_convergence"])
 
+    def test_projection_blocks_saved_converged_when_current_blocking_gap_exists(self) -> None:
+        draft_set = _draft_set()
+        draft_set["convergence"] = {
+            "status": "converged",
+            "iterations": 2,
+            "stop_reason": "converged",
+            "note": "Previously converged.",
+        }
+        draft_set["draft_decisions"][0]["recommendation"] = ""
+
+        projection = _project(draft_set)
+
+        self.assertEqual("blocked", projection["convergence"]["status"])
+        self.assertEqual("user_review_required", projection["convergence"]["stop_reason"])
+        self.assertEqual(1, projection["convergence"]["blocking_gap_count"])
+
     def test_projection_does_not_mutate_project_state_or_draft_set(self) -> None:
         draft_set = _draft_set()
         project_state = _project_state()

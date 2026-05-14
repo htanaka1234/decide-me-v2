@@ -29,6 +29,9 @@ class PR4GoalSkillDocumentationTests(unittest.TestCase):
         self.assertIn("deterministic gap iteration", ref)
         self.assertIn("DRAFT / NOT ACCEPTED", ref)
         self.assertIn("does not create accepted decisions", ref)
+        self.assertIn("Codex native `/goal`", ref)
+        self.assertIn("raw `/goal` input may be handled by Codex", ref)
+        self.assertIn("canonical event count is unchanged", ref)
 
     def test_draft_set_reference_documents_sidecar_boundary(self) -> None:
         ref = (REPO_ROOT / "references" / "draft-decision-sets.md").read_text(encoding="utf-8")
@@ -39,17 +42,23 @@ class PR4GoalSkillDocumentationTests(unittest.TestCase):
         self.assertIn("draft-projection.json", ref)
         self.assertIn("draft_origin", ref)
         self.assertIn("DRAFT / NOT ACCEPTED", ref)
+        self.assertIn("reconcile-draft-promotions", ref)
+        self.assertIn("Projection convergence is fail-closed", ref)
 
     def test_related_references_document_pr4_boundaries(self) -> None:
         output_contract = (REPO_ROOT / "references" / "output-contract.md").read_text(encoding="utf-8")
         event_model = (REPO_ROOT / "references" / "event-and-projection-model.md").read_text(encoding="utf-8")
         document_compiler = (REPO_ROOT / "references" / "document-compiler.md").read_text(encoding="utf-8")
 
-        self.assertIn("`/goal` Skill command, not a CLI subcommand", output_contract)
+        self.assertIn("Codex native `/goal` may wrap decide-me goal-autopilot-drafting", output_contract)
+        self.assertIn("Raw `/goal` is a Codex CLI namespace", output_contract)
+        self.assertIn("Projection convergence must fail closed", output_contract)
+        self.assertIn("canonical event count unchanged", output_contract)
         self.assertIn("autopilot-draft", output_contract)
         self.assertIn("project-draft-set", output_contract)
         self.assertIn("Draft sidecar commands:", output_contract)
         self.assertIn("Draft promotion commands:", output_contract)
+        self.assertIn("reconcile-draft-promotions", output_contract)
         self.assertIn("Other derived export commands:", output_contract)
         self.assertIn("create-draft-set", output_contract)
         self.assertIn("Draft set files under `.ai/decide-me/draft-sets/` are not canonical", event_model)

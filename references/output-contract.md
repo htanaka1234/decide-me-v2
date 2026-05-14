@@ -145,7 +145,7 @@ runtime projections or event logs. `rebuild-evidence-index` updates only the der
 
 Draft sidecar commands:
 
-- `/goal` Skill command, not a CLI subcommand
+- Codex native `/goal` may wrap decide-me goal-autopilot-drafting as an outer durable objective
 - `autopilot-draft --seed-draft-json <path>|--goal <text>`
 - `create-draft-set --draft-json <path>`
 - `show-draft-set --draft-set-id DS-...`
@@ -158,6 +158,7 @@ Draft promotion commands:
 
 - `promote-draft-decision --draft-set-id DS-... --draft-decision-id DD-... --session-id S-...`
 - `promote-draft-set --draft-set-id DS-... --session-map-json <path> --only-bulk-promotable`
+- `reconcile-draft-promotions --draft-set-id DS-... [--repair]`
 
 Other derived export commands:
 
@@ -172,8 +173,10 @@ must fail.
 
 Derived exports must fail before writing output when unresolved planner conflicts exist.
 
-PR-5 `/goal` is a Skill command, not a Python CLI subcommand. It may use the deterministic
-`autopilot-draft` CLI after generating a seed DraftDecisionSet. It must report:
+PR-5 goal-autopilot-drafting is the decide-me Skill flow that may run inside a Codex native `/goal`.
+Raw `/goal` is a Codex CLI namespace when goals are enabled, so decide-me must not require that raw
+slash command to reach the Skill unchanged. The flow may use the deterministic `autopilot-draft` CLI
+after generating a seed DraftDecisionSet. It must report:
 
 - `draft_set_id`
 - counts for draft decisions, assumptions, risks, actions, and verifications
@@ -182,7 +185,10 @@ PR-5 `/goal` is a Skill command, not a Python CLI subcommand. It may use the det
 - review summary counts for blocked, individual-review, and bulk candidate items
 - export paths for `preflight.md`, `draft-decisions.md`, `review-queue.md`, and
   `assumptions-risks.md`
+- a short progress log with current `draft_set_id`, last command, validation result, exports,
+  convergence, blocking gap count, and next checkpoint when running under Codex `/goal`
 - an explicit `DRAFT / NOT ACCEPTED` notice
+- canonical event count unchanged unless explicit promotion was separately requested
 
 `create-draft-set` returns `status`, `draft_set_id`, `path`, `project_head_at_generation`,
 `is_stale`, and `counts`. `show-draft-set` returns `status`, `draft_set`, and `runtime_status`.
@@ -201,7 +207,13 @@ decisions or canonical events.
 Standalone `project-draft-set` may report `stop_reason=stopped` when diagnostics contain only
 non-blocking gaps. `autopilot-draft` uses the deterministic iteration stop reasons `converged`,
 `budget_exhausted`, `risk_gate_triggered`, `evidence_gap_blocked`, `conflict_blocked`, and
-`user_review_required`.
+`user_review_required`. Codex `/goal` user-facing reports should treat standalone `stopped` as a
+diagnostic state and report `user_review_required` for review handoff unless the autopilot convergence
+explicitly reports `converged`.
+
+Projection convergence must fail closed. If current `draft-projection.json` diagnostics contain any
+blocking gap, the projection stop reason must be classified from those current gaps and reported with
+`status=blocked`, even when the persisted draft-set convergence says `converged`.
 
 `draft-projection.json` must match `schemas/draft-projection.schema.json`. Its required top-level
 fields are `schema_version`, `draft_set_id`, `generated_at`, `project_head_at_generation`,
@@ -239,6 +251,17 @@ question state; it never creates an accepted decision. Canonical provenance live
 single promotion unless `--allow-stale` is explicit, in which case `draft_origin.stale_promoted`
 is true; bulk promotion always rejects stale draft sets. Proposal acceptance must still pass the
 normal explicit/plain-OK guard and safety gate flow.
+
+`reconcile-draft-promotions` compares canonical `decision.metadata.draft_origin` with sidecar
+`promotion.promoted_decision_ids` and `promotion-log.jsonl`. Without `--repair`, it reports only.
+With `--repair`, it rewrites only the sidecar `draft-set.json` promotion ids and `promotion-log.jsonl`
+from canonical provenance. It must not emit events or mutate canonical projections.
+Its required output fields are `status`, `draft_set_id`, `canonical_promoted_decision_ids`,
+`sidecar_promoted_decision_ids`, `missing_in_sidecar`, `stale_in_sidecar`, `promotion_log_path`,
+`draft_set_path`, and `repaired`. It may also report `warnings`, including
+`proposal_missing_for_promoted_draft`, `promotion_proposal_source_mismatch`, or
+`ambiguous_promotion_proposal`, when canonical draft-origin provenance exists but the original
+promotion proposal cannot be identified cleanly.
 
 Traceability rows must include these matrix columns:
 
