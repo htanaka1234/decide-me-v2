@@ -11,12 +11,22 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 class PR4GoalSkillDocumentationTests(unittest.TestCase):
-    def test_skill_lists_goal_draft_references_and_command(self) -> None:
+    def test_skill_lists_decision_preflight_without_public_goal_command(self) -> None:
         skill = (REPO_ROOT / "SKILL.md").read_text(encoding="utf-8")
+        user_facing_commands_section = skill.split("User-facing commands:", 1)[1].split(
+            "Runtime invariants:", 1
+        )[0]
 
         self.assertIn("references/goal-autopilot-drafting.md", skill)
         self.assertIn("references/draft-decision-sets.md", skill)
-        self.assertIn("`/goal`", skill)
+        self.assertNotIn("- `/goal`", user_facing_commands_section)
+        self.assertNotIn("When the user starts with `/goal`", skill)
+        self.assertIn("Decision Preflight", skill)
+        self.assertIn("decide-me:preflight", skill)
+        self.assertIn("Create decision preflight from goal", user_facing_commands_section)
+        self.assertIn("Run decision preflight", user_facing_commands_section)
+        self.assertIn("Show decision preflight DS-...", user_facing_commands_section)
+        self.assertIn("Export decision preflight DS-...", user_facing_commands_section)
         self.assertIn("create-draft-set", skill)
         self.assertIn("export-draft-set", skill)
 
