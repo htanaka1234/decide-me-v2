@@ -78,6 +78,21 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
         self.assertIn("DRAFT / NOT ACCEPTED", ref)
         self.assertIn("does not create accepted decisions", ref)
         self.assertIn("canonical event count is unchanged", ref)
+        self.assertIn("## State Ownership", ref)
+        self.assertIn("`draft-set.json` is the source sidecar", ref)
+        self.assertIn("`goal`, `source_context`, `draft_decisions`, and the Phase 1 `exploration_contract`", ref)
+        self.assertIn("must not store\n" "derived diagnostic state", ref)
+        self.assertIn("`draft-projection.json` is a derived sidecar", ref)
+        self.assertIn("`coverage_matrix`, `coverage_summary`, the Phase 5 derived `frontier_queue`", ref)
+        self.assertIn("Diagnostics and coverage are never written back into\n" "`draft-set.json`", ref)
+        self.assertIn("`review-queue.json` is a derived promotion handoff queue", ref)
+        self.assertIn(
+            "The canonical event log, `project-state.json`, `taxonomy-state.json`, and `sessions/*.json` are\n"
+            "immutable during Decision Preflight.",
+            ref,
+        )
+        self.assertIn("Blocking derived gaps\nforce blocked convergence and reporting", ref)
+        self.assertIn("Decision Preflight must not call promotion commands", ref)
 
     def test_draft_set_reference_documents_sidecar_boundary(self) -> None:
         ref = (REPO_ROOT / "references" / "draft-decision-sets.md").read_text(encoding="utf-8")

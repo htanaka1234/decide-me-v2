@@ -37,6 +37,30 @@ coverage, evidence-collection, and verification draft objects, but it does not c
 The Decision Preflight flow must not call promotion commands. It creates a draft set and readable exports
 only. Promotion is a later explicit user handoff.
 
+## State Ownership
+
+Decision Preflight separates source inputs from derived diagnostics. This boundary is part of the
+failure contract for the draft flow and must remain stable as exploration coverage is added.
+
+`draft-set.json` is the source sidecar for a DraftDecisionSet. It owns user and Skill inputs such as
+`goal`, `source_context`, `draft_decisions`, and the Phase 1 `exploration_contract`. It must not store
+derived diagnostic state such as coverage matrices, gap classifiers, frontier queues, or review queues.
+
+`draft-projection.json` is a derived sidecar. It owns projection-time diagnostics such as the Phase 2
+`coverage_matrix`, `coverage_summary`, the Phase 5 derived `frontier_queue`, existing
+`gap_diagnostics`, and current `convergence`. Diagnostics and coverage are never written back into
+`draft-set.json`.
+
+`review-queue.json` is a derived promotion handoff queue. It is built from the draft set plus current
+projection diagnostics and is used only to organize blocked, individual-review, and bulk-eligible
+promotion candidates.
+
+The canonical event log, `project-state.json`, `taxonomy-state.json`, and `sessions/*.json` are
+immutable during Decision Preflight. Creating, projecting, reviewing, exporting, and deterministic
+`autopilot-draft` iteration may write only draft sidecars and readable exports. Blocking derived gaps
+force blocked convergence and reporting. Promotion is the only draft-related flow that may write
+canonical events, and Decision Preflight must not call promotion commands.
+
 ## Codex Goal Boundary
 
 The Skill starts this flow when the user clearly asks to create a draft decision set, preflight a goal,
