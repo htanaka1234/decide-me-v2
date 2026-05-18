@@ -267,6 +267,11 @@ set's `exports/` directory:
 - `review-queue.md`
 - `assumptions-risks.md`
 
+`export-draft-set` must derive the current draft projection in memory for readable convergence and gap
+diagnostics when `draft-projection.json` is absent or stale. It must not render empty convergence from
+missing diagnostics, and it must not write `draft-projection.json`; only `project-draft-set` owns that
+derived sidecar file.
+
 Every Markdown draft export must include `DRAFT / NOT ACCEPTED`, and managed generated regions
 must preserve the trailing `## Human Notes` section on regeneration. The review queue is a
 deterministic promotion-input queue, not promotion itself: high or critical risk items, challenged

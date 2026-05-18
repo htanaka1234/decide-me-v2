@@ -192,6 +192,8 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
             "Derived coverage summaries, matrices, gap diagnostics, convergence, frontier queues, and review queues",
             normalized_output_contract,
         )
+        self.assertIn("derive the current draft projection in memory", normalized_output_contract)
+        self.assertIn("must not render empty convergence from missing diagnostics", normalized_output_contract)
 
     def test_root_cli_help_exposes_autopilot_draft_command_after_pr5(self) -> None:
         result = run_cli("--help", cwd=REPO_ROOT)

@@ -10,10 +10,11 @@ from jsonschema import Draft202012Validator, FormatChecker, ValidationError
 
 from decide_me.constants import DECISION_STACK_LAYER_ORDER
 from decide_me.documents.merge import marker_warnings_for_path, merge_managed_content
+from decide_me.draft_projection import project_draft_set
 from decide_me.draft_sets import draft_set_dir, load_draft_set
 from decide_me.events import utc_now
 from decide_me.exporters.render import render_table_cell
-from decide_me.store import _atomic_write_json, _atomic_write_text, _write_lock, load_json, load_runtime, runtime_paths
+from decide_me.store import _atomic_write_json, _atomic_write_text, _write_lock, load_runtime, runtime_paths
 
 
 DRAFT_REVIEW_QUEUE_SCHEMA_PATH = Path(__file__).resolve().parents[1] / "schemas" / "draft-review-queue.schema.json"
@@ -109,14 +110,21 @@ def export_draft_set(
     generated_at = now or utc_now()
     with _write_lock(paths.lock_path):
         draft_set = load_draft_set(paths.ai_dir, draft_set_id)
-        current_project_head = _current_project_head(paths.ai_dir)
+        bundle = load_runtime(paths)
+        project_state = bundle["project_state"]
+        current_project_head = _project_head_from_state(project_state)
         review_queue = build_review_queue(
             draft_set,
             current_project_head=current_project_head,
             generated_at=generated_at,
         )
         draft_dir = draft_set_dir(paths.ai_dir, draft_set_id)
-        draft_projection = _load_draft_projection(draft_dir)
+        draft_projection = project_draft_set(
+            project_state=project_state,
+            draft_set=draft_set,
+            current_project_head=current_project_head,
+            generated_at=generated_at,
+        )
         exports_dir = draft_dir / "exports"
         output_paths = _draft_export_paths(exports_dir)
         _extend_warnings(
@@ -779,7 +787,11 @@ def _project_head_at_generation(draft_set: dict[str, Any]) -> str | None:
 
 def _current_project_head(ai_dir: Path) -> str | None:
     bundle = load_runtime(runtime_paths(ai_dir))
-    value = bundle.get("project_state", {}).get("state", {}).get("project_head")
+    return _project_head_from_state(bundle.get("project_state", {}))
+
+
+def _project_head_from_state(project_state: dict[str, Any]) -> str | None:
+    value = project_state.get("state", {}).get("project_head")
     return value if isinstance(value, str) and value else None
 
 
@@ -811,14 +823,6 @@ def _has_missing_evidence(draft: dict[str, Any]) -> bool:
 
 def _draft_export_paths(exports_dir: Path) -> dict[str, Path]:
     return {key: exports_dir / filename for key, (filename, _document_type) in DRAFT_EXPORT_SPECS.items()}
-
-
-def _load_draft_projection(draft_dir: Path) -> dict[str, Any] | None:
-    path = draft_dir / "draft-projection.json"
-    if not path.exists():
-        return None
-    payload = load_json(path)
-    return payload if isinstance(payload, dict) else None
 
 
 def _marker_warnings(output_paths: dict[str, Path], *, project_head: str | None) -> list[str]:

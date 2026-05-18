@@ -151,8 +151,11 @@ rules, or create accepted decisions.
 
 ## Review Queue
 
-`review-draft-set` builds `review-queue.json`. `export-draft-set` also builds the review queue, so the
-normal readable-export flow does not need to call `review-draft-set` separately.
+`review-draft-set` builds `review-queue.json`. `export-draft-set` also builds the review queue and
+derives current projection diagnostics in memory for the readable preflight export. It must not render
+empty convergence or gap diagnostics just because `draft-projection.json` has not been generated, and
+it must not write `draft-projection.json` itself. The normal readable-export flow does not need to call
+`review-draft-set` separately.
 
 The review queue sorts draft decisions and classifies them as:
 
