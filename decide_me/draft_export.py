@@ -479,6 +479,12 @@ def _render_preflight(
             ],
         ),
         "",
+        "## Coverage Summary",
+        _render_coverage_summary(draft_projection),
+        "",
+        "## Coverage Matrix",
+        _render_coverage_matrix(draft_projection),
+        "",
         "## Gap Diagnostics",
         _render_gap_diagnostics(draft_projection),
         "",
@@ -510,6 +516,56 @@ def _render_preflight(
         _bullet_list(review_queue.get("warnings")),
     ]
     return "\n".join(lines)
+
+
+def _render_coverage_summary(draft_projection: dict[str, Any] | None) -> str:
+    if not isinstance(draft_projection, dict):
+        return "- coverage diagnostics unavailable"
+    coverage_summary = _dict_field(draft_projection, "coverage_summary")
+    return _table(
+        ["Metric", "Value"],
+        [
+            ["Required targets", coverage_summary.get("required_target_count")],
+            ["Covered", coverage_summary.get("covered_count")],
+            ["Partial", coverage_summary.get("partial_count")],
+            ["Missing", coverage_summary.get("missing_count")],
+            ["Blocking coverage gaps", coverage_summary.get("blocking_gap_count")],
+        ],
+    )
+
+
+def _render_coverage_matrix(draft_projection: dict[str, Any] | None) -> str:
+    if not isinstance(draft_projection, dict):
+        return "- coverage diagnostics unavailable"
+    return _table(
+        [
+            "Axis",
+            "Type",
+            "Target",
+            "Observed",
+            "Priority",
+            "Required",
+            "Status",
+            "Blocks",
+            "Covered By",
+            "Remaining Gaps",
+        ],
+        [
+            [
+                row.get("axis_id"),
+                row.get("axis_type"),
+                row.get("value"),
+                row.get("observed_value"),
+                row.get("priority"),
+                row.get("required"),
+                row.get("status"),
+                row.get("blocks_convergence"),
+                row.get("covered_by"),
+                row.get("remaining_gaps"),
+            ]
+            for row in _list_field(draft_projection, "coverage_matrix")
+        ],
+    )
 
 
 def _render_gap_diagnostics(draft_projection: dict[str, Any] | None) -> str:

@@ -40,7 +40,21 @@ SEVERITY_RANK = {
     "low": 3,
     "info": 4,
 }
+PRIORITY_RANK = {
+    "P0": 0,
+    "P1": 1,
+    "P2": 2,
+    "P3": 3,
+}
+AXIS_TYPE_RANK = {
+    "decision_stack_layer": 0,
+    "evidence_coverage": 1,
+    "human_review_safety": 2,
+    "promotion_safety": 3,
+}
 DRAFT_ID_PREFIXES = ("DD-", "DA-", "DR-", "DV-", "DACTION-")
+
+
 class DraftProjectionError(Exception):
     pass
 
@@ -102,13 +116,19 @@ def project_draft_set(
         draft_set=draft_set_copy,
         index=index,
     )
+    coverage_matrix = build_coverage_matrix(
+        draft_set_copy,
+        current_project_head=current_project_head,
+    )
+    coverage_summary = _coverage_summary(coverage_matrix)
     convergence = _projection_convergence(
         gap_diagnostics,
+        coverage_matrix=coverage_matrix,
         max_iterations=max_iterations,
         convergence_override=convergence_override,
     )
     projection = {
-        "schema_version": 1,
+        "schema_version": 2,
         "draft_set_id": _draft_set_id(draft_set_copy),
         "generated_at": generated_at,
         "project_head_at_generation": project_head_at_generation,
@@ -122,6 +142,8 @@ def project_draft_set(
         "draft_summary": _draft_summary(draft_set_copy),
         "nodes": _projection_nodes(project_state_copy, draft_set_copy, index=index),
         "links": _projection_links(project_state_copy, draft_set_copy, index=index),
+        "coverage_summary": coverage_summary,
+        "coverage_matrix": coverage_matrix,
         "gap_diagnostics": gap_diagnostics,
         "convergence": convergence,
     }
@@ -362,7 +384,6 @@ def detect_gap_diagnostics(
 
     gaps.extend(_reference_gaps(draft_set, index=index))
     gaps.extend(_promotion_gaps(draft_set, index=index))
-    gaps.extend(_coverage_gaps(draft_set))
     return _sort_and_number_gaps(gaps)
 
 
@@ -635,80 +656,481 @@ def _promotion_gaps(draft_set: dict[str, Any], *, index: dict[str, Any]) -> list
     return gaps
 
 
-def _coverage_gaps(draft_set: dict[str, Any]) -> list[dict[str, Any]]:
-    layers = {
-        str(draft.get("layer"))
-        for draft in _items(draft_set, "draft_decisions")
-        if isinstance(draft, dict) and draft.get("layer")
-    }
-    gaps: list[dict[str, Any]] = []
-    coverage_specs = {
-        "purpose": (
-            "missing_purpose_layer",
-            "Draft set has no purpose-layer decision.",
-            "Add a reviewable decision that states purpose and success criteria.",
-        ),
-        "constraint": (
-            "missing_constraint_layer",
-            "Draft set has no constraint-layer decision.",
-            "Add a reviewable decision for source-of-truth or operating constraints.",
-        ),
-        "verification": (
-            "missing_verification_layer",
-            "Draft set has no verification-layer decision.",
-            "Add a reviewable decision for validation and completion checks.",
-        ),
-        "review": (
-            "missing_review_plan",
-            "Draft set has no review-layer decision.",
-            "Add a review plan decision for human approval and promotion boundaries.",
-        ),
-    }
-    for layer in DECISION_STACK_LAYER_ORDER:
-        if layer not in coverage_specs or layer in layers:
+def build_coverage_matrix(
+    draft_set: dict[str, Any],
+    *,
+    current_project_head: str | None,
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    seen_axis_ids: set[str] = set()
+    targets = _coverage_targets(draft_set)
+    _reject_duplicate_coverage_target_axis_ids(targets)
+    for target in targets:
+        axis_id = str(target.get("axis_id") or "")
+        if not axis_id or axis_id in seen_axis_ids:
             continue
-        gap_type, reason, resolution = coverage_specs[layer]
-        gaps.append(
-            _gap(
-                gap_type,
-                severity="medium",
-                scope="draft_set",
-                target_id=_draft_set_id(draft_set),
-                target_kind="draft_set",
-                blocks_convergence=False,
-                blocks_bulk_promotion=False,
-                reason=reason,
-                suggested_resolution=resolution,
+        seen_axis_ids.add(axis_id)
+        axis_type = str(target.get("axis_type") or "")
+        if axis_type == "decision_stack_layer":
+            rows.append(_decision_stack_layer_coverage_row(draft_set, target))
+        elif axis_type == "evidence_coverage":
+            rows.append(_evidence_coverage_row(draft_set, target=target))
+        elif axis_type == "human_review_safety":
+            rows.append(_human_review_safety_row(draft_set, target=target))
+        elif axis_type == "promotion_safety":
+            rows.append(
+                _promotion_safety_row(
+                    draft_set,
+                    current_project_head=current_project_head,
+                    target=target,
+                )
             )
+
+    for row in _derived_safety_rows(draft_set, current_project_head=current_project_head):
+        if row["axis_id"] not in seen_axis_ids:
+            rows.append(row)
+            seen_axis_ids.add(row["axis_id"])
+
+    rows.sort(
+        key=lambda row: (
+            AXIS_TYPE_RANK.get(str(row.get("axis_type")), 99),
+            PRIORITY_RANK.get(str(row.get("priority")), 99),
+            str(row.get("axis_id") or ""),
         )
-    return gaps
+    )
+    return rows
+
+
+def _coverage_targets(draft_set: dict[str, Any]) -> list[dict[str, Any]]:
+    contract = _dict_field(draft_set, "exploration_contract")
+    return [target for target in _items(contract, "coverage_targets") if isinstance(target, dict)]
+
+
+def _reject_duplicate_coverage_target_axis_ids(targets: list[dict[str, Any]]) -> None:
+    seen: set[str] = set()
+    for target in targets:
+        axis_id = str(target.get("axis_id") or "")
+        if not axis_id:
+            continue
+        if axis_id in seen:
+            raise DraftProjectionValidationError(f"duplicate coverage target axis_id: {axis_id}")
+        seen.add(axis_id)
+
+
+def _decision_stack_layer_coverage_row(draft_set: dict[str, Any], target: dict[str, Any]) -> dict[str, Any]:
+    layer = str(target.get("value") or "")
+    matching = [
+        draft
+        for draft in _items(draft_set, "draft_decisions")
+        if isinstance(draft, dict) and str(draft.get("layer") or "") == layer
+    ]
+    complete = [draft for draft in matching if _draft_decision_covers_layer(draft)]
+    matching_ids = _draft_ids(matching)
+    complete_ids = _draft_ids(complete)
+    if complete_ids:
+        return _coverage_row(target, observed_value="complete", status="covered", covered_by=complete_ids)
+    if matching_ids:
+        return _coverage_row(
+            target,
+            observed_value="incomplete",
+            status="partial",
+            covered_by=matching_ids,
+            remaining_gaps=[f"No complete {layer}-layer draft decision exists."],
+        )
+    return _coverage_row(
+        target,
+        observed_value="missing",
+        status="missing",
+        remaining_gaps=[f"No {layer}-layer draft decision exists."],
+    )
+
+
+def _draft_decision_covers_layer(draft: dict[str, Any]) -> bool:
+    return (
+        _non_empty_string(draft.get("question"))
+        and _non_empty_string(draft.get("recommendation"))
+        and _non_empty_string(draft.get("rationale"))
+    )
+
+
+def _derived_safety_rows(draft_set: dict[str, Any], *, current_project_head: str | None) -> list[dict[str, Any]]:
+    return [
+        _evidence_coverage_row(
+            draft_set,
+            target={
+                "axis_id": "core.evidence.coverage",
+                "axis_type": "evidence_coverage",
+                "value": "sufficient",
+                "priority": "P2",
+                "required": False,
+            },
+        ),
+        _human_review_safety_row(
+            draft_set,
+            target={
+                "axis_id": "core.human_review.safety",
+                "axis_type": "human_review_safety",
+                "value": "individual_required",
+                "priority": "P2",
+                "required": False,
+            },
+        ),
+        _promotion_safety_row(
+            draft_set,
+            current_project_head=current_project_head,
+            target={
+                "axis_id": "core.promotion.proposal_required",
+                "axis_type": "promotion_safety",
+                "value": "proposal_required",
+                "priority": "P2",
+                "required": False,
+            },
+        ),
+        _promotion_safety_row(
+            draft_set,
+            current_project_head=current_project_head,
+            target={
+                "axis_id": "core.promotion.accepted_forbidden",
+                "axis_type": "promotion_safety",
+                "value": "accepted_forbidden",
+                "priority": "P2",
+                "required": False,
+            },
+        ),
+        _promotion_safety_row(
+            draft_set,
+            current_project_head=current_project_head,
+            target={
+                "axis_id": "core.promotion.stale_warning",
+                "axis_type": "promotion_safety",
+                "value": "stale_warning",
+                "priority": "P2",
+                "required": False,
+            },
+        ),
+    ]
+
+
+def _evidence_coverage_row(draft_set: dict[str, Any], *, target: dict[str, Any]) -> dict[str, Any]:
+    problem_ids: list[str] = []
+    partial_ids: list[str] = []
+    covered_ids: list[str] = []
+    problem_priorities: list[str] = []
+    worst_status = "sufficient"
+    for draft in _items(draft_set, "draft_decisions"):
+        if not isinstance(draft, dict):
+            continue
+        draft_id = _object_id(draft)
+        priority = _priority(draft)
+        evidence = _dict_field(draft, "evidence_coverage")
+        evidence_status = _normalized_evidence_status(evidence.get("status")) or "unknown"
+        worst_status = _worst_evidence_status(worst_status, evidence_status)
+        if evidence_status in INSUFFICIENT_EVIDENCE_STATUSES:
+            if draft_id:
+                problem_ids.append(draft_id)
+            problem_priorities.append(priority)
+        elif evidence_status == "partial" and _items(evidence, "missing"):
+            if draft_id:
+                partial_ids.append(draft_id)
+            problem_priorities.append(priority)
+        elif draft_id:
+            covered_ids.append(draft_id)
+
+    status = _evidence_target_status(str(target.get("value") or ""), worst_status)
+    effective_target = target
+    if problem_priorities:
+        effective_target = _coverage_target_with_safety(
+            target,
+            priority=_highest_priority(problem_priorities),
+            required=_has_p0_p1(problem_priorities),
+        )
+    if status != "covered":
+        if problem_ids:
+            remaining_gaps = [f"Missing, challenged, or unknown evidence coverage: {', '.join(problem_ids)}."]
+        elif partial_ids:
+            remaining_gaps = [f"Partial evidence does not satisfy required evidence target: {', '.join(partial_ids)}."]
+        else:
+            remaining_gaps = [
+                f"Observed evidence coverage is {worst_status}; target is {target.get('value')}.",
+            ]
+        return _coverage_row(
+            effective_target,
+            observed_value=worst_status,
+            status=status,
+            covered_by=covered_ids + partial_ids,
+            remaining_gaps=remaining_gaps,
+        )
+    return _coverage_row(
+        target,
+        observed_value=worst_status,
+        status="covered",
+        covered_by=covered_ids + partial_ids,
+    )
+
+
+def _human_review_safety_row(draft_set: dict[str, Any], *, target: dict[str, Any]) -> dict[str, Any]:
+    unsafe_ids: list[str] = []
+    individual_needed_ids: list[str] = []
+    covered_ids: list[str] = []
+    priorities: list[str] = []
+    for draft in _items(draft_set, "draft_decisions"):
+        if not isinstance(draft, dict):
+            continue
+        draft_id = _object_id(draft)
+        priority = _priority(draft)
+        risk_tier = str(draft.get("risk_tier") or "").lower()
+        human_review = _dict_field(draft, "human_review")
+        bulk_requested = human_review.get("mode") == "bulk" or human_review.get("bulk_promotable") is True
+        if risk_tier in {"high", "critical"} and bulk_requested:
+            if draft_id:
+                unsafe_ids.append(draft_id)
+            priorities.append("P0")
+        elif priority in {"P0", "P1"} and bulk_requested and human_review.get("required") is not True:
+            if draft_id:
+                individual_needed_ids.append(draft_id)
+            priorities.append(priority)
+        elif draft_id:
+            covered_ids.append(draft_id)
+
+    if unsafe_ids:
+        return _coverage_row(
+            _coverage_target_with_safety(target, priority="P0", required=True),
+            observed_value="blocked",
+            status=_human_review_target_status(str(target.get("value") or ""), "blocked"),
+            covered_by=covered_ids,
+            remaining_gaps=[f"Unsafe bulk review requested for high/critical risk draft decisions: {', '.join(unsafe_ids)}."],
+        )
+    if individual_needed_ids:
+        observed_value = "bulk_allowed"
+        return _coverage_row(
+            _coverage_target_with_safety(
+                target,
+                priority=_highest_priority(priorities),
+                required=True,
+            ),
+            observed_value=observed_value,
+            status=_human_review_target_status(str(target.get("value") or ""), observed_value),
+            covered_by=covered_ids,
+            remaining_gaps=[f"P0/P1 draft decisions require individual review: {', '.join(individual_needed_ids)}."],
+        )
+    observed_value = "individual_required" if any(
+        isinstance(draft, dict) and _dict_field(draft, "human_review").get("required") is True
+        for draft in _items(draft_set, "draft_decisions")
+    ) else "bulk_allowed"
+    status = _human_review_target_status(str(target.get("value") or ""), observed_value)
+    remaining_gaps = []
+    if status != "covered":
+        remaining_gaps = [
+            f"Observed human review safety is {observed_value}; target is {target.get('value')}.",
+        ]
+    return _coverage_row(
+        target,
+        observed_value=observed_value,
+        status=status,
+        covered_by=covered_ids,
+        remaining_gaps=remaining_gaps,
+    )
+
+
+def _promotion_safety_row(
+    draft_set: dict[str, Any],
+    *,
+    current_project_head: str | None,
+    target: dict[str, Any],
+) -> dict[str, Any]:
+    value = str(target.get("value") or "")
+    value_key = value.replace(" ", "_").replace("-", "_")
+    if value_key == "accepted_forbidden":
+        accepted_ids = [
+            _object_id(draft) or "unknown"
+            for draft in _items(draft_set, "draft_decisions")
+            if isinstance(draft, dict)
+            and (
+                draft.get("status") == "accepted"
+                or _dict_field(draft, "promotion_recipe").get("canonical_initial_status") == "accepted"
+            )
+        ]
+        if accepted_ids:
+            return _coverage_row(
+                _coverage_target_with_safety(target, priority="P0", required=True),
+                observed_value="accepted_present",
+                status="missing",
+                remaining_gaps=[f"Draft decisions must not start or appear accepted: {', '.join(accepted_ids)}."],
+            )
+        return _coverage_row(
+            target,
+            observed_value="accepted_forbidden",
+            status="covered",
+            covered_by=_draft_ids(_items(draft_set, "draft_decisions")),
+        )
+    if value_key == "stale_warning":
+        generated_head = _project_head_at_generation(draft_set)
+        stale = generated_head is not None and current_project_head is not None and generated_head != current_project_head
+        if stale:
+            return _coverage_row(
+                _coverage_target_with_safety(target, priority="P1", required=True),
+                observed_value="stale",
+                status="partial",
+                remaining_gaps=[f"Draft set is stale: generated at {generated_head}, current is {current_project_head}."],
+            )
+        return _coverage_row(target, observed_value="fresh", status="covered")
+
+    bad_ids = [
+        _object_id(draft) or "unknown"
+        for draft in _items(draft_set, "draft_decisions")
+        if isinstance(draft, dict) and _dict_field(draft, "promotion_recipe").get("proposal_required") is not True
+    ]
+    if bad_ids:
+        return _coverage_row(
+            _coverage_target_with_safety(target, priority="P0", required=True),
+            observed_value="proposal_missing",
+            status="missing",
+            remaining_gaps=[f"Promotion must require proposal review before acceptance: {', '.join(bad_ids)}."],
+        )
+    return _coverage_row(
+        target,
+        observed_value="proposal_required",
+        status="covered",
+        covered_by=_draft_ids(_items(draft_set, "draft_decisions")),
+    )
+
+
+def _coverage_row(
+    target: dict[str, Any],
+    *,
+    observed_value: str,
+    status: str,
+    covered_by: list[str] | None = None,
+    remaining_gaps: list[str] | None = None,
+) -> dict[str, Any]:
+    priority = _target_priority(target)
+    required = bool(target.get("required"))
+    return {
+        "axis_id": str(target.get("axis_id") or ""),
+        "axis_type": str(target.get("axis_type") or ""),
+        "value": str(target.get("value") or ""),
+        "observed_value": observed_value,
+        "priority": priority,
+        "required": required,
+        "status": status,
+        "covered_by": _unique(covered_by or []),
+        "remaining_gaps": _unique(remaining_gaps or []),
+        "blocks_convergence": required and priority in {"P0", "P1"} and status != "covered",
+    }
+
+
+def _coverage_target_with_safety(
+    target: dict[str, Any],
+    *,
+    priority: str | None = None,
+    required: bool | None = None,
+) -> dict[str, Any]:
+    updated = dict(target)
+    if priority is not None:
+        updated["priority"] = priority
+    if required is not None:
+        updated["required"] = required
+    return updated
+
+
+def _evidence_target_status(target_value: str, observed_value: str) -> str:
+    if target_value == "sufficient":
+        if observed_value == "sufficient":
+            return "covered"
+        return "partial" if observed_value == "partial" else "missing"
+    if target_value == "partial":
+        return "covered" if observed_value in {"partial", "sufficient"} else "missing"
+    return "covered" if observed_value == target_value else "partial"
+
+
+def _human_review_target_status(target_value: str, observed_value: str) -> str:
+    if target_value == "bulk_allowed":
+        return "covered" if observed_value == "bulk_allowed" else "partial"
+    return "covered" if observed_value == target_value else "missing"
+
+
+def _coverage_summary(coverage_matrix: list[dict[str, Any]]) -> dict[str, int]:
+    return {
+        "required_target_count": sum(1 for row in coverage_matrix if row.get("required") is True),
+        "covered_count": sum(1 for row in coverage_matrix if row.get("status") == "covered"),
+        "partial_count": sum(1 for row in coverage_matrix if row.get("status") == "partial"),
+        "missing_count": sum(1 for row in coverage_matrix if row.get("status") == "missing"),
+        "blocking_gap_count": sum(1 for row in coverage_matrix if row.get("blocks_convergence") is True),
+    }
+
+
+def _draft_ids(items: list[Any]) -> list[str]:
+    ids = []
+    for item in items:
+        if isinstance(item, dict):
+            item_id = _object_id(item)
+            if item_id:
+                ids.append(item_id)
+    return _unique(ids)
+
+
+def _priority(draft: dict[str, Any]) -> str:
+    value = draft.get("priority")
+    return value if isinstance(value, str) and value in PRIORITY_RANK else "P3"
+
+
+def _target_priority(target: dict[str, Any]) -> str:
+    value = target.get("priority")
+    return value if isinstance(value, str) and value in PRIORITY_RANK else "P3"
+
+
+def _highest_priority(priorities: list[str]) -> str:
+    valid = [priority for priority in priorities if priority in PRIORITY_RANK]
+    if not valid:
+        return "P2"
+    return min(valid, key=lambda priority: PRIORITY_RANK[priority])
+
+
+def _has_p0_p1(priorities: list[str]) -> bool:
+    return any(priority in {"P0", "P1"} for priority in priorities)
+
+
+def _worst_evidence_status(left: str, right: str) -> str:
+    rank = {"challenged": 0, "none": 1, "unknown": 2, "partial": 3, "sufficient": 4}
+    return left if rank.get(left, 99) <= rank.get(right, 99) else right
 
 
 def _projection_convergence(
     gaps: list[dict[str, Any]],
     *,
+    coverage_matrix: list[dict[str, Any]],
     max_iterations: int | None,
     convergence_override: dict[str, Any] | None,
 ) -> dict[str, Any]:
-    blocking = [gap for gap in gaps if gap["blocks_convergence"]]
-    if blocking or not isinstance(convergence_override, dict):
-        stop_reason = _classify_projection_stop_reason(gaps)
+    blocking_gaps = [gap for gap in gaps if gap["blocks_convergence"]]
+    coverage_problem_count = sum(1 for row in coverage_matrix if row.get("status") != "covered")
+    coverage_blockers = [row for row in coverage_matrix if row.get("blocks_convergence") is True]
+    if blocking_gaps or coverage_blockers or not isinstance(convergence_override, dict):
+        stop_reason = _classify_projection_stop_reason(gaps, coverage_blockers=coverage_blockers)
     else:
         override_stop_reason = convergence_override.get("stop_reason")
-        stop_reason = override_stop_reason if isinstance(override_stop_reason, str) else _classify_projection_stop_reason(gaps)
+        stop_reason = (
+            override_stop_reason
+            if isinstance(override_stop_reason, str)
+            else _classify_projection_stop_reason(gaps, coverage_blockers=coverage_blockers)
+        )
     status = _projection_status(stop_reason)
     iterations = _non_negative_int(convergence_override.get("iterations") if isinstance(convergence_override, dict) else None)
     iteration_budget = int(max_iterations) if max_iterations is not None else iterations
     convergence = {
         "status": status,
         "stop_reason": stop_reason,
-        "new_gap_count": len(gaps),
-        "blocking_gap_count": len(blocking),
+        "new_gap_count": len(gaps) + coverage_problem_count,
+        "blocking_gap_count": len(blocking_gaps) + len(coverage_blockers),
         "iterations": iterations,
         "max_iterations": iteration_budget,
-        "explanation": _projection_explanation(stop_reason, len(gaps), len(blocking)),
+        "explanation": _projection_explanation(
+            stop_reason,
+            len(gaps) + coverage_problem_count,
+            len(blocking_gaps) + len(coverage_blockers),
+        ),
     }
-    if isinstance(convergence_override, dict) and not blocking:
+    if isinstance(convergence_override, dict) and not blocking_gaps and not coverage_blockers:
         explanation = convergence_override.get("explanation")
         if isinstance(explanation, str):
             convergence["explanation"] = explanation
@@ -718,7 +1140,7 @@ def _projection_convergence(
     return convergence
 
 
-def _classify_projection_stop_reason(gaps: list[dict[str, Any]]) -> str:
+def _classify_projection_stop_reason(gaps: list[dict[str, Any]], *, coverage_blockers: list[dict[str, Any]]) -> str:
     gap_types = {gap["type"] for gap in gaps}
     if "accepted_conflict" in gap_types:
         return "conflict_blocked"
@@ -726,6 +1148,8 @@ def _classify_projection_stop_reason(gaps: list[dict[str, Any]]) -> str:
         return "risk_gate_triggered"
     if any(gap["type"] == "insufficient_evidence" and gap["blocks_convergence"] for gap in gaps):
         return "evidence_gap_blocked"
+    if coverage_blockers:
+        return "user_review_required"
     if any(gap["blocks_convergence"] for gap in gaps):
         return "user_review_required"
     if gaps:

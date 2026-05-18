@@ -32,7 +32,7 @@ class AutopilotIterationTests(unittest.TestCase):
 
         final, _projection = _iterate(draft_set, max_iterations=2)
 
-        self.assertTrue({"DD-GAP-CONSTRAINT", "DD-GAP-VERIFICATION", "DD-GAP-REVIEW"}.issubset(
+        self.assertTrue({"DD-GAP-PRINCIPLE", "DD-GAP-STRATEGY", "DD-GAP-DESIGN", "DD-GAP-EXECUTION"}.issubset(
             {draft["id"] for draft in final["draft_decisions"]}
         ))
 
@@ -42,7 +42,16 @@ class AutopilotIterationTests(unittest.TestCase):
 
         final, _projection = _iterate(draft_set, max_iterations=2)
 
-        self.assertTrue({"DD-GAP-PURPOSE", "DD-GAP-CONSTRAINT", "DD-GAP-VERIFICATION", "DD-GAP-REVIEW"}.issubset(
+        self.assertTrue({
+            "DD-GAP-PURPOSE",
+            "DD-GAP-PRINCIPLE",
+            "DD-GAP-CONSTRAINT",
+            "DD-GAP-STRATEGY",
+            "DD-GAP-DESIGN",
+            "DD-GAP-EXECUTION",
+            "DD-GAP-VERIFICATION",
+            "DD-GAP-REVIEW",
+        }.issubset(
             {draft["id"] for draft in final["draft_decisions"]}
         ))
 
@@ -161,7 +170,15 @@ def _complete_draft_set() -> dict:
         "reason": "Low-risk review candidate.",
     }
     base["promotion_recipe"]["blocked_for_bulk_acceptance"] = False
-    for draft_id, layer in (("DD-002", "constraint"), ("DD-003", "verification"), ("DD-004", "review")):
+    for draft_id, layer in (
+        ("DD-002", "principle"),
+        ("DD-003", "constraint"),
+        ("DD-004", "strategy"),
+        ("DD-005", "design"),
+        ("DD-006", "execution"),
+        ("DD-007", "verification"),
+        ("DD-008", "review"),
+    ):
         draft = deepcopy(base)
         draft["id"] = draft_id
         draft["layer"] = layer

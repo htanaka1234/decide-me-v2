@@ -29,8 +29,13 @@ class AutopilotDraftCliTests(unittest.TestCase):
             )
 
             self.assertEqual("ok", result["status"])
+            self.assertIn("coverage_summary", result)
             self.assertTrue(Path(result["draft_set_path"]).exists())
             self.assertTrue(Path(result["projection_path"]).exists())
+            projection = json.loads(Path(result["projection_path"]).read_text(encoding="utf-8"))
+            self.assertEqual(2, projection["schema_version"])
+            self.assertIn("coverage_summary", projection)
+            self.assertIn("coverage_matrix", projection)
             for path in result["exports"].values():
                 self.assertTrue(Path(path).exists())
 
@@ -68,6 +73,8 @@ class AutopilotDraftCliTests(unittest.TestCase):
                 "--draft-set-id",
                 "DS-20260513-001",
             )
+            before_events = read_event_log(runtime_paths(ai_dir))
+            before_project_state = (ai_dir / "project-state.json").read_bytes()
 
             result = run_json_cli(
                 "project-draft-set",
@@ -80,9 +87,18 @@ class AutopilotDraftCliTests(unittest.TestCase):
             )
 
             self.assertEqual("ok", result["status"])
+            self.assertIn("coverage_summary", result)
+            self.assertTrue(result["persisted"])
             self.assertTrue((ai_dir / "draft-sets" / "DS-20260513-001" / "draft-projection.json").exists())
+            projection = json.loads(
+                (ai_dir / "draft-sets" / "DS-20260513-001" / "draft-projection.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(2, projection["schema_version"])
+            self.assertIn("coverage_matrix", projection)
             self.assertFalse((ai_dir / "draft-sets" / "DS-20260513-001" / "review-queue.json").exists())
             self.assertFalse((ai_dir / "draft-sets" / "DS-20260513-001" / "exports").exists())
+            self.assertEqual(before_events, read_event_log(runtime_paths(ai_dir)))
+            self.assertEqual(before_project_state, (ai_dir / "project-state.json").read_bytes())
 
     def test_project_draft_set_cli_no_persist_does_not_write_projection(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -111,6 +127,8 @@ class AutopilotDraftCliTests(unittest.TestCase):
             )
 
             self.assertEqual("ok", result["status"])
+            self.assertIn("coverage_summary", result)
+            self.assertFalse(result["persisted"])
             self.assertFalse(projection_path.exists())
 
     def test_autopilot_draft_cli_reports_stop_reason(self) -> None:
@@ -168,6 +186,7 @@ class AutopilotDraftCliTests(unittest.TestCase):
             draft_set = json.loads(Path(result["draft_set_path"]).read_text(encoding="utf-8"))
 
             self.assertEqual(3, projection["convergence"]["max_iterations"])
+            self.assertIn("coverage_matrix", projection)
             self.assertEqual(
                 {"max_draft_decisions": 30, "max_iterations": 3},
                 draft_set["exploration_contract"]["budgets"],
@@ -274,6 +293,44 @@ class AutopilotDraftCliTests(unittest.TestCase):
 
             self.assertEqual(1, result.returncode)
             self.assertIn("schema_version", result.stderr)
+
+    def test_autopilot_draft_cli_rejects_duplicate_coverage_target_axis_ids(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = _bootstrap(Path(tmp))
+            seed = _seed_payload()
+            seed["exploration_contract"] = minimal_valid_draft_set()["exploration_contract"]
+            seed["exploration_contract"]["coverage_targets"].extend(
+                [
+                    {
+                        "axis_id": "custom.layer.strategy",
+                        "axis_type": "decision_stack_layer",
+                        "value": "strategy",
+                        "priority": "P3",
+                        "required": False,
+                    },
+                    {
+                        "axis_id": "custom.layer.strategy",
+                        "axis_type": "decision_stack_layer",
+                        "value": "strategy",
+                        "priority": "P1",
+                        "required": True,
+                    },
+                ]
+            )
+            seed_path = _write_seed(Path(tmp), seed)
+
+            result = run_cli(
+                "autopilot-draft",
+                "--ai-dir",
+                str(ai_dir),
+                "--seed-draft-json",
+                str(seed_path),
+                "--no-export",
+                check=False,
+            )
+
+            self.assertEqual(1, result.returncode)
+            self.assertIn("duplicate coverage target axis_id", result.stderr)
 
     def test_autopilot_draft_cli_records_actual_budgets_for_seed_contract(self) -> None:
         with TemporaryDirectory() as tmp:

@@ -100,6 +100,7 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
             normalized_ref,
         )
         self.assertIn("Diagnostics and coverage are never written back into `draft-set.json`", normalized_ref)
+        self.assertIn("DraftProjection uses `schema_version: 2`", normalized_ref)
         self.assertIn("`review-queue.json` is a derived promotion handoff queue", normalized_ref)
         self.assertIn(
             "The canonical event log, `project-state.json`, `taxonomy-state.json`, and `sessions/*.json` "
@@ -117,6 +118,10 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
         self.assertIn("`exploration_contract` is defaulted as source input", normalized_ref)
         self.assertIn("`core.layer.strategy`", normalized_ref)
         self.assertIn("`autopilot-draft` records the actual CLI budgets", normalized_ref)
+        self.assertIn("`project-draft-set` builds `coverage_matrix`", normalized_ref)
+        self.assertIn("Required P0/P1 rows with `status=partial` or `status=missing`", normalized_ref)
+        self.assertIn("Low-risk P2/P3 non-required rows do not block convergence", normalized_ref)
+        self.assertIn("Coverage summary: required=N, covered=N, partial=N, missing=N, blocking=N", ref)
 
     def test_draft_set_reference_documents_sidecar_boundary(self) -> None:
         ref = (REPO_ROOT / "references" / "draft-decision-sets.md").read_text(encoding="utf-8")
@@ -134,6 +139,12 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
         self.assertIn("require top-level `exploration_contract`", normalized_ref)
         self.assertIn("Partial or malformed explicit contracts fail schema validation", normalized_ref)
         self.assertIn("convergence, frontier queues, and review queues remain derived artifacts", normalized_ref)
+        self.assertIn("DraftProjection uses `schema_version: 2`", normalized_ref)
+        self.assertIn("`coverage_summary`, `coverage_matrix`, `gap_diagnostics`, and `convergence`", normalized_ref)
+        self.assertIn("`observed_value` separately", normalized_ref)
+        self.assertIn("`coverage_targets[].axis_id` values must be unique", normalized_ref)
+        self.assertIn("cannot shadow a core diagnostic with a different meaning or weaker blocking policy", normalized_ref)
+        self.assertIn("P2/P3 non-required rows do not", normalized_ref)
 
     def test_related_references_document_pr4_boundaries(self) -> None:
         output_contract = (REPO_ROOT / "references" / "output-contract.md").read_text(encoding="utf-8")
@@ -192,6 +203,18 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
             "Derived coverage summaries, matrices, gap diagnostics, convergence, frontier queues, and review queues",
             normalized_output_contract,
         )
+        self.assertIn("`coverage_summary`, and `canonical_events_created=false`", normalized_output_contract)
+        self.assertIn("`coverage_summary`, `coverage_matrix`, `gap_diagnostics`, and `convergence`", normalized_output_contract)
+        self.assertIn("`projection_path`, `persisted`, `stale`", normalized_output_contract)
+        self.assertIn("`persisted=false` and `projection_path` is the would-be sidecar path", normalized_output_contract)
+        self.assertIn("P2/P3 non-required coverage gaps must not block convergence", normalized_output_contract)
+        self.assertIn(
+            "Coverage rows include `axis_id`, `axis_type`, `value`, `observed_value`, `priority`, `required`",
+            normalized_output_contract,
+        )
+        self.assertIn("`value` is the requested target value", normalized_output_contract)
+        self.assertIn("`observed_value` is the projection-derived value", normalized_output_contract)
+        self.assertIn("must render `Coverage Summary` and `Coverage Matrix`", normalized_output_contract)
         self.assertIn("derive the current draft projection in memory", normalized_output_contract)
         self.assertIn("must not render empty convergence from missing diagnostics", normalized_output_contract)
 
@@ -232,6 +255,7 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
         self.assertIn("`schema_version: 2`", readme)
         self.assertIn("`exploration_contract`", readme)
         self.assertIn("Derived coverage matrices", readme)
+        self.assertIn("`coverage_summary` plus `coverage_matrix`", readme)
 
     def test_distribution_contains_decision_preflight_references(self) -> None:
         with BuiltArtifact() as artifact:

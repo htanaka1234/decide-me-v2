@@ -251,6 +251,328 @@
     },
     "coverage_target": {
       "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "axis_id": {
+                "const": "core.layer.purpose"
+              }
+            },
+            "required": [
+              "axis_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "axis_type": {
+                "const": "decision_stack_layer"
+              },
+              "value": {
+                "const": "purpose"
+              },
+              "priority": {
+                "const": "P1"
+              },
+              "required": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "axis_id": {
+                "const": "core.layer.principle"
+              }
+            },
+            "required": [
+              "axis_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "axis_type": {
+                "const": "decision_stack_layer"
+              },
+              "value": {
+                "const": "principle"
+              },
+              "priority": {
+                "const": "P1"
+              },
+              "required": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "axis_id": {
+                "const": "core.layer.constraint"
+              }
+            },
+            "required": [
+              "axis_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "axis_type": {
+                "const": "decision_stack_layer"
+              },
+              "value": {
+                "const": "constraint"
+              },
+              "priority": {
+                "const": "P1"
+              },
+              "required": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "axis_id": {
+                "const": "core.layer.strategy"
+              }
+            },
+            "required": [
+              "axis_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "axis_type": {
+                "const": "decision_stack_layer"
+              },
+              "value": {
+                "const": "strategy"
+              },
+              "priority": {
+                "const": "P1"
+              },
+              "required": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "axis_id": {
+                "const": "core.layer.design"
+              }
+            },
+            "required": [
+              "axis_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "axis_type": {
+                "const": "decision_stack_layer"
+              },
+              "value": {
+                "const": "design"
+              },
+              "priority": {
+                "const": "P1"
+              },
+              "required": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "axis_id": {
+                "const": "core.layer.execution"
+              }
+            },
+            "required": [
+              "axis_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "axis_type": {
+                "const": "decision_stack_layer"
+              },
+              "value": {
+                "const": "execution"
+              },
+              "priority": {
+                "const": "P1"
+              },
+              "required": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "axis_id": {
+                "const": "core.layer.verification"
+              }
+            },
+            "required": [
+              "axis_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "axis_type": {
+                "const": "decision_stack_layer"
+              },
+              "value": {
+                "const": "verification"
+              },
+              "priority": {
+                "const": "P1"
+              },
+              "required": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "axis_id": {
+                "const": "core.layer.review"
+              }
+            },
+            "required": [
+              "axis_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "axis_type": {
+                "const": "decision_stack_layer"
+              },
+              "value": {
+                "const": "review"
+              },
+              "priority": {
+                "const": "P1"
+              },
+              "required": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "axis_type": {
+                "const": "decision_stack_layer"
+              }
+            },
+            "required": [
+              "axis_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "$ref": "#/$defs/decision_stack_layer"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "axis_type": {
+                "const": "evidence_coverage"
+              }
+            },
+            "required": [
+              "axis_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "partial",
+                  "sufficient",
+                  "challenged",
+                  "unknown"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "axis_type": {
+                "const": "human_review_safety"
+              }
+            },
+            "required": [
+              "axis_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": "string",
+                "enum": [
+                  "bulk_allowed",
+                  "individual_required",
+                  "blocked"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "axis_type": {
+                "const": "promotion_safety"
+              }
+            },
+            "required": [
+              "axis_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": "string",
+                "enum": [
+                  "proposal_required",
+                  "accepted_forbidden",
+                  "stale_warning"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "$ref": "#/$defs/reserved_coverage_axis"
+        }
+      ],
       "required": [
         "axis_id",
         "axis_type",
@@ -284,6 +606,151 @@
         }
       },
       "additionalProperties": false
+    },
+    "reserved_coverage_axis": {
+      "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "axis_id": {
+                "const": "core.evidence.coverage"
+              }
+            },
+            "required": [
+              "axis_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "axis_type": {
+                "const": "evidence_coverage"
+              },
+              "value": {
+                "const": "sufficient"
+              },
+              "priority": {
+                "const": "P2"
+              },
+              "required": {
+                "const": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "axis_id": {
+                "const": "core.human_review.safety"
+              }
+            },
+            "required": [
+              "axis_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "axis_type": {
+                "const": "human_review_safety"
+              },
+              "value": {
+                "const": "individual_required"
+              },
+              "priority": {
+                "const": "P2"
+              },
+              "required": {
+                "const": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "axis_id": {
+                "const": "core.promotion.proposal_required"
+              }
+            },
+            "required": [
+              "axis_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "axis_type": {
+                "const": "promotion_safety"
+              },
+              "value": {
+                "const": "proposal_required"
+              },
+              "priority": {
+                "const": "P2"
+              },
+              "required": {
+                "const": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "axis_id": {
+                "const": "core.promotion.accepted_forbidden"
+              }
+            },
+            "required": [
+              "axis_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "axis_type": {
+                "const": "promotion_safety"
+              },
+              "value": {
+                "const": "accepted_forbidden"
+              },
+              "priority": {
+                "const": "P2"
+              },
+              "required": {
+                "const": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "axis_id": {
+                "const": "core.promotion.stale_warning"
+              }
+            },
+            "required": [
+              "axis_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "axis_type": {
+                "const": "promotion_safety"
+              },
+              "value": {
+                "const": "stale_warning"
+              },
+              "priority": {
+                "const": "P2"
+              },
+              "required": {
+                "const": false
+              }
+            }
+          }
+        }
+      ]
     },
     "draft_decision": {
       "type": "object",
