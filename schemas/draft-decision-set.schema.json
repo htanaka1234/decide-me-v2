@@ -12,13 +12,13 @@
     "generated_by",
     "goal",
     "source_context",
-    "convergence",
+    "exploration_contract",
     "draft_decisions"
   ],
   "properties": {
     "schema_version": {
       "type": "integer",
-      "const": 1
+      "const": 2
     },
     "id": {
       "type": "string",
@@ -50,8 +50,8 @@
     "source_context": {
       "$ref": "#/$defs/source_context"
     },
-    "convergence": {
-      "$ref": "#/$defs/convergence"
+    "exploration_contract": {
+      "$ref": "#/$defs/exploration_contract"
     },
     "draft_decisions": {
       "type": "array",
@@ -88,13 +88,6 @@
       "default": []
     },
     "conflicts": {
-      "type": "array",
-      "items": {
-        "type": "object"
-      },
-      "default": []
-    },
-    "review_queue": {
       "type": "array",
       "items": {
         "type": "object"
@@ -182,37 +175,582 @@
       },
       "additionalProperties": false
     },
-    "convergence": {
+    "exploration_contract": {
       "type": "object",
       "required": [
-        "status",
-        "iterations",
-        "stop_reason"
+        "objective",
+        "non_goals",
+        "read_first_sources",
+        "coverage_targets",
+        "budgets",
+        "stop_conditions",
+        "pause_conditions"
       ],
       "properties": {
-        "status": {
-          "type": "string",
-          "enum": [
-            "budget_exhausted",
-            "converged",
-            "blocked",
-            "stopped",
-            "failed"
-          ]
-        },
-        "iterations": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "stop_reason": {
+        "objective": {
           "type": "string",
           "minLength": 1
         },
-        "note": {
-          "type": "string"
+        "non_goals": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "read_first_sources": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "coverage_targets": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/coverage_target"
+          }
+        },
+        "budgets": {
+          "type": "object",
+          "required": [
+            "max_draft_decisions",
+            "max_iterations"
+          ],
+          "properties": {
+            "max_draft_decisions": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "max_iterations": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false
+        },
+        "stop_conditions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "pause_conditions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       },
       "additionalProperties": false
+    },
+    "coverage_target": {
+      "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "axis_id": {
+                "const": "core.layer.purpose"
+              }
+            },
+            "required": [
+              "axis_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "axis_type": {
+                "const": "decision_stack_layer"
+              },
+              "value": {
+                "const": "purpose"
+              },
+              "priority": {
+                "const": "P1"
+              },
+              "required": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "axis_id": {
+                "const": "core.layer.principle"
+              }
+            },
+            "required": [
+              "axis_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "axis_type": {
+                "const": "decision_stack_layer"
+              },
+              "value": {
+                "const": "principle"
+              },
+              "priority": {
+                "const": "P1"
+              },
+              "required": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "axis_id": {
+                "const": "core.layer.constraint"
+              }
+            },
+            "required": [
+              "axis_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "axis_type": {
+                "const": "decision_stack_layer"
+              },
+              "value": {
+                "const": "constraint"
+              },
+              "priority": {
+                "const": "P1"
+              },
+              "required": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "axis_id": {
+                "const": "core.layer.strategy"
+              }
+            },
+            "required": [
+              "axis_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "axis_type": {
+                "const": "decision_stack_layer"
+              },
+              "value": {
+                "const": "strategy"
+              },
+              "priority": {
+                "const": "P1"
+              },
+              "required": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "axis_id": {
+                "const": "core.layer.design"
+              }
+            },
+            "required": [
+              "axis_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "axis_type": {
+                "const": "decision_stack_layer"
+              },
+              "value": {
+                "const": "design"
+              },
+              "priority": {
+                "const": "P1"
+              },
+              "required": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "axis_id": {
+                "const": "core.layer.execution"
+              }
+            },
+            "required": [
+              "axis_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "axis_type": {
+                "const": "decision_stack_layer"
+              },
+              "value": {
+                "const": "execution"
+              },
+              "priority": {
+                "const": "P1"
+              },
+              "required": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "axis_id": {
+                "const": "core.layer.verification"
+              }
+            },
+            "required": [
+              "axis_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "axis_type": {
+                "const": "decision_stack_layer"
+              },
+              "value": {
+                "const": "verification"
+              },
+              "priority": {
+                "const": "P1"
+              },
+              "required": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "axis_id": {
+                "const": "core.layer.review"
+              }
+            },
+            "required": [
+              "axis_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "axis_type": {
+                "const": "decision_stack_layer"
+              },
+              "value": {
+                "const": "review"
+              },
+              "priority": {
+                "const": "P1"
+              },
+              "required": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "axis_type": {
+                "const": "decision_stack_layer"
+              }
+            },
+            "required": [
+              "axis_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "$ref": "#/$defs/decision_stack_layer"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "axis_type": {
+                "const": "evidence_coverage"
+              }
+            },
+            "required": [
+              "axis_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "partial",
+                  "sufficient",
+                  "challenged",
+                  "unknown"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "axis_type": {
+                "const": "human_review_safety"
+              }
+            },
+            "required": [
+              "axis_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": "string",
+                "enum": [
+                  "bulk_allowed",
+                  "individual_required",
+                  "blocked"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "axis_type": {
+                "const": "promotion_safety"
+              }
+            },
+            "required": [
+              "axis_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": "string",
+                "enum": [
+                  "proposal_required",
+                  "accepted_forbidden",
+                  "stale_warning"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "$ref": "#/$defs/reserved_coverage_axis"
+        }
+      ],
+      "required": [
+        "axis_id",
+        "axis_type",
+        "value",
+        "priority",
+        "required"
+      ],
+      "properties": {
+        "axis_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "axis_type": {
+          "type": "string",
+          "enum": [
+            "decision_stack_layer",
+            "evidence_coverage",
+            "human_review_safety",
+            "promotion_safety"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1
+        },
+        "priority": {
+          "$ref": "#/$defs/priority"
+        },
+        "required": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "reserved_coverage_axis": {
+      "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "axis_id": {
+                "const": "core.evidence.coverage"
+              }
+            },
+            "required": [
+              "axis_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "axis_type": {
+                "const": "evidence_coverage"
+              },
+              "value": {
+                "const": "sufficient"
+              },
+              "priority": {
+                "const": "P2"
+              },
+              "required": {
+                "const": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "axis_id": {
+                "const": "core.human_review.safety"
+              }
+            },
+            "required": [
+              "axis_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "axis_type": {
+                "const": "human_review_safety"
+              },
+              "value": {
+                "const": "individual_required"
+              },
+              "priority": {
+                "const": "P2"
+              },
+              "required": {
+                "const": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "axis_id": {
+                "const": "core.promotion.proposal_required"
+              }
+            },
+            "required": [
+              "axis_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "axis_type": {
+                "const": "promotion_safety"
+              },
+              "value": {
+                "const": "proposal_required"
+              },
+              "priority": {
+                "const": "P2"
+              },
+              "required": {
+                "const": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "axis_id": {
+                "const": "core.promotion.accepted_forbidden"
+              }
+            },
+            "required": [
+              "axis_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "axis_type": {
+                "const": "promotion_safety"
+              },
+              "value": {
+                "const": "accepted_forbidden"
+              },
+              "priority": {
+                "const": "P2"
+              },
+              "required": {
+                "const": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "axis_id": {
+                "const": "core.promotion.stale_warning"
+              }
+            },
+            "required": [
+              "axis_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "axis_type": {
+                "const": "promotion_safety"
+              },
+              "value": {
+                "const": "stale_warning"
+              },
+              "priority": {
+                "const": "P2"
+              },
+              "required": {
+                "const": false
+              }
+            }
+          }
+        }
+      ]
     },
     "draft_decision": {
       "type": "object",

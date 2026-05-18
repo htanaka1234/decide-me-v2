@@ -9,10 +9,12 @@ from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker, ValidationError
 
+from decide_me.constants import DECISION_STACK_LAYER_ORDER
 from decide_me.events import utc_now
 from decide_me.store import _atomic_write_json, _write_lock, load_json, load_runtime, runtime_paths
 
 
+DRAFT_SET_SCHEMA_VERSION = 2
 DRAFT_SET_ID_PATTERN = re.compile(r"^DS-[0-9]{8}-[0-9]{3}$")
 DRAFT_SET_SCHEMA_PATH = Path(__file__).resolve().parents[1] / "schemas" / "draft-decision-set.schema.json"
 DRAFT_SET_COUNTS = (
@@ -28,19 +30,22 @@ OPTIONAL_ARRAY_FIELDS = (
     "draft_actions",
     "draft_verifications",
     "conflicts",
-    "review_queue",
 )
-DEFAULT_CONVERGENCE = {
-    "status": "budget_exhausted",
-    "iterations": 1,
-    "stop_reason": "mvp_single_pass",
-    "note": "PR1 stores a single-pass structured draft; it does not prove convergence.",
-}
 DEFAULT_PROMOTION = {
     "promoted_decision_ids": [],
     "bulk_promotable_ids": [],
     "individual_review_required_ids": [],
 }
+DEFAULT_STOP_CONDITIONS = [
+    "required_coverage_targets_satisfied",
+    "budget_exhausted",
+    "blocking_gap_requires_review",
+]
+DEFAULT_PAUSE_CONDITIONS = [
+    "missing_or_challenged_evidence",
+    "high_or_critical_risk",
+    "stale_or_unclassifiable_diagnostics",
+]
 
 
 class DraftSetError(ValueError):
@@ -154,6 +159,7 @@ def validate_draft_set(payload: dict[str, Any]) -> None:
     errors = sorted(_schema_validator().iter_errors(payload), key=lambda error: list(error.path))
     if errors:
         raise DraftSetValidationError(f"draft-set validation failed: {_format_validation_error(errors[0])}")
+    _validate_unique_coverage_target_axis_ids(payload)
 
 
 def draft_set_staleness(ai_dir: str | Path, draft_set: dict[str, Any]) -> dict[str, Any]:
@@ -166,6 +172,39 @@ def draft_set_staleness(ai_dir: str | Path, draft_set: dict[str, Any]) -> dict[s
         "current_project_head": current_head,
         "is_stale": is_stale,
         "reason": "project-head-changed" if is_stale else None,
+    }
+
+
+def default_exploration_contract(
+    draft_set: dict[str, Any],
+    *,
+    max_draft_decisions: int = 20,
+    max_iterations: int = 0,
+) -> dict[str, Any]:
+    goal = draft_set.get("goal") if isinstance(draft_set.get("goal"), dict) else {}
+    source_context = draft_set.get("source_context") if isinstance(draft_set.get("source_context"), dict) else {}
+    objective = goal.get("desired_outcome") or goal.get("title") or "Review draft decision set"
+    project_state_ref = source_context.get("project_state_ref") or "project-state.json"
+    return {
+        "objective": str(objective),
+        "non_goals": [],
+        "read_first_sources": [str(project_state_ref)],
+        "coverage_targets": [
+            {
+                "axis_id": f"core.layer.{layer}",
+                "axis_type": "decision_stack_layer",
+                "value": layer,
+                "priority": "P1",
+                "required": True,
+            }
+            for layer in DECISION_STACK_LAYER_ORDER
+        ],
+        "budgets": {
+            "max_draft_decisions": max_draft_decisions,
+            "max_iterations": max_iterations,
+        },
+        "stop_conditions": list(DEFAULT_STOP_CONDITIONS),
+        "pause_conditions": list(DEFAULT_PAUSE_CONDITIONS),
     }
 
 
@@ -184,12 +223,11 @@ def _normalize_draft_set(
         _validate_draft_set_id(draft_set_id)
 
     normalized = deepcopy(draft_payload)
-    normalized.setdefault("schema_version", 1)
+    normalized.setdefault("schema_version", DRAFT_SET_SCHEMA_VERSION)
     normalized.setdefault("status", "generated")
     normalized.setdefault("mode", "autopilot-draft")
     normalized["created_at"] = now
     normalized.setdefault("generated_by", "skill" if generated_by is None else generated_by)
-    normalized.setdefault("convergence", deepcopy(DEFAULT_CONVERGENCE))
     normalized.setdefault("promotion", deepcopy(DEFAULT_PROMOTION))
     for field in OPTIONAL_ARRAY_FIELDS:
         normalized.setdefault(field, [])
@@ -220,6 +258,14 @@ def _normalize_draft_set(
     source_context.setdefault("included_session_ids", [])
     source_context.setdefault("included_object_ids", [])
     source_context.setdefault("domain_pack_id", "generic")
+    normalized.setdefault(
+        "exploration_contract",
+        default_exploration_contract(
+            normalized,
+            max_draft_decisions=20,
+            max_iterations=0,
+        ),
+    )
     return normalized
 
 
@@ -261,6 +307,29 @@ def _draft_set_dir(ai_dir: Path, draft_set_id: str) -> Path:
 def _validate_draft_set_id(draft_set_id: str) -> None:
     if not isinstance(draft_set_id, str) or DRAFT_SET_ID_PATTERN.fullmatch(draft_set_id) is None:
         raise DraftSetError(f"invalid draft set id: {draft_set_id}")
+
+
+def _validate_unique_coverage_target_axis_ids(payload: dict[str, Any]) -> None:
+    contract = payload.get("exploration_contract")
+    if not isinstance(contract, dict):
+        return
+    coverage_targets = contract.get("coverage_targets")
+    if not isinstance(coverage_targets, list):
+        return
+
+    seen: set[str] = set()
+    for index, target in enumerate(coverage_targets):
+        if not isinstance(target, dict):
+            continue
+        axis_id = target.get("axis_id")
+        if not isinstance(axis_id, str) or not axis_id:
+            continue
+        if axis_id in seen:
+            raise DraftSetValidationError(
+                "draft-set validation failed: "
+                f"exploration_contract.coverage_targets[{index}].axis_id duplicates {axis_id}"
+            )
+        seen.add(axis_id)
 
 
 def _counts(draft_set: dict[str, Any]) -> dict[str, int]:

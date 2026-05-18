@@ -222,15 +222,26 @@ must report:
 `is_stale`, and `counts`. `show-draft-set` returns `status`, `draft_set`, and `runtime_status`.
 `list-draft-sets` returns `status`, `count`, and `draft_sets[]`.
 
-`project-draft-set` returns `status`, `draft_set_id`, `projection_path`, `stale`, `gap_count`,
-`blocking_gap_count`, and `stop_reason`. With persistence enabled, it writes only
-`.ai/decide-me/draft-sets/DS-.../draft-projection.json`.
+Persisted `draft-set.json` must match `schemas/draft-decision-set.schema.json` with
+`schema_version: 2`. Its required source-input fields include `goal`, `source_context`,
+`exploration_contract`, and `draft_decisions`. `exploration_contract` records objective, non-goals,
+read-first sources, coverage targets, budgets, stop conditions, and pause conditions. If omitted from
+new create/autopilot inputs, it is defaulted before persistence; malformed explicit contracts fail
+validation. Coverage target `axis_id` values are unique, and built-in `core.*` axis IDs have fixed
+type, value, priority, and required semantics; invalid duplicate or downgraded core targets fail
+validation. Derived coverage summaries, matrices, gap diagnostics, convergence, frontier queues, and
+review queues must not be written into `draft-set.json` or inferred from missing diagnostics.
+
+`project-draft-set` returns `status`, `draft_set_id`, `projection_path`, `persisted`, `stale`,
+`gap_count`, `blocking_gap_count`, `stop_reason`, and `coverage_summary`. With persistence enabled, it
+writes only `.ai/decide-me/draft-sets/DS-.../draft-projection.json`; with `--no-persist`,
+`persisted=false` and `projection_path` is the would-be sidecar path.
 
 `autopilot-draft` returns `status`, `draft_set_id`, `draft_set_path`, `projection_path`, `exports`,
-`convergence`, and `canonical_events_created=false`. Its `convergence` object includes `status`,
-`stop_reason`, `iterations`, `gap_count`, and `blocking_gap_count`. It may write `draft-set.json`,
-`draft-projection.json`, `review-queue.json`, and Markdown exports. It must not create accepted
-decisions or canonical events.
+`convergence`, `coverage_summary`, and `canonical_events_created=false`. Its `convergence` object
+includes `status`, `stop_reason`, `iterations`, `gap_count`, and `blocking_gap_count`. It may write
+`draft-set.json`, `draft-projection.json`, `review-queue.json`, and Markdown exports. It must not
+create accepted decisions or canonical events.
 
 Standalone `project-draft-set` may report `stop_reason=stopped` when diagnostics contain only
 non-blocking gaps. `autopilot-draft` uses the deterministic iteration stop reasons `converged`,
@@ -240,14 +251,21 @@ diagnostic state and report `user_review_required` for review handoff unless the
 explicitly reports `converged`.
 
 Projection convergence must fail closed. If current `draft-projection.json` diagnostics contain any
-blocking gap, the projection stop reason must be classified from those current gaps and reported with
-`status=blocked`, even when the persisted draft-set convergence says `converged`.
+blocking gap or required P0/P1 coverage row with `status=partial` or `status=missing`, the projection
+stop reason must be classified from those current diagnostics and reported with `status=blocked`
+regardless of any prior projection trace or expectation that the draft had converged. P2/P3
+non-required coverage gaps must not block convergence.
 
 `draft-projection.json` must match `schemas/draft-projection.schema.json`. Its required top-level
 fields are `schema_version`, `draft_set_id`, `generated_at`, `project_head_at_generation`,
 `current_project_head`, `stale`, `canonical_summary`, `draft_summary`, `nodes`, `links`,
-`gap_diagnostics`, and `convergence`. Gap diagnostics include `type`, `severity`, `target_id`,
-`blocks_convergence`, `blocks_bulk_promotion`, `reason`, and `suggested_resolution`.
+`coverage_summary`, `coverage_matrix`, `gap_diagnostics`, and `convergence`. `schema_version` is `2`.
+Coverage rows include `axis_id`, `axis_type`, `value`, `observed_value`, `priority`, `required`,
+`status`, `covered_by`, `remaining_gaps`, and `blocks_convergence`; `value` is the requested target
+value from the coverage target, and `observed_value` is the projection-derived value observed from
+draft content and safety diagnostics. `status` is one of `covered`, `partial`, or `missing`. Gap
+diagnostics include `type`, `severity`, `target_id`, `blocks_convergence`, `blocks_bulk_promotion`,
+`reason`, and `suggested_resolution`.
 
 Draft set review and export are sidecar-derived outputs. They consume
 `.ai/decide-me/draft-sets/DS-.../draft-set.json` and may write only
@@ -258,6 +276,11 @@ set's `exports/` directory:
 - `draft-decisions.md`
 - `review-queue.md`
 - `assumptions-risks.md`
+
+`export-draft-set` must derive the current draft projection in memory for readable convergence and gap
+diagnostics when `draft-projection.json` is absent or stale. It must render `Coverage Summary` and
+`Coverage Matrix` in the preflight export, must not render empty convergence from missing diagnostics,
+and must not write `draft-projection.json`; only `project-draft-set` owns that derived sidecar file.
 
 Every Markdown draft export must include `DRAFT / NOT ACCEPTED`, and managed generated regions
 must preserve the trailing `## Human Notes` section on regeneration. The review queue is a

@@ -29,8 +29,13 @@ class AutopilotDraftCliTests(unittest.TestCase):
             )
 
             self.assertEqual("ok", result["status"])
+            self.assertIn("coverage_summary", result)
             self.assertTrue(Path(result["draft_set_path"]).exists())
             self.assertTrue(Path(result["projection_path"]).exists())
+            projection = json.loads(Path(result["projection_path"]).read_text(encoding="utf-8"))
+            self.assertEqual(2, projection["schema_version"])
+            self.assertIn("coverage_summary", projection)
+            self.assertIn("coverage_matrix", projection)
             for path in result["exports"].values():
                 self.assertTrue(Path(path).exists())
 
@@ -68,6 +73,8 @@ class AutopilotDraftCliTests(unittest.TestCase):
                 "--draft-set-id",
                 "DS-20260513-001",
             )
+            before_events = read_event_log(runtime_paths(ai_dir))
+            before_project_state = (ai_dir / "project-state.json").read_bytes()
 
             result = run_json_cli(
                 "project-draft-set",
@@ -80,9 +87,18 @@ class AutopilotDraftCliTests(unittest.TestCase):
             )
 
             self.assertEqual("ok", result["status"])
+            self.assertIn("coverage_summary", result)
+            self.assertTrue(result["persisted"])
             self.assertTrue((ai_dir / "draft-sets" / "DS-20260513-001" / "draft-projection.json").exists())
+            projection = json.loads(
+                (ai_dir / "draft-sets" / "DS-20260513-001" / "draft-projection.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(2, projection["schema_version"])
+            self.assertIn("coverage_matrix", projection)
             self.assertFalse((ai_dir / "draft-sets" / "DS-20260513-001" / "review-queue.json").exists())
             self.assertFalse((ai_dir / "draft-sets" / "DS-20260513-001" / "exports").exists())
+            self.assertEqual(before_events, read_event_log(runtime_paths(ai_dir)))
+            self.assertEqual(before_project_state, (ai_dir / "project-state.json").read_bytes())
 
     def test_project_draft_set_cli_no_persist_does_not_write_projection(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -111,6 +127,8 @@ class AutopilotDraftCliTests(unittest.TestCase):
             )
 
             self.assertEqual("ok", result["status"])
+            self.assertIn("coverage_summary", result)
+            self.assertFalse(result["persisted"])
             self.assertFalse(projection_path.exists())
 
     def test_autopilot_draft_cli_reports_stop_reason(self) -> None:
@@ -165,8 +183,54 @@ class AutopilotDraftCliTests(unittest.TestCase):
                 "--no-export",
             )
             projection = json.loads(Path(result["projection_path"]).read_text(encoding="utf-8"))
+            draft_set = json.loads(Path(result["draft_set_path"]).read_text(encoding="utf-8"))
 
             self.assertEqual(3, projection["convergence"]["max_iterations"])
+            self.assertIn("coverage_matrix", projection)
+            self.assertEqual(
+                {"max_draft_decisions": 30, "max_iterations": 3},
+                draft_set["exploration_contract"]["budgets"],
+            )
+
+    def test_autopilot_draft_cli_goal_only_persists_exploration_contract(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = _bootstrap(Path(tmp))
+
+            result = run_json_cli(
+                "autopilot-draft",
+                "--ai-dir",
+                str(ai_dir),
+                "--goal",
+                "Create a reviewable draft set.",
+                "--max-iterations",
+                "2",
+                "--max-draft-decisions",
+                "12",
+                "--no-export",
+            )
+            draft_set = json.loads(Path(result["draft_set_path"]).read_text(encoding="utf-8"))
+
+            self.assertEqual(2, draft_set["schema_version"])
+            self.assertNotIn("convergence", draft_set)
+            self.assertNotIn("review_queue", draft_set)
+            self.assertEqual("Create a reviewable draft set.", draft_set["goal"]["title"])
+            self.assertEqual(
+                {"max_draft_decisions": 12, "max_iterations": 2},
+                draft_set["exploration_contract"]["budgets"],
+            )
+            self.assertEqual(
+                [
+                    "core.layer.purpose",
+                    "core.layer.principle",
+                    "core.layer.constraint",
+                    "core.layer.strategy",
+                    "core.layer.design",
+                    "core.layer.execution",
+                    "core.layer.verification",
+                    "core.layer.review",
+                ],
+                [target["axis_id"] for target in draft_set["exploration_contract"]["coverage_targets"]],
+            )
 
     def test_autopilot_draft_cli_respects_max_draft_decisions(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -210,6 +274,94 @@ class AutopilotDraftCliTests(unittest.TestCase):
 
             self.assertEqual("Seed goal wins", draft_set["goal"]["title"])
 
+    def test_autopilot_draft_cli_rejects_explicit_v1_seed(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = _bootstrap(Path(tmp))
+            seed = _seed_payload()
+            seed["schema_version"] = 1
+            seed_path = _write_seed(Path(tmp), seed)
+
+            result = run_cli(
+                "autopilot-draft",
+                "--ai-dir",
+                str(ai_dir),
+                "--seed-draft-json",
+                str(seed_path),
+                "--no-export",
+                check=False,
+            )
+
+            self.assertEqual(1, result.returncode)
+            self.assertIn("schema_version", result.stderr)
+
+    def test_autopilot_draft_cli_rejects_duplicate_coverage_target_axis_ids(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = _bootstrap(Path(tmp))
+            seed = _seed_payload()
+            seed["exploration_contract"] = minimal_valid_draft_set()["exploration_contract"]
+            seed["exploration_contract"]["coverage_targets"].extend(
+                [
+                    {
+                        "axis_id": "custom.layer.strategy",
+                        "axis_type": "decision_stack_layer",
+                        "value": "strategy",
+                        "priority": "P3",
+                        "required": False,
+                    },
+                    {
+                        "axis_id": "custom.layer.strategy",
+                        "axis_type": "decision_stack_layer",
+                        "value": "strategy",
+                        "priority": "P1",
+                        "required": True,
+                    },
+                ]
+            )
+            seed_path = _write_seed(Path(tmp), seed)
+
+            result = run_cli(
+                "autopilot-draft",
+                "--ai-dir",
+                str(ai_dir),
+                "--seed-draft-json",
+                str(seed_path),
+                "--no-export",
+                check=False,
+            )
+
+            self.assertEqual(1, result.returncode)
+            self.assertIn("duplicate coverage target axis_id", result.stderr)
+
+    def test_autopilot_draft_cli_records_actual_budgets_for_seed_contract(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = _bootstrap(Path(tmp))
+            seed = _seed_payload()
+            seed["exploration_contract"] = minimal_valid_draft_set()["exploration_contract"]
+            seed["exploration_contract"]["budgets"] = {
+                "max_draft_decisions": 99,
+                "max_iterations": 9,
+            }
+            seed_path = _write_seed(Path(tmp), seed)
+
+            result = run_json_cli(
+                "autopilot-draft",
+                "--ai-dir",
+                str(ai_dir),
+                "--seed-draft-json",
+                str(seed_path),
+                "--max-iterations",
+                "2",
+                "--max-draft-decisions",
+                "8",
+                "--no-export",
+            )
+            draft_set = json.loads(Path(result["draft_set_path"]).read_text(encoding="utf-8"))
+
+            self.assertEqual(
+                {"max_draft_decisions": 8, "max_iterations": 2},
+                draft_set["exploration_contract"]["budgets"],
+            )
+
     def test_cli_help_includes_autopilot_draft_after_pr5(self) -> None:
         result = run_cli("--help", cwd=Path(__file__).resolve().parents[2])
 
@@ -244,8 +396,7 @@ def _seed_payload() -> dict:
         "created_at",
         "generated_by",
         "source_context",
-        "convergence",
-        "review_queue",
+        "exploration_contract",
         "promotion",
     ):
         payload.pop(field, None)

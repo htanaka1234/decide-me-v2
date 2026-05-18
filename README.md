@@ -108,6 +108,13 @@ DraftDecisionSet seed, can pass it through
 `DRAFT / NOT ACCEPTED` Markdown files. This does not create accepted decisions. Promotion is a separate
 explicit handoff to a normal proposal flow.
 
+Persisted DraftDecisionSet sidecars use `schema_version: 2` and include `exploration_contract` as
+source input for the objective, non-goals, read-first sources, required coverage targets, budgets, stop
+conditions, and pause conditions. Derived coverage matrices, gap diagnostics, convergence, frontier
+queues, and review queues stay out of `draft-set.json`. `draft-projection.json` uses
+`schema_version: 2` and owns `coverage_summary` plus `coverage_matrix`; required P0/P1 missing or
+partial coverage blocks convergence.
+
 ```text
 Create decision preflight from goal:
 Use decide-me to create a DRAFT / NOT ACCEPTED decision set for Add goal-based draft decision sets to decide-me.

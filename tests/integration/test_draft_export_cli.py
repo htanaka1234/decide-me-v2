@@ -44,6 +44,8 @@ class DraftExportCliTests(unittest.TestCase):
             ai_dir = _bootstrap(Path(tmp))
             draft_json = _write_draft_json(Path(tmp), _draft_input())
             _create_draft(ai_dir, draft_json)
+            projection_path = ai_dir / "draft-sets" / "DS-20260513-001" / "draft-projection.json"
+            self.assertFalse(projection_path.exists())
 
             result = run_json_cli(
                 "export-draft-set",
@@ -59,6 +61,7 @@ class DraftExportCliTests(unittest.TestCase):
 
             self.assertEqual("ok", result["status"])
             self.assertTrue(Path(result["review_queue_path"]).exists())
+            self.assertFalse(projection_path.exists())
             for key in ("preflight", "draft_decisions", "review_queue", "assumptions_risks"):
                 path = Path(result["paths"][key])
                 self.assertTrue(path.exists(), key)
@@ -74,6 +77,13 @@ class DraftExportCliTests(unittest.TestCase):
             self.assertIn("## Goal", preflight)
             self.assertIn("## Source Context", preflight)
             self.assertIn("## Convergence", preflight)
+            self.assertNotIn("- Status: none recorded", preflight)
+            self.assertNotIn("- Stop reason: none recorded", preflight)
+            self.assertNotIn("draft-projection.json not generated", preflight)
+            self.assertIn("## Coverage Summary", preflight)
+            self.assertIn("## Coverage Matrix", preflight)
+            self.assertIn("core.layer.purpose", preflight)
+            self.assertIn("No purpose-layer draft decision exists.", preflight)
             self.assertIn("## Human Approval Plan", preflight)
             self.assertIn("Reason not recommended", draft_decisions)
             self.assertIn("Evidence Coverage", draft_decisions)
@@ -109,8 +119,10 @@ class DraftExportCliTests(unittest.TestCase):
             preflight = Path(result["paths"]["preflight"]).read_text(encoding="utf-8")
 
             self.assertIn("## Gap Diagnostics", preflight)
+            self.assertIn("## Coverage Summary", preflight)
+            self.assertIn("## Coverage Matrix", preflight)
             self.assertIn("Stop reason", preflight)
-            self.assertIn("missing_purpose_layer", preflight)
+            self.assertIn("core.layer.purpose", preflight)
 
     def test_export_draft_set_does_not_modify_project_state_or_event_log(self) -> None:
         with TemporaryDirectory() as tmp:

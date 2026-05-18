@@ -14,13 +14,15 @@
     "draft_summary",
     "nodes",
     "links",
+    "coverage_summary",
+    "coverage_matrix",
     "gap_diagnostics",
     "convergence"
   ],
   "properties": {
     "schema_version": {
       "type": "integer",
-      "const": 1
+      "const": 2
     },
     "draft_set_id": {
       "type": "string",
@@ -121,6 +123,15 @@
       "type": "array",
       "items": {
         "$ref": "#/$defs/link"
+      }
+    },
+    "coverage_summary": {
+      "$ref": "#/$defs/coverage_summary"
+    },
+    "coverage_matrix": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/coverage_row"
       }
     },
     "gap_diagnostics": {
@@ -301,6 +312,115 @@
       },
       "additionalProperties": false
     },
+    "coverage_summary": {
+      "type": "object",
+      "required": [
+        "required_target_count",
+        "covered_count",
+        "partial_count",
+        "missing_count",
+        "blocking_gap_count"
+      ],
+      "properties": {
+        "required_target_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "covered_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "partial_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missing_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blocking_gap_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "coverage_row": {
+      "type": "object",
+      "required": [
+        "axis_id",
+        "axis_type",
+        "value",
+        "observed_value",
+        "priority",
+        "required",
+        "status",
+        "covered_by",
+        "remaining_gaps",
+        "blocks_convergence"
+      ],
+      "properties": {
+        "axis_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "axis_type": {
+          "type": "string",
+          "enum": [
+            "decision_stack_layer",
+            "evidence_coverage",
+            "human_review_safety",
+            "promotion_safety"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observed_value": {
+          "type": "string",
+          "minLength": 1
+        },
+        "priority": {
+          "type": "string",
+          "enum": [
+            "P0",
+            "P1",
+            "P2",
+            "P3"
+          ]
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "covered",
+            "partial",
+            "missing"
+          ]
+        },
+        "covered_by": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "remaining_gaps": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "blocks_convergence": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
     "convergence": {
       "type": "object",
       "required": [
@@ -345,6 +465,12 @@
         },
         "explanation": {
           "type": "string"
+        },
+        "trace": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
         }
       },
       "additionalProperties": false

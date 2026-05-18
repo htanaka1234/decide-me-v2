@@ -38,12 +38,16 @@ canonical event whitelist.
 
 ## Schema Summary
 
-Draft sets must match `schemas/draft-decision-set.schema.json`. `create-draft-set` normalizes the
+Draft sets must match `schemas/draft-decision-set.schema.json`. Persisted draft sets use
+`schema_version: 2` and require top-level `exploration_contract`. `create-draft-set` normalizes the
 top-level `schema_version`, `id`, `status`, `mode`, `created_at`, `generated_by`, `source_context`,
-`convergence`, optional annotation arrays, and `promotion` defaults when omitted.
+`exploration_contract`, optional annotation arrays, and `promotion` defaults when omitted.
 
 The Skill-generated payload must still provide a complete `goal` object and schema-shaped
-`draft_decisions`. Each draft decision requires:
+`draft_decisions`. `exploration_contract` is source sidecar input: it records the objective,
+non-goals, read-first sources, required coverage targets, budgets, stop conditions, and pause
+conditions. Coverage matrices, gap diagnostics, convergence, frontier queues, and review queues remain
+derived artifacts outside `draft-set.json`. Each draft decision requires:
 
 - `id`
 - `status`
@@ -63,6 +67,23 @@ The Skill-generated payload must still provide a complete `goal` object and sche
 
 `draft_assumptions`, `draft_risks`, `draft_actions`, and `draft_verifications` are intentionally loose
 sidecar annotations. They are not strict canonical object contracts and must not be promoted directly.
+
+When `exploration_contract` is omitted from a create or autopilot seed input, the runtime writes a
+safe default contract: objective from `goal.desired_outcome` falling back to `goal.title`,
+`read_first_sources=["project-state.json"]`, the eight required `core.layer.*` Decision Stack coverage
+targets, and stop/pause conditions that preserve fail-closed review. `create-draft-set` uses budgets
+`max_draft_decisions=20` and `max_iterations=0`; `autopilot-draft` records the actual CLI budget
+values. Partial or malformed explicit contracts fail schema validation rather than being merged.
+
+Coverage target `value` is schema-constrained by `axis_type`: Decision Stack layers must use one of
+the eight layer names; evidence coverage must use `none`, `partial`, `sufficient`, `challenged`, or
+`unknown`; human-review safety must use `bulk_allowed`, `individual_required`, or `blocked`; promotion
+safety must use `proposal_required`, `accepted_forbidden`, or `stale_warning`. Built-in `core.*`
+coverage axis IDs are reserved for their matching axis type, value, priority, and required flag, so
+explicit contracts cannot shadow a core diagnostic with a different meaning or weaker blocking
+policy. `coverage_targets[].axis_id` values must be unique; duplicate axis IDs fail validation
+instead of using first-wins projection behavior. Use custom axis IDs for stricter project-specific
+coverage targets.
 
 ## Create / Show / List
 
@@ -101,7 +122,8 @@ python3 <skill-root>/scripts/decide_me.py list-draft-sets \
 
 ## Draft Projection
 
-`project-draft-set` builds `draft-projection.json` and reports deterministic gap diagnostics:
+`project-draft-set` builds `draft-projection.json` and reports deterministic coverage and gap
+diagnostics:
 
 ```bash
 python3 <skill-root>/scripts/decide_me.py project-draft-set \
@@ -109,10 +131,15 @@ python3 <skill-root>/scripts/decide_me.py project-draft-set \
   --draft-set-id DS-YYYYMMDD-NNN
 ```
 
-The projection combines committed runtime state and the sidecar draft set without changing either. It
-summarizes canonical objects, draft objects, graph links, stale project-head state, convergence status,
-and gap diagnostics such as missing P0/P1 recommendations, insufficient evidence, high-risk bulk
-review, dangling references, and conflicts with accepted decisions.
+The projection combines committed runtime state and the sidecar draft set without changing either.
+DraftProjection uses `schema_version: 2` and includes `coverage_summary`, `coverage_matrix`,
+`gap_diagnostics`, and `convergence`. Coverage rows preserve `value` as the target value and report
+the projection-derived `observed_value` separately. Rows come from
+`exploration_contract.coverage_targets` plus derived safety rows for evidence coverage, human review
+safety, and promotion safety. Required P0/P1 rows with `status=partial` or `status=missing` block
+convergence; P2/P3 non-required rows do not. Gap diagnostics still report issues such as missing
+P0/P1 recommendations, insufficient evidence, high-risk bulk review, dangling references, and
+conflicts with accepted decisions.
 
 Because `project-draft-set` is a standalone diagnostic command, it may return
 `stop_reason=stopped` when the projection has non-blocking diagnostics but no autopilot iteration was
@@ -121,8 +148,8 @@ Codex `/goal` reports should not present standalone `stopped` as completion; nor
 handoff such as `user_review_required` unless an autopilot run explicitly reports `converged`.
 
 Projection convergence is fail-closed: when the current projection contains any blocking gap, the
-projection reports the current blocking classification and `status=blocked` even if the saved draft-set
-convergence says `converged`.
+projection reports the current blocking classification and `status=blocked` regardless of any prior
+projection trace or expectation that the draft had converged.
 
 `autopilot-draft` can create a draft set from a Skill-generated seed JSON or a conservative goal-only
 skeleton, run iterative gap detection, persist `draft-projection.json`, and optionally export Markdown:
@@ -134,14 +161,21 @@ python3 <skill-root>/scripts/decide_me.py autopilot-draft \
   --max-iterations 3
 ```
 
-It may add supplemental draft decisions, actions, or verifications for structural coverage gaps. It must
-not upgrade evidence coverage, resolve conflicts with accepted decisions, relax high/critical risk bulk
-rules, or create accepted decisions.
+It may add supplemental draft decisions, actions, or verifications for structural coverage gaps. It
+uses `coverage_matrix` rows to synthesize missing required Decision Stack layer decisions for
+`purpose`, `principle`, `constraint`, `strategy`, `design`, `execution`, `verification`, and
+`review`, while respecting `max_iterations` and `max_draft_decisions`. It must not upgrade evidence
+coverage, resolve conflicts with accepted decisions, relax high/critical risk bulk rules, or create
+accepted decisions.
 
 ## Review Queue
 
-`review-draft-set` builds `review-queue.json`. `export-draft-set` also builds the review queue, so the
-normal readable-export flow does not need to call `review-draft-set` separately.
+`review-draft-set` builds `review-queue.json`. `export-draft-set` also builds the review queue and
+derives current projection diagnostics in memory for the readable preflight export. It must not render
+empty convergence or gap diagnostics just because `draft-projection.json` has not been generated, and
+it must not write `draft-projection.json` itself. The preflight export renders `Coverage Summary` and
+`Coverage Matrix` from that in-memory projection. The normal readable-export flow does not need to
+call `review-draft-set` separately.
 
 The review queue sorts draft decisions and classifies them as:
 

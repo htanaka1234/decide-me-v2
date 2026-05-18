@@ -8,7 +8,7 @@ from typing import Any
 
 from decide_me.draft_export import export_draft_set
 from decide_me.draft_projection import build_draft_projection, project_draft_set
-from decide_me.draft_sets import create_draft_set
+from decide_me.draft_sets import DRAFT_SET_SCHEMA_VERSION, create_draft_set, default_exploration_contract
 from decide_me.events import utc_now
 from decide_me.store import load_runtime, runtime_paths
 
@@ -31,8 +31,8 @@ AUTO_REMEDIABLE_GAP_TYPES = {
     "p0_p1_partial_evidence",
 }
 VALID_RISK_THRESHOLDS = {"low", "medium", "high", "critical"}
-LAYER_GAP_SPECS = {
-    "missing_purpose_layer": {
+LAYER_COVERAGE_SPECS = {
+    "purpose": {
         "id": "DD-GAP-PURPOSE",
         "layer": "purpose",
         "priority": "P1",
@@ -42,7 +42,17 @@ LAYER_GAP_SPECS = {
         "alternative": "Skip purpose review",
         "reason_not_recommended": "Reviewers may promote decisions without a shared definition of success.",
     },
-    "missing_constraint_layer": {
+    "principle": {
+        "id": "DD-GAP-PRINCIPLE",
+        "layer": "principle",
+        "priority": "P1",
+        "question": "Which decision principles should guide this draft set?",
+        "recommendation": "Record the principles that constrain future tradeoffs before promotion.",
+        "rationale": "A principle layer keeps later choices consistent when reviewers compare alternatives.",
+        "alternative": "Let each draft decision define principles independently",
+        "reason_not_recommended": "Reviewers would not have a stable policy for resolving tradeoffs.",
+    },
+    "constraint": {
         "id": "DD-GAP-CONSTRAINT",
         "layer": "constraint",
         "priority": "P1",
@@ -52,7 +62,37 @@ LAYER_GAP_SPECS = {
         "alternative": "Let drafting write canonical decisions directly",
         "reason_not_recommended": "That would bypass review and blur the source-of-truth boundary.",
     },
-    "missing_verification_layer": {
+    "strategy": {
+        "id": "DD-GAP-STRATEGY",
+        "layer": "strategy",
+        "priority": "P1",
+        "question": "What exploration strategy should this draft set follow?",
+        "recommendation": "Prefer explicit coverage of required layers before expanding lower-priority draft details.",
+        "rationale": "A strategy layer prevents deterministic drafting from converging on a narrow or accidental slice.",
+        "alternative": "Expand whichever draft detail appears first",
+        "reason_not_recommended": "Important required coverage gaps could remain hidden until promotion review.",
+    },
+    "design": {
+        "id": "DD-GAP-DESIGN",
+        "layer": "design",
+        "priority": "P1",
+        "question": "What design shape should reviewers evaluate before promotion?",
+        "recommendation": "Describe the intended runtime and artifact boundaries before creating canonical proposals.",
+        "rationale": "A design layer makes implementation implications inspectable without mutating canonical state.",
+        "alternative": "Let implementation details emerge only during promotion",
+        "reason_not_recommended": "Promotion reviewers would need to infer design intent from incomplete draft text.",
+    },
+    "execution": {
+        "id": "DD-GAP-EXECUTION",
+        "layer": "execution",
+        "priority": "P1",
+        "question": "What execution steps should follow from this draft set?",
+        "recommendation": "Record the minimal follow-through actions needed after human review accepts the direction.",
+        "rationale": "An execution layer turns review output into concrete next steps without treating them as already done.",
+        "alternative": "Promote decisions without execution implications",
+        "reason_not_recommended": "Accepted decisions could lack an actionable path to implementation.",
+    },
+    "verification": {
         "id": "DD-GAP-VERIFICATION",
         "layer": "verification",
         "priority": "P1",
@@ -62,7 +102,7 @@ LAYER_GAP_SPECS = {
         "alternative": "Promote without verification criteria",
         "reason_not_recommended": "Promotion could carry unexamined assumptions into canonical proposal review.",
     },
-    "missing_review_plan": {
+    "review": {
         "id": "DD-GAP-REVIEW",
         "layer": "review",
         "priority": "P1",
@@ -72,6 +112,12 @@ LAYER_GAP_SPECS = {
         "alternative": "Use one bulk review for every draft item",
         "reason_not_recommended": "High-impact or underspecified items need individual review.",
     },
+}
+LAYER_GAP_TYPES = {
+    "missing_purpose_layer": "purpose",
+    "missing_constraint_layer": "constraint",
+    "missing_verification_layer": "verification",
+    "missing_review_plan": "review",
 }
 
 
@@ -113,7 +159,7 @@ def run_autopilot_draft(
         now=timestamp,
         current_project_head=current_project_head,
     )
-    final_draft_set, _iteration_projection = iterate_draft_set(
+    final_draft_set, iteration_projection = iterate_draft_set(
         project_state=project_state,
         draft_set=draft_payload,
         current_project_head=current_project_head,
@@ -138,6 +184,7 @@ def run_autopilot_draft(
         now=timestamp,
         persist=True,
         max_iterations=max_iterations,
+        convergence_override=iteration_projection["convergence"],
     )
     exports: dict[str, str] = {}
     if export:
@@ -163,6 +210,7 @@ def run_autopilot_draft(
             "gap_count": convergence["new_gap_count"],
             "blocking_gap_count": convergence["blocking_gap_count"],
         },
+        "coverage_summary": projection["coverage_summary"],
         "canonical_events_created": False,
     }
 
@@ -182,7 +230,13 @@ def iterate_draft_set(
     if risk_threshold not in VALID_RISK_THRESHOLDS:
         raise AutopilotDraftError("risk_threshold must be one of: low, medium, high, critical")
 
-    current = _normalize_working_draft_set(draft_set, now=now, current_project_head=current_project_head)
+    current = _normalize_working_draft_set(
+        draft_set,
+        now=now,
+        current_project_head=current_project_head,
+        max_draft_decisions=max_draft_decisions,
+        max_iterations=max_iterations,
+    )
     trace: list[dict[str, Any]] = []
     stop_reason = "budget_exhausted"
 
@@ -194,9 +248,10 @@ def iterate_draft_set(
             generated_at=now,
         )
         gaps = projection["gap_diagnostics"]
-        blocking = [gap for gap in gaps if gap["blocks_convergence"]]
+        convergence = projection["convergence"]
         stop_reason = _classify_stop_reason(
             gaps,
+            projection.get("coverage_matrix", []),
             current,
             max_draft_decisions=max_draft_decisions,
             risk_threshold=risk_threshold,
@@ -204,8 +259,8 @@ def iterate_draft_set(
         trace.append(
             {
                 "iteration": iteration,
-                "gap_count": len(gaps),
-                "blocking_gap_count": len(blocking),
+                "gap_count": convergence["new_gap_count"],
+                "blocking_gap_count": convergence["blocking_gap_count"],
                 "stop_reason": stop_reason,
             }
         )
@@ -230,7 +285,6 @@ def iterate_draft_set(
 
     if stop_reason == "continue":
         stop_reason = "budget_exhausted"
-    current["convergence"] = _draft_set_convergence(stop_reason, iterations=len(trace), trace=trace)
     final_projection = project_draft_set(
         project_state=project_state,
         draft_set=current,
@@ -242,6 +296,7 @@ def iterate_draft_set(
     final_projection["convergence"]["iterations"] = len(trace)
     final_projection["convergence"]["max_iterations"] = max_iterations
     final_projection["convergence"]["explanation"] = _final_projection_explanation(stop_reason, final_projection)
+    final_projection["convergence"]["trace"] = trace
     return current, final_projection
 
 
@@ -258,15 +313,28 @@ def synthesize_gap_resolutions(
         "draft_verifications": [],
     }
     existing_ids = _draft_object_ids(draft_set)
+    for row in projection.get("coverage_matrix", []):
+        if len(additions["draft_decisions"]) >= max_new_decisions:
+            break
+        if not _is_auto_remediable_coverage_row(row):
+            continue
+        spec = LAYER_COVERAGE_SPECS.get(str(row.get("value")))
+        if spec is None:
+            continue
+        decision = _coverage_decision(spec)
+        if decision["id"] not in existing_ids:
+            additions["draft_decisions"].append(decision)
+            existing_ids.add(decision["id"])
+
     for gap in projection.get("gap_diagnostics", []):
         gap_type = gap.get("type")
-        if gap_type in LAYER_GAP_SPECS and len(additions["draft_decisions"]) < max_new_decisions:
-            decision = _coverage_decision(LAYER_GAP_SPECS[str(gap_type)])
+        if gap_type in LAYER_GAP_TYPES and len(additions["draft_decisions"]) < max_new_decisions:
+            decision = _coverage_decision(LAYER_COVERAGE_SPECS[LAYER_GAP_TYPES[str(gap_type)]])
             if decision["id"] not in existing_ids:
                 additions["draft_decisions"].append(decision)
                 existing_ids.add(decision["id"])
         elif gap_type == "no_draft_decisions":
-            for spec in LAYER_GAP_SPECS.values():
+            for spec in LAYER_COVERAGE_SPECS.values():
                 if len(additions["draft_decisions"]) >= max_new_decisions:
                     break
                 decision = _coverage_decision(spec)
@@ -347,7 +415,7 @@ def _goal_only_skeleton(goal_text: str, *, now: str, current_project_head: str |
         ),
     ]
     return {
-        "schema_version": 1,
+        "schema_version": DRAFT_SET_SCHEMA_VERSION,
         "id": "DS-19700101-000",
         "status": "generated",
         "mode": "autopilot-draft",
@@ -361,19 +429,12 @@ def _goal_only_skeleton(goal_text: str, *, now: str, current_project_head: str |
             "included_object_ids": [],
             "domain_pack_id": "generic",
         },
-        "convergence": {
-            "status": "budget_exhausted",
-            "iterations": 0,
-            "stop_reason": "not_iterated",
-            "note": "Goal-only skeleton before deterministic gap iteration.",
-        },
         "draft_decisions": decisions,
         "draft_assumptions": [],
         "draft_risks": [],
         "draft_actions": [],
         "draft_verifications": [],
         "conflicts": [],
-        "review_queue": [],
         "promotion": {
             "promoted_decision_ids": [],
             "bulk_promotable_ids": [],
@@ -387,9 +448,11 @@ def _normalize_working_draft_set(
     *,
     now: str,
     current_project_head: str | None,
+    max_draft_decisions: int,
+    max_iterations: int,
 ) -> dict[str, Any]:
     current = deepcopy(draft_set)
-    current.setdefault("schema_version", 1)
+    current.setdefault("schema_version", DRAFT_SET_SCHEMA_VERSION)
     current.setdefault("id", "DS-19700101-000")
     current.setdefault("status", "generated")
     current.setdefault("mode", "autopilot-draft")
@@ -403,6 +466,17 @@ def _normalize_working_draft_set(
         source_context.setdefault("included_session_ids", [])
         source_context.setdefault("included_object_ids", [])
         source_context.setdefault("domain_pack_id", "generic")
+    if "exploration_contract" not in current:
+        current["exploration_contract"] = default_exploration_contract(
+            current,
+            max_draft_decisions=max_draft_decisions,
+            max_iterations=max_iterations,
+        )
+    else:
+        exploration_contract = current.get("exploration_contract")
+        if isinstance(exploration_contract, dict) and isinstance(exploration_contract.get("budgets"), dict):
+            exploration_contract["budgets"]["max_draft_decisions"] = max_draft_decisions
+            exploration_contract["budgets"]["max_iterations"] = max_iterations
     for field in (
         "draft_decisions",
         "draft_assumptions",
@@ -410,7 +484,6 @@ def _normalize_working_draft_set(
         "draft_actions",
         "draft_verifications",
         "conflicts",
-        "review_queue",
     ):
         current.setdefault(field, [])
     current.setdefault(
@@ -426,6 +499,7 @@ def _normalize_working_draft_set(
 
 def _classify_stop_reason(
     gaps: list[dict[str, Any]],
+    coverage_matrix: list[dict[str, Any]],
     draft_set: dict[str, Any],
     *,
     max_draft_decisions: int,
@@ -438,8 +512,9 @@ def _classify_stop_reason(
         return "risk_gate_triggered"
     if any(gap.get("type") == "insufficient_evidence" and gap.get("blocks_convergence") is True for gap in gaps):
         return "evidence_gap_blocked"
-    if len(_items(draft_set, "draft_decisions")) >= max_draft_decisions and any(
-        gap.get("type") in AUTO_REMEDIABLE_GAP_TYPES for gap in gaps
+    auto_coverage = [row for row in coverage_matrix if _is_auto_remediable_coverage_row(row)]
+    if len(_items(draft_set, "draft_decisions")) >= max_draft_decisions and (
+        any(gap.get("type") in AUTO_REMEDIABLE_GAP_TYPES for gap in gaps) or auto_coverage
     ):
         return "budget_exhausted"
     auto_remediable = [gap for gap in gaps if gap.get("type") in AUTO_REMEDIABLE_GAP_TYPES]
@@ -448,9 +523,14 @@ def _classify_stop_reason(
         for gap in gaps
         if gap.get("blocks_convergence") is True and gap.get("type") not in AUTO_REMEDIABLE_GAP_TYPES
     ]
-    if auto_remediable and not non_auto_blocking:
+    non_auto_coverage_blocking = [
+        row
+        for row in coverage_matrix
+        if row.get("blocks_convergence") is True and not _is_auto_remediable_coverage_row(row)
+    ]
+    if (auto_remediable or auto_coverage) and not non_auto_blocking and not non_auto_coverage_blocking:
         return "continue"
-    if non_auto_blocking:
+    if non_auto_blocking or non_auto_coverage_blocking:
         return "user_review_required"
     unresolved = [gap for gap in gaps if _severity_at_or_above(str(gap.get("severity")), risk_threshold)]
     if unresolved:
@@ -458,13 +538,14 @@ def _classify_stop_reason(
     return "converged"
 
 
-def _draft_set_convergence(stop_reason: str, *, iterations: int, trace: list[dict[str, Any]]) -> dict[str, Any]:
-    return {
-        "status": STOP_REASON_STATUS[stop_reason],
-        "iterations": iterations,
-        "stop_reason": stop_reason,
-        "note": "Deterministic autopilot iteration trace: " + json.dumps(trace, ensure_ascii=False, separators=(",", ":")),
-    }
+def _is_auto_remediable_coverage_row(row: Any) -> bool:
+    return (
+        isinstance(row, dict)
+        and row.get("blocks_convergence") is True
+        and row.get("axis_type") == "decision_stack_layer"
+        and row.get("status") in {"missing", "partial"}
+        and str(row.get("value") or "") in LAYER_COVERAGE_SPECS
+    )
 
 
 def _final_projection_explanation(stop_reason: str, projection: dict[str, Any]) -> str:
