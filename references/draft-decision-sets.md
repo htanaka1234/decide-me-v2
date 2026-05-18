@@ -38,12 +38,17 @@ canonical event whitelist.
 
 ## Schema Summary
 
-Draft sets must match `schemas/draft-decision-set.schema.json`. `create-draft-set` normalizes the
+Draft sets must match `schemas/draft-decision-set.schema.json`. Persisted draft sets use
+`schema_version: 2` and require top-level `exploration_contract`. `create-draft-set` normalizes the
 top-level `schema_version`, `id`, `status`, `mode`, `created_at`, `generated_by`, `source_context`,
-`convergence`, optional annotation arrays, and `promotion` defaults when omitted.
+`exploration_contract`, `convergence`, optional annotation arrays, and `promotion` defaults when
+omitted.
 
 The Skill-generated payload must still provide a complete `goal` object and schema-shaped
-`draft_decisions`. Each draft decision requires:
+`draft_decisions`. `exploration_contract` is source sidecar input: it records the objective,
+non-goals, read-first sources, required coverage targets, budgets, stop conditions, and pause
+conditions. Coverage matrices, gap diagnostics, frontier queues, and review queues remain derived
+artifacts outside `draft-set.json`. Each draft decision requires:
 
 - `id`
 - `status`
@@ -63,6 +68,13 @@ The Skill-generated payload must still provide a complete `goal` object and sche
 
 `draft_assumptions`, `draft_risks`, `draft_actions`, and `draft_verifications` are intentionally loose
 sidecar annotations. They are not strict canonical object contracts and must not be promoted directly.
+
+When `exploration_contract` is omitted from a create or autopilot seed input, the runtime writes a
+safe default contract: objective from `goal.desired_outcome` falling back to `goal.title`,
+`read_first_sources=["project-state.json"]`, the eight required `core.layer.*` Decision Stack coverage
+targets, and stop/pause conditions that preserve fail-closed review. `create-draft-set` uses budgets
+`max_draft_decisions=20` and `max_iterations=0`; `autopilot-draft` records the actual CLI budget
+values. Partial or malformed explicit contracts fail schema validation rather than being merged.
 
 ## Create / Show / List
 

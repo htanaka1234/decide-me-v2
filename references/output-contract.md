@@ -222,6 +222,14 @@ must report:
 `is_stale`, and `counts`. `show-draft-set` returns `status`, `draft_set`, and `runtime_status`.
 `list-draft-sets` returns `status`, `count`, and `draft_sets[]`.
 
+Persisted `draft-set.json` must match `schemas/draft-decision-set.schema.json` with
+`schema_version: 2`. Its required source-input fields include `goal`, `source_context`,
+`exploration_contract`, and `draft_decisions`. `exploration_contract` records objective, non-goals,
+read-first sources, coverage targets, budgets, stop conditions, and pause conditions. If omitted from
+new create/autopilot inputs, it is defaulted before persistence; malformed explicit contracts fail
+validation. Derived coverage summaries, matrices, gap diagnostics, frontier queues, and review queues
+must not be written into `exploration_contract`.
+
 `project-draft-set` returns `status`, `draft_set_id`, `projection_path`, `stale`, `gap_count`,
 `blocking_gap_count`, and `stop_reason`. With persistence enabled, it writes only
 `.ai/decide-me/draft-sets/DS-.../draft-projection.json`.

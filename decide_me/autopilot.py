@@ -8,7 +8,7 @@ from typing import Any
 
 from decide_me.draft_export import export_draft_set
 from decide_me.draft_projection import build_draft_projection, project_draft_set
-from decide_me.draft_sets import create_draft_set
+from decide_me.draft_sets import DRAFT_SET_SCHEMA_VERSION, create_draft_set, default_exploration_contract
 from decide_me.events import utc_now
 from decide_me.store import load_runtime, runtime_paths
 
@@ -182,7 +182,13 @@ def iterate_draft_set(
     if risk_threshold not in VALID_RISK_THRESHOLDS:
         raise AutopilotDraftError("risk_threshold must be one of: low, medium, high, critical")
 
-    current = _normalize_working_draft_set(draft_set, now=now, current_project_head=current_project_head)
+    current = _normalize_working_draft_set(
+        draft_set,
+        now=now,
+        current_project_head=current_project_head,
+        max_draft_decisions=max_draft_decisions,
+        max_iterations=max_iterations,
+    )
     trace: list[dict[str, Any]] = []
     stop_reason = "budget_exhausted"
 
@@ -347,7 +353,7 @@ def _goal_only_skeleton(goal_text: str, *, now: str, current_project_head: str |
         ),
     ]
     return {
-        "schema_version": 1,
+        "schema_version": DRAFT_SET_SCHEMA_VERSION,
         "id": "DS-19700101-000",
         "status": "generated",
         "mode": "autopilot-draft",
@@ -387,9 +393,11 @@ def _normalize_working_draft_set(
     *,
     now: str,
     current_project_head: str | None,
+    max_draft_decisions: int,
+    max_iterations: int,
 ) -> dict[str, Any]:
     current = deepcopy(draft_set)
-    current.setdefault("schema_version", 1)
+    current.setdefault("schema_version", DRAFT_SET_SCHEMA_VERSION)
     current.setdefault("id", "DS-19700101-000")
     current.setdefault("status", "generated")
     current.setdefault("mode", "autopilot-draft")
@@ -403,6 +411,17 @@ def _normalize_working_draft_set(
         source_context.setdefault("included_session_ids", [])
         source_context.setdefault("included_object_ids", [])
         source_context.setdefault("domain_pack_id", "generic")
+    if "exploration_contract" not in current:
+        current["exploration_contract"] = default_exploration_contract(
+            current,
+            max_draft_decisions=max_draft_decisions,
+            max_iterations=max_iterations,
+        )
+    else:
+        exploration_contract = current.get("exploration_contract")
+        if isinstance(exploration_contract, dict) and isinstance(exploration_contract.get("budgets"), dict):
+            exploration_contract["budgets"]["max_draft_decisions"] = max_draft_decisions
+            exploration_contract["budgets"]["max_iterations"] = max_iterations
     for field in (
         "draft_decisions",
         "draft_assumptions",

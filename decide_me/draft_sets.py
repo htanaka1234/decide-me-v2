@@ -9,10 +9,12 @@ from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker, ValidationError
 
+from decide_me.constants import DECISION_STACK_LAYER_ORDER
 from decide_me.events import utc_now
 from decide_me.store import _atomic_write_json, _write_lock, load_json, load_runtime, runtime_paths
 
 
+DRAFT_SET_SCHEMA_VERSION = 2
 DRAFT_SET_ID_PATTERN = re.compile(r"^DS-[0-9]{8}-[0-9]{3}$")
 DRAFT_SET_SCHEMA_PATH = Path(__file__).resolve().parents[1] / "schemas" / "draft-decision-set.schema.json"
 DRAFT_SET_COUNTS = (
@@ -41,6 +43,16 @@ DEFAULT_PROMOTION = {
     "bulk_promotable_ids": [],
     "individual_review_required_ids": [],
 }
+DEFAULT_STOP_CONDITIONS = [
+    "required_coverage_targets_satisfied",
+    "budget_exhausted",
+    "blocking_gap_requires_review",
+]
+DEFAULT_PAUSE_CONDITIONS = [
+    "missing_or_challenged_evidence",
+    "high_or_critical_risk",
+    "stale_or_unclassifiable_diagnostics",
+]
 
 
 class DraftSetError(ValueError):
@@ -169,6 +181,39 @@ def draft_set_staleness(ai_dir: str | Path, draft_set: dict[str, Any]) -> dict[s
     }
 
 
+def default_exploration_contract(
+    draft_set: dict[str, Any],
+    *,
+    max_draft_decisions: int = 20,
+    max_iterations: int = 0,
+) -> dict[str, Any]:
+    goal = draft_set.get("goal") if isinstance(draft_set.get("goal"), dict) else {}
+    source_context = draft_set.get("source_context") if isinstance(draft_set.get("source_context"), dict) else {}
+    objective = goal.get("desired_outcome") or goal.get("title") or "Review draft decision set"
+    project_state_ref = source_context.get("project_state_ref") or "project-state.json"
+    return {
+        "objective": str(objective),
+        "non_goals": [],
+        "read_first_sources": [str(project_state_ref)],
+        "coverage_targets": [
+            {
+                "axis_id": f"core.layer.{layer}",
+                "axis_type": "decision_stack_layer",
+                "value": layer,
+                "priority": "P1",
+                "required": True,
+            }
+            for layer in DECISION_STACK_LAYER_ORDER
+        ],
+        "budgets": {
+            "max_draft_decisions": max_draft_decisions,
+            "max_iterations": max_iterations,
+        },
+        "stop_conditions": list(DEFAULT_STOP_CONDITIONS),
+        "pause_conditions": list(DEFAULT_PAUSE_CONDITIONS),
+    }
+
+
 def _normalize_draft_set(
     draft_payload: dict[str, Any],
     *,
@@ -184,7 +229,7 @@ def _normalize_draft_set(
         _validate_draft_set_id(draft_set_id)
 
     normalized = deepcopy(draft_payload)
-    normalized.setdefault("schema_version", 1)
+    normalized.setdefault("schema_version", DRAFT_SET_SCHEMA_VERSION)
     normalized.setdefault("status", "generated")
     normalized.setdefault("mode", "autopilot-draft")
     normalized["created_at"] = now
@@ -220,6 +265,14 @@ def _normalize_draft_set(
     source_context.setdefault("included_session_ids", [])
     source_context.setdefault("included_object_ids", [])
     source_context.setdefault("domain_pack_id", "generic")
+    normalized.setdefault(
+        "exploration_contract",
+        default_exploration_contract(
+            normalized,
+            max_draft_decisions=20,
+            max_iterations=0,
+        ),
+    )
     return normalized
 
 

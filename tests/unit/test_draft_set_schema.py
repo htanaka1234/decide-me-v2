@@ -26,6 +26,7 @@ class DraftSetSchemaTests(unittest.TestCase):
             "generated_by",
             "goal",
             "source_context",
+            "exploration_contract",
             "convergence",
             "draft_decisions",
         ):
@@ -36,6 +37,59 @@ class DraftSetSchemaTests(unittest.TestCase):
 
             self.assertTrue(errors, field)
             self.assertTrue(any(error.validator == "required" for error in errors), field)
+
+    def test_schema_requires_version_2(self) -> None:
+        payload = minimal_valid_draft_set()
+        payload["schema_version"] = 1
+
+        errors = list(self.validator.iter_errors(payload))
+
+        self.assertTrue(errors)
+        self.assertTrue(any(list(error.path) == ["schema_version"] for error in errors))
+
+    def test_schema_rejects_partial_exploration_contract(self) -> None:
+        payload = minimal_valid_draft_set()
+        payload["exploration_contract"] = {"objective": "Explore the goal."}
+
+        errors = list(self.validator.iter_errors(payload))
+
+        self.assertTrue(errors)
+        self.assertTrue(any(list(error.path) == ["exploration_contract"] for error in errors))
+
+    def test_schema_rejects_invalid_exploration_budget(self) -> None:
+        payload = minimal_valid_draft_set()
+        payload["exploration_contract"]["budgets"]["max_draft_decisions"] = 0
+
+        errors = list(self.validator.iter_errors(payload))
+
+        self.assertTrue(errors)
+        self.assertTrue(
+            any(
+                list(error.path) == ["exploration_contract", "budgets", "max_draft_decisions"]
+                for error in errors
+            )
+        )
+
+    def test_schema_rejects_invalid_coverage_target_shape(self) -> None:
+        payload = minimal_valid_draft_set()
+        payload["exploration_contract"]["coverage_targets"][0]["axis_type"] = "unsupported"
+
+        errors = list(self.validator.iter_errors(payload))
+
+        self.assertTrue(errors)
+        self.assertTrue(
+            any(
+                list(error.path) == ["exploration_contract", "coverage_targets", 0, "axis_type"]
+                for error in errors
+            )
+        )
+
+        payload = minimal_valid_draft_set()
+        payload["exploration_contract"]["coverage_targets"][0]["extra"] = True
+        errors = list(self.validator.iter_errors(payload))
+
+        self.assertTrue(errors)
+        self.assertTrue(any(error.validator == "additionalProperties" for error in errors))
 
     def test_schema_rejects_accepted_draft_decision(self) -> None:
         payload = minimal_valid_draft_set()
@@ -151,7 +205,7 @@ class DraftSetSchemaTests(unittest.TestCase):
 def minimal_valid_draft_set() -> dict:
     return deepcopy(
         {
-            "schema_version": 1,
+            "schema_version": 2,
             "id": "DS-20260513-001",
             "status": "generated",
             "mode": "autopilot-draft",
@@ -169,6 +223,44 @@ def minimal_valid_draft_set() -> dict:
                 "included_session_ids": [],
                 "included_object_ids": [],
                 "domain_pack_id": "generic",
+            },
+            "exploration_contract": {
+                "objective": "Store draft sets safely.",
+                "non_goals": [],
+                "read_first_sources": ["project-state.json"],
+                "coverage_targets": [
+                    {
+                        "axis_id": f"core.layer.{layer}",
+                        "axis_type": "decision_stack_layer",
+                        "value": layer,
+                        "priority": "P1",
+                        "required": True,
+                    }
+                    for layer in (
+                        "purpose",
+                        "principle",
+                        "constraint",
+                        "strategy",
+                        "design",
+                        "execution",
+                        "verification",
+                        "review",
+                    )
+                ],
+                "budgets": {
+                    "max_draft_decisions": 20,
+                    "max_iterations": 0,
+                },
+                "stop_conditions": [
+                    "required_coverage_targets_satisfied",
+                    "budget_exhausted",
+                    "blocking_gap_requires_review",
+                ],
+                "pause_conditions": [
+                    "missing_or_challenged_evidence",
+                    "high_or_critical_risk",
+                    "stale_or_unclassifiable_diagnostics",
+                ],
             },
             "convergence": {
                 "status": "budget_exhausted",

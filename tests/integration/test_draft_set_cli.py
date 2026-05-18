@@ -38,6 +38,12 @@ class DraftSetCliTests(unittest.TestCase):
             self.assertEqual("created", created["status"])
             self.assertEqual("DS-20260513-001", created["draft_set_id"])
             self.assertEqual("DS-20260513-001", shown["draft_set"]["id"])
+            self.assertEqual(2, shown["draft_set"]["schema_version"])
+            self.assertIn("exploration_contract", shown["draft_set"])
+            self.assertEqual(
+                {"max_draft_decisions": 20, "max_iterations": 0},
+                shown["draft_set"]["exploration_contract"]["budgets"],
+            )
             self.assertFalse(shown["runtime_status"]["is_stale"])
             self.assertEqual(1, listed["count"])
             self.assertEqual("DS-20260513-001", listed["draft_sets"][0]["id"])
@@ -197,6 +203,7 @@ def _draft_input() -> dict:
         "created_at",
         "generated_by",
         "source_context",
+        "exploration_contract",
         "convergence",
         "draft_assumptions",
         "draft_risks",

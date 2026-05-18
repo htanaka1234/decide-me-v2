@@ -47,6 +47,9 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
         self.assertIn("Interpreting this as Decision Preflight", startup_checklist_section)
         self.assertIn("Decision Preflight", skill)
         self.assertIn("decide-me:preflight", skill)
+        self.assertIn("schema_version: 2", skill)
+        self.assertIn("exploration_contract", skill)
+        self.assertIn("Coverage matrices, coverage summaries, frontier queues, gap diagnostics", skill)
         self.assertIn("Create decision preflight from goal", user_facing_commands_section)
         self.assertIn("Run decision preflight", user_facing_commands_section)
         self.assertIn("Show decision preflight DS-...", user_facing_commands_section)
@@ -109,9 +112,14 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
             "must not infer convergence, sufficient evidence, or bulk promotability from missing diagnostics",
             normalized_ref,
         )
+        self.assertIn("DraftDecisionSet uses `schema_version: 2`", normalized_ref)
+        self.assertIn("`exploration_contract` is defaulted as source input", normalized_ref)
+        self.assertIn("`core.layer.strategy`", normalized_ref)
+        self.assertIn("`autopilot-draft` records the actual CLI budgets", normalized_ref)
 
     def test_draft_set_reference_documents_sidecar_boundary(self) -> None:
         ref = (REPO_ROOT / "references" / "draft-decision-sets.md").read_text(encoding="utf-8")
+        normalized_ref = _squash_ws(ref)
 
         self.assertIn("sidecar", ref)
         self.assertIn("not canonical", ref)
@@ -121,6 +129,9 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
         self.assertIn("DRAFT / NOT ACCEPTED", ref)
         self.assertIn("reconcile-draft-promotions", ref)
         self.assertIn("Projection convergence is fail-closed", ref)
+        self.assertIn("`schema_version: 2`", normalized_ref)
+        self.assertIn("require top-level `exploration_contract`", normalized_ref)
+        self.assertIn("Partial or malformed explicit contracts fail schema validation", normalized_ref)
 
     def test_related_references_document_pr4_boundaries(self) -> None:
         output_contract = (REPO_ROOT / "references" / "output-contract.md").read_text(encoding="utf-8")
@@ -131,6 +142,7 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
             "Draft sidecar commands:",
             "Draft promotion commands:",
         )
+        normalized_output_contract = _squash_ws(output_contract)
 
         self.assertIn("Codex native `/goal` may wrap decide-me Decision Preflight", output_contract)
         self.assertIn("Decision Preflight is the decide-me Skill flow", output_contract)
@@ -172,6 +184,9 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
         self.assertIn("draft projection", event_model)
         self.assertIn("promotion-log.jsonl", event_model)
         self.assertIn("not produced by the generic Document Compiler", document_compiler)
+        self.assertIn("`schema_version: 2`", normalized_output_contract)
+        self.assertIn("`exploration_contract`, and `draft_decisions`", normalized_output_contract)
+        self.assertIn("Derived coverage summaries, matrices, gap diagnostics, frontier queues, and review queues", normalized_output_contract)
 
     def test_root_cli_help_exposes_autopilot_draft_command_after_pr5(self) -> None:
         result = run_cli("--help", cwd=REPO_ROOT)
@@ -207,6 +222,9 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
         self.assertIn("create-draft-set", readme)
         self.assertIn("show-draft-set", readme)
         self.assertIn("list-draft-sets", readme)
+        self.assertIn("`schema_version: 2`", readme)
+        self.assertIn("`exploration_contract`", readme)
+        self.assertIn("Derived coverage matrices", readme)
 
     def test_distribution_contains_decision_preflight_references(self) -> None:
         with BuiltArtifact() as artifact:

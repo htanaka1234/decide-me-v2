@@ -12,13 +12,14 @@
     "generated_by",
     "goal",
     "source_context",
+    "exploration_contract",
     "convergence",
     "draft_decisions"
   ],
   "properties": {
     "schema_version": {
       "type": "integer",
-      "const": 1
+      "const": 2
     },
     "id": {
       "type": "string",
@@ -49,6 +50,9 @@
     },
     "source_context": {
       "$ref": "#/$defs/source_context"
+    },
+    "exploration_contract": {
+      "$ref": "#/$defs/exploration_contract"
     },
     "convergence": {
       "$ref": "#/$defs/convergence"
@@ -178,6 +182,109 @@
         "domain_pack_id": {
           "type": "string",
           "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "exploration_contract": {
+      "type": "object",
+      "required": [
+        "objective",
+        "non_goals",
+        "read_first_sources",
+        "coverage_targets",
+        "budgets",
+        "stop_conditions",
+        "pause_conditions"
+      ],
+      "properties": {
+        "objective": {
+          "type": "string",
+          "minLength": 1
+        },
+        "non_goals": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "read_first_sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "coverage_targets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/coverage_target"
+          }
+        },
+        "budgets": {
+          "type": "object",
+          "required": [
+            "max_draft_decisions",
+            "max_iterations"
+          ],
+          "properties": {
+            "max_draft_decisions": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "max_iterations": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false
+        },
+        "stop_conditions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "pause_conditions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "coverage_target": {
+      "type": "object",
+      "required": [
+        "axis_id",
+        "axis_type",
+        "value",
+        "priority",
+        "required"
+      ],
+      "properties": {
+        "axis_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "axis_type": {
+          "type": "string",
+          "enum": [
+            "decision_stack_layer",
+            "evidence_coverage",
+            "human_review_safety",
+            "promotion_safety"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1
+        },
+        "priority": {
+          "$ref": "#/$defs/priority"
+        },
+        "required": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false
