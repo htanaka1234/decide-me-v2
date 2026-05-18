@@ -716,10 +716,12 @@ def main(argv: list[str] | None = None) -> int:
                     "status": "ok",
                     "draft_set_id": args.draft_set_id,
                     "projection_path": str(draft_projection_path(args.ai_dir, args.draft_set_id)),
+                    "persisted": not args.no_persist,
                     "stale": projection["stale"],
                     "gap_count": len(projection["gap_diagnostics"]),
                     "blocking_gap_count": projection["convergence"]["blocking_gap_count"],
                     "stop_reason": projection["convergence"]["stop_reason"],
+                    "coverage_summary": projection["coverage_summary"],
                 }
             )
         elif args.command == "autopilot-draft":

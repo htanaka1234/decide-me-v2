@@ -80,7 +80,10 @@ class DraftExportCliTests(unittest.TestCase):
             self.assertNotIn("- Status: none recorded", preflight)
             self.assertNotIn("- Stop reason: none recorded", preflight)
             self.assertNotIn("draft-projection.json not generated", preflight)
-            self.assertIn("missing_purpose_layer", preflight)
+            self.assertIn("## Coverage Summary", preflight)
+            self.assertIn("## Coverage Matrix", preflight)
+            self.assertIn("core.layer.purpose", preflight)
+            self.assertIn("No purpose-layer draft decision exists.", preflight)
             self.assertIn("## Human Approval Plan", preflight)
             self.assertIn("Reason not recommended", draft_decisions)
             self.assertIn("Evidence Coverage", draft_decisions)
@@ -116,8 +119,10 @@ class DraftExportCliTests(unittest.TestCase):
             preflight = Path(result["paths"]["preflight"]).read_text(encoding="utf-8")
 
             self.assertIn("## Gap Diagnostics", preflight)
+            self.assertIn("## Coverage Summary", preflight)
+            self.assertIn("## Coverage Matrix", preflight)
             self.assertIn("Stop reason", preflight)
-            self.assertIn("missing_purpose_layer", preflight)
+            self.assertIn("core.layer.purpose", preflight)
 
     def test_export_draft_set_does_not_modify_project_state_or_event_log(self) -> None:
         with TemporaryDirectory() as tmp:

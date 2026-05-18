@@ -52,7 +52,8 @@ sidecars are not implicitly migrated.
 `draft-projection.json` is a derived sidecar. It owns projection-time diagnostics such as the Phase 2
 `coverage_matrix`, `coverage_summary`, the Phase 5 derived `frontier_queue`, existing
 `gap_diagnostics`, and current `convergence`. Diagnostics and coverage are never written back into
-`draft-set.json`.
+`draft-set.json`. DraftProjection uses `schema_version: 2` once `coverage_matrix` and
+`coverage_summary` are required.
 
 `review-queue.json` is a derived promotion handoff queue. It is built from the draft set plus current
 projection diagnostics and is used only to organize blocked, individual-review, and bulk-eligible
@@ -333,6 +334,9 @@ scope before projection diagnostics run. The default contract requires the eight
 coverage targets `core.layer.purpose`, `core.layer.principle`, `core.layer.constraint`,
 `core.layer.strategy`, `core.layer.design`, `core.layer.execution`, `core.layer.verification`, and
 `core.layer.review`, all with `axis_type=decision_stack_layer`, `priority=P1`, and `required=true`.
+Coverage target `axis_id` values must be unique. Built-in `core.*` axis IDs are reserved with fixed
+type, value, priority, and required semantics so a seed cannot downgrade required core coverage or
+hide a stricter duplicate target.
 `create-draft-set` records default budgets of `max_draft_decisions=20` and `max_iterations=0`.
 `autopilot-draft` records the actual CLI budgets in the persisted contract.
 
@@ -367,6 +371,15 @@ Convergence is owned by `draft-projection.json`, not by `draft-set.json`. If the
 has blocking gaps, report the current blocking classification and `status=blocked` regardless of any
 prior projection trace or expectation that the draft had converged.
 
+Coverage is projection-derived. `project-draft-set` builds `coverage_matrix` from
+`exploration_contract.coverage_targets` plus safety rows for evidence coverage, human review safety,
+and promotion safety. Required P0/P1 rows with `status=partial` or `status=missing` set
+`blocks_convergence=true` and force `convergence.status=blocked`. Low-risk P2/P3 non-required rows do
+not block convergence. `autopilot-draft` may synthesize missing required Decision Stack layer draft
+decisions from these rows, but it must not mark evidence `sufficient` to resolve a coverage blocker.
+Each coverage row keeps `value` as the requested target and reports the projection-derived
+`observed_value` separately.
+
 ## Review/export Contract
 
 After `export-draft-set`, report at least:
@@ -376,6 +389,7 @@ Draft set: DS-YYYYMMDD-NNN
 Status: created/exported
 Counts: draft_decisions=N, draft_assumptions=N, draft_risks=N, draft_actions=N, draft_verifications=N
 Review summary: blocked=N, individual=N, bulk candidates=N
+Coverage summary: required=N, covered=N, partial=N, missing=N, blocking=N
 Convergence: status=blocked|budget_exhausted|converged, stop_reason=...
 Gap summary: total=N, blocking=N
 Exports:

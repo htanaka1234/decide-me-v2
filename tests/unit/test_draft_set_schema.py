@@ -112,6 +112,97 @@ class DraftSetSchemaTests(unittest.TestCase):
         self.assertTrue(errors)
         self.assertTrue(any(error.validator == "additionalProperties" for error in errors))
 
+    def test_schema_rejects_invalid_coverage_target_values_by_axis_type(self) -> None:
+        cases = (
+            ("decision_stack_layer", "strategyy"),
+            ("evidence_coverage", "verified"),
+            ("human_review_safety", "team_review"),
+            ("promotion_safety", "auto_accept"),
+        )
+        for axis_type, value in cases:
+            with self.subTest(axis_type=axis_type, value=value):
+                payload = minimal_valid_draft_set()
+                payload["exploration_contract"]["coverage_targets"][0] = {
+                    "axis_id": f"custom.{axis_type}",
+                    "axis_type": axis_type,
+                    "value": value,
+                    "priority": "P1",
+                    "required": True,
+                }
+
+                errors = list(self.validator.iter_errors(payload))
+
+                self.assertTrue(errors)
+
+    def test_schema_rejects_reserved_core_coverage_axis_shadowing(self) -> None:
+        cases = (
+            ("core.layer.strategy", "decision_stack_layer", "strategyy"),
+            ("core.evidence.coverage", "evidence_coverage", "partial"),
+            ("core.human_review.safety", "human_review_safety", "bulk_allowed"),
+            ("core.promotion.proposal_required", "promotion_safety", "accepted_forbidden"),
+        )
+        for axis_id, axis_type, value in cases:
+            with self.subTest(axis_id=axis_id):
+                payload = minimal_valid_draft_set()
+                payload["exploration_contract"]["coverage_targets"][0] = {
+                    "axis_id": axis_id,
+                    "axis_type": axis_type,
+                    "value": value,
+                    "priority": "P1",
+                    "required": True,
+                }
+
+                errors = list(self.validator.iter_errors(payload))
+
+                self.assertTrue(errors)
+
+    def test_schema_rejects_reserved_core_axis_priority_required_downgrade(self) -> None:
+        cases = (
+            {
+                "axis_id": "core.layer.strategy",
+                "axis_type": "decision_stack_layer",
+                "value": "strategy",
+                "priority": "P3",
+                "required": True,
+            },
+            {
+                "axis_id": "core.layer.strategy",
+                "axis_type": "decision_stack_layer",
+                "value": "strategy",
+                "priority": "P1",
+                "required": False,
+            },
+            {
+                "axis_id": "core.evidence.coverage",
+                "axis_type": "evidence_coverage",
+                "value": "sufficient",
+                "priority": "P3",
+                "required": False,
+            },
+            {
+                "axis_id": "core.human_review.safety",
+                "axis_type": "human_review_safety",
+                "value": "individual_required",
+                "priority": "P2",
+                "required": True,
+            },
+            {
+                "axis_id": "core.promotion.proposal_required",
+                "axis_type": "promotion_safety",
+                "value": "proposal_required",
+                "priority": "P1",
+                "required": False,
+            },
+        )
+        for target in cases:
+            with self.subTest(axis_id=target["axis_id"], priority=target["priority"], required=target["required"]):
+                payload = minimal_valid_draft_set()
+                payload["exploration_contract"]["coverage_targets"][0] = dict(target)
+
+                errors = list(self.validator.iter_errors(payload))
+
+                self.assertTrue(errors)
+
     def test_schema_rejects_accepted_draft_decision(self) -> None:
         payload = minimal_valid_draft_set()
         payload["draft_decisions"][0]["status"] = "accepted"
@@ -161,6 +252,8 @@ class DraftSetSchemaTests(unittest.TestCase):
     def test_schema_rejects_derived_top_level_fields(self) -> None:
         for field, value in (
             ("review_queue", []),
+            ("coverage_matrix", []),
+            ("coverage_summary", {"required_target_count": 0}),
             (
                 "convergence",
                 {

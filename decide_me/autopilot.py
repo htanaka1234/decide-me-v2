@@ -31,8 +31,8 @@ AUTO_REMEDIABLE_GAP_TYPES = {
     "p0_p1_partial_evidence",
 }
 VALID_RISK_THRESHOLDS = {"low", "medium", "high", "critical"}
-LAYER_GAP_SPECS = {
-    "missing_purpose_layer": {
+LAYER_COVERAGE_SPECS = {
+    "purpose": {
         "id": "DD-GAP-PURPOSE",
         "layer": "purpose",
         "priority": "P1",
@@ -42,7 +42,17 @@ LAYER_GAP_SPECS = {
         "alternative": "Skip purpose review",
         "reason_not_recommended": "Reviewers may promote decisions without a shared definition of success.",
     },
-    "missing_constraint_layer": {
+    "principle": {
+        "id": "DD-GAP-PRINCIPLE",
+        "layer": "principle",
+        "priority": "P1",
+        "question": "Which decision principles should guide this draft set?",
+        "recommendation": "Record the principles that constrain future tradeoffs before promotion.",
+        "rationale": "A principle layer keeps later choices consistent when reviewers compare alternatives.",
+        "alternative": "Let each draft decision define principles independently",
+        "reason_not_recommended": "Reviewers would not have a stable policy for resolving tradeoffs.",
+    },
+    "constraint": {
         "id": "DD-GAP-CONSTRAINT",
         "layer": "constraint",
         "priority": "P1",
@@ -52,7 +62,37 @@ LAYER_GAP_SPECS = {
         "alternative": "Let drafting write canonical decisions directly",
         "reason_not_recommended": "That would bypass review and blur the source-of-truth boundary.",
     },
-    "missing_verification_layer": {
+    "strategy": {
+        "id": "DD-GAP-STRATEGY",
+        "layer": "strategy",
+        "priority": "P1",
+        "question": "What exploration strategy should this draft set follow?",
+        "recommendation": "Prefer explicit coverage of required layers before expanding lower-priority draft details.",
+        "rationale": "A strategy layer prevents deterministic drafting from converging on a narrow or accidental slice.",
+        "alternative": "Expand whichever draft detail appears first",
+        "reason_not_recommended": "Important required coverage gaps could remain hidden until promotion review.",
+    },
+    "design": {
+        "id": "DD-GAP-DESIGN",
+        "layer": "design",
+        "priority": "P1",
+        "question": "What design shape should reviewers evaluate before promotion?",
+        "recommendation": "Describe the intended runtime and artifact boundaries before creating canonical proposals.",
+        "rationale": "A design layer makes implementation implications inspectable without mutating canonical state.",
+        "alternative": "Let implementation details emerge only during promotion",
+        "reason_not_recommended": "Promotion reviewers would need to infer design intent from incomplete draft text.",
+    },
+    "execution": {
+        "id": "DD-GAP-EXECUTION",
+        "layer": "execution",
+        "priority": "P1",
+        "question": "What execution steps should follow from this draft set?",
+        "recommendation": "Record the minimal follow-through actions needed after human review accepts the direction.",
+        "rationale": "An execution layer turns review output into concrete next steps without treating them as already done.",
+        "alternative": "Promote decisions without execution implications",
+        "reason_not_recommended": "Accepted decisions could lack an actionable path to implementation.",
+    },
+    "verification": {
         "id": "DD-GAP-VERIFICATION",
         "layer": "verification",
         "priority": "P1",
@@ -62,7 +102,7 @@ LAYER_GAP_SPECS = {
         "alternative": "Promote without verification criteria",
         "reason_not_recommended": "Promotion could carry unexamined assumptions into canonical proposal review.",
     },
-    "missing_review_plan": {
+    "review": {
         "id": "DD-GAP-REVIEW",
         "layer": "review",
         "priority": "P1",
@@ -72,6 +112,12 @@ LAYER_GAP_SPECS = {
         "alternative": "Use one bulk review for every draft item",
         "reason_not_recommended": "High-impact or underspecified items need individual review.",
     },
+}
+LAYER_GAP_TYPES = {
+    "missing_purpose_layer": "purpose",
+    "missing_constraint_layer": "constraint",
+    "missing_verification_layer": "verification",
+    "missing_review_plan": "review",
 }
 
 
@@ -164,6 +210,7 @@ def run_autopilot_draft(
             "gap_count": convergence["new_gap_count"],
             "blocking_gap_count": convergence["blocking_gap_count"],
         },
+        "coverage_summary": projection["coverage_summary"],
         "canonical_events_created": False,
     }
 
@@ -201,9 +248,10 @@ def iterate_draft_set(
             generated_at=now,
         )
         gaps = projection["gap_diagnostics"]
-        blocking = [gap for gap in gaps if gap["blocks_convergence"]]
+        convergence = projection["convergence"]
         stop_reason = _classify_stop_reason(
             gaps,
+            projection.get("coverage_matrix", []),
             current,
             max_draft_decisions=max_draft_decisions,
             risk_threshold=risk_threshold,
@@ -211,8 +259,8 @@ def iterate_draft_set(
         trace.append(
             {
                 "iteration": iteration,
-                "gap_count": len(gaps),
-                "blocking_gap_count": len(blocking),
+                "gap_count": convergence["new_gap_count"],
+                "blocking_gap_count": convergence["blocking_gap_count"],
                 "stop_reason": stop_reason,
             }
         )
@@ -265,15 +313,28 @@ def synthesize_gap_resolutions(
         "draft_verifications": [],
     }
     existing_ids = _draft_object_ids(draft_set)
+    for row in projection.get("coverage_matrix", []):
+        if len(additions["draft_decisions"]) >= max_new_decisions:
+            break
+        if not _is_auto_remediable_coverage_row(row):
+            continue
+        spec = LAYER_COVERAGE_SPECS.get(str(row.get("value")))
+        if spec is None:
+            continue
+        decision = _coverage_decision(spec)
+        if decision["id"] not in existing_ids:
+            additions["draft_decisions"].append(decision)
+            existing_ids.add(decision["id"])
+
     for gap in projection.get("gap_diagnostics", []):
         gap_type = gap.get("type")
-        if gap_type in LAYER_GAP_SPECS and len(additions["draft_decisions"]) < max_new_decisions:
-            decision = _coverage_decision(LAYER_GAP_SPECS[str(gap_type)])
+        if gap_type in LAYER_GAP_TYPES and len(additions["draft_decisions"]) < max_new_decisions:
+            decision = _coverage_decision(LAYER_COVERAGE_SPECS[LAYER_GAP_TYPES[str(gap_type)]])
             if decision["id"] not in existing_ids:
                 additions["draft_decisions"].append(decision)
                 existing_ids.add(decision["id"])
         elif gap_type == "no_draft_decisions":
-            for spec in LAYER_GAP_SPECS.values():
+            for spec in LAYER_COVERAGE_SPECS.values():
                 if len(additions["draft_decisions"]) >= max_new_decisions:
                     break
                 decision = _coverage_decision(spec)
@@ -438,6 +499,7 @@ def _normalize_working_draft_set(
 
 def _classify_stop_reason(
     gaps: list[dict[str, Any]],
+    coverage_matrix: list[dict[str, Any]],
     draft_set: dict[str, Any],
     *,
     max_draft_decisions: int,
@@ -450,8 +512,9 @@ def _classify_stop_reason(
         return "risk_gate_triggered"
     if any(gap.get("type") == "insufficient_evidence" and gap.get("blocks_convergence") is True for gap in gaps):
         return "evidence_gap_blocked"
-    if len(_items(draft_set, "draft_decisions")) >= max_draft_decisions and any(
-        gap.get("type") in AUTO_REMEDIABLE_GAP_TYPES for gap in gaps
+    auto_coverage = [row for row in coverage_matrix if _is_auto_remediable_coverage_row(row)]
+    if len(_items(draft_set, "draft_decisions")) >= max_draft_decisions and (
+        any(gap.get("type") in AUTO_REMEDIABLE_GAP_TYPES for gap in gaps) or auto_coverage
     ):
         return "budget_exhausted"
     auto_remediable = [gap for gap in gaps if gap.get("type") in AUTO_REMEDIABLE_GAP_TYPES]
@@ -460,14 +523,29 @@ def _classify_stop_reason(
         for gap in gaps
         if gap.get("blocks_convergence") is True and gap.get("type") not in AUTO_REMEDIABLE_GAP_TYPES
     ]
-    if auto_remediable and not non_auto_blocking:
+    non_auto_coverage_blocking = [
+        row
+        for row in coverage_matrix
+        if row.get("blocks_convergence") is True and not _is_auto_remediable_coverage_row(row)
+    ]
+    if (auto_remediable or auto_coverage) and not non_auto_blocking and not non_auto_coverage_blocking:
         return "continue"
-    if non_auto_blocking:
+    if non_auto_blocking or non_auto_coverage_blocking:
         return "user_review_required"
     unresolved = [gap for gap in gaps if _severity_at_or_above(str(gap.get("severity")), risk_threshold)]
     if unresolved:
         return "user_review_required"
     return "converged"
+
+
+def _is_auto_remediable_coverage_row(row: Any) -> bool:
+    return (
+        isinstance(row, dict)
+        and row.get("blocks_convergence") is True
+        and row.get("axis_type") == "decision_stack_layer"
+        and row.get("status") in {"missing", "partial"}
+        and str(row.get("value") or "") in LAYER_COVERAGE_SPECS
+    )
 
 
 def _final_projection_explanation(stop_reason: str, projection: dict[str, Any]) -> str:

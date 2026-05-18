@@ -121,6 +121,33 @@ class DraftSetTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "exploration_contract"):
                 create_draft_set(ai_dir, payload, draft_set_id="DS-20260513-001")
 
+    def test_create_rejects_duplicate_coverage_target_axis_ids(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = _bootstrap(Path(tmp))
+            payload = _draft_input()
+            payload["exploration_contract"] = minimal_valid_draft_set()["exploration_contract"]
+            payload["exploration_contract"]["coverage_targets"].extend(
+                [
+                    {
+                        "axis_id": "custom.layer.strategy",
+                        "axis_type": "decision_stack_layer",
+                        "value": "strategy",
+                        "priority": "P3",
+                        "required": False,
+                    },
+                    {
+                        "axis_id": "custom.layer.strategy",
+                        "axis_type": "decision_stack_layer",
+                        "value": "strategy",
+                        "priority": "P1",
+                        "required": True,
+                    },
+                ]
+            )
+
+            with self.assertRaisesRegex(DraftSetError, "coverage_targets\\[9\\]\\.axis_id duplicates custom\\.layer\\.strategy"):
+                create_draft_set(ai_dir, payload, draft_set_id="DS-20260513-001")
+
     def test_create_rejects_project_head_mismatch(self) -> None:
         with TemporaryDirectory() as tmp:
             ai_dir = _bootstrap(Path(tmp))

@@ -159,6 +159,7 @@ def validate_draft_set(payload: dict[str, Any]) -> None:
     errors = sorted(_schema_validator().iter_errors(payload), key=lambda error: list(error.path))
     if errors:
         raise DraftSetValidationError(f"draft-set validation failed: {_format_validation_error(errors[0])}")
+    _validate_unique_coverage_target_axis_ids(payload)
 
 
 def draft_set_staleness(ai_dir: str | Path, draft_set: dict[str, Any]) -> dict[str, Any]:
@@ -306,6 +307,29 @@ def _draft_set_dir(ai_dir: Path, draft_set_id: str) -> Path:
 def _validate_draft_set_id(draft_set_id: str) -> None:
     if not isinstance(draft_set_id, str) or DRAFT_SET_ID_PATTERN.fullmatch(draft_set_id) is None:
         raise DraftSetError(f"invalid draft set id: {draft_set_id}")
+
+
+def _validate_unique_coverage_target_axis_ids(payload: dict[str, Any]) -> None:
+    contract = payload.get("exploration_contract")
+    if not isinstance(contract, dict):
+        return
+    coverage_targets = contract.get("coverage_targets")
+    if not isinstance(coverage_targets, list):
+        return
+
+    seen: set[str] = set()
+    for index, target in enumerate(coverage_targets):
+        if not isinstance(target, dict):
+            continue
+        axis_id = target.get("axis_id")
+        if not isinstance(axis_id, str) or not axis_id:
+            continue
+        if axis_id in seen:
+            raise DraftSetValidationError(
+                "draft-set validation failed: "
+                f"exploration_contract.coverage_targets[{index}].axis_id duplicates {axis_id}"
+            )
+        seen.add(axis_id)
 
 
 def _counts(draft_set: dict[str, Any]) -> dict[str, int]:

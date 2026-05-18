@@ -5,7 +5,7 @@ from copy import deepcopy
 
 from jsonschema import Draft202012Validator, FormatChecker
 
-from decide_me.draft_projection import project_draft_set
+from decide_me.draft_projection import DraftProjectionValidationError, project_draft_set
 from decide_me.projections import default_project_state
 from tests.helpers.schema_validation import load_schema
 from tests.unit.test_draft_set_schema import minimal_valid_draft_set
@@ -18,7 +18,191 @@ class DraftProjectionTests(unittest.TestCase):
         Draft202012Validator(load_schema("draft-projection.schema.json"), format_checker=FormatChecker()).validate(
             projection
         )
+        self.assertEqual(2, projection["schema_version"])
         self.assertEqual("DS-20260513-001", projection["draft_set_id"])
+
+    def test_projection_schema_requires_coverage_fields(self) -> None:
+        projection = _project(_draft_set())
+        schema = load_schema("draft-projection.schema.json")
+        validator = Draft202012Validator(schema, format_checker=FormatChecker())
+        for field in ("coverage_summary", "coverage_matrix"):
+            with self.subTest(field=field):
+                invalid = deepcopy(projection)
+                invalid.pop(field)
+
+                errors = list(validator.iter_errors(invalid))
+
+                self.assertTrue(errors)
+                self.assertTrue(any(error.validator == "required" for error in errors))
+
+    def test_projection_schema_rejects_invalid_coverage_row(self) -> None:
+        projection = _project(_draft_set())
+        projection["coverage_matrix"][0]["status"] = "unknown"
+
+        errors = list(
+            Draft202012Validator(load_schema("draft-projection.schema.json"), format_checker=FormatChecker()).iter_errors(
+                projection
+            )
+        )
+
+        self.assertTrue(errors)
+        self.assertTrue(any(list(error.path)[-1:] == ["status"] for error in errors))
+
+        projection = _project(_draft_set())
+        projection["coverage_matrix"][0].pop("observed_value")
+        errors = list(
+            Draft202012Validator(load_schema("draft-projection.schema.json"), format_checker=FormatChecker()).iter_errors(
+                projection
+            )
+        )
+
+        self.assertTrue(errors)
+        self.assertTrue(any(error.validator == "required" for error in errors))
+
+    def test_default_contract_generates_required_layer_rows(self) -> None:
+        projection = _project(_draft_set())
+        layer_rows = [row for row in projection["coverage_matrix"] if row["axis_type"] == "decision_stack_layer"]
+
+        self.assertEqual(
+            [
+                "purpose",
+                "principle",
+                "constraint",
+                "strategy",
+                "design",
+                "execution",
+                "verification",
+                "review",
+            ],
+            sorted([row["value"] for row in layer_rows], key=_layer_sort_key),
+        )
+        self.assertTrue(all(row["priority"] == "P1" and row["required"] for row in layer_rows))
+
+    def test_missing_required_p1_layer_blocks_convergence(self) -> None:
+        projection = _project(_draft_set())
+        purpose_row = _coverage_row(projection, "core.layer.purpose")
+
+        self.assertEqual("missing", purpose_row["status"])
+        self.assertTrue(purpose_row["blocks_convergence"])
+        self.assertEqual("blocked", projection["convergence"]["status"])
+
+    def test_p2_p3_non_required_missing_coverage_does_not_block(self) -> None:
+        draft_set = _draft_set()
+        draft_set["exploration_contract"]["coverage_targets"] = [
+            {
+                "axis_id": "core.layer.strategy.optional",
+                "axis_type": "decision_stack_layer",
+                "value": "strategy",
+                "priority": "P3",
+                "required": False,
+            }
+        ]
+
+        projection = _project(draft_set)
+        row = _coverage_row(projection, "core.layer.strategy.optional")
+
+        self.assertEqual("missing", row["status"])
+        self.assertFalse(row["blocks_convergence"])
+        self.assertEqual(0, projection["convergence"]["blocking_gap_count"])
+        self.assertEqual("converged", projection["convergence"]["status"])
+
+    def test_duplicate_coverage_axis_id_rejected_instead_of_first_wins(self) -> None:
+        draft_set = _draft_set()
+        draft_set["exploration_contract"]["coverage_targets"] = [
+            {
+                "axis_id": "target.layer.strategy",
+                "axis_type": "decision_stack_layer",
+                "value": "strategy",
+                "priority": "P3",
+                "required": False,
+            },
+            {
+                "axis_id": "target.layer.strategy",
+                "axis_type": "decision_stack_layer",
+                "value": "strategy",
+                "priority": "P1",
+                "required": True,
+            },
+        ]
+
+        with self.assertRaisesRegex(DraftProjectionValidationError, "duplicate coverage target axis_id"):
+            _project(draft_set)
+
+    def test_required_evidence_target_uses_target_value_not_observed_value(self) -> None:
+        draft_set = _draft_set()
+        draft_set["exploration_contract"]["coverage_targets"] = [
+            {
+                "axis_id": "target.evidence.sufficient",
+                "axis_type": "evidence_coverage",
+                "value": "sufficient",
+                "priority": "P1",
+                "required": True,
+            }
+        ]
+
+        projection = _project(draft_set)
+        row = _coverage_row(projection, "target.evidence.sufficient")
+
+        self.assertEqual("sufficient", row["value"])
+        self.assertEqual("partial", row["observed_value"])
+        self.assertEqual("partial", row["status"])
+        self.assertTrue(row["blocks_convergence"])
+
+    def test_required_human_review_target_uses_target_value_not_observed_value(self) -> None:
+        draft_set = _draft_set()
+        draft_set["draft_decisions"][0]["priority"] = "P2"
+        draft_set["draft_decisions"][0]["risk_tier"] = "low"
+        draft_set["draft_decisions"][0]["human_review"] = {
+            "required": False,
+            "mode": "bulk",
+            "bulk_promotable": True,
+            "reason": "Low-risk bulk candidate.",
+        }
+        draft_set["exploration_contract"]["coverage_targets"] = [
+            {
+                "axis_id": "target.review.individual",
+                "axis_type": "human_review_safety",
+                "value": "individual_required",
+                "priority": "P1",
+                "required": True,
+            }
+        ]
+
+        projection = _project(draft_set)
+        row = _coverage_row(projection, "target.review.individual")
+
+        self.assertEqual("individual_required", row["value"])
+        self.assertEqual("bulk_allowed", row["observed_value"])
+        self.assertEqual("missing", row["status"])
+        self.assertTrue(row["blocks_convergence"])
+
+    def test_promotion_safety_target_value_observed_value_and_status(self) -> None:
+        draft_set = _draft_set()
+        draft_set["exploration_contract"]["coverage_targets"] = [
+            {
+                "axis_id": "target.promotion.proposal",
+                "axis_type": "promotion_safety",
+                "value": "proposal_required",
+                "priority": "P1",
+                "required": True,
+            }
+        ]
+
+        projection = _project(draft_set)
+        row = _coverage_row(projection, "target.promotion.proposal")
+
+        self.assertEqual("proposal_required", row["value"])
+        self.assertEqual("proposal_required", row["observed_value"])
+        self.assertEqual("covered", row["status"])
+
+        draft_set["draft_decisions"][0]["promotion_recipe"]["proposal_required"] = False
+        projection = _project(draft_set)
+        row = _coverage_row(projection, "target.promotion.proposal")
+
+        self.assertEqual("proposal_required", row["value"])
+        self.assertEqual("proposal_missing", row["observed_value"])
+        self.assertEqual("missing", row["status"])
+        self.assertTrue(row["blocks_convergence"])
 
     def test_projection_detects_missing_recommendation_for_p0(self) -> None:
         draft_set = _draft_set()
@@ -138,7 +322,7 @@ class DraftProjectionTests(unittest.TestCase):
 
         self.assertEqual("blocked", projection["convergence"]["status"])
         self.assertEqual("user_review_required", projection["convergence"]["stop_reason"])
-        self.assertEqual(1, projection["convergence"]["blocking_gap_count"])
+        self.assertGreaterEqual(projection["convergence"]["blocking_gap_count"], 1)
 
     def test_projection_override_cannot_mask_current_blocking_gap(self) -> None:
         draft_set = _draft_set()
@@ -156,7 +340,7 @@ class DraftProjectionTests(unittest.TestCase):
 
         self.assertEqual("blocked", projection["convergence"]["status"])
         self.assertEqual("user_review_required", projection["convergence"]["stop_reason"])
-        self.assertEqual(1, projection["convergence"]["blocking_gap_count"])
+        self.assertGreaterEqual(projection["convergence"]["blocking_gap_count"], 1)
 
     def test_projection_does_not_mutate_project_state_or_draft_set(self) -> None:
         draft_set = _draft_set()
@@ -231,6 +415,27 @@ def _gap_by_type(projection: dict, gap_type: str) -> dict:
         if gap["type"] == gap_type:
             return gap
     raise AssertionError(f"missing gap type: {gap_type}")
+
+
+def _coverage_row(projection: dict, axis_id: str) -> dict:
+    for row in projection["coverage_matrix"]:
+        if row["axis_id"] == axis_id:
+            return row
+    raise AssertionError(f"missing coverage row: {axis_id}")
+
+
+def _layer_sort_key(layer: str) -> int:
+    order = {
+        "purpose": 0,
+        "principle": 1,
+        "constraint": 2,
+        "strategy": 3,
+        "design": 4,
+        "execution": 5,
+        "verification": 6,
+        "review": 7,
+    }
+    return order[layer]
 
 
 if __name__ == "__main__":
