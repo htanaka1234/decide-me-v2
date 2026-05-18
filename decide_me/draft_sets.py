@@ -30,14 +30,7 @@ OPTIONAL_ARRAY_FIELDS = (
     "draft_actions",
     "draft_verifications",
     "conflicts",
-    "review_queue",
 )
-DEFAULT_CONVERGENCE = {
-    "status": "budget_exhausted",
-    "iterations": 1,
-    "stop_reason": "mvp_single_pass",
-    "note": "PR1 stores a single-pass structured draft; it does not prove convergence.",
-}
 DEFAULT_PROMOTION = {
     "promoted_decision_ids": [],
     "bulk_promotable_ids": [],
@@ -234,7 +227,6 @@ def _normalize_draft_set(
     normalized.setdefault("mode", "autopilot-draft")
     normalized["created_at"] = now
     normalized.setdefault("generated_by", "skill" if generated_by is None else generated_by)
-    normalized.setdefault("convergence", deepcopy(DEFAULT_CONVERGENCE))
     normalized.setdefault("promotion", deepcopy(DEFAULT_PROMOTION))
     for field in OPTIONAL_ARRAY_FIELDS:
         normalized.setdefault(field, [])

@@ -432,7 +432,7 @@ def _render_preflight(
 ) -> str:
     goal = _dict_field(draft_set, "goal")
     source_context = _dict_field(draft_set, "source_context")
-    convergence = _dict_field(draft_set, "convergence")
+    convergence = _dict_field(draft_projection, "convergence") if isinstance(draft_projection, dict) else {}
     summary = _dict_field(review_queue, "summary")
     lines = [
         DRAFT_BANNER,
@@ -456,7 +456,7 @@ def _render_preflight(
         f"- Status: {_text(convergence.get('status'))}",
         f"- Iterations: {_text(convergence.get('iterations'))}",
         f"- Stop reason: {_text(convergence.get('stop_reason'))}",
-        f"- Note: {_text(convergence.get('note'))}",
+        f"- Explanation: {_text(convergence.get('explanation'))}",
         "",
         "## Summary",
         _table(

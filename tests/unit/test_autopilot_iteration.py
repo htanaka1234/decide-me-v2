@@ -14,7 +14,7 @@ class AutopilotIterationTests(unittest.TestCase):
 
         final, projection = _iterate(draft_set)
 
-        self.assertEqual("converged", final["convergence"]["stop_reason"])
+        self.assertNotIn("convergence", final)
         self.assertEqual("converged", projection["convergence"]["stop_reason"])
 
     def test_autopilot_adds_verification_for_action_gap(self) -> None:
@@ -53,14 +53,15 @@ class AutopilotIterationTests(unittest.TestCase):
 
         final, projection = _iterate(draft_set)
 
-        self.assertEqual("evidence_gap_blocked", final["convergence"]["stop_reason"])
+        self.assertNotIn("convergence", final)
+        self.assertEqual("evidence_gap_blocked", projection["convergence"]["stop_reason"])
         self.assertEqual("blocked", projection["convergence"]["status"])
 
     def test_autopilot_stops_on_conflict_blocked(self) -> None:
         draft_set = _complete_draft_set()
         draft_set["conflicts"] = [{"draft_decision_id": "DD-001", "canonical_decision_id": "D-accepted"}]
 
-        final, _projection = _iterate(
+        final, projection = _iterate(
             draft_set,
             project_state=_project_state(
                 objects=[
@@ -74,7 +75,8 @@ class AutopilotIterationTests(unittest.TestCase):
             ),
         )
 
-        self.assertEqual("conflict_blocked", final["convergence"]["stop_reason"])
+        self.assertNotIn("convergence", final)
+        self.assertEqual("conflict_blocked", projection["convergence"]["stop_reason"])
 
     def test_autopilot_stops_on_risk_gate_triggered(self) -> None:
         draft_set = _complete_draft_set()
@@ -86,17 +88,19 @@ class AutopilotIterationTests(unittest.TestCase):
             "reason": "Unsafe.",
         }
 
-        final, _projection = _iterate(draft_set)
+        final, projection = _iterate(draft_set)
 
-        self.assertEqual("risk_gate_triggered", final["convergence"]["stop_reason"])
+        self.assertNotIn("convergence", final)
+        self.assertEqual("risk_gate_triggered", projection["convergence"]["stop_reason"])
 
     def test_autopilot_budget_exhausted_when_decision_cap_reached(self) -> None:
         draft_set = _complete_draft_set()
         draft_set["draft_decisions"] = [draft_set["draft_decisions"][0]]
 
-        final, _projection = _iterate(draft_set, max_draft_decisions=1)
+        final, projection = _iterate(draft_set, max_draft_decisions=1)
 
-        self.assertEqual("budget_exhausted", final["convergence"]["stop_reason"])
+        self.assertNotIn("convergence", final)
+        self.assertEqual("budget_exhausted", projection["convergence"]["stop_reason"])
         self.assertLessEqual(len(final["draft_decisions"]), 1)
 
     def test_autopilot_ids_are_stable(self) -> None:

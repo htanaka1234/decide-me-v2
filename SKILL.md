@@ -195,8 +195,9 @@ Runtime invariants:
 - `.ai/decide-me/draft-sets/DS-.../draft-set.json` is a draft sidecar, not canonical event-log
   state. Persisted draft sets use `schema_version: 2` and require `exploration_contract` as source
   input for the objective, non-goals, read-first sources, coverage targets, budgets, stop conditions,
-  and pause conditions. Coverage matrices, coverage summaries, frontier queues, gap diagnostics, and
-  review queues are derived diagnostics and must not be written back into `draft-set.json`.
+  and pause conditions. Coverage matrices, coverage summaries, convergence, frontier queues, gap
+  diagnostics, and review queues are derived diagnostics and must not be written back into
+  `draft-set.json`.
   `project-draft-set` may write only `draft-projection.json`; `review-draft-set` may write only the
   derived `.ai/decide-me/draft-sets/DS-.../review-queue.json`; `export-draft-set` may write that JSON
   and the four Markdown draft exports under `exports/`. These outputs must state `DRAFT / NOT

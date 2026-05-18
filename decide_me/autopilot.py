@@ -113,7 +113,7 @@ def run_autopilot_draft(
         now=timestamp,
         current_project_head=current_project_head,
     )
-    final_draft_set, _iteration_projection = iterate_draft_set(
+    final_draft_set, iteration_projection = iterate_draft_set(
         project_state=project_state,
         draft_set=draft_payload,
         current_project_head=current_project_head,
@@ -138,6 +138,7 @@ def run_autopilot_draft(
         now=timestamp,
         persist=True,
         max_iterations=max_iterations,
+        convergence_override=iteration_projection["convergence"],
     )
     exports: dict[str, str] = {}
     if export:
@@ -236,7 +237,6 @@ def iterate_draft_set(
 
     if stop_reason == "continue":
         stop_reason = "budget_exhausted"
-    current["convergence"] = _draft_set_convergence(stop_reason, iterations=len(trace), trace=trace)
     final_projection = project_draft_set(
         project_state=project_state,
         draft_set=current,
@@ -248,6 +248,7 @@ def iterate_draft_set(
     final_projection["convergence"]["iterations"] = len(trace)
     final_projection["convergence"]["max_iterations"] = max_iterations
     final_projection["convergence"]["explanation"] = _final_projection_explanation(stop_reason, final_projection)
+    final_projection["convergence"]["trace"] = trace
     return current, final_projection
 
 
@@ -367,19 +368,12 @@ def _goal_only_skeleton(goal_text: str, *, now: str, current_project_head: str |
             "included_object_ids": [],
             "domain_pack_id": "generic",
         },
-        "convergence": {
-            "status": "budget_exhausted",
-            "iterations": 0,
-            "stop_reason": "not_iterated",
-            "note": "Goal-only skeleton before deterministic gap iteration.",
-        },
         "draft_decisions": decisions,
         "draft_assumptions": [],
         "draft_risks": [],
         "draft_actions": [],
         "draft_verifications": [],
         "conflicts": [],
-        "review_queue": [],
         "promotion": {
             "promoted_decision_ids": [],
             "bulk_promotable_ids": [],
@@ -429,7 +423,6 @@ def _normalize_working_draft_set(
         "draft_actions",
         "draft_verifications",
         "conflicts",
-        "review_queue",
     ):
         current.setdefault(field, [])
     current.setdefault(
@@ -475,15 +468,6 @@ def _classify_stop_reason(
     if unresolved:
         return "user_review_required"
     return "converged"
-
-
-def _draft_set_convergence(stop_reason: str, *, iterations: int, trace: list[dict[str, Any]]) -> dict[str, Any]:
-    return {
-        "status": STOP_REASON_STATUS[stop_reason],
-        "iterations": iterations,
-        "stop_reason": stop_reason,
-        "note": "Deterministic autopilot iteration trace: " + json.dumps(trace, ensure_ascii=False, separators=(",", ":")),
-    }
 
 
 def _final_projection_explanation(stop_reason: str, projection: dict[str, Any]) -> str:

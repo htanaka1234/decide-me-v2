@@ -49,7 +49,7 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
         self.assertIn("decide-me:preflight", skill)
         self.assertIn("schema_version: 2", skill)
         self.assertIn("exploration_contract", skill)
-        self.assertIn("Coverage matrices, coverage summaries, frontier queues, gap diagnostics", skill)
+        self.assertIn("Coverage matrices, coverage summaries, convergence, frontier queues", skill)
         self.assertIn("Create decision preflight from goal", user_facing_commands_section)
         self.assertIn("Run decision preflight", user_facing_commands_section)
         self.assertIn("Show decision preflight DS-...", user_facing_commands_section)
@@ -93,6 +93,7 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
             normalized_ref,
         )
         self.assertIn("must not store derived diagnostic state", normalized_ref)
+        self.assertIn("coverage matrices, gap classifiers, convergence, frontier queues, or review queues", normalized_ref)
         self.assertIn("`draft-projection.json` is a derived sidecar", normalized_ref)
         self.assertIn(
             "`coverage_matrix`, `coverage_summary`, the Phase 5 derived `frontier_queue`",
@@ -132,6 +133,7 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
         self.assertIn("`schema_version: 2`", normalized_ref)
         self.assertIn("require top-level `exploration_contract`", normalized_ref)
         self.assertIn("Partial or malformed explicit contracts fail schema validation", normalized_ref)
+        self.assertIn("convergence, frontier queues, and review queues remain derived artifacts", normalized_ref)
 
     def test_related_references_document_pr4_boundaries(self) -> None:
         output_contract = (REPO_ROOT / "references" / "output-contract.md").read_text(encoding="utf-8")
@@ -186,7 +188,10 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
         self.assertIn("not produced by the generic Document Compiler", document_compiler)
         self.assertIn("`schema_version: 2`", normalized_output_contract)
         self.assertIn("`exploration_contract`, and `draft_decisions`", normalized_output_contract)
-        self.assertIn("Derived coverage summaries, matrices, gap diagnostics, frontier queues, and review queues", normalized_output_contract)
+        self.assertIn(
+            "Derived coverage summaries, matrices, gap diagnostics, convergence, frontier queues, and review queues",
+            normalized_output_contract,
+        )
 
     def test_root_cli_help_exposes_autopilot_draft_command_after_pr5(self) -> None:
         result = run_cli("--help", cwd=REPO_ROOT)

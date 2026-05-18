@@ -44,7 +44,8 @@ failure contract for the draft flow and must remain stable as exploration covera
 
 `draft-set.json` is the source sidecar for a DraftDecisionSet. It owns user and Skill inputs such as
 `goal`, `source_context`, `draft_decisions`, and the Phase 1 `exploration_contract`. It must not store
-derived diagnostic state such as coverage matrices, gap classifiers, frontier queues, or review queues.
+derived diagnostic state such as coverage matrices, gap classifiers, convergence, frontier queues, or
+review queues.
 DraftDecisionSet uses `schema_version: 2` once `exploration_contract` is required. Older v1 draft
 sidecars are not implicitly migrated.
 
@@ -319,13 +320,7 @@ top-level sidecar fields.
         "blocked_for_bulk_acceptance": true
       }
     }
-  ],
-  "convergence": {
-    "status": "budget_exhausted",
-    "iterations": 1,
-    "stop_reason": "mvp_single_pass",
-    "note": "Single-pass Decision Preflight draft. It does not prove convergence."
-  }
+  ]
 }
 ```
 
@@ -368,8 +363,9 @@ reports should normalize that diagnostic:
   to `user_review_required` unless an autopilot run explicitly reported `converged`
 - `project-draft-set stopped` with only non-blocking gaps: report `user_review_required`
 
-Saved draft-set convergence is not authoritative when the current projection has blocking gaps. In
-that case, report the current blocking classification and `status=blocked`.
+Convergence is owned by `draft-projection.json`, not by `draft-set.json`. If the current projection
+has blocking gaps, report the current blocking classification and `status=blocked` regardless of any
+prior projection trace or expectation that the draft had converged.
 
 ## Review/export Contract
 

@@ -13,7 +13,6 @@
     "goal",
     "source_context",
     "exploration_contract",
-    "convergence",
     "draft_decisions"
   ],
   "properties": {
@@ -54,9 +53,6 @@
     "exploration_contract": {
       "$ref": "#/$defs/exploration_contract"
     },
-    "convergence": {
-      "$ref": "#/$defs/convergence"
-    },
     "draft_decisions": {
       "type": "array",
       "items": {
@@ -92,13 +88,6 @@
       "default": []
     },
     "conflicts": {
-      "type": "array",
-      "items": {
-        "type": "object"
-      },
-      "default": []
-    },
-    "review_queue": {
       "type": "array",
       "items": {
         "type": "object"
@@ -210,12 +199,15 @@
         },
         "read_first_sources": {
           "type": "array",
+          "minItems": 1,
           "items": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1
           }
         },
         "coverage_targets": {
           "type": "array",
+          "minItems": 1,
           "items": {
             "$ref": "#/$defs/coverage_target"
           }
@@ -240,14 +232,18 @@
         },
         "stop_conditions": {
           "type": "array",
+          "minItems": 1,
           "items": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1
           }
         },
         "pause_conditions": {
           "type": "array",
+          "minItems": 1,
           "items": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1
           }
         }
       },
@@ -285,38 +281,6 @@
         },
         "required": {
           "type": "boolean"
-        }
-      },
-      "additionalProperties": false
-    },
-    "convergence": {
-      "type": "object",
-      "required": [
-        "status",
-        "iterations",
-        "stop_reason"
-      ],
-      "properties": {
-        "status": {
-          "type": "string",
-          "enum": [
-            "budget_exhausted",
-            "converged",
-            "blocked",
-            "stopped",
-            "failed"
-          ]
-        },
-        "iterations": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "stop_reason": {
-          "type": "string",
-          "minLength": 1
-        },
-        "note": {
-          "type": "string"
         }
       },
       "additionalProperties": false

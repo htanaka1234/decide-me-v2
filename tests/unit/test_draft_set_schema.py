@@ -27,7 +27,6 @@ class DraftSetSchemaTests(unittest.TestCase):
             "goal",
             "source_context",
             "exploration_contract",
-            "convergence",
             "draft_decisions",
         ):
             payload = minimal_valid_draft_set()
@@ -69,6 +68,28 @@ class DraftSetSchemaTests(unittest.TestCase):
                 for error in errors
             )
         )
+
+    def test_schema_rejects_empty_contract_arrays_that_drive_exploration(self) -> None:
+        for field in ("read_first_sources", "coverage_targets", "stop_conditions", "pause_conditions"):
+            with self.subTest(field=field):
+                payload = minimal_valid_draft_set()
+                payload["exploration_contract"][field] = []
+
+                errors = list(self.validator.iter_errors(payload))
+
+                self.assertTrue(errors)
+                self.assertTrue(any(list(error.path) == ["exploration_contract", field] for error in errors))
+
+    def test_schema_rejects_empty_contract_strings_that_drive_exploration(self) -> None:
+        for field in ("read_first_sources", "stop_conditions", "pause_conditions"):
+            with self.subTest(field=field):
+                payload = minimal_valid_draft_set()
+                payload["exploration_contract"][field] = [""]
+
+                errors = list(self.validator.iter_errors(payload))
+
+                self.assertTrue(errors)
+                self.assertTrue(any(list(error.path) == ["exploration_contract", field, 0] for error in errors))
 
     def test_schema_rejects_invalid_coverage_target_shape(self) -> None:
         payload = minimal_valid_draft_set()
@@ -137,6 +158,27 @@ class DraftSetSchemaTests(unittest.TestCase):
         self.assertTrue(errors)
         self.assertTrue(any(error.validator == "additionalProperties" for error in errors))
 
+    def test_schema_rejects_derived_top_level_fields(self) -> None:
+        for field, value in (
+            ("review_queue", []),
+            (
+                "convergence",
+                {
+                    "status": "converged",
+                    "iterations": 1,
+                    "stop_reason": "converged",
+                },
+            ),
+        ):
+            with self.subTest(field=field):
+                payload = minimal_valid_draft_set()
+                payload[field] = value
+
+                errors = list(self.validator.iter_errors(payload))
+
+                self.assertTrue(errors)
+                self.assertTrue(any(error.validator == "additionalProperties" for error in errors))
+
     def test_schema_rejects_invalid_draft_set_id(self) -> None:
         payload = minimal_valid_draft_set()
         payload["id"] = "../DS-20260513-001"
@@ -171,7 +213,6 @@ class DraftSetSchemaTests(unittest.TestCase):
             "draft_actions",
             "draft_verifications",
             "conflicts",
-            "review_queue",
         ):
             payload[field] = []
 
@@ -262,12 +303,6 @@ def minimal_valid_draft_set() -> dict:
                     "stale_or_unclassifiable_diagnostics",
                 ],
             },
-            "convergence": {
-                "status": "budget_exhausted",
-                "iterations": 1,
-                "stop_reason": "mvp_single_pass",
-                "note": "Single pass.",
-            },
             "draft_decisions": [
                 {
                     "id": "DD-001",
@@ -308,7 +343,6 @@ def minimal_valid_draft_set() -> dict:
             "draft_actions": [],
             "draft_verifications": [],
             "conflicts": [],
-            "review_queue": [],
             "promotion": {
                 "promoted_decision_ids": [],
                 "bulk_promotable_ids": [],

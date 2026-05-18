@@ -39,6 +39,8 @@ class DraftSetTests(unittest.TestCase):
             self.assertEqual("DS-20260513-001", persisted["id"])
             self.assertEqual(2, persisted["schema_version"])
             self.assertEqual("test", persisted["generated_by"])
+            self.assertNotIn("convergence", persisted)
+            self.assertNotIn("review_queue", persisted)
             self.assertEqual(20, persisted["exploration_contract"]["budgets"]["max_draft_decisions"])
             self.assertEqual(0, persisted["exploration_contract"]["budgets"]["max_iterations"])
             self.assertEqual({"draft_decisions": 1, "draft_assumptions": 0, "draft_risks": 0, "draft_actions": 0, "draft_verifications": 0}, result["counts"])
@@ -247,13 +249,11 @@ def _draft_input(goal_title: str = "Add draft decision sets") -> dict:
         "generated_by",
         "source_context",
         "exploration_contract",
-        "convergence",
         "draft_assumptions",
         "draft_risks",
         "draft_actions",
         "draft_verifications",
         "conflicts",
-        "review_queue",
         "promotion",
     ):
         payload.pop(field, None)

@@ -192,6 +192,8 @@ class AutopilotDraftCliTests(unittest.TestCase):
             draft_set = json.loads(Path(result["draft_set_path"]).read_text(encoding="utf-8"))
 
             self.assertEqual(2, draft_set["schema_version"])
+            self.assertNotIn("convergence", draft_set)
+            self.assertNotIn("review_queue", draft_set)
             self.assertEqual("Create a reviewable draft set.", draft_set["goal"]["title"])
             self.assertEqual(
                 {"max_draft_decisions": 12, "max_iterations": 2},
@@ -252,6 +254,26 @@ class AutopilotDraftCliTests(unittest.TestCase):
             draft_set = json.loads(Path(result["draft_set_path"]).read_text(encoding="utf-8"))
 
             self.assertEqual("Seed goal wins", draft_set["goal"]["title"])
+
+    def test_autopilot_draft_cli_rejects_explicit_v1_seed(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = _bootstrap(Path(tmp))
+            seed = _seed_payload()
+            seed["schema_version"] = 1
+            seed_path = _write_seed(Path(tmp), seed)
+
+            result = run_cli(
+                "autopilot-draft",
+                "--ai-dir",
+                str(ai_dir),
+                "--seed-draft-json",
+                str(seed_path),
+                "--no-export",
+                check=False,
+            )
+
+            self.assertEqual(1, result.returncode)
+            self.assertIn("schema_version", result.stderr)
 
     def test_autopilot_draft_cli_records_actual_budgets_for_seed_contract(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -318,8 +340,6 @@ def _seed_payload() -> dict:
         "generated_by",
         "source_context",
         "exploration_contract",
-        "convergence",
-        "review_queue",
         "promotion",
     ):
         payload.pop(field, None)
