@@ -138,8 +138,9 @@ the projection-derived `observed_value` separately. Rows come from
 `exploration_contract.coverage_targets` plus derived safety rows for evidence coverage, human review
 safety, and promotion safety. Required P0/P1 rows with `status=partial` or `status=missing` block
 convergence; P2/P3 non-required rows do not. Gap diagnostics still report issues such as missing
-P0/P1 recommendations, insufficient evidence, high-risk bulk review, dangling references, and
-conflicts with accepted decisions.
+required layers, missing P0/P1 recommendations, insufficient or challenged evidence, unsupported
+recommendations, high-risk bulk review, stale draft sets, verification gaps, dangling references, and
+possible conflicts with accepted decisions.
 
 Because `project-draft-set` is a standalone diagnostic command, it may return
 `stop_reason=stopped` when the projection has non-blocking diagnostics but no autopilot iteration was
@@ -170,22 +171,27 @@ accepted decisions.
 
 ## Review Queue
 
-`review-draft-set` builds `review-queue.json`. `export-draft-set` also builds the review queue and
-derives current projection diagnostics in memory for the readable preflight export. It must not render
-empty convergence or gap diagnostics just because `draft-projection.json` has not been generated, and
-it must not write `draft-projection.json` itself. The preflight export renders `Coverage Summary` and
-`Coverage Matrix` from that in-memory projection. The normal readable-export flow does not need to
-call `review-draft-set` separately.
+`review-draft-set` builds `review-queue.json` with `schema_version: 2`. `export-draft-set` also builds
+the review queue and derives current projection diagnostics in memory for the readable preflight
+export. It must not render empty convergence or gap diagnostics just because `draft-projection.json`
+has not been generated, and it must not write `draft-projection.json` itself. The preflight export
+renders `Coverage Summary`, `Coverage Matrix`, and blocking gaps from that in-memory projection. The
+normal readable-export flow does not need to call `review-draft-set` separately.
 
-The review queue sorts draft decisions and classifies them as:
+The review queue sorts general review targets using `target_id` and `target_kind`. Draft decisions use
+`target_kind=draft_decision` and may also include `draft_decision_id`; derived coverage blockers use
+`target_kind=coverage_gap`. The queue classifies targets as:
 
 - blocked
 - individual review required
 - bulk materialize candidate
 - already promoted
 
-High or critical risk, medium risk or above, P0/P1 priority, challenged or missing evidence, conflicts,
-explicit individual review flags, and blocked draft fields must not enter the bulk candidate list.
+Required blocking coverage rows enter `blocked` when missing and `individual review required` when
+partial. High or critical risk, medium risk or above, P0/P1 priority, unknown, challenged, missing, or
+partial-with-missing evidence, conflicts, explicit individual review flags, and blocked draft fields
+must not enter the bulk candidate list. If any coverage blocker exists, `bulk_promotable=true` draft
+decisions are excluded from bulk and routed to individual review.
 `bulk_promotable=true` means "eligible to place into proposal review in bulk"; it never means accepted.
 
 ## Readable Exports

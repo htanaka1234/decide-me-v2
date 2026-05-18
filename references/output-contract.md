@@ -265,7 +265,11 @@ Coverage rows include `axis_id`, `axis_type`, `value`, `observed_value`, `priori
 value from the coverage target, and `observed_value` is the projection-derived value observed from
 draft content and safety diagnostics. `status` is one of `covered`, `partial`, or `missing`. Gap
 diagnostics include `type`, `severity`, `target_id`, `blocks_convergence`, `blocks_bulk_promotion`,
-`reason`, and `suggested_resolution`.
+`reason`, and `suggested_resolution`. Phase 3 gap types include `missing_required_layer`,
+`missing_p0_recommendation`, `missing_p1_recommendation`, `insufficient_evidence`,
+`challenged_evidence`, `unsupported_recommendation`, `unsafe_bulk_review`,
+`accepted_decision_conflict_possible`, `stale_draft_set`, and
+`verification_without_observable_command`.
 
 Draft set review and export are sidecar-derived outputs. They consume
 `.ai/decide-me/draft-sets/DS-.../draft-set.json` and may write only
@@ -277,16 +281,22 @@ set's `exports/` directory:
 - `review-queue.md`
 - `assumptions-risks.md`
 
-`export-draft-set` must derive the current draft projection in memory for readable convergence and gap
-diagnostics when `draft-projection.json` is absent or stale. It must render `Coverage Summary` and
-`Coverage Matrix` in the preflight export, must not render empty convergence from missing diagnostics,
-and must not write `draft-projection.json`; only `project-draft-set` owns that derived sidecar file.
+`review-draft-set` and `export-draft-set` must derive the current draft projection in memory for
+readable convergence and gap diagnostics when `draft-projection.json` is absent or stale. They must
+render or return `Coverage Summary`, `Coverage Matrix`, and blocking gaps, must not render empty
+convergence from missing diagnostics, and must not write `draft-projection.json`; only
+`project-draft-set` owns that derived sidecar file.
+The preflight export must render `Coverage Summary` and `Coverage Matrix` from the in-memory
+projection.
 
 Every Markdown draft export must include `DRAFT / NOT ACCEPTED`, and managed generated regions
 must preserve the trailing `## Human Notes` section on regeneration. The review queue is a
-deterministic promotion-input queue, not promotion itself: high or critical risk items, challenged
-or missing evidence, conflicts, explicit individual-review flags, and blocked draft fields must not
-enter the bulk candidate list. `promotion.promoted_decision_ids` remains sidecar metadata only and
+deterministic promotion-input queue, not promotion itself. `review-queue.json` uses
+`schema_version: 2` and represents general review targets with `target_id` and `target_kind`;
+`draft_decision_id` is only a draft-decision alias. High or critical risk items, unknown,
+challenged, missing, or partial-with-missing evidence, conflicts, explicit individual-review flags,
+coverage blockers, and blocked draft fields must not enter the bulk candidate list.
+`promotion.promoted_decision_ids` remains sidecar metadata only and
 must not let a draft bypass blocked or individual-review classification. `review-draft-set` and
 `export-draft-set` must not emit events, create accepted decisions, create canonical proposals, or
 update `project-state.json`, `taxonomy-state.json`, or `sessions/*.json`. A stale project head is

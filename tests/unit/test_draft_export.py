@@ -6,6 +6,8 @@ from copy import deepcopy
 from jsonschema import Draft202012Validator
 
 from decide_me.draft_export import DraftReviewQueueValidationError, build_review_queue, render_draft_exports, validate_review_queue
+from decide_me.draft_projection import project_draft_set
+from decide_me.projections import default_project_state
 from tests.helpers.schema_validation import load_schema
 from tests.unit.test_draft_set_schema import minimal_valid_draft_set
 
@@ -68,6 +70,18 @@ class DraftExportTests(unittest.TestCase):
         self.assertEqual(["DD-001"], queue["individual_review_required"])
         self.assertIn("evidence_coverage.status is challenged", queue["review_order"][0]["reasons"])
 
+    def test_unknown_and_partial_missing_evidence_do_not_enter_bulk(self) -> None:
+        queue = _queue([_decision("DD-001", evidence_status="unknown")])
+
+        self.assertEqual([], queue["bulk_promotable"])
+        self.assertEqual(["DD-001"], queue["individual_review_required"])
+
+        queue = _queue([_decision("DD-001", evidence_status="partial", missing=["Need source review"])])
+
+        self.assertEqual([], queue["bulk_promotable"])
+        self.assertEqual(["DD-001"], queue["individual_review_required"])
+        self.assertIn("partial evidence has missing items", queue["review_order"][0]["reasons"])
+
     def test_malformed_promoted_draft_remains_blocked(self) -> None:
         queue = _queue(
             [_decision("DD-001", recommendation="")],
@@ -101,8 +115,40 @@ class DraftExportTests(unittest.TestCase):
     def test_review_queue_schema_validates(self) -> None:
         queue = _queue([_decision("DD-001")])
 
+        self.assertEqual(2, queue["schema_version"])
+        self.assertIn("coverage_summary", queue)
+        self.assertIn("blocking_gaps", queue)
+        self.assertEqual("DD-001", queue["review_order"][0]["target_id"])
+        self.assertEqual("draft_decision", queue["review_order"][0]["target_kind"])
         validate_review_queue(queue)
         Draft202012Validator(load_schema("draft-review-queue.schema.json")).validate(queue)
+
+    def test_coverage_blocker_enters_review_queue_and_excludes_bulk(self) -> None:
+        draft_set = _draft_set([_decision("DD-001", layer="purpose")])
+        projection = _projection(draft_set)
+        queue = _queue(draft_set["draft_decisions"], draft_projection=projection)
+
+        self.assertIn("core.layer.strategy", queue["blocked"])
+        self.assertIn("DD-001", queue["individual_review_required"])
+        self.assertEqual([], queue["bulk_promotable"])
+        self.assertGreater(queue["coverage_summary"]["blocking_gap_count"], 0)
+        self.assertTrue(queue["blocking_gaps"])
+        coverage_item = next(item for item in queue["review_order"] if item["target_id"] == "core.layer.strategy")
+        self.assertEqual("coverage_gap", coverage_item["target_kind"])
+        self.assertEqual("missing_required_layer", coverage_item["gap_type"])
+
+    def test_partial_coverage_blocker_enters_individual_review(self) -> None:
+        draft_set = _draft_set(
+            [
+                _decision("DD-001", layer="strategy", recommendation="", evidence_status="sufficient"),
+            ]
+        )
+        projection = _projection(draft_set)
+        queue = _queue(draft_set["draft_decisions"], draft_projection=projection)
+
+        self.assertIn("core.layer.strategy", queue["individual_review_required"])
+        coverage_item = next(item for item in queue["review_order"] if item["target_id"] == "core.layer.strategy")
+        self.assertEqual("individual", coverage_item["review_mode"])
 
     def test_review_queue_schema_rejects_invalid_id_and_generated_at(self) -> None:
         queue = _queue([_decision("DD-001")])
@@ -115,6 +161,13 @@ class DraftExportTests(unittest.TestCase):
         queue["generated_at"] = "not-a-date-time"
 
         with self.assertRaisesRegex(DraftReviewQueueValidationError, "generated_at"):
+            validate_review_queue(queue)
+
+    def test_review_queue_schema_rejects_malformed_general_target_item(self) -> None:
+        queue = _queue([_decision("DD-001")])
+        queue["review_order"][0].pop("target_id")
+
+        with self.assertRaisesRegex(DraftReviewQueueValidationError, "target_id"):
             validate_review_queue(queue)
 
     def test_render_preflight_contains_draft_not_accepted_banner(self) -> None:
@@ -198,6 +251,7 @@ def _queue(
     *,
     promotion: dict | None = None,
     current_project_head: str | None = "head-1",
+    draft_projection: dict | None = None,
 ) -> dict:
     draft_set = _draft_set(decisions)
     if promotion is not None:
@@ -213,6 +267,7 @@ def _queue(
         draft_set,
         current_project_head=current_project_head,
         generated_at="2026-05-13T03:00:00Z",
+        draft_projection=draft_projection,
     )
 
 
@@ -221,6 +276,19 @@ def _draft_set(decisions: list[dict]) -> dict:
     payload["source_context"]["project_head_at_generation"] = "head-1"
     payload["draft_decisions"] = deepcopy(decisions)
     return payload
+
+
+def _projection(draft_set: dict) -> dict:
+    project_state = default_project_state()
+    project_state["state"]["project_head"] = "head-1"
+    project_state["objects"] = []
+    project_state["links"] = []
+    return project_draft_set(
+        project_state=project_state,
+        draft_set=draft_set,
+        current_project_head="head-1",
+        generated_at="2026-05-13T03:00:00Z",
+    )
 
 
 def _decision(

@@ -111,13 +111,15 @@ def project_draft_set(
     draft_set_copy = deepcopy(draft_set)
     project_head_at_generation = _project_head_at_generation(draft_set_copy)
     index = _build_index(project_state_copy, draft_set_copy)
+    coverage_matrix = build_coverage_matrix(
+        draft_set_copy,
+        current_project_head=current_project_head,
+    )
     gap_diagnostics = detect_gap_diagnostics(
         project_state=project_state_copy,
         draft_set=draft_set_copy,
         index=index,
-    )
-    coverage_matrix = build_coverage_matrix(
-        draft_set_copy,
+        coverage_matrix=coverage_matrix,
         current_project_head=current_project_head,
     )
     coverage_summary = _coverage_summary(coverage_matrix)
@@ -156,6 +158,8 @@ def detect_gap_diagnostics(
     project_state: dict[str, Any],
     draft_set: dict[str, Any],
     index: dict[str, Any],
+    coverage_matrix: list[dict[str, Any]] | None = None,
+    current_project_head: str | None = None,
 ) -> list[dict[str, Any]]:
     """Return deterministic sorted gap diagnostics."""
     gaps: list[dict[str, Any]] = []
@@ -207,9 +211,10 @@ def detect_gap_diagnostics(
                 )
             )
         if priority in {"P0", "P1"} and not _non_empty_string(draft.get("recommendation")):
+            gap_type = "missing_p0_recommendation" if priority == "P0" else "missing_p1_recommendation"
             gaps.append(
                 _gap(
-                    "missing_recommendation",
+                    gap_type,
                     severity="high",
                     scope="draft_decision",
                     target_id=draft_id,
@@ -251,7 +256,21 @@ def detect_gap_diagnostics(
             )
         evidence = _dict_field(draft, "evidence_coverage")
         evidence_status = _normalized_evidence_status(evidence.get("status"))
-        if evidence_status in INSUFFICIENT_EVIDENCE_STATUSES:
+        if evidence_status == "challenged":
+            blocks = priority in {"P0", "P1"}
+            gaps.append(
+                _gap(
+                    "challenged_evidence",
+                    severity="high",
+                    scope="draft_decision",
+                    target_id=draft_id,
+                    target_kind="draft_decision",
+                    blocks_convergence=blocks,
+                    reason=f"Draft decision {draft_id} evidence_coverage.status is challenged.",
+                    suggested_resolution="Resolve challenged evidence or keep the decision in individual human review.",
+                )
+            )
+        elif evidence_status in INSUFFICIENT_EVIDENCE_STATUSES:
             blocks = priority in {"P0", "P1"}
             if blocks or not _has_evidence_collection_action(draft_set, draft_id):
                 gaps.append(
@@ -266,21 +285,23 @@ def detect_gap_diagnostics(
                         suggested_resolution="Collect evidence or keep the decision in individual human review.",
                     )
                 )
-        if (
-            priority in {"P0", "P1"}
-            and evidence_status == "partial"
-            and _items(evidence, "missing")
-            and not _has_evidence_collection_action(draft_set, draft_id)
-        ):
+        if evidence_status == "partial" and (
+            _items(evidence, "missing")
+            or (
+                not _string_items(evidence.get("supporting_object_ids"))
+                and not _string_items(evidence.get("source_unit_ids"))
+            )
+        ) and not _has_evidence_collection_action(draft_set, draft_id):
+            blocks = priority in {"P0", "P1"}
             gaps.append(
                 _gap(
-                    "p0_p1_partial_evidence",
-                    severity="medium",
+                    "unsupported_recommendation",
+                    severity="high" if blocks else "medium",
                     scope="draft_decision",
                     target_id=draft_id,
                     target_kind="draft_decision",
-                    blocks_convergence=False,
-                    reason=f"{priority} draft decision {draft_id} has partial evidence with missing items.",
+                    blocks_convergence=blocks,
+                    reason=f"Draft decision {draft_id} has a recommendation with partial or incomplete supporting evidence.",
                     suggested_resolution="Add an evidence collection action or review the missing evidence explicitly.",
                 )
             )
@@ -352,14 +373,14 @@ def detect_gap_diagnostics(
         if action_id and not _action_has_verification(action_id, draft_set):
             gaps.append(
                 _gap(
-                    "action_without_verification",
+                    "verification_without_observable_command",
                     severity="medium",
                     scope="draft_action",
                     target_id=action_id,
                     target_kind="draft_action",
                     blocks_convergence=False,
-                    reason=f"Draft action {action_id} has no corresponding verification.",
-                    suggested_resolution="Add a draft verification that targets this action.",
+                    reason=f"Draft action {action_id} has no observable verification command.",
+                    suggested_resolution="Add a draft verification that targets this action and records the command or observation.",
                 )
             )
 
@@ -371,19 +392,20 @@ def detect_gap_diagnostics(
         if not targets:
             gaps.append(
                 _gap(
-                    "verification_without_target",
+                    "verification_without_observable_command",
                     severity="medium",
                     scope="draft_verification",
                     target_id=verification_id,
                     target_kind="draft_verification",
                     blocks_convergence=True,
-                    reason=f"Draft verification {verification_id} has no target.",
-                    suggested_resolution="Add target_ids that point to the action or decision being verified.",
+                    reason=f"Draft verification {verification_id} has no observable target or command.",
+                    suggested_resolution="Add target_ids and an observable command or method for this verification.",
                 )
             )
 
     gaps.extend(_reference_gaps(draft_set, index=index))
     gaps.extend(_promotion_gaps(draft_set, index=index))
+    gaps.extend(_coverage_gap_diagnostics(coverage_matrix or []))
     return _sort_and_number_gaps(gaps)
 
 
@@ -589,7 +611,7 @@ def _reference_gaps(draft_set: dict[str, Any], *, index: dict[str, Any]) -> list
         for accepted_id in accepted:
             gaps.append(
                 _gap(
-                    "accepted_conflict",
+                    "accepted_decision_conflict_possible",
                     severity="critical",
                     scope="conflict",
                     target_id=target_id,
@@ -634,6 +656,68 @@ def _reference_gaps(draft_set: dict[str, Any], *, index: dict[str, Any]) -> list
                         )
                     )
     return gaps
+
+
+def _coverage_gap_diagnostics(coverage_matrix: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    gaps: list[dict[str, Any]] = []
+    for row in coverage_matrix:
+        if row.get("blocks_convergence") is not True:
+            continue
+        gap_type = _coverage_gap_type(row)
+        gaps.append(
+            _gap(
+                gap_type,
+                severity="high" if row.get("priority") in {"P0", "P1"} else "medium",
+                scope="coverage",
+                target_id=str(row.get("axis_id") or ""),
+                target_kind="coverage_gap",
+                blocks_convergence=True,
+                reason=_coverage_gap_reason(row),
+                suggested_resolution=_coverage_gap_resolution(row),
+                blocks_bulk_promotion=True,
+            )
+        )
+    return gaps
+
+
+def _coverage_gap_type(row: dict[str, Any]) -> str:
+    axis_type = str(row.get("axis_type") or "")
+    value = str(row.get("value") or "")
+    observed = str(row.get("observed_value") or "")
+    if axis_type == "decision_stack_layer":
+        return "missing_required_layer"
+    if axis_type == "evidence_coverage":
+        return "challenged_evidence" if observed == "challenged" else "insufficient_evidence"
+    if axis_type == "human_review_safety":
+        return "unsafe_bulk_review"
+    if axis_type == "promotion_safety":
+        if value == "accepted_forbidden":
+            return "accepted_decision_conflict_possible"
+        if value == "stale_warning":
+            return "stale_draft_set"
+    return "unsupported_recommendation"
+
+
+def _coverage_gap_reason(row: dict[str, Any]) -> str:
+    remaining_gaps = _string_items(row.get("remaining_gaps"))
+    if remaining_gaps:
+        return "; ".join(remaining_gaps)
+    return (
+        f"Coverage target {row.get('axis_id')} is {row.get('status')} "
+        f"(target={row.get('value')}, observed={row.get('observed_value')})."
+    )
+
+
+def _coverage_gap_resolution(row: dict[str, Any]) -> str:
+    if row.get("axis_type") == "decision_stack_layer":
+        return f"Add one complete {row.get('value')}-layer draft decision before review."
+    if row.get("axis_type") == "evidence_coverage":
+        return "Collect or review supporting evidence before bulk promotion."
+    if row.get("axis_type") == "human_review_safety":
+        return "Route unsafe or unclear review targets to individual human review."
+    if row.get("axis_type") == "promotion_safety":
+        return "Resolve promotion safety before any bulk materialization."
+    return "Review the derived coverage gap before promotion."
 
 
 def _promotion_gaps(draft_set: dict[str, Any], *, index: dict[str, Any]) -> list[dict[str, Any]]:
@@ -1103,7 +1187,9 @@ def _projection_convergence(
     convergence_override: dict[str, Any] | None,
 ) -> dict[str, Any]:
     blocking_gaps = [gap for gap in gaps if gap["blocks_convergence"]]
-    coverage_problem_count = sum(1 for row in coverage_matrix if row.get("status") != "covered")
+    coverage_problem_count = sum(
+        1 for row in coverage_matrix if row.get("status") != "covered" and row.get("blocks_convergence") is not True
+    )
     coverage_blockers = [row for row in coverage_matrix if row.get("blocks_convergence") is True]
     if blocking_gaps or coverage_blockers or not isinstance(convergence_override, dict):
         stop_reason = _classify_projection_stop_reason(gaps, coverage_blockers=coverage_blockers)
@@ -1121,13 +1207,13 @@ def _projection_convergence(
         "status": status,
         "stop_reason": stop_reason,
         "new_gap_count": len(gaps) + coverage_problem_count,
-        "blocking_gap_count": len(blocking_gaps) + len(coverage_blockers),
+        "blocking_gap_count": len(blocking_gaps),
         "iterations": iterations,
         "max_iterations": iteration_budget,
         "explanation": _projection_explanation(
             stop_reason,
             len(gaps) + coverage_problem_count,
-            len(blocking_gaps) + len(coverage_blockers),
+            len(blocking_gaps),
         ),
     }
     if isinstance(convergence_override, dict) and not blocking_gaps and not coverage_blockers:
@@ -1142,12 +1228,19 @@ def _projection_convergence(
 
 def _classify_projection_stop_reason(gaps: list[dict[str, Any]], *, coverage_blockers: list[dict[str, Any]]) -> str:
     gap_types = {gap["type"] for gap in gaps}
-    if "accepted_conflict" in gap_types:
+    if "accepted_decision_conflict_possible" in gap_types:
         return "conflict_blocked"
+    if any(
+        gap["type"] in {"unsafe_bulk_review", "bulk_promotion_blocked"}
+        and gap.get("target_kind") == "draft_decision"
+        and gap.get("blocks_convergence") is True
+        for gap in gaps
+    ):
+        return "risk_gate_triggered"
+    if any(gap["type"] in {"insufficient_evidence", "challenged_evidence"} and gap["blocks_convergence"] for gap in gaps):
+        return "evidence_gap_blocked"
     if "unsafe_bulk_review" in gap_types or "bulk_promotion_blocked" in gap_types:
         return "risk_gate_triggered"
-    if any(gap["type"] == "insufficient_evidence" and gap["blocks_convergence"] for gap in gaps):
-        return "evidence_gap_blocked"
     if coverage_blockers:
         return "user_review_required"
     if any(gap["blocks_convergence"] for gap in gaps):
