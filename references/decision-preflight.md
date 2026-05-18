@@ -61,6 +61,10 @@ immutable during Decision Preflight. Creating, projecting, reviewing, exporting,
 force blocked convergence and reporting. Promotion is the only draft-related flow that may write
 canonical events, and Decision Preflight must not call promotion commands.
 
+If derived diagnostics are missing, stale, unknown, or unclassifiable, Decision Preflight fails closed:
+it must mark convergence as blocked or require individual review. It must not infer convergence,
+sufficient evidence, or bulk promotability from missing diagnostics.
+
 ## Codex Goal Boundary
 
 The Skill starts this flow when the user clearly asks to create a draft decision set, preflight a goal,
