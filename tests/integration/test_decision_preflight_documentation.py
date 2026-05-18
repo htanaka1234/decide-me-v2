@@ -18,6 +18,10 @@ def _section(text: str, start: str, end: str) -> str:
     return text.split(start, 1)[1].split(end, 1)[0]
 
 
+def _squash_ws(text: str) -> str:
+    return " ".join(text.split())
+
+
 class DecisionPreflightDocumentationTests(unittest.TestCase):
     def test_skill_lists_decision_preflight_without_public_goal_command(self) -> None:
         skill = (REPO_ROOT / "SKILL.md").read_text(encoding="utf-8")
@@ -52,6 +56,7 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
 
     def test_decision_preflight_reference_documents_autopilot_cli_boundary(self) -> None:
         ref = (REPO_ROOT / "references" / "decision-preflight.md").read_text(encoding="utf-8")
+        normalized_ref = _squash_ws(ref)
 
         self.assertIn("# Decision Preflight", ref)
         self.assertIn(
@@ -78,6 +83,32 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
         self.assertIn("DRAFT / NOT ACCEPTED", ref)
         self.assertIn("does not create accepted decisions", ref)
         self.assertIn("canonical event count is unchanged", ref)
+        self.assertIn("## State Ownership", ref)
+        self.assertIn("`draft-set.json` is the source sidecar", normalized_ref)
+        self.assertIn(
+            "`goal`, `source_context`, `draft_decisions`, and the Phase 1 `exploration_contract`",
+            normalized_ref,
+        )
+        self.assertIn("must not store derived diagnostic state", normalized_ref)
+        self.assertIn("`draft-projection.json` is a derived sidecar", normalized_ref)
+        self.assertIn(
+            "`coverage_matrix`, `coverage_summary`, the Phase 5 derived `frontier_queue`",
+            normalized_ref,
+        )
+        self.assertIn("Diagnostics and coverage are never written back into `draft-set.json`", normalized_ref)
+        self.assertIn("`review-queue.json` is a derived promotion handoff queue", normalized_ref)
+        self.assertIn(
+            "The canonical event log, `project-state.json`, `taxonomy-state.json`, and `sessions/*.json` "
+            "are immutable during Decision Preflight.",
+            normalized_ref,
+        )
+        self.assertIn("Blocking derived gaps force blocked convergence and reporting", normalized_ref)
+        self.assertIn("Decision Preflight must not call promotion commands", normalized_ref)
+        self.assertIn("Decision Preflight fails closed", normalized_ref)
+        self.assertIn(
+            "must not infer convergence, sufficient evidence, or bulk promotability from missing diagnostics",
+            normalized_ref,
+        )
 
     def test_draft_set_reference_documents_sidecar_boundary(self) -> None:
         ref = (REPO_ROOT / "references" / "draft-decision-sets.md").read_text(encoding="utf-8")
