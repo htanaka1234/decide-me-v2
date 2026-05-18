@@ -345,6 +345,12 @@
         },
         "explanation": {
           "type": "string"
+        },
+        "trace": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
         }
       },
       "additionalProperties": false

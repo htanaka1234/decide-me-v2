@@ -41,16 +41,6 @@ SEVERITY_RANK = {
     "info": 4,
 }
 DRAFT_ID_PREFIXES = ("DD-", "DA-", "DR-", "DV-", "DACTION-")
-AUTHORITATIVE_DRAFT_SET_STOP_REASONS = {
-    "converged",
-    "budget_exhausted",
-    "risk_gate_triggered",
-    "evidence_gap_blocked",
-    "conflict_blocked",
-    "user_review_required",
-}
-
-
 class DraftProjectionError(Exception):
     pass
 
@@ -66,6 +56,7 @@ def build_draft_projection(
     now: str | None = None,
     persist: bool = True,
     max_iterations: int | None = None,
+    convergence_override: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Load runtime + draft-set, build a derived draft projection, and optionally persist it."""
     paths = runtime_paths(ai_dir)
@@ -80,6 +71,7 @@ def build_draft_projection(
             current_project_head=current_project_head,
             generated_at=generated_at,
             max_iterations=max_iterations,
+            convergence_override=convergence_override,
         )
         validate_draft_projection(projection)
         if persist:
@@ -98,6 +90,7 @@ def project_draft_set(
     current_project_head: str | None,
     generated_at: str,
     max_iterations: int | None = None,
+    convergence_override: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Pure projection function for diagnostics and autopilot iteration."""
     project_state_copy = deepcopy(project_state)
@@ -111,8 +104,8 @@ def project_draft_set(
     )
     convergence = _projection_convergence(
         gap_diagnostics,
-        draft_set=draft_set_copy,
         max_iterations=max_iterations,
+        convergence_override=convergence_override,
     )
     projection = {
         "schema_version": 1,
@@ -694,22 +687,19 @@ def _coverage_gaps(draft_set: dict[str, Any]) -> list[dict[str, Any]]:
 def _projection_convergence(
     gaps: list[dict[str, Any]],
     *,
-    draft_set: dict[str, Any],
     max_iterations: int | None,
+    convergence_override: dict[str, Any] | None,
 ) -> dict[str, Any]:
     blocking = [gap for gap in gaps if gap["blocks_convergence"]]
-    draft_convergence = _dict_field(draft_set, "convergence")
-    draft_stop_reason = draft_convergence.get("stop_reason")
-    if blocking:
+    if blocking or not isinstance(convergence_override, dict):
         stop_reason = _classify_projection_stop_reason(gaps)
-    elif isinstance(draft_stop_reason, str) and draft_stop_reason in AUTHORITATIVE_DRAFT_SET_STOP_REASONS:
-        stop_reason = draft_stop_reason
     else:
-        stop_reason = _classify_projection_stop_reason(gaps)
+        override_stop_reason = convergence_override.get("stop_reason")
+        stop_reason = override_stop_reason if isinstance(override_stop_reason, str) else _classify_projection_stop_reason(gaps)
     status = _projection_status(stop_reason)
-    iterations = int(draft_convergence.get("iterations") or 0)
+    iterations = _non_negative_int(convergence_override.get("iterations") if isinstance(convergence_override, dict) else None)
     iteration_budget = int(max_iterations) if max_iterations is not None else iterations
-    return {
+    convergence = {
         "status": status,
         "stop_reason": stop_reason,
         "new_gap_count": len(gaps),
@@ -718,6 +708,14 @@ def _projection_convergence(
         "max_iterations": iteration_budget,
         "explanation": _projection_explanation(stop_reason, len(gaps), len(blocking)),
     }
+    if isinstance(convergence_override, dict) and not blocking:
+        explanation = convergence_override.get("explanation")
+        if isinstance(explanation, str):
+            convergence["explanation"] = explanation
+        trace = convergence_override.get("trace")
+        if isinstance(trace, list):
+            convergence["trace"] = trace
+    return convergence
 
 
 def _classify_projection_stop_reason(gaps: list[dict[str, Any]]) -> str:
@@ -751,6 +749,12 @@ def _projection_explanation(stop_reason: str, gap_count: int, blocking_gap_count
             return "No blocking gap diagnostics were detected for this draft projection."
         return "No gap diagnostics were detected for this draft projection."
     return f"Detected {gap_count} draft gap(s), including {blocking_gap_count} blocking gap(s)."
+
+
+def _non_negative_int(value: Any) -> int:
+    if isinstance(value, int) and value >= 0:
+        return value
+    return 0
 
 
 def _gap(

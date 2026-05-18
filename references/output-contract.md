@@ -222,6 +222,14 @@ must report:
 `is_stale`, and `counts`. `show-draft-set` returns `status`, `draft_set`, and `runtime_status`.
 `list-draft-sets` returns `status`, `count`, and `draft_sets[]`.
 
+Persisted `draft-set.json` must match `schemas/draft-decision-set.schema.json` with
+`schema_version: 2`. Its required source-input fields include `goal`, `source_context`,
+`exploration_contract`, and `draft_decisions`. `exploration_contract` records objective, non-goals,
+read-first sources, coverage targets, budgets, stop conditions, and pause conditions. If omitted from
+new create/autopilot inputs, it is defaulted before persistence; malformed explicit contracts fail
+validation. Derived coverage summaries, matrices, gap diagnostics, convergence, frontier queues, and
+review queues must not be written into `draft-set.json` or inferred from missing diagnostics.
+
 `project-draft-set` returns `status`, `draft_set_id`, `projection_path`, `stale`, `gap_count`,
 `blocking_gap_count`, and `stop_reason`. With persistence enabled, it writes only
 `.ai/decide-me/draft-sets/DS-.../draft-projection.json`.
@@ -241,7 +249,7 @@ explicitly reports `converged`.
 
 Projection convergence must fail closed. If current `draft-projection.json` diagnostics contain any
 blocking gap, the projection stop reason must be classified from those current gaps and reported with
-`status=blocked`, even when the persisted draft-set convergence says `converged`.
+`status=blocked` regardless of any prior projection trace or expectation that the draft had converged.
 
 `draft-projection.json` must match `schemas/draft-projection.schema.json`. Its required top-level
 fields are `schema_version`, `draft_set_id`, `generated_at`, `project_head_at_generation`,
@@ -258,6 +266,11 @@ set's `exports/` directory:
 - `draft-decisions.md`
 - `review-queue.md`
 - `assumptions-risks.md`
+
+`export-draft-set` must derive the current draft projection in memory for readable convergence and gap
+diagnostics when `draft-projection.json` is absent or stale. It must not render empty convergence from
+missing diagnostics, and it must not write `draft-projection.json`; only `project-draft-set` owns that
+derived sidecar file.
 
 Every Markdown draft export must include `DRAFT / NOT ACCEPTED`, and managed generated regions
 must preserve the trailing `## Human Notes` section on regeneration. The review queue is a

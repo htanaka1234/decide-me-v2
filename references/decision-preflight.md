@@ -44,7 +44,10 @@ failure contract for the draft flow and must remain stable as exploration covera
 
 `draft-set.json` is the source sidecar for a DraftDecisionSet. It owns user and Skill inputs such as
 `goal`, `source_context`, `draft_decisions`, and the Phase 1 `exploration_contract`. It must not store
-derived diagnostic state such as coverage matrices, gap classifiers, frontier queues, or review queues.
+derived diagnostic state such as coverage matrices, gap classifiers, convergence, frontier queues, or
+review queues.
+DraftDecisionSet uses `schema_version: 2` once `exploration_contract` is required. Older v1 draft
+sidecars are not implicitly migrated.
 
 `draft-projection.json` is a derived sidecar. It owns projection-time diagnostics such as the Phase 2
 `coverage_matrix`, `coverage_summary`, the Phase 5 derived `frontier_queue`, existing
@@ -123,9 +126,14 @@ Normalize free-form input into these fields:
 | target objects | `source_context.included_object_ids[]` | `[]` |
 | `max_draft_decisions` | Skill exploration budget | `20` |
 | `risk_threshold` | Skill risk classification threshold | `medium` |
+| explicit exploration objective | `exploration_contract.objective` | `goal.desired_outcome` then `goal.title` |
+| non-goals | `exploration_contract.non_goals[]` | `[]` |
+| read-first sources | `exploration_contract.read_first_sources[]` | `["project-state.json"]` |
+| max iterations | `exploration_contract.budgets.max_iterations` | `0` for `create-draft-set`; CLI value for `autopilot-draft` |
 
 `create-draft-set` can fill top-level runtime fields, but the Skill payload must include a complete
-`goal` object with `id`, `title`, `desired_outcome`, and `constraints`.
+`goal` object with `id`, `title`, `desired_outcome`, and `constraints`. When omitted,
+`exploration_contract` is defaulted as source input, not as derived diagnostic state.
 
 ## Skill Orchestration Flow
 
@@ -312,19 +320,21 @@ top-level sidecar fields.
         "blocked_for_bulk_acceptance": true
       }
     }
-  ],
-  "convergence": {
-    "status": "budget_exhausted",
-    "iterations": 1,
-    "stop_reason": "mvp_single_pass",
-    "note": "Single-pass Decision Preflight draft. It does not prove convergence."
-  }
+  ]
 }
 ```
 
 Each draft decision must include a non-empty recommendation, rationale, and at least one meaningful
 alternative in Skill-generated payloads. Promotion-oriented decisions should use
 `canonical_initial_status: "unresolved"` and `proposal_required: true`.
+
+`exploration_contract` is required in persisted `draft-set.json` and defines the intended exploration
+scope before projection diagnostics run. The default contract requires the eight Decision Stack layer
+coverage targets `core.layer.purpose`, `core.layer.principle`, `core.layer.constraint`,
+`core.layer.strategy`, `core.layer.design`, `core.layer.execution`, `core.layer.verification`, and
+`core.layer.review`, all with `axis_type=decision_stack_layer`, `priority=P1`, and `required=true`.
+`create-draft-set` records default budgets of `max_draft_decisions=20` and `max_iterations=0`.
+`autopilot-draft` records the actual CLI budgets in the persisted contract.
 
 ## Review Mode Rules
 
@@ -353,8 +363,9 @@ reports should normalize that diagnostic:
   to `user_review_required` unless an autopilot run explicitly reported `converged`
 - `project-draft-set stopped` with only non-blocking gaps: report `user_review_required`
 
-Saved draft-set convergence is not authoritative when the current projection has blocking gaps. In
-that case, report the current blocking classification and `status=blocked`.
+Convergence is owned by `draft-projection.json`, not by `draft-set.json`. If the current projection
+has blocking gaps, report the current blocking classification and `status=blocked` regardless of any
+prior projection trace or expectation that the draft had converged.
 
 ## Review/export Contract
 
