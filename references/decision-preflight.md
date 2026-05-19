@@ -52,8 +52,8 @@ sidecars are not implicitly migrated.
 `draft-projection.json` is a derived sidecar. It owns projection-time diagnostics such as the Phase 2
 `coverage_matrix`, `coverage_summary`, the Phase 5 derived `frontier_queue`, existing
 `gap_diagnostics`, and current `convergence`. Diagnostics and coverage are never written back into
-`draft-set.json`. DraftProjection uses `schema_version: 2` once `coverage_matrix` and
-`coverage_summary` are required.
+`draft-set.json`. DraftProjection uses `schema_version: 3` once the derived `frontier_queue` is
+required alongside coverage diagnostics.
 
 `review-queue.json` is a derived promotion handoff queue. It is built from the draft set plus current
 projection diagnostics and is used only to organize blocked, individual-review, and bulk-eligible
@@ -381,6 +381,12 @@ decisions from these rows, but it must not mark evidence `sufficient` to resolve
 Each coverage row keeps `value` as the requested target and reports the projection-derived
 `observed_value` separately.
 
+Frontier is also projection-derived. `project-draft-set` derives `frontier_queue` from blocking
+coverage gap diagnostics whose coverage rows are required P0/P1 targets. Frontier items identify the
+source `GAP-...`, use `F-GAP-...` IDs, stay `status=open`, and describe the next expansion target.
+Decision Stack layer frontier items can drive `autopilot-draft` supplemental draft decisions; evidence
+frontier items list `evidence_needed` from remaining gaps but must not upgrade evidence coverage.
+
 ## Review/export Contract
 
 After `export-draft-set`, report at least:
@@ -394,6 +400,7 @@ Coverage summary: required=N, covered=N, partial=N, missing=N, blocking=N
 Convergence: status=blocked|budget_exhausted|converged, stop_reason=...
 Gap summary: total=N, blocking=N
 Blocking gaps: GAP-... target=...
+Frontier: open=N
 Exports:
 - preflight.md
 - draft-decisions.md

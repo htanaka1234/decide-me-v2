@@ -74,6 +74,12 @@
 | GAP-001 | missing_required_layer | high | core.layer.strategy | True | No strategy-layer draft decision exists. |
 | GAP-002 | missing_required_layer | high | core.layer.verification | True | No verification-layer draft decision exists. |
 
+## Frontier Queue
+| ID | Source Gap | Priority | Status | Topic | Evidence Needed | Suggested Expansion |
+| --- | --- | --- | --- | --- | --- | --- |
+| F-GAP-001 | GAP-001 | P1 | open | strategy layer is missing |  | Add one complete strategy-layer draft decision before review. |
+| F-GAP-002 | GAP-002 | P1 | open | verification layer is missing |  | Add one complete verification-layer draft decision before review. |
+
 ## Blocking Gaps
 | ID | Type | Target | Kind | Severity | Reason |
 | --- | --- | --- | --- | --- | --- |

@@ -314,6 +314,18 @@ def synthesize_gap_resolutions(
         "draft_verifications": [],
     }
     existing_ids = _draft_object_ids(draft_set)
+    for frontier in projection.get("frontier_queue", []):
+        if len(additions["draft_decisions"]) >= max_new_decisions:
+            break
+        layer = _layer_from_frontier(frontier, projection)
+        spec = LAYER_COVERAGE_SPECS.get(layer)
+        if spec is None:
+            continue
+        decision = _coverage_decision(spec)
+        if decision["id"] not in existing_ids:
+            additions["draft_decisions"].append(decision)
+            existing_ids.add(decision["id"])
+
     for row in projection.get("coverage_matrix", []):
         if len(additions["draft_decisions"]) >= max_new_decisions:
             break
@@ -574,6 +586,36 @@ def _layer_from_coverage_gap(gap: dict[str, Any]) -> str:
     suggested = gap.get("suggested_draft_decision")
     if isinstance(suggested, dict):
         return str(suggested.get("layer") or "")
+    return ""
+
+
+def _layer_from_frontier(frontier: Any, projection: dict[str, Any]) -> str:
+    if not isinstance(frontier, dict):
+        return ""
+    source_gap_id = frontier.get("source_gap_id")
+    if not isinstance(source_gap_id, str):
+        return ""
+    gaps_by_id = {
+        str(gap.get("id")): gap
+        for gap in projection.get("gap_diagnostics", [])
+        if isinstance(gap, dict) and isinstance(gap.get("id"), str)
+    }
+    gap = gaps_by_id.get(source_gap_id)
+    if gap is None or gap.get("target_kind") != "coverage_gap":
+        return ""
+    target_id = gap.get("target_id")
+    rows_by_axis_id = {
+        str(row.get("axis_id")): row
+        for row in projection.get("coverage_matrix", [])
+        if isinstance(row, dict) and isinstance(row.get("axis_id"), str)
+    }
+    row = rows_by_axis_id.get(str(target_id or ""))
+    if (
+        isinstance(row, dict)
+        and row.get("axis_type") == "decision_stack_layer"
+        and row.get("status") in {"missing", "partial"}
+    ):
+        return str(row.get("value") or "")
     return ""
 
 

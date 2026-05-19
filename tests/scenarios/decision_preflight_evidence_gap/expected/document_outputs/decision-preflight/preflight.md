@@ -74,6 +74,11 @@
 | GAP-001 | insufficient_evidence | high | core.evidence.coverage | True | Missing, challenged, or unknown evidence coverage: DD-001. |
 | GAP-002 | insufficient_evidence | high | DD-001 | True | Draft decision DD-001 evidence_coverage.status is unknown. |
 
+## Frontier Queue
+| ID | Source Gap | Priority | Status | Topic | Evidence Needed | Suggested Expansion |
+| --- | --- | --- | --- | --- | --- | --- |
+| F-GAP-001 | GAP-001 | P1 | open | evidence coverage is missing | Missing, challenged, or unknown evidence coverage: DD-001. | Collect or review evidence for the coverage target before promotion review. |
+
 ## Blocking Gaps
 | ID | Type | Target | Kind | Severity | Reason |
 | --- | --- | --- | --- | --- | --- |

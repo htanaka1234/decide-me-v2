@@ -242,6 +242,19 @@
     "draft_verification_count": 0,
     "promoted_decision_count": 0
   },
+  "frontier_queue": [
+    {
+      "evidence_needed": [
+        "Missing, challenged, or unknown evidence coverage: DD-001."
+      ],
+      "id": "F-GAP-001",
+      "priority": "P1",
+      "source_gap_id": "GAP-001",
+      "status": "open",
+      "suggested_expansion": "Collect or review evidence for the coverage target before promotion review.",
+      "topic": "evidence coverage is missing"
+    }
+  ],
   "gap_diagnostics": [
     {
       "blocks_bulk_promotion": true,
@@ -372,6 +385,6 @@
     }
   ],
   "project_head_at_generation": "5441e0b65c8e1725e79430c4a7463fddd72b9f8e805a3afe622eb772cb71198d",
-  "schema_version": 2,
+  "schema_version": 3,
   "stale": false
 }

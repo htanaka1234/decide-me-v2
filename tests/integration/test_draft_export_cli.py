@@ -86,6 +86,7 @@ class DraftExportCliTests(unittest.TestCase):
             self.assertNotIn("draft-projection.json not generated", preflight)
             self.assertIn("## Coverage Summary", preflight)
             self.assertIn("## Coverage Matrix", preflight)
+            self.assertIn("## Frontier Queue", preflight)
             self.assertIn("## Blocking Gaps", preflight)
             self.assertIn("core.layer.purpose", preflight)
             self.assertIn("No purpose-layer draft decision exists.", preflight)
@@ -128,6 +129,7 @@ class DraftExportCliTests(unittest.TestCase):
             self.assertIn("## Gap Diagnostics", preflight)
             self.assertIn("## Coverage Summary", preflight)
             self.assertIn("## Coverage Matrix", preflight)
+            self.assertIn("## Frontier Queue", preflight)
             self.assertIn("Stop reason", preflight)
             self.assertIn("core.layer.purpose", preflight)
 

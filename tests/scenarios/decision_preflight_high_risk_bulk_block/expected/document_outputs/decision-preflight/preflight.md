@@ -74,6 +74,11 @@
 | GAP-001 | unsafe_bulk_review | critical | DD-001 | True | Draft decision DD-001 is high risk but requests bulk review. |
 | GAP-002 | unsafe_bulk_review | high | core.human_review.safety | True | Unsafe bulk review requested for high/critical risk draft decisions: DD-001. |
 
+## Frontier Queue
+| ID | Source Gap | Priority | Status | Topic | Evidence Needed | Suggested Expansion |
+| --- | --- | --- | --- | --- | --- | --- |
+| F-GAP-002 | GAP-002 | P0 | open | human review safety is missing |  | Route unsafe or unclear review targets to individual human review. |
+
 ## Blocking Gaps
 | ID | Type | Target | Kind | Severity | Reason |
 | --- | --- | --- | --- | --- | --- |

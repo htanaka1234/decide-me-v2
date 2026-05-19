@@ -18,14 +18,14 @@ class DraftProjectionTests(unittest.TestCase):
         Draft202012Validator(load_schema("draft-projection.schema.json"), format_checker=FormatChecker()).validate(
             projection
         )
-        self.assertEqual(2, projection["schema_version"])
+        self.assertEqual(3, projection["schema_version"])
         self.assertEqual("DS-20260513-001", projection["draft_set_id"])
 
-    def test_projection_schema_requires_coverage_fields(self) -> None:
+    def test_projection_schema_requires_coverage_and_frontier_fields(self) -> None:
         projection = _project(_draft_set())
         schema = load_schema("draft-projection.schema.json")
         validator = Draft202012Validator(schema, format_checker=FormatChecker())
-        for field in ("coverage_summary", "coverage_matrix"):
+        for field in ("coverage_summary", "coverage_matrix", "frontier_queue"):
             with self.subTest(field=field):
                 invalid = deepcopy(projection)
                 invalid.pop(field)
@@ -59,6 +59,19 @@ class DraftProjectionTests(unittest.TestCase):
         self.assertTrue(errors)
         self.assertTrue(any(error.validator == "required" for error in errors))
 
+    def test_projection_schema_rejects_invalid_frontier_item(self) -> None:
+        projection = _project(_draft_set())
+        projection["frontier_queue"][0]["id"] = "FRONTIER-1"
+
+        errors = list(
+            Draft202012Validator(load_schema("draft-projection.schema.json"), format_checker=FormatChecker()).iter_errors(
+                projection
+            )
+        )
+
+        self.assertTrue(errors)
+        self.assertTrue(any(list(error.path)[-1:] == ["id"] for error in errors))
+
     def test_default_contract_generates_required_layer_rows(self) -> None:
         projection = _project(_draft_set())
         layer_rows = [row for row in projection["coverage_matrix"] if row["axis_type"] == "decision_stack_layer"]
@@ -88,6 +101,21 @@ class DraftProjectionTests(unittest.TestCase):
         self.assertEqual("coverage_gap", gap["target_kind"])
         self.assertEqual("blocked", projection["convergence"]["status"])
 
+    def test_missing_required_p1_layer_creates_frontier(self) -> None:
+        projection = _project(_draft_set())
+        gap = _gap_by_type(projection, "missing_required_layer", target_id="core.layer.purpose")
+        frontier = _frontier_by_source_gap(projection, gap["id"])
+
+        self.assertEqual(f"F-{gap['id']}", frontier["id"])
+        self.assertEqual("purpose layer is missing", frontier["topic"])
+        self.assertEqual("P1", frontier["priority"])
+        self.assertEqual("open", frontier["status"])
+        self.assertEqual([], frontier["evidence_needed"])
+        self.assertEqual(
+            "Add one complete purpose-layer draft decision before review.",
+            frontier["suggested_expansion"],
+        )
+
     def test_p2_p3_non_required_missing_coverage_does_not_block(self) -> None:
         draft_set = _draft_set()
         draft_set["draft_decisions"][0]["priority"] = "P2"
@@ -109,6 +137,7 @@ class DraftProjectionTests(unittest.TestCase):
         self.assertFalse(row["blocks_convergence"])
         self.assertEqual(0, projection["convergence"]["blocking_gap_count"])
         self.assertEqual("converged", projection["convergence"]["status"])
+        self.assertEqual([], projection["frontier_queue"])
 
     def test_duplicate_coverage_axis_id_rejected_instead_of_first_wins(self) -> None:
         draft_set = _draft_set()
@@ -151,6 +180,29 @@ class DraftProjectionTests(unittest.TestCase):
         self.assertEqual("partial", row["observed_value"])
         self.assertEqual("partial", row["status"])
         self.assertTrue(row["blocks_convergence"])
+
+    def test_required_evidence_target_creates_frontier_without_upgrading_evidence(self) -> None:
+        draft_set = _draft_set()
+        draft_set["exploration_contract"]["coverage_targets"] = [
+            {
+                "axis_id": "target.evidence.sufficient",
+                "axis_type": "evidence_coverage",
+                "value": "sufficient",
+                "priority": "P1",
+                "required": True,
+            }
+        ]
+
+        projection = _project(draft_set)
+        gap = _gap_by_type(projection, "insufficient_evidence", target_id="target.evidence.sufficient")
+        frontier = _frontier_by_source_gap(projection, gap["id"])
+
+        self.assertEqual("evidence coverage is partial", frontier["topic"])
+        self.assertEqual(
+            ["Observed evidence coverage is partial; target is sufficient."],
+            frontier["evidence_needed"],
+        )
+        self.assertEqual("partial", draft_set["draft_decisions"][0]["evidence_coverage"]["status"])
 
     def test_required_human_review_target_uses_target_value_not_observed_value(self) -> None:
         draft_set = _draft_set()
@@ -461,6 +513,13 @@ def _coverage_row(projection: dict, axis_id: str) -> dict:
         if row["axis_id"] == axis_id:
             return row
     raise AssertionError(f"missing coverage row: {axis_id}")
+
+
+def _frontier_by_source_gap(projection: dict, source_gap_id: str) -> dict:
+    for item in projection["frontier_queue"]:
+        if item["source_gap_id"] == source_gap_id:
+            return item
+    raise AssertionError(f"missing frontier for source gap: {source_gap_id}")
 
 
 def _layer_sort_key(layer: str) -> int:

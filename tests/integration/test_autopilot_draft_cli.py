@@ -33,9 +33,10 @@ class AutopilotDraftCliTests(unittest.TestCase):
             self.assertTrue(Path(result["draft_set_path"]).exists())
             self.assertTrue(Path(result["projection_path"]).exists())
             projection = json.loads(Path(result["projection_path"]).read_text(encoding="utf-8"))
-            self.assertEqual(2, projection["schema_version"])
+            self.assertEqual(3, projection["schema_version"])
             self.assertIn("coverage_summary", projection)
             self.assertIn("coverage_matrix", projection)
+            self.assertIn("frontier_queue", projection)
             for path in result["exports"].values():
                 self.assertTrue(Path(path).exists())
 
@@ -93,8 +94,9 @@ class AutopilotDraftCliTests(unittest.TestCase):
             projection = json.loads(
                 (ai_dir / "draft-sets" / "DS-20260513-001" / "draft-projection.json").read_text(encoding="utf-8")
             )
-            self.assertEqual(2, projection["schema_version"])
+            self.assertEqual(3, projection["schema_version"])
             self.assertIn("coverage_matrix", projection)
+            self.assertIn("frontier_queue", projection)
             self.assertFalse((ai_dir / "draft-sets" / "DS-20260513-001" / "review-queue.json").exists())
             self.assertFalse((ai_dir / "draft-sets" / "DS-20260513-001" / "exports").exists())
             self.assertEqual(before_events, read_event_log(runtime_paths(ai_dir)))
@@ -187,6 +189,7 @@ class AutopilotDraftCliTests(unittest.TestCase):
 
             self.assertEqual(3, projection["convergence"]["max_iterations"])
             self.assertIn("coverage_matrix", projection)
+            self.assertIn("frontier_queue", projection)
             self.assertEqual(
                 {"max_draft_decisions": 30, "max_iterations": 3},
                 draft_set["exploration_contract"]["budgets"],
@@ -230,6 +233,41 @@ class AutopilotDraftCliTests(unittest.TestCase):
                     "core.layer.review",
                 ],
                 [target["axis_id"] for target in draft_set["exploration_contract"]["coverage_targets"]],
+            )
+
+    def test_autopilot_draft_cli_uses_frontier_for_missing_layer_expansion(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = _bootstrap(Path(tmp))
+            seed = _seed_payload()
+            seed["draft_decisions"] = [seed["draft_decisions"][0]]
+            seed_path = _write_seed(Path(tmp), seed)
+
+            result = run_json_cli(
+                "autopilot-draft",
+                "--ai-dir",
+                str(ai_dir),
+                "--seed-draft-json",
+                str(seed_path),
+                "--max-iterations",
+                "2",
+                "--max-draft-decisions",
+                "8",
+                "--no-export",
+            )
+            draft_set = json.loads(Path(result["draft_set_path"]).read_text(encoding="utf-8"))
+            projection = json.loads(Path(result["projection_path"]).read_text(encoding="utf-8"))
+            decisions_by_id = {draft["id"]: draft for draft in draft_set["draft_decisions"]}
+
+            self.assertIn("DD-GAP-STRATEGY", decisions_by_id)
+            self.assertEqual("strategy", decisions_by_id["DD-GAP-STRATEGY"]["layer"])
+            self.assertEqual("partial", decisions_by_id["DD-GAP-STRATEGY"]["evidence_coverage"]["status"])
+            self.assertIn("frontier_queue", projection)
+            self.assertTrue(
+                all(
+                    item["source_gap_id"].startswith("GAP-")
+                    and item["id"] == f"F-{item['source_gap_id']}"
+                    for item in projection["frontier_queue"]
+                )
             )
 
     def test_autopilot_draft_cli_respects_max_draft_decisions(self) -> None:
