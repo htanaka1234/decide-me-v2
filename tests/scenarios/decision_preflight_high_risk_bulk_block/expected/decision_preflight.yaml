@@ -1,0 +1,9 @@
+seed_draft_json: draft-seed.json
+draft_set_id: DS-20260429-001
+max_iterations: 1
+max_draft_decisions: 8
+expected_required_gap_ids:
+- core.human_review.safety
+expected_blocked_count: 1
+expected_bulk_promotable_count: 0
+max_allowed_draft_decisions: 20

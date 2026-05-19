@@ -1,0 +1,17 @@
+schema_version: 2
+scenario_id: decision_preflight_software_gap
+label: Decision Preflight software coverage gap
+domain_pack: software
+project:
+  name: Decision Preflight software gap
+  objective: Evaluate missing Decision Stack layer diagnostics for a software planning
+    draft.
+  current_milestone: Coverage recall regression
+sessions:
+- session_id: S-decision-preflight
+  context: Evaluate missing Decision Stack layer diagnostics for a software planning
+    draft.
+  seed_events: events.jsonl
+  close: false
+evaluation:
+  now: '2026-04-29T00:00:00Z'

@@ -21,6 +21,9 @@ from tests.helpers.impact_runtime import event_hash_snapshot, runtime_state_snap
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCENARIOS_DIR = REPO_ROOT / "tests" / "scenarios"
 EXPECTED_SCENARIOS = {
+    "decision_preflight_evidence_gap",
+    "decision_preflight_high_risk_bulk_block",
+    "decision_preflight_software_gap",
     "operations_incident",
     "personal_planning",
     "policy_interpretation",

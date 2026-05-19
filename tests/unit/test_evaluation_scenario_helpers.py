@@ -5,6 +5,8 @@ import tempfile
 import unittest
 from copy import deepcopy
 from pathlib import Path
+from typing import Any
+from unittest.mock import patch
 
 import yaml
 
@@ -13,12 +15,14 @@ from decide_me.lifecycle import close_session
 from decide_me.store import load_runtime, read_event_log, runtime_paths
 from tests.helpers.evaluation_assertions import validate_evaluation_report
 from tests.helpers.evaluation_scenarios import (
+    _decision_preflight_metric,
     _evidence_linkage_metric,
     build_scenario_runtime,
     load_scenario,
     run_scenario_evaluation,
 )
 from tests.helpers.snapshot_normalization import stable_json
+from tests.unit.test_draft_set_schema import minimal_valid_draft_set
 
 
 class EvaluationScenarioHelperTests(unittest.TestCase):
@@ -123,6 +127,65 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
             _overwrite_expected_yaml(root, "performance.yaml", {"max_total_seconds": -1})
 
             with self.assertRaisesRegex(ValueError, "performance.yaml max_total_seconds must be a number >= 0"):
+                load_scenario(root / "scenario.yaml")
+
+    def test_loader_accepts_decision_preflight_expected_payload(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            payload = _valid_scenario()
+            payload["evaluation"]["expected_decision_preflight"] = _decision_preflight_expected()
+            _write_scenario_fixture(root, payload)
+            (root / "draft-seed.json").write_text(
+                json.dumps(_preflight_seed(["purpose"]), sort_keys=True),
+                encoding="utf-8",
+            )
+
+            scenario = load_scenario(root / "scenario.yaml")
+
+            self.assertEqual(
+                "DS-20260519-001",
+                scenario.expected["decision_preflight"]["draft_set_id"],
+            )
+
+    def test_loader_rejects_decision_preflight_missing_required_key(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_scenario_fixture(root, _valid_scenario())
+            (root / "draft-seed.json").write_text(
+                json.dumps(_preflight_seed(["purpose"]), sort_keys=True),
+                encoding="utf-8",
+            )
+            expected = _decision_preflight_expected()
+            del expected["expected_required_gap_ids"]
+            _overwrite_expected_yaml(root, "decision_preflight.yaml", expected)
+
+            with self.assertRaisesRegex(ValueError, "decision_preflight.yaml missing required keys"):
+                load_scenario(root / "scenario.yaml")
+
+    def test_loader_rejects_decision_preflight_missing_seed_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_scenario_fixture(root, _valid_scenario())
+            expected = _decision_preflight_expected()
+            expected["seed_draft_json"] = "missing.json"
+            _overwrite_expected_yaml(root, "decision_preflight.yaml", expected)
+
+            with self.assertRaisesRegex(ValueError, "seed_draft_json must point"):
+                load_scenario(root / "scenario.yaml")
+
+    def test_loader_rejects_decision_preflight_unknown_key(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_scenario_fixture(root, _valid_scenario())
+            (root / "draft-seed.json").write_text(
+                json.dumps(_preflight_seed(["purpose"]), sort_keys=True),
+                encoding="utf-8",
+            )
+            expected = _decision_preflight_expected()
+            expected["unexpected"] = True
+            _overwrite_expected_yaml(root, "decision_preflight.yaml", expected)
+
+            with self.assertRaisesRegex(ValueError, "decision_preflight.yaml contains unknown keys"):
                 load_scenario(root / "scenario.yaml")
 
     def test_loader_rejects_expected_source_ref_without_source_material(self) -> None:
@@ -981,6 +1044,146 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
             self.assertIn("evidence_linkage_rate", {item["metric"] for item in report["failures"]})
             self.assertIn("risk_coverage", {item["metric"] for item in report["failures"]})
 
+    def test_decision_preflight_metric_fails_when_expected_gap_is_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "scenario"
+            work = Path(tmp) / "work"
+            payload = _valid_scenario()
+            payload["evaluation"]["expected_decision_preflight"] = _decision_preflight_expected(
+                expected_required_gap_ids=["core.layer.nonexistent"],
+                expected_blocked_count=0,
+            )
+            _write_scenario_fixture(root, payload)
+            (root / "draft-seed.json").write_text(
+                json.dumps(_preflight_seed(_ALL_DECISION_LAYERS), sort_keys=True),
+                encoding="utf-8",
+            )
+            scenario = load_scenario(root / "scenario.yaml")
+            runtime = build_scenario_runtime(scenario, work)
+
+            report = run_scenario_evaluation(scenario, runtime)
+
+            self.assertEqual([], validate_evaluation_report(report))
+            self.assertEqual("failed", report["status"])
+            metric = report["metrics"]["decision_preflight"]
+            self.assertEqual(["core.layer.nonexistent"], metric["coverage_recall"]["missing_expected_gap_ids"])
+            self.assertIn("decision_preflight", {item["metric"] for item in report["failures"]})
+
+    def test_decision_preflight_metric_fails_bulk_leakage_expectation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "scenario"
+            work = Path(tmp) / "work"
+            payload = _valid_scenario()
+            payload["evaluation"]["expected_decision_preflight"] = _decision_preflight_expected(
+                expected_required_gap_ids=[],
+                expected_blocked_count=0,
+                expected_bulk_promotable_count=1,
+            )
+            _write_scenario_fixture(root, payload)
+            (root / "draft-seed.json").write_text(
+                json.dumps(_preflight_seed(_ALL_DECISION_LAYERS), sort_keys=True),
+                encoding="utf-8",
+            )
+            scenario = load_scenario(root / "scenario.yaml")
+            runtime = build_scenario_runtime(scenario, work)
+
+            report = run_scenario_evaluation(scenario, runtime)
+
+            self.assertEqual([], validate_evaluation_report(report))
+            self.assertEqual("failed", report["status"])
+            self.assertEqual(0, report["metrics"]["decision_preflight"]["review_quality"]["bulk_promotable_count"])
+
+    def test_decision_preflight_metric_fails_over_fragmentation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "scenario"
+            work = Path(tmp) / "work"
+            payload = _valid_scenario()
+            payload["evaluation"]["expected_decision_preflight"] = _decision_preflight_expected(
+                expected_required_gap_ids=[],
+                expected_blocked_count=0,
+                max_allowed_draft_decisions=1,
+            )
+            _write_scenario_fixture(root, payload)
+            (root / "draft-seed.json").write_text(
+                json.dumps(_preflight_seed(_ALL_DECISION_LAYERS), sort_keys=True),
+                encoding="utf-8",
+            )
+            scenario = load_scenario(root / "scenario.yaml")
+            runtime = build_scenario_runtime(scenario, work)
+
+            report = run_scenario_evaluation(scenario, runtime)
+
+            self.assertEqual([], validate_evaluation_report(report))
+            self.assertEqual("failed", report["status"])
+            metric = report["metrics"]["decision_preflight"]
+            self.assertGreater(metric["over_fragmentation"]["draft_decision_count"], 1)
+
+    def test_decision_preflight_metric_preserves_canonical_runtime_state(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "scenario"
+            work = Path(tmp) / "work"
+            payload = _valid_scenario()
+            payload["evaluation"]["expected_decision_preflight"] = _decision_preflight_expected(
+                expected_required_gap_ids=[],
+                expected_blocked_count=0,
+            )
+            _write_scenario_fixture(root, payload)
+            (root / "draft-seed.json").write_text(
+                json.dumps(_preflight_seed(_ALL_DECISION_LAYERS), sort_keys=True),
+                encoding="utf-8",
+            )
+            scenario = load_scenario(root / "scenario.yaml")
+            runtime = build_scenario_runtime(scenario, work)
+            failures: list[dict[str, Any]] = []
+
+            metric = _decision_preflight_metric(scenario, runtime, failures)
+
+            self.assertFalse(metric["safety_preservation"]["canonical_events_created"])
+            self.assertFalse(metric["safety_preservation"]["project_state_changed"])
+
+    def test_decision_preflight_metric_fails_canonical_event_mutation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "scenario"
+            work = Path(tmp) / "work"
+            payload = _valid_scenario()
+            payload["evaluation"]["expected_decision_preflight"] = _decision_preflight_expected(
+                expected_required_gap_ids=[],
+                expected_blocked_count=0,
+            )
+            _write_scenario_fixture(root, payload)
+            (root / "draft-seed.json").write_text(
+                json.dumps(_preflight_seed(_ALL_DECISION_LAYERS), sort_keys=True),
+                encoding="utf-8",
+            )
+            scenario = load_scenario(root / "scenario.yaml")
+            runtime = build_scenario_runtime(scenario, work)
+            failures: list[dict[str, Any]] = []
+
+            def fake_autopilot(*_args: Any, **kwargs: Any) -> dict[str, Any]:
+                draft_dir = runtime.ai_dir / "draft-sets" / kwargs["draft_set_id"]
+                draft_dir.mkdir(parents=True)
+                draft_set_path = draft_dir / "draft-set.json"
+                projection_path = draft_dir / "draft-projection.json"
+                review_queue_path = draft_dir / "review-queue.json"
+                draft_set_path.write_text(json.dumps({"draft_decisions": []}), encoding="utf-8")
+                projection_path.write_text(json.dumps({"coverage_matrix": []}), encoding="utf-8")
+                review_queue_path.write_text(
+                    json.dumps({"summary": {"blocked_count": 0, "bulk_promotable_count": 0}}),
+                    encoding="utf-8",
+                )
+                (runtime.ai_dir / "events" / "mutation.jsonl").write_text("{}\n", encoding="utf-8")
+                return {
+                    "draft_set_path": str(draft_set_path),
+                    "projection_path": str(projection_path),
+                }
+
+            with patch("tests.helpers.evaluation_scenarios.run_autopilot_draft", fake_autopilot):
+                metric = _decision_preflight_metric(scenario, runtime, failures)
+
+            self.assertTrue(metric["safety_preservation"]["canonical_events_created"])
+            self.assertFalse(metric["passed"])
+            self.assertIn("decision_preflight", {item["metric"] for item in failures})
+
     def test_runtime_builder_rejects_seed_session_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "scenario"
@@ -1107,6 +1310,11 @@ def _write_phase11_expected_files(root: Path, payload: dict) -> None:
     }
     for name, value in files.items():
         (expected_root / name).write_text(yaml.safe_dump(value, sort_keys=False), encoding="utf-8")
+    if "expected_decision_preflight" in evaluation:
+        (expected_root / "decision_preflight.yaml").write_text(
+            yaml.safe_dump(evaluation["expected_decision_preflight"], sort_keys=False),
+            encoding="utf-8",
+        )
     if "expected_performance" in evaluation:
         (expected_root / "performance.yaml").write_text(
             yaml.safe_dump(evaluation["expected_performance"], sort_keys=False),
@@ -1173,6 +1381,110 @@ def _valid_scenario() -> dict:
             "expected_documents": [],
         },
     }
+
+
+_ALL_DECISION_LAYERS = (
+    "purpose",
+    "principle",
+    "constraint",
+    "strategy",
+    "design",
+    "execution",
+    "verification",
+    "review",
+)
+
+
+def _decision_preflight_expected(
+    *,
+    expected_required_gap_ids: list[str] | None = None,
+    expected_blocked_count: int = 1,
+    expected_bulk_promotable_count: int = 0,
+    max_allowed_draft_decisions: int = 20,
+) -> dict[str, Any]:
+    return {
+        "seed_draft_json": "draft-seed.json",
+        "draft_set_id": "DS-20260519-001",
+        "max_iterations": 1,
+        "max_draft_decisions": 20,
+        "expected_required_gap_ids": (
+            expected_required_gap_ids if expected_required_gap_ids is not None else ["core.layer.strategy"]
+        ),
+        "expected_blocked_count": expected_blocked_count,
+        "expected_bulk_promotable_count": expected_bulk_promotable_count,
+        "max_allowed_draft_decisions": max_allowed_draft_decisions,
+    }
+
+
+def _preflight_seed(
+    layers: tuple[str, ...] | list[str],
+    *,
+    evidence_status: str = "sufficient",
+    evidence_missing: list[str] | None = None,
+    high_risk_bulk: bool = False,
+) -> dict[str, Any]:
+    payload = minimal_valid_draft_set()
+    payload.pop("id", None)
+    payload["created_at"] = "2026-04-29T00:00:00Z"
+    payload["source_context"].pop("project_head_at_generation", None)
+    decisions: list[dict[str, Any]] = []
+    for index, layer in enumerate(layers, start=1):
+        priority = "P1"
+        risk_tier = "low"
+        human_review = {
+            "required": True,
+            "mode": "individual",
+            "bulk_promotable": False,
+            "reason": "P1 draft decision requires individual review.",
+        }
+        promotion_recipe = {
+            "canonical_object_type": "decision",
+            "canonical_initial_status": "unresolved",
+            "proposal_required": True,
+            "acceptance_mode_allowed": ["explicit"],
+            "blocked_for_bulk_acceptance": True,
+        }
+        if high_risk_bulk and index == 1:
+            priority = "P2"
+            risk_tier = "high"
+            human_review = {
+                "required": False,
+                "mode": "bulk",
+                "bulk_promotable": True,
+                "reason": "Fixture requests unsafe bulk review for high-risk draft.",
+            }
+            promotion_recipe["blocked_for_bulk_acceptance"] = False
+        decisions.append(
+            {
+                "id": f"DD-{index:03d}",
+                "status": "recommended",
+                "layer": layer,
+                "priority": priority,
+                "frontier": "now",
+                "kind": "choice",
+                "question": f"What {layer} decision should be reviewed?",
+                "recommendation": f"Use the scenario {layer} recommendation.",
+                "rationale": f"The scenario needs a complete {layer} draft decision.",
+                "alternatives": [
+                    {
+                        "option": f"Skip the {layer} decision",
+                        "reason_not_recommended": "Skipping required layer coverage leaves a preflight gap.",
+                    }
+                ],
+                "risk_tier": risk_tier,
+                "reversibility": "reversible",
+                "evidence_coverage": {
+                    "status": evidence_status if index == 1 else "sufficient",
+                    "supporting_object_ids": [],
+                    "source_unit_ids": [],
+                    "missing": list(evidence_missing or []) if index == 1 else [],
+                },
+                "human_review": human_review,
+                "promotion_recipe": promotion_recipe,
+            }
+        )
+    payload["draft_decisions"] = decisions
+    return payload
 
 
 def _seed_events(session_id: str) -> list[dict]:

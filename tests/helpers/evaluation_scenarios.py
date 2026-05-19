@@ -14,8 +14,10 @@ from typing import Any
 import yaml
 from jsonschema import Draft202012Validator, FormatChecker
 
+from decide_me.autopilot import run_autopilot_draft
 from decide_me.documents.compiler import compile_document
 from decide_me.domains import domain_pack_digest, load_domain_registry
+from decide_me.draft_sets import DRAFT_SET_ID_PATTERN
 from decide_me.events import build_event
 from decide_me.interview import advance_session
 from decide_me.lifecycle import close_session
@@ -182,6 +184,8 @@ def run_scenario_evaluation(
         "action_executability": _action_executability_metric(scenario, runtime, bundle, failures),
         "document_validity": _document_validity_metric(scenario, runtime, failures),
     }
+    if "decision_preflight" in scenario.expected:
+        metrics["decision_preflight"] = _decision_preflight_metric(scenario, runtime, failures)
     if validation_issues:
         metrics["action_executability"]["passed"] = False
         failures.append(
@@ -250,6 +254,9 @@ def _load_expected_payloads(scenario_root: Path) -> dict[str, Any]:
         expected[key] = _load_expected_yaml(expected_root / relative_path)
     performance_path = expected_root / "performance.yaml"
     expected["performance"] = _load_expected_yaml(performance_path) if performance_path.exists() else {}
+    decision_preflight_path = expected_root / "decision_preflight.yaml"
+    if decision_preflight_path.exists():
+        expected["decision_preflight"] = _load_expected_yaml(decision_preflight_path)
     document_outputs = expected_root / DOCUMENT_OUTPUTS_DIR
     if not document_outputs.is_dir():
         raise FileNotFoundError(f"scenario expected/document_outputs directory is required: {document_outputs}")
@@ -281,6 +288,12 @@ def _validate_expected_payloads(scenario_root: Path, expected: dict[str, Any]) -
     _validate_expected_risks(expected["risks"], scenario_root / EXPECTED_DIR_NAME / "risks.yaml")
     _validate_expected_assumptions(expected["assumptions"], scenario_root / EXPECTED_DIR_NAME / "assumptions.yaml")
     _validate_expected_action_plan(expected["action_plan"], scenario_root / EXPECTED_DIR_NAME / "action_plan.yaml")
+    if "decision_preflight" in expected:
+        _validate_expected_decision_preflight(
+            expected["decision_preflight"],
+            scenario_root / EXPECTED_DIR_NAME / "decision_preflight.yaml",
+            scenario_root,
+        )
     performance_path = scenario_root / EXPECTED_DIR_NAME / "performance.yaml"
     _validate_expected_performance(expected["performance"], performance_path)
 
@@ -450,6 +463,34 @@ def _validate_expected_action_plan(payload: dict[str, Any], path: Path) -> None:
         _require_non_negative_int(payload, "max_blocker_count", path)
     if "require_no_unresolved_conflicts" in payload:
         _require_bool(payload, "require_no_unresolved_conflicts", path)
+
+
+def _validate_expected_decision_preflight(payload: dict[str, Any], path: Path, scenario_root: Path) -> None:
+    allowed = {
+        "seed_draft_json",
+        "draft_set_id",
+        "max_iterations",
+        "max_draft_decisions",
+        "expected_required_gap_ids",
+        "expected_blocked_count",
+        "expected_bulk_promotable_count",
+        "max_allowed_draft_decisions",
+    }
+    _require_keys(payload, allowed, path)
+    _reject_unknown_keys(payload, allowed, path)
+    seed_ref = _require_non_empty_string(payload, "seed_draft_json", path)
+    seed_path = _resolve_fixture_path(scenario_root, seed_ref)
+    if not seed_path.is_file() or seed_path.suffix.lower() != ".json":
+        raise ValueError(f"{path} seed_draft_json must point to an existing .json file")
+    draft_set_id = _require_non_empty_string(payload, "draft_set_id", path)
+    if DRAFT_SET_ID_PATTERN.fullmatch(draft_set_id) is None:
+        raise ValueError(f"{path} draft_set_id must match DS-YYYYMMDD-NNN")
+    _require_minimum_int(payload, "max_iterations", 1, path)
+    _require_minimum_int(payload, "max_draft_decisions", 1, path)
+    _require_string_list(payload, "expected_required_gap_ids", path)
+    _require_non_negative_int(payload, "expected_blocked_count", path)
+    _require_non_negative_int(payload, "expected_bulk_promotable_count", path)
+    _require_minimum_int(payload, "max_allowed_draft_decisions", 1, path)
 
 
 def _validate_expected_document_manifest(payload: dict[str, Any], path: Path) -> None:
@@ -1460,6 +1501,116 @@ def _document_validity_metric(
     }
 
 
+def _decision_preflight_metric(
+    scenario: EvaluationScenario,
+    runtime: ScenarioRuntime,
+    failures: list[dict[str, Any]],
+) -> dict[str, Any]:
+    expected = scenario.expected["decision_preflight"]
+    before_events = _event_hash_snapshot(runtime.ai_dir)
+    before_runtime = _canonical_runtime_snapshot(runtime.ai_dir)
+    seed_path = _resolve_fixture_path(scenario.root, expected["seed_draft_json"])
+
+    result: dict[str, Any] | None = None
+    run_error: str | None = None
+    try:
+        result = run_autopilot_draft(
+            runtime.ai_dir,
+            seed_draft_json=str(seed_path),
+            draft_set_id=expected["draft_set_id"],
+            max_iterations=expected["max_iterations"],
+            max_draft_decisions=expected["max_draft_decisions"],
+            now=scenario.evaluation["now"],
+            export=True,
+            force_export=True,
+        )
+    except Exception as exc:  # pragma: no cover - broken future fixtures exercise this branch
+        run_error = str(exc)
+
+    after_events = _event_hash_snapshot(runtime.ai_dir)
+    after_runtime = _canonical_runtime_snapshot(runtime.ai_dir)
+    canonical_events_created = before_events != after_events
+    project_state_changed = before_runtime != after_runtime
+
+    draft_set: dict[str, Any] = {}
+    projection: dict[str, Any] = {}
+    review_queue: dict[str, Any] = {}
+    if result is not None:
+        draft_set = _load_json_file(Path(result["draft_set_path"]))
+        projection = _load_json_file(Path(result["projection_path"]))
+        review_queue_path = runtime.ai_dir / "draft-sets" / expected["draft_set_id"] / "review-queue.json"
+        review_queue = _load_json_file(review_queue_path)
+
+    expected_gap_ids = sorted(expected["expected_required_gap_ids"])
+    blocking_axis_ids = sorted(
+        str(row.get("axis_id"))
+        for row in projection.get("coverage_matrix", [])
+        if isinstance(row, dict) and row.get("blocks_convergence") is True and row.get("axis_id")
+    )
+    required_gap_ids_found = [axis_id for axis_id in expected_gap_ids if axis_id in blocking_axis_ids]
+    missing_expected_gap_ids = [axis_id for axis_id in expected_gap_ids if axis_id not in blocking_axis_ids]
+    blocked_count = _non_negative_metric_int(_dict_field(review_queue, "summary").get("blocked_count"))
+    bulk_promotable_count = _non_negative_metric_int(_dict_field(review_queue, "summary").get("bulk_promotable_count"))
+    draft_decision_count = len(_list_field(draft_set, "draft_decisions"))
+    max_allowed = expected["max_allowed_draft_decisions"]
+
+    expectation_failures: list[str] = []
+    if run_error is not None:
+        expectation_failures.append("autopilot_run_failed")
+    if missing_expected_gap_ids:
+        expectation_failures.append("coverage_recall")
+    if canonical_events_created:
+        expectation_failures.append("canonical_events_created")
+    if project_state_changed:
+        expectation_failures.append("project_state_changed")
+    if blocked_count != expected["expected_blocked_count"]:
+        expectation_failures.append(f"blocked_count:{expected['expected_blocked_count']}")
+    if bulk_promotable_count != expected["expected_bulk_promotable_count"]:
+        expectation_failures.append(f"bulk_promotable_count:{expected['expected_bulk_promotable_count']}")
+    if draft_decision_count > max_allowed:
+        expectation_failures.append(f"draft_decision_count_max:{max_allowed}")
+
+    passed = not expectation_failures
+    if not passed:
+        failures.append(
+            _failure(
+                "decision_preflight",
+                "Decision Preflight scenario expectations did not match.",
+                "$.metrics.decision_preflight",
+                expected=expected,
+                actual={
+                    "run_error": run_error,
+                    "blocking_axis_ids": blocking_axis_ids,
+                    "failed_expectations": expectation_failures,
+                    "blocked_count": blocked_count,
+                    "bulk_promotable_count": bulk_promotable_count,
+                    "draft_decision_count": draft_decision_count,
+                    "event_changes": _changed_snapshot_paths(before_events, after_events),
+                    "runtime_changes": _changed_snapshot_paths(before_runtime, after_runtime),
+                },
+            )
+        )
+    return {
+        "coverage_recall": {
+            "required_gap_ids_found": required_gap_ids_found,
+            "missing_expected_gap_ids": missing_expected_gap_ids,
+        },
+        "safety_preservation": {
+            "canonical_events_created": canonical_events_created,
+            "project_state_changed": project_state_changed,
+        },
+        "review_quality": {
+            "blocked_count": blocked_count,
+            "bulk_promotable_count": bulk_promotable_count,
+        },
+        "over_fragmentation": {
+            "draft_decision_count": draft_decision_count,
+            "max_allowed": max_allowed,
+        },
+        "passed": passed,
+    }
+
+
 def _expected_document_session_ids(
     expected: dict[str, Any],
     runtime: ScenarioRuntime,
@@ -1624,6 +1775,66 @@ def _section_has_content(section: dict[str, Any]) -> bool:
         if block_type == "callout" and str(block.get("text") or "").strip():
             return True
     return False
+
+
+def _load_json_file(path: Path) -> dict[str, Any]:
+    if not path.is_file():
+        return {}
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    return payload if isinstance(payload, dict) else {}
+
+
+def _dict_field(value: Any, key: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {}
+    field = value.get(key)
+    return field if isinstance(field, dict) else {}
+
+
+def _list_field(value: Any, key: str) -> list[Any]:
+    if not isinstance(value, dict):
+        return []
+    field = value.get(key)
+    return field if isinstance(field, list) else []
+
+
+def _non_negative_metric_int(value: Any) -> int:
+    return value if isinstance(value, int) and value >= 0 else 0
+
+
+def _event_hash_snapshot(ai_dir: Path) -> dict[str, str]:
+    events_root = ai_dir / "events"
+    if not events_root.exists():
+        return {}
+    return _hash_snapshot(ai_dir, sorted(events_root.rglob("*.jsonl")))
+
+
+def _canonical_runtime_snapshot(ai_dir: Path) -> dict[str, str]:
+    paths: list[Path] = []
+    for path in (
+        ai_dir / "project-state.json",
+        ai_dir / "taxonomy-state.json",
+        ai_dir / "runtime-index.json",
+        ai_dir / "session-graph-cache.json",
+    ):
+        if path.exists():
+            paths.append(path)
+    sessions_root = ai_dir / "sessions"
+    if sessions_root.exists():
+        paths.extend(sorted(sessions_root.glob("*.json")))
+    return _hash_snapshot(ai_dir, paths)
+
+
+def _hash_snapshot(root: Path, paths: list[Path]) -> dict[str, str]:
+    return {
+        path.relative_to(root).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in paths
+        if path.is_file()
+    }
+
+
+def _changed_snapshot_paths(before: dict[str, str], after: dict[str, str]) -> list[str]:
+    return sorted(path for path in set(before) | set(after) if before.get(path) != after.get(path))
 
 
 def _failure(
