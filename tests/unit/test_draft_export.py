@@ -246,6 +246,45 @@ class DraftExportTests(unittest.TestCase):
         self.assertIn("DRAFT / NOT ACCEPTED", rendered["preflight.md"])
         self.assertIn("## Human Approval Plan", rendered["preflight.md"])
 
+    def test_render_preflight_empty_frontier_reports_no_open_frontier_when_converged(self) -> None:
+        draft_set = _draft_set(_complete_layer_decisions())
+        projection = _projection(draft_set)
+        queue = _queue(draft_set["draft_decisions"], draft_projection=projection)
+
+        rendered = render_draft_exports(
+            draft_set,
+            queue,
+            current_project_head="head-1",
+            generated_at="2026-05-13T03:00:00Z",
+            draft_projection=projection,
+        )
+
+        self.assertEqual("converged", projection["convergence"]["status"])
+        self.assertEqual([], projection["frontier_queue"])
+        self.assertIn("No open frontier.", rendered["preflight.md"])
+
+    def test_render_preflight_empty_frontier_reports_review_when_blocked_elsewhere(self) -> None:
+        decisions = _complete_layer_decisions()
+        decisions[0].pop("human_review")
+        draft_set = _draft_set(decisions)
+        projection = _projection(draft_set)
+        queue = _queue(draft_set["draft_decisions"], draft_projection=projection)
+
+        rendered = render_draft_exports(
+            draft_set,
+            queue,
+            current_project_head="head-1",
+            generated_at="2026-05-13T03:00:00Z",
+            draft_projection=projection,
+        )
+
+        self.assertNotEqual("converged", projection["convergence"]["status"])
+        self.assertEqual([], projection["frontier_queue"])
+        self.assertIn(
+            "No auto-expandable frontier; review blocking diagnostics.",
+            rendered["preflight.md"],
+        )
+
     def test_render_draft_decisions_contains_recommendation_alternatives_and_missing_evidence(self) -> None:
         draft = _decision(
             "DD-001",
@@ -378,6 +417,16 @@ def _projection_with_gaps(gaps: list[dict]) -> dict:
         "coverage_matrix": [],
         "gap_diagnostics": normalized_gaps,
     }
+
+
+def _complete_layer_decisions() -> list[dict]:
+    return [
+        _decision(f"DD-{index:03d}", layer=layer)
+        for index, layer in enumerate(
+            ("purpose", "principle", "constraint", "strategy", "design", "execution", "verification", "review"),
+            start=1,
+        )
+    ]
 
 
 def _decision(

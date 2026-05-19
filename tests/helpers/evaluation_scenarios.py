@@ -1670,9 +1670,9 @@ def _decision_preflight_metric(
     if draft_decision_count > max_allowed:
         expectation_failures.append(f"draft_decision_count_max:{max_allowed}")
     if result is not None:
-        if any(field in draft_set for field in ("coverage_matrix", "coverage_summary", "gap_diagnostics")):
+        if any(field in draft_set for field in ("coverage_matrix", "coverage_summary", "gap_diagnostics", "frontier_queue")):
             expectation_failures.append("source_derived_boundary:draft_set_contains_diagnostics")
-        if "coverage_matrix" not in projection or "gap_diagnostics" not in projection:
+        if "coverage_matrix" not in projection or "gap_diagnostics" not in projection or "frontier_queue" not in projection:
             expectation_failures.append("source_derived_boundary:projection_missing_diagnostics")
         if "DRAFT / NOT ACCEPTED" not in preflight_md:
             expectation_failures.append("preflight_export:draft_banner")

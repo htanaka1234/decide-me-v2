@@ -233,6 +233,26 @@
     "draft_verification_count": 0,
     "promoted_decision_count": 0
   },
+  "frontier_queue": [
+    {
+      "evidence_needed": [],
+      "id": "F-GAP-001",
+      "priority": "P1",
+      "source_gap_id": "GAP-001",
+      "status": "open",
+      "suggested_expansion": "Add one complete strategy-layer draft decision before review.",
+      "topic": "strategy layer is missing"
+    },
+    {
+      "evidence_needed": [],
+      "id": "F-GAP-002",
+      "priority": "P1",
+      "source_gap_id": "GAP-002",
+      "status": "open",
+      "suggested_expansion": "Add one complete verification-layer draft decision before review.",
+      "topic": "verification layer is missing"
+    }
+  ],
   "gap_diagnostics": [
     {
       "blocks_bulk_promotion": true,
@@ -341,6 +361,6 @@
     }
   ],
   "project_head_at_generation": "fa27c681766e44a132f300dd6fc345f8385aa456f04b5a37d00c236a98899078",
-  "schema_version": 2,
+  "schema_version": 3,
   "stale": false
 }

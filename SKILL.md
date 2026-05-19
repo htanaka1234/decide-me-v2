@@ -197,8 +197,8 @@ Runtime invariants:
   input for the objective, non-goals, read-first sources, coverage targets, budgets, stop conditions,
   and pause conditions. Coverage matrices, coverage summaries, convergence, frontier queues, gap
   diagnostics, and review queues are derived diagnostics and must not be written back into
-  `draft-set.json`. `draft-projection.json` uses `schema_version: 2` and required P0/P1 partial or
-  missing coverage rows block convergence.
+  `draft-set.json`. `draft-projection.json` uses `schema_version: 3`; required P0/P1 partial or
+  missing coverage rows block convergence and generate derived `frontier_queue` items.
   `project-draft-set` may write only `draft-projection.json`; `review-draft-set` may write only the
   derived `.ai/decide-me/draft-sets/DS-.../review-queue.json`; `export-draft-set` may write that JSON
   and the four Markdown draft exports under `exports/`. These outputs must state `DRAFT / NOT

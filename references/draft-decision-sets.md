@@ -132,8 +132,8 @@ python3 <skill-root>/scripts/decide_me.py project-draft-set \
 ```
 
 The projection combines committed runtime state and the sidecar draft set without changing either.
-DraftProjection uses `schema_version: 2` and includes `coverage_summary`, `coverage_matrix`,
-`gap_diagnostics`, and `convergence`. Coverage rows preserve `value` as the target value and report
+DraftProjection uses `schema_version: 3` and includes `coverage_summary`, `coverage_matrix`,
+`gap_diagnostics`, `frontier_queue`, and `convergence`. Coverage rows preserve `value` as the target value and report
 the projection-derived `observed_value` separately. Rows come from
 `exploration_contract.coverage_targets` plus derived safety rows for evidence coverage, human review
 safety, and promotion safety. Required P0/P1 rows with `status=partial` or `status=missing` block
@@ -141,6 +141,14 @@ convergence; P2/P3 non-required rows do not. Gap diagnostics still report issues
 required layers, missing P0/P1 recommendations, insufficient or challenged evidence, unsupported
 recommendations, high-risk bulk review, stale draft sets, verification gaps, dangling references, and
 possible conflicts with accepted decisions.
+
+`frontier_queue` is derived from blocking required P0/P1 coverage gaps. Each open frontier item points
+to the source gap via `source_gap_id`, uses an `F-GAP-...` ID, and names the next expansion target.
+Layer frontier items can drive deterministic supplemental draft decisions; evidence frontier items
+only list `evidence_needed` and must not mark evidence as sufficient. Frontier order is explicit:
+priority rank, axis type rank, Decision Stack layer order, then `axis_id`. In summary counts,
+`coverage_summary.blocking_gap_count` counts blocking coverage rows, while
+`convergence.blocking_gap_count` counts blocking gap diagnostics.
 
 Because `project-draft-set` is a standalone diagnostic command, it may return
 `stop_reason=stopped` when the projection has non-blocking diagnostics but no autopilot iteration was
@@ -163,7 +171,7 @@ python3 <skill-root>/scripts/decide_me.py autopilot-draft \
 ```
 
 It may add supplemental draft decisions, actions, or verifications for structural coverage gaps. It
-uses `coverage_matrix` rows to synthesize missing required Decision Stack layer decisions for
+uses `frontier_queue` first, then `coverage_matrix` rows, to synthesize missing required Decision Stack layer decisions for
 `purpose`, `principle`, `constraint`, `strategy`, `design`, `execution`, `verification`, and
 `review`, while respecting `max_iterations` and `max_draft_decisions`. It must not upgrade evidence
 coverage, resolve conflicts with accepted decisions, relax high/critical risk bulk rules, or create
@@ -175,8 +183,9 @@ accepted decisions.
 the review queue and derives current projection diagnostics in memory for the readable preflight
 export. It must not render empty convergence or gap diagnostics just because `draft-projection.json`
 has not been generated, and it must not write `draft-projection.json` itself. The preflight export
-renders `Coverage Summary`, `Coverage Matrix`, and blocking gaps from that in-memory projection. The
-normal readable-export flow does not need to call `review-draft-set` separately.
+renders `Coverage Summary`, `Coverage Matrix`, `Frontier Queue`, and blocking gaps from that
+in-memory projection. The normal readable-export flow does not need to call `review-draft-set`
+separately.
 
 The review queue sorts general review targets using `target_id` and `target_kind`. Draft decisions use
 `target_kind=draft_decision` and may also include `draft_decision_id`; derived coverage blockers use

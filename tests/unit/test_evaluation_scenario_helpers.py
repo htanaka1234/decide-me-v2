@@ -1211,10 +1211,13 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
             self.assertNotIn("coverage_matrix", draft_set)
             self.assertNotIn("coverage_summary", draft_set)
             self.assertNotIn("gap_diagnostics", draft_set)
+            self.assertNotIn("frontier_queue", draft_set)
             self.assertIn("coverage_matrix", projection)
             self.assertIn("gap_diagnostics", projection)
+            self.assertIn("frontier_queue", projection)
             self.assertIn("DRAFT / NOT ACCEPTED", preflight_md)
             self.assertIn("Coverage", preflight_md)
+            self.assertIn("Frontier", preflight_md)
             self.assertIn("Blocking", review_queue_md)
 
     def test_decision_preflight_metric_fails_canonical_event_mutation(self) -> None:

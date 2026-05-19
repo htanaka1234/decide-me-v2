@@ -30,11 +30,24 @@ class AutopilotIterationTests(unittest.TestCase):
         draft_set = _complete_draft_set()
         draft_set["draft_decisions"] = [draft_set["draft_decisions"][0]]
 
-        final, _projection = _iterate(draft_set, max_iterations=2)
+        final, projection = _iterate(draft_set, max_iterations=2)
 
         self.assertTrue({"DD-GAP-PRINCIPLE", "DD-GAP-STRATEGY", "DD-GAP-DESIGN", "DD-GAP-EXECUTION"}.issubset(
             {draft["id"] for draft in final["draft_decisions"]}
         ))
+        self.assertIn("frontier_queue", projection)
+
+    def test_autopilot_uses_frontier_order_when_decision_budget_limits_additions(self) -> None:
+        draft_set = _complete_draft_set()
+        draft_set["draft_decisions"] = [draft_set["draft_decisions"][0]]
+
+        final, projection = _iterate(draft_set, max_iterations=2, max_draft_decisions=2)
+
+        self.assertEqual(
+            ["DD-001", "DD-GAP-PRINCIPLE"],
+            [draft["id"] for draft in final["draft_decisions"]],
+        )
+        self.assertLessEqual(len(final["draft_decisions"]), 2)
 
     def test_autopilot_adds_coverage_decisions_for_empty_draft_set(self) -> None:
         draft_set = _complete_draft_set()
@@ -101,6 +114,15 @@ class AutopilotIterationTests(unittest.TestCase):
 
         self.assertNotIn("convergence", final)
         self.assertEqual("risk_gate_triggered", projection["convergence"]["stop_reason"])
+
+    def test_autopilot_stops_for_no_progress_user_review_required(self) -> None:
+        draft_set = _complete_draft_set()
+        draft_set["draft_decisions"][0].pop("human_review")
+
+        final, projection = _iterate(draft_set)
+
+        self.assertNotIn("convergence", final)
+        self.assertEqual("user_review_required", projection["convergence"]["stop_reason"])
 
     def test_autopilot_budget_exhausted_when_decision_cap_reached(self) -> None:
         draft_set = _complete_draft_set()

@@ -242,6 +242,17 @@
     "draft_verification_count": 0,
     "promoted_decision_count": 0
   },
+  "frontier_queue": [
+    {
+      "evidence_needed": [],
+      "id": "F-GAP-002",
+      "priority": "P0",
+      "source_gap_id": "GAP-002",
+      "status": "open",
+      "suggested_expansion": "Route unsafe or unclear review targets to individual human review.",
+      "topic": "human review safety is missing"
+    }
+  ],
   "gap_diagnostics": [
     {
       "blocks_bulk_promotion": true,
@@ -372,6 +383,6 @@
     }
   ],
   "project_head_at_generation": "056efe3202fc020a882fd0f68d5d3b7d4074802fd19654142c7894454d24f433",
-  "schema_version": 2,
+  "schema_version": 3,
   "stale": false
 }

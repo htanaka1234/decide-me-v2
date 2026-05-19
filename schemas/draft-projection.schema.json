@@ -17,12 +17,13 @@
     "coverage_summary",
     "coverage_matrix",
     "gap_diagnostics",
+    "frontier_queue",
     "convergence"
   ],
   "properties": {
     "schema_version": {
       "type": "integer",
-      "const": 2
+      "const": 3
     },
     "draft_set_id": {
       "type": "string",
@@ -138,6 +139,12 @@
       "type": "array",
       "items": {
         "$ref": "#/$defs/gap_diagnostic"
+      }
+    },
+    "frontier_queue": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/frontier_item"
       }
     },
     "convergence": {
@@ -417,6 +424,57 @@
         },
         "blocks_convergence": {
           "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "frontier_item": {
+      "type": "object",
+      "required": [
+        "id",
+        "source_gap_id",
+        "topic",
+        "priority",
+        "status",
+        "evidence_needed",
+        "suggested_expansion"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^F-GAP-[0-9]{3}$"
+        },
+        "source_gap_id": {
+          "type": "string",
+          "pattern": "^GAP-[0-9]{3}$"
+        },
+        "topic": {
+          "type": "string",
+          "minLength": 1
+        },
+        "priority": {
+          "type": "string",
+          "enum": [
+            "P0",
+            "P1",
+            "P2",
+            "P3"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "const": "open"
+        },
+        "evidence_needed": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "suggested_expansion": {
+          "type": "string",
+          "minLength": 1
         }
       },
       "additionalProperties": false
