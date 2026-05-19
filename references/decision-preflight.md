@@ -386,6 +386,8 @@ coverage gap diagnostics whose coverage rows are required P0/P1 targets. Frontie
 source `GAP-...`, use `F-GAP-...` IDs, stay `status=open`, and describe the next expansion target.
 Decision Stack layer frontier items can drive `autopilot-draft` supplemental draft decisions; evidence
 frontier items list `evidence_needed` from remaining gaps but must not upgrade evidence coverage.
+Frontier items are ordered by priority rank, axis type rank, Decision Stack layer order, then
+`axis_id`, so budget-limited auto-expansion is deterministic.
 
 ## Review/export Contract
 

@@ -37,6 +37,18 @@ class AutopilotIterationTests(unittest.TestCase):
         ))
         self.assertIn("frontier_queue", projection)
 
+    def test_autopilot_uses_frontier_order_when_decision_budget_limits_additions(self) -> None:
+        draft_set = _complete_draft_set()
+        draft_set["draft_decisions"] = [draft_set["draft_decisions"][0]]
+
+        final, projection = _iterate(draft_set, max_iterations=2, max_draft_decisions=2)
+
+        self.assertEqual(
+            ["DD-001", "DD-GAP-PRINCIPLE"],
+            [draft["id"] for draft in final["draft_decisions"]],
+        )
+        self.assertLessEqual(len(final["draft_decisions"]), 2)
+
     def test_autopilot_adds_coverage_decisions_for_empty_draft_set(self) -> None:
         draft_set = _complete_draft_set()
         draft_set["draft_decisions"] = []

@@ -825,6 +825,12 @@ def _render_gap_diagnostics(draft_projection: dict[str, Any] | None) -> str:
 def _render_frontier_queue(draft_projection: dict[str, Any] | None) -> str:
     if not isinstance(draft_projection, dict):
         return "- frontier diagnostics unavailable"
+    items = _list_field(draft_projection, "frontier_queue")
+    if not items:
+        convergence = _dict_field(draft_projection, "convergence")
+        if convergence.get("status") == "converged":
+            return "- No open frontier."
+        return "- No auto-expandable frontier; review blocking diagnostics."
     return _table(
         ["ID", "Source Gap", "Priority", "Status", "Topic", "Evidence Needed", "Suggested Expansion"],
         [
@@ -837,7 +843,7 @@ def _render_frontier_queue(draft_projection: dict[str, Any] | None) -> str:
                 item.get("evidence_needed"),
                 item.get("suggested_expansion"),
             ]
-            for item in _list_field(draft_projection, "frontier_queue")
+            for item in items
         ],
     )
 

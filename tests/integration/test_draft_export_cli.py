@@ -133,6 +133,35 @@ class DraftExportCliTests(unittest.TestCase):
             self.assertIn("Stop reason", preflight)
             self.assertIn("core.layer.purpose", preflight)
 
+    def test_export_ignores_stale_v2_projection_and_renders_frontier_queue(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = _bootstrap(Path(tmp))
+            draft_json = _write_draft_json(Path(tmp), _draft_input())
+            _create_draft(ai_dir, draft_json)
+            projection_path = ai_dir / "draft-sets" / "DS-20260513-001" / "draft-projection.json"
+            stale_projection = {
+                "schema_version": 2,
+                "draft_set_id": "DS-20260513-001",
+                "sentinel": "do not overwrite",
+            }
+            projection_path.write_text(json.dumps(stale_projection, sort_keys=True), encoding="utf-8")
+            before_projection = projection_path.read_text(encoding="utf-8")
+
+            result = run_json_cli(
+                "export-draft-set",
+                "--ai-dir",
+                str(ai_dir),
+                "--draft-set-id",
+                "DS-20260513-001",
+                "--format",
+                "markdown",
+            )
+            preflight = Path(result["paths"]["preflight"]).read_text(encoding="utf-8")
+
+            self.assertIn("## Frontier Queue", preflight)
+            self.assertIn("F-GAP-", preflight)
+            self.assertEqual(before_projection, projection_path.read_text(encoding="utf-8"))
+
     def test_export_draft_set_does_not_modify_project_state_or_event_log(self) -> None:
         with TemporaryDirectory() as tmp:
             ai_dir = _bootstrap(Path(tmp))

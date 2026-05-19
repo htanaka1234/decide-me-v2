@@ -123,6 +123,7 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
         self.assertIn("Low-risk P2/P3 non-required rows do not block convergence", normalized_ref)
         self.assertIn("derives `frontier_queue` from blocking coverage gap diagnostics", normalized_ref)
         self.assertIn("must not upgrade evidence coverage", normalized_ref)
+        self.assertIn("ordered by priority rank, axis type rank, Decision Stack layer order, then `axis_id`", normalized_ref)
         self.assertIn("Coverage summary: required=N, covered=N, partial=N, missing=N, blocking=N", ref)
 
     def test_draft_set_reference_documents_sidecar_boundary(self) -> None:
@@ -144,6 +145,9 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
         self.assertIn("DraftProjection uses `schema_version: 3`", normalized_ref)
         self.assertIn("`coverage_summary`, `coverage_matrix`, `gap_diagnostics`, `frontier_queue`, and `convergence`", normalized_ref)
         self.assertIn("`frontier_queue` is derived from blocking required P0/P1 coverage gaps", normalized_ref)
+        self.assertIn("Frontier order is explicit", normalized_ref)
+        self.assertIn("`coverage_summary.blocking_gap_count` counts blocking coverage rows", normalized_ref)
+        self.assertIn("`convergence.blocking_gap_count` counts blocking gap diagnostics", normalized_ref)
         self.assertIn("`observed_value` separately", normalized_ref)
         self.assertIn("`coverage_targets[].axis_id` values must be unique", normalized_ref)
         self.assertIn("cannot shadow a core diagnostic with a different meaning or weaker blocking policy", normalized_ref)
@@ -226,6 +230,23 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
         self.assertIn("`observed_value` is the projection-derived value", normalized_output_contract)
         self.assertIn("must render `Coverage Summary`, `Coverage Matrix`, and `Frontier Queue`", normalized_output_contract)
         self.assertIn("Frontier items are derived from blocking required P0/P1 coverage gaps", normalized_output_contract)
+        self.assertIn(
+            "Frontier ordering is deterministic: priority rank, axis type rank, Decision Stack layer order, then `axis_id`",
+            normalized_output_contract,
+        )
+        self.assertIn(
+            "`coverage_summary.blocking_gap_count` counts coverage matrix rows where `blocks_convergence=true`",
+            normalized_output_contract,
+        )
+        self.assertIn(
+            "`convergence.blocking_gap_count` counts gap diagnostics where `blocks_convergence=true`",
+            normalized_output_contract,
+        )
+        self.assertIn("`No open frontier.` for converged projections", normalized_output_contract)
+        self.assertIn(
+            "`No auto-expandable frontier; review blocking diagnostics.` for blocked or otherwise non-converged projections",
+            normalized_output_contract,
+        )
         self.assertIn("derive the current draft projection in memory", normalized_output_contract)
         self.assertIn("`review-queue.json` uses `schema_version: 2`", normalized_output_contract)
         self.assertIn("general review targets with `target_id` and `target_kind`", normalized_output_contract)

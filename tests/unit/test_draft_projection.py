@@ -116,6 +116,62 @@ class DraftProjectionTests(unittest.TestCase):
             frontier["suggested_expansion"],
         )
 
+    def test_frontier_queue_uses_priority_axis_layer_and_axis_order(self) -> None:
+        draft_set = _draft_set()
+        draft_set["exploration_contract"]["coverage_targets"] = [
+            {
+                "axis_id": "z.layer.review",
+                "axis_type": "decision_stack_layer",
+                "value": "review",
+                "priority": "P1",
+                "required": True,
+            },
+            {
+                "axis_id": "z.layer.strategy",
+                "axis_type": "decision_stack_layer",
+                "value": "strategy",
+                "priority": "P1",
+                "required": True,
+            },
+            {
+                "axis_id": "m.layer.purpose",
+                "axis_type": "decision_stack_layer",
+                "value": "purpose",
+                "priority": "P1",
+                "required": True,
+            },
+            {
+                "axis_id": "a.layer.strategy",
+                "axis_type": "decision_stack_layer",
+                "value": "strategy",
+                "priority": "P1",
+                "required": True,
+            },
+            {
+                "axis_id": "b.evidence",
+                "axis_type": "evidence_coverage",
+                "value": "sufficient",
+                "priority": "P0",
+                "required": True,
+            },
+        ]
+
+        projection = _project(draft_set)
+
+        self.assertEqual(
+            [
+                "b.evidence",
+                "m.layer.purpose",
+                "a.layer.strategy",
+                "z.layer.strategy",
+                "z.layer.review",
+            ],
+            [
+                _gap_by_id(projection, item["source_gap_id"])["target_id"]
+                for item in projection["frontier_queue"]
+            ],
+        )
+
     def test_p2_p3_non_required_missing_coverage_does_not_block(self) -> None:
         draft_set = _draft_set()
         draft_set["draft_decisions"][0]["priority"] = "P2"
@@ -506,6 +562,13 @@ def _gap_by_type(projection: dict, gap_type: str, *, target_id: str | None = Non
             return gap
     suffix = f" target_id={target_id}" if target_id is not None else ""
     raise AssertionError(f"missing gap type: {gap_type}{suffix}")
+
+
+def _gap_by_id(projection: dict, gap_id: str) -> dict:
+    for gap in projection["gap_diagnostics"]:
+        if gap["id"] == gap_id:
+            return gap
+    raise AssertionError(f"missing gap id: {gap_id}")
 
 
 def _coverage_row(projection: dict, axis_id: str) -> dict:

@@ -273,7 +273,10 @@ diagnostics include `type`, `severity`, `target_id`, `blocks_convergence`, `bloc
 `verification_without_observable_command`.
 `frontier_queue` items include `id`, `source_gap_id`, `topic`, `priority`, `status`,
 `evidence_needed`, and `suggested_expansion`. Frontier items are derived from blocking required P0/P1
-coverage gaps and must not be written into `draft-set.json`.
+coverage gaps and must not be written into `draft-set.json`. Frontier ordering is deterministic:
+priority rank, axis type rank, Decision Stack layer order, then `axis_id`.
+`coverage_summary.blocking_gap_count` counts coverage matrix rows where `blocks_convergence=true`.
+`convergence.blocking_gap_count` counts gap diagnostics where `blocks_convergence=true`.
 
 Draft set review and export are sidecar-derived outputs. They consume
 `.ai/decide-me/draft-sets/DS-.../draft-set.json` and may write only
@@ -291,7 +294,9 @@ render or return `Coverage Summary`, `Coverage Matrix`, `Frontier Queue`, and bl
 render empty convergence from missing diagnostics, and must not write `draft-projection.json`; only
 `project-draft-set` owns that derived sidecar file.
 The preflight export must render `Coverage Summary`, `Coverage Matrix`, and `Frontier Queue` from the in-memory
-projection.
+projection. When `frontier_queue` is empty, it must render `No open frontier.` for converged
+projections and `No auto-expandable frontier; review blocking diagnostics.` for blocked or otherwise
+non-converged projections.
 
 Every Markdown draft export must include `DRAFT / NOT ACCEPTED`, and managed generated regions
 must preserve the trailing `## Human Notes` section on regeneration. The review queue is a

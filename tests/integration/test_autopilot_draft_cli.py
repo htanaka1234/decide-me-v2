@@ -270,6 +270,70 @@ class AutopilotDraftCliTests(unittest.TestCase):
                 )
             )
 
+    def test_autopilot_draft_cli_does_not_upgrade_evidence_for_evidence_frontier(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = _bootstrap(Path(tmp))
+            seed = _seed_payload()
+            base = seed["draft_decisions"][0]
+            seed["draft_decisions"] = []
+            for index, layer in enumerate(
+                ("purpose", "principle", "constraint", "strategy", "design", "execution", "verification", "review"),
+                start=1,
+            ):
+                draft = deepcopy(base)
+                draft["id"] = f"DD-{index:03d}"
+                draft["layer"] = layer
+                draft["question"] = f"How should {layer} be handled?"
+                draft["recommendation"] = f"Review the {layer} layer before promotion."
+                draft["rationale"] = f"The {layer} layer must remain explicit."
+                draft["priority"] = "P1" if index == 1 else "P2"
+                draft["evidence_coverage"]["status"] = "partial"
+                draft["evidence_coverage"]["missing"] = ["Need source review"]
+                draft["human_review"] = {
+                    "required": True,
+                    "mode": "individual",
+                    "bulk_promotable": False,
+                    "reason": "Evidence frontier test requires individual review.",
+                }
+                seed["draft_decisions"].append(draft)
+            seed["exploration_contract"] = minimal_valid_draft_set()["exploration_contract"]
+            seed["exploration_contract"]["coverage_targets"].append(
+                {
+                    "axis_id": "target.evidence.sufficient",
+                    "axis_type": "evidence_coverage",
+                    "value": "sufficient",
+                    "priority": "P1",
+                    "required": True,
+                }
+            )
+            seed_path = _write_seed(Path(tmp), seed)
+
+            result = run_json_cli(
+                "autopilot-draft",
+                "--ai-dir",
+                str(ai_dir),
+                "--seed-draft-json",
+                str(seed_path),
+                "--max-iterations",
+                "2",
+                "--max-draft-decisions",
+                "8",
+                "--no-export",
+            )
+            draft_set = json.loads(Path(result["draft_set_path"]).read_text(encoding="utf-8"))
+            projection = json.loads(Path(result["projection_path"]).read_text(encoding="utf-8"))
+
+            self.assertTrue(
+                any(
+                    item["topic"] == "evidence coverage is partial"
+                    for item in projection["frontier_queue"]
+                )
+            )
+            self.assertEqual(
+                {"partial"},
+                {draft["evidence_coverage"]["status"] for draft in draft_set["draft_decisions"]},
+            )
+
     def test_autopilot_draft_cli_respects_max_draft_decisions(self) -> None:
         with TemporaryDirectory() as tmp:
             ai_dir = _bootstrap(Path(tmp))

@@ -52,6 +52,7 @@ AXIS_TYPE_RANK = {
     "human_review_safety": 2,
     "promotion_safety": 3,
 }
+DECISION_STACK_LAYER_RANK = {layer: index for index, layer in enumerate(DECISION_STACK_LAYER_ORDER)}
 DRAFT_ID_PREFIXES = ("DD-", "DA-", "DR-", "DV-", "DACTION-")
 
 
@@ -435,7 +436,7 @@ def build_frontier_queue(
         for row in coverage_matrix
         if isinstance(row, dict) and _non_empty_string(row.get("axis_id"))
     }
-    frontier: list[dict[str, Any]] = []
+    ranked_frontier: list[tuple[tuple[int, int, int, str, str], dict[str, Any]]] = []
     for gap in gap_diagnostics:
         if not isinstance(gap, dict):
             continue
@@ -447,18 +448,35 @@ def build_frontier_queue(
         row = coverage_by_axis_id.get(str(gap.get("target_id") or ""))
         if not _frontier_eligible_coverage_row(row):
             continue
-        frontier.append(
-            {
-                "id": f"F-{gap_id}",
-                "source_gap_id": gap_id,
-                "topic": _frontier_topic(row),
-                "priority": _target_priority(row),
-                "status": "open",
-                "evidence_needed": _frontier_evidence_needed(row),
-                "suggested_expansion": _frontier_suggested_expansion(row, gap),
-            }
-        )
-    return frontier
+        item = {
+            "id": f"F-{gap_id}",
+            "source_gap_id": gap_id,
+            "topic": _frontier_topic(row),
+            "priority": _target_priority(row),
+            "status": "open",
+            "evidence_needed": _frontier_evidence_needed(row),
+            "suggested_expansion": _frontier_suggested_expansion(row, gap),
+        }
+        ranked_frontier.append((_frontier_sort_key(row, gap_id), item))
+    ranked_frontier.sort(key=lambda pair: pair[0])
+    return [item for _sort_key, item in ranked_frontier]
+
+
+def _frontier_sort_key(row: dict[str, Any], source_gap_id: str) -> tuple[int, int, int, str, str]:
+    axis_type = str(row.get("axis_type") or "")
+    value = str(row.get("value") or "")
+    layer_rank = (
+        DECISION_STACK_LAYER_RANK.get(value, 99)
+        if axis_type == "decision_stack_layer"
+        else 99
+    )
+    return (
+        PRIORITY_RANK.get(_target_priority(row), 99),
+        AXIS_TYPE_RANK.get(axis_type, 99),
+        layer_rank,
+        str(row.get("axis_id") or ""),
+        source_gap_id,
+    )
 
 
 def _frontier_eligible_coverage_row(row: Any) -> bool:
