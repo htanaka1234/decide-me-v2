@@ -4,6 +4,22 @@ max_iterations: 1
 max_draft_decisions: 8
 expected_required_gap_ids:
 - core.evidence.coverage
-expected_blocked_count: 1
-expected_bulk_promotable_count: 0
+expected_coverage_rows:
+- axis_id: core.evidence.coverage
+  axis_type: evidence_coverage
+  status: missing
+  required: true
+  priority: P1
+  blocks_convergence: true
+expected_gap_types:
+- insufficient_evidence
+expected_convergence:
+  status: blocked
+  stop_reason: evidence_gap_blocked
+  blocking_gap_count: 2
+expected_review_queue:
+  blocked_count: 1
+  bulk_promotable_count: 0
+  blocking_gap_count: 2
+  individual_review_required_min_count: 1
 max_allowed_draft_decisions: 20

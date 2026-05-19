@@ -1093,6 +1093,69 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
             self.assertEqual("failed", report["status"])
             self.assertEqual(0, report["metrics"]["decision_preflight"]["review_quality"]["bulk_promotable_count"])
 
+    def test_decision_preflight_metric_fails_when_coverage_row_shape_differs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "scenario"
+            work = Path(tmp) / "work"
+            payload = _valid_scenario()
+            payload["evaluation"]["expected_decision_preflight"] = _decision_preflight_expected(
+                expected_coverage_rows=[
+                    {
+                        **_expected_missing_layer_row("core.layer.strategy"),
+                        "status": "covered",
+                    }
+                ],
+            )
+            _write_scenario_fixture(root, payload)
+            (root / "draft-seed.json").write_text(
+                json.dumps(_preflight_seed([layer for layer in _ALL_DECISION_LAYERS if layer != "strategy"]), sort_keys=True),
+                encoding="utf-8",
+            )
+            scenario = load_scenario(root / "scenario.yaml")
+            runtime = build_scenario_runtime(scenario, work)
+
+            report = run_scenario_evaluation(scenario, runtime)
+
+            self.assertEqual([], validate_evaluation_report(report))
+            self.assertEqual("failed", report["status"])
+            failure = [
+                item
+                for item in report["failures"]
+                if item["metric"] == "decision_preflight"
+            ][0]
+            self.assertIn("coverage_row:core.layer.strategy:status", failure["actual"]["failed_expectations"])
+
+    def test_decision_preflight_metric_fails_when_convergence_expectation_differs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "scenario"
+            work = Path(tmp) / "work"
+            payload = _valid_scenario()
+            payload["evaluation"]["expected_decision_preflight"] = _decision_preflight_expected(
+                expected_convergence={
+                    "status": "blocked",
+                    "stop_reason": "risk_gate_triggered",
+                    "blocking_gap_count": 1,
+                }
+            )
+            _write_scenario_fixture(root, payload)
+            (root / "draft-seed.json").write_text(
+                json.dumps(_preflight_seed([layer for layer in _ALL_DECISION_LAYERS if layer != "strategy"]), sort_keys=True),
+                encoding="utf-8",
+            )
+            scenario = load_scenario(root / "scenario.yaml")
+            runtime = build_scenario_runtime(scenario, work)
+
+            report = run_scenario_evaluation(scenario, runtime)
+
+            self.assertEqual([], validate_evaluation_report(report))
+            self.assertEqual("failed", report["status"])
+            failure = [
+                item
+                for item in report["failures"]
+                if item["metric"] == "decision_preflight"
+            ][0]
+            self.assertIn("convergence:stop_reason:risk_gate_triggered", failure["actual"]["failed_expectations"])
+
     def test_decision_preflight_metric_fails_over_fragmentation(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "scenario"
@@ -1140,6 +1203,19 @@ class EvaluationScenarioHelperTests(unittest.TestCase):
 
             self.assertFalse(metric["safety_preservation"]["canonical_events_created"])
             self.assertFalse(metric["safety_preservation"]["project_state_changed"])
+            draft_root = runtime.ai_dir / "draft-sets" / "DS-20260519-001"
+            draft_set = json.loads((draft_root / "draft-set.json").read_text(encoding="utf-8"))
+            projection = json.loads((draft_root / "draft-projection.json").read_text(encoding="utf-8"))
+            preflight_md = (draft_root / "exports" / "preflight.md").read_text(encoding="utf-8")
+            review_queue_md = (draft_root / "exports" / "review-queue.md").read_text(encoding="utf-8")
+            self.assertNotIn("coverage_matrix", draft_set)
+            self.assertNotIn("coverage_summary", draft_set)
+            self.assertNotIn("gap_diagnostics", draft_set)
+            self.assertIn("coverage_matrix", projection)
+            self.assertIn("gap_diagnostics", projection)
+            self.assertIn("DRAFT / NOT ACCEPTED", preflight_md)
+            self.assertIn("Coverage", preflight_md)
+            self.assertIn("Blocking", review_queue_md)
 
     def test_decision_preflight_metric_fails_canonical_event_mutation(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -1400,19 +1476,64 @@ def _decision_preflight_expected(
     expected_required_gap_ids: list[str] | None = None,
     expected_blocked_count: int = 1,
     expected_bulk_promotable_count: int = 0,
+    expected_coverage_rows: list[dict[str, Any]] | None = None,
+    expected_gap_types: list[str] | None = None,
+    expected_convergence: dict[str, Any] | None = None,
+    expected_review_queue: dict[str, Any] | None = None,
     max_allowed_draft_decisions: int = 20,
 ) -> dict[str, Any]:
+    gap_ids = expected_required_gap_ids if expected_required_gap_ids is not None else ["core.layer.strategy"]
+    default_blocking_gap_count = len(gap_ids)
     return {
         "seed_draft_json": "draft-seed.json",
         "draft_set_id": "DS-20260519-001",
         "max_iterations": 1,
         "max_draft_decisions": 20,
-        "expected_required_gap_ids": (
-            expected_required_gap_ids if expected_required_gap_ids is not None else ["core.layer.strategy"]
+        "expected_required_gap_ids": gap_ids,
+        "expected_coverage_rows": (
+            expected_coverage_rows
+            if expected_coverage_rows is not None
+            else [_expected_missing_layer_row(axis_id) for axis_id in gap_ids]
         ),
-        "expected_blocked_count": expected_blocked_count,
-        "expected_bulk_promotable_count": expected_bulk_promotable_count,
+        "expected_gap_types": (
+            expected_gap_types
+            if expected_gap_types is not None
+            else (["missing_required_layer"] if gap_ids else [])
+        ),
+        "expected_convergence": expected_convergence or _expected_convergence(default_blocking_gap_count),
+        "expected_review_queue": expected_review_queue
+        or {
+            "blocked_count": expected_blocked_count,
+            "bulk_promotable_count": expected_bulk_promotable_count,
+            "blocking_gap_count": default_blocking_gap_count,
+            "individual_review_required_min_count": 0,
+        },
         "max_allowed_draft_decisions": max_allowed_draft_decisions,
+    }
+
+
+def _expected_missing_layer_row(axis_id: str) -> dict[str, Any]:
+    return {
+        "axis_id": axis_id,
+        "axis_type": "decision_stack_layer",
+        "status": "missing",
+        "required": True,
+        "priority": "P1",
+        "blocks_convergence": True,
+    }
+
+
+def _expected_convergence(blocking_gap_count: int) -> dict[str, Any]:
+    if blocking_gap_count:
+        return {
+            "status": "blocked",
+            "stop_reason": "user_review_required",
+            "blocking_gap_count": blocking_gap_count,
+        }
+    return {
+        "status": "converged",
+        "stop_reason": "converged",
+        "blocking_gap_count": 0,
     }
 
 

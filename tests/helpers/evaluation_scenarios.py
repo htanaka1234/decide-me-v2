@@ -472,8 +472,10 @@ def _validate_expected_decision_preflight(payload: dict[str, Any], path: Path, s
         "max_iterations",
         "max_draft_decisions",
         "expected_required_gap_ids",
-        "expected_blocked_count",
-        "expected_bulk_promotable_count",
+        "expected_coverage_rows",
+        "expected_gap_types",
+        "expected_convergence",
+        "expected_review_queue",
         "max_allowed_draft_decisions",
     }
     _require_keys(payload, allowed, path)
@@ -488,9 +490,55 @@ def _validate_expected_decision_preflight(payload: dict[str, Any], path: Path, s
     _require_minimum_int(payload, "max_iterations", 1, path)
     _require_minimum_int(payload, "max_draft_decisions", 1, path)
     _require_string_list(payload, "expected_required_gap_ids", path)
-    _require_non_negative_int(payload, "expected_blocked_count", path)
-    _require_non_negative_int(payload, "expected_bulk_promotable_count", path)
+    _validate_expected_coverage_rows(_require_list(payload, "expected_coverage_rows", path), path)
+    _require_string_list(payload, "expected_gap_types", path)
+    _validate_expected_convergence(payload["expected_convergence"], f"{path}:expected_convergence")
+    _validate_expected_review_queue(payload["expected_review_queue"], f"{path}:expected_review_queue")
     _require_minimum_int(payload, "max_allowed_draft_decisions", 1, path)
+
+
+def _validate_expected_coverage_rows(rows: list[Any], path: Path) -> None:
+    required = {"axis_id", "axis_type", "status", "required", "priority", "blocks_convergence"}
+    for index, row in enumerate(rows):
+        item_path = f"{path}:expected_coverage_rows[{index}]"
+        _require_mapping(row, item_path)
+        _require_keys(row, required, item_path)
+        _reject_unknown_keys(row, required, item_path)
+        _require_non_empty_string(row, "axis_id", item_path)
+        _require_enum(
+            row,
+            "axis_type",
+            {"decision_stack_layer", "evidence_coverage", "human_review_safety", "promotion_safety"},
+            item_path,
+        )
+        _require_enum(row, "status", {"covered", "partial", "missing"}, item_path)
+        _require_bool(row, "required", item_path)
+        _require_enum(row, "priority", {"P0", "P1", "P2", "P3"}, item_path)
+        _require_bool(row, "blocks_convergence", item_path)
+
+
+def _validate_expected_convergence(payload: Any, path: str) -> None:
+    _require_mapping(payload, path)
+    allowed = {"status", "stop_reason", "blocking_gap_count"}
+    _require_keys(payload, allowed, path)
+    _reject_unknown_keys(payload, allowed, path)
+    _require_enum(payload, "status", {"blocked", "converged"}, path)
+    _require_non_empty_string(payload, "stop_reason", path)
+    _require_non_negative_int(payload, "blocking_gap_count", path)
+
+
+def _validate_expected_review_queue(payload: Any, path: str) -> None:
+    _require_mapping(payload, path)
+    allowed = {
+        "blocked_count",
+        "bulk_promotable_count",
+        "blocking_gap_count",
+        "individual_review_required_min_count",
+    }
+    _require_keys(payload, allowed, path)
+    _reject_unknown_keys(payload, allowed, path)
+    for key in allowed:
+        _require_non_negative_int(payload, key, path)
 
 
 def _validate_expected_document_manifest(payload: dict[str, Any], path: Path) -> None:
@@ -1542,33 +1590,96 @@ def _decision_preflight_metric(
         review_queue = _load_json_file(review_queue_path)
 
     expected_gap_ids = sorted(expected["expected_required_gap_ids"])
+    coverage_matrix = [row for row in _list_field(projection, "coverage_matrix") if isinstance(row, dict)]
+    coverage_by_axis_id = {
+        row["axis_id"]: row
+        for row in coverage_matrix
+        if isinstance(row.get("axis_id"), str)
+    }
     blocking_axis_ids = sorted(
         str(row.get("axis_id"))
-        for row in projection.get("coverage_matrix", [])
-        if isinstance(row, dict) and row.get("blocks_convergence") is True and row.get("axis_id")
+        for row in coverage_matrix
+        if row.get("blocks_convergence") is True and row.get("axis_id")
     )
     required_gap_ids_found = [axis_id for axis_id in expected_gap_ids if axis_id in blocking_axis_ids]
     missing_expected_gap_ids = [axis_id for axis_id in expected_gap_ids if axis_id not in blocking_axis_ids]
+    gap_diagnostics = [gap for gap in _list_field(projection, "gap_diagnostics") if isinstance(gap, dict)]
+    actual_gap_types = sorted({str(gap.get("type")) for gap in gap_diagnostics if gap.get("type")})
+    missing_expected_gap_types = [
+        gap_type
+        for gap_type in sorted(expected["expected_gap_types"])
+        if gap_type not in actual_gap_types
+    ]
+    convergence = _dict_field(projection, "convergence")
+    review_summary = _dict_field(review_queue, "summary")
+    review_blocking_gap_count = len(_list_field(review_queue, "blocking_gaps"))
+    individual_review_required_count = len(_list_field(review_queue, "individual_review_required"))
     blocked_count = _non_negative_metric_int(_dict_field(review_queue, "summary").get("blocked_count"))
-    bulk_promotable_count = _non_negative_metric_int(_dict_field(review_queue, "summary").get("bulk_promotable_count"))
+    bulk_promotable_count = _non_negative_metric_int(review_summary.get("bulk_promotable_count"))
     draft_decision_count = len(_list_field(draft_set, "draft_decisions"))
     max_allowed = expected["max_allowed_draft_decisions"]
+    preflight_md = ""
+    review_queue_md = ""
+    if result is not None:
+        exports_root = runtime.ai_dir / "draft-sets" / expected["draft_set_id"] / "exports"
+        preflight_path = exports_root / "preflight.md"
+        review_queue_path = exports_root / "review-queue.md"
+        if preflight_path.is_file():
+            preflight_md = preflight_path.read_text(encoding="utf-8")
+        if review_queue_path.is_file():
+            review_queue_md = review_queue_path.read_text(encoding="utf-8")
 
     expectation_failures: list[str] = []
     if run_error is not None:
         expectation_failures.append("autopilot_run_failed")
     if missing_expected_gap_ids:
         expectation_failures.append("coverage_recall")
+    for expected_row in expected["expected_coverage_rows"]:
+        axis_id = expected_row["axis_id"]
+        actual_row = coverage_by_axis_id.get(axis_id)
+        if actual_row is None:
+            expectation_failures.append(f"coverage_row:{axis_id}:missing")
+            continue
+        for key in ("axis_type", "status", "required", "priority", "blocks_convergence"):
+            if actual_row.get(key) != expected_row[key]:
+                expectation_failures.append(f"coverage_row:{axis_id}:{key}")
+    if missing_expected_gap_types:
+        expectation_failures.append("gap_type_recall")
+    expected_convergence = expected["expected_convergence"]
+    for key in ("status", "stop_reason", "blocking_gap_count"):
+        if convergence.get(key) != expected_convergence[key]:
+            expectation_failures.append(f"convergence:{key}:{expected_convergence[key]}")
     if canonical_events_created:
         expectation_failures.append("canonical_events_created")
     if project_state_changed:
         expectation_failures.append("project_state_changed")
-    if blocked_count != expected["expected_blocked_count"]:
-        expectation_failures.append(f"blocked_count:{expected['expected_blocked_count']}")
-    if bulk_promotable_count != expected["expected_bulk_promotable_count"]:
-        expectation_failures.append(f"bulk_promotable_count:{expected['expected_bulk_promotable_count']}")
+    expected_review_queue = expected["expected_review_queue"]
+    if blocked_count != expected_review_queue["blocked_count"]:
+        expectation_failures.append(f"review_queue.blocked_count:{expected_review_queue['blocked_count']}")
+    if bulk_promotable_count != expected_review_queue["bulk_promotable_count"]:
+        expectation_failures.append(
+            f"review_queue.bulk_promotable_count:{expected_review_queue['bulk_promotable_count']}"
+        )
+    if review_blocking_gap_count != expected_review_queue["blocking_gap_count"]:
+        expectation_failures.append(f"review_queue.blocking_gap_count:{expected_review_queue['blocking_gap_count']}")
+    if individual_review_required_count < expected_review_queue["individual_review_required_min_count"]:
+        expectation_failures.append(
+            "review_queue.individual_review_required_min_count:"
+            f"{expected_review_queue['individual_review_required_min_count']}"
+        )
     if draft_decision_count > max_allowed:
         expectation_failures.append(f"draft_decision_count_max:{max_allowed}")
+    if result is not None:
+        if any(field in draft_set for field in ("coverage_matrix", "coverage_summary", "gap_diagnostics")):
+            expectation_failures.append("source_derived_boundary:draft_set_contains_diagnostics")
+        if "coverage_matrix" not in projection or "gap_diagnostics" not in projection:
+            expectation_failures.append("source_derived_boundary:projection_missing_diagnostics")
+        if "DRAFT / NOT ACCEPTED" not in preflight_md:
+            expectation_failures.append("preflight_export:draft_banner")
+        if "Coverage" not in preflight_md:
+            expectation_failures.append("preflight_export:coverage_summary")
+        if "Blocking" not in review_queue_md:
+            expectation_failures.append("review_queue_export:blocking_gaps")
 
     passed = not expectation_failures
     if not passed:
@@ -1581,9 +1692,13 @@ def _decision_preflight_metric(
                 actual={
                     "run_error": run_error,
                     "blocking_axis_ids": blocking_axis_ids,
+                    "actual_gap_types": actual_gap_types,
                     "failed_expectations": expectation_failures,
+                    "convergence": convergence,
                     "blocked_count": blocked_count,
                     "bulk_promotable_count": bulk_promotable_count,
+                    "review_blocking_gap_count": review_blocking_gap_count,
+                    "individual_review_required_count": individual_review_required_count,
                     "draft_decision_count": draft_decision_count,
                     "event_changes": _changed_snapshot_paths(before_events, after_events),
                     "runtime_changes": _changed_snapshot_paths(before_runtime, after_runtime),
