@@ -32,6 +32,19 @@ RISK_RANK = {
     "medium": 2,
     "low": 3,
 }
+BLOCKING_GAP_TYPES_REQUIRING_RESOLUTION = {
+    "accepted_decision_conflict_possible",
+    "bulk_promotion_blocked",
+    "dangling_draft_reference",
+    "dangling_supporting_object",
+    "duplicate_draft_id",
+    "missing_human_review",
+    "missing_p0_recommendation",
+    "missing_p1_recommendation",
+    "missing_promotion_recipe",
+    "missing_question",
+    "promoted_but_missing_canonical",
+}
 EVIDENCE_RANK = {
     "challenged": 0,
     "none": 1,
@@ -203,13 +216,22 @@ def build_review_queue(
     conflicts = _list_field(draft_set, "conflicts")
     coverage_summary = _coverage_summary_from_projection(draft_projection)
     blocking_gaps = _blocking_gaps_from_projection(draft_projection)
+    draft_decisions = _list_field(draft_set, "draft_decisions")
+    draft_decision_ids = {
+        str(draft.get("id") or "")
+        for draft in draft_decisions
+        if isinstance(draft, dict) and str(draft.get("id") or "")
+    }
+    blocking_gaps_by_target = _blocking_gaps_by_target(
+        blocking_gaps,
+        draft_decision_ids=draft_decision_ids,
+    )
     coverage_blocker_exists = any(
         isinstance(row, dict) and row.get("blocks_convergence") is True
         for row in _list_field(draft_projection, "coverage_matrix")
     )
 
     ranked_items: list[tuple[tuple[int, int, int, int, int, int, str], dict[str, Any]]] = []
-    draft_decisions = _list_field(draft_set, "draft_decisions")
     for draft in draft_decisions:
         if not isinstance(draft, dict):
             continue
@@ -220,9 +242,12 @@ def build_review_queue(
             bulk_requested_ids=bulk_requested_ids,
             individual_requested_ids=individual_requested_ids,
             coverage_blocker_exists=coverage_blocker_exists,
+            blocking_gaps_by_target=blocking_gaps_by_target,
         )
         ranked_items.append((_review_sort_key(item, draft), item))
     for item in _coverage_review_items(draft_projection):
+        ranked_items.append((_review_sort_key(item, None), item))
+    for item in _gap_diagnostic_review_items(draft_projection):
         ranked_items.append((_review_sort_key(item, None), item))
 
     ranked_items.sort(key=lambda pair: pair[0])
@@ -317,6 +342,7 @@ def _review_item(
     bulk_requested_ids: set[str],
     individual_requested_ids: set[str],
     coverage_blocker_exists: bool,
+    blocking_gaps_by_target: dict[str, list[dict[str, Any]]],
 ) -> dict[str, Any]:
     draft_id = str(draft.get("id") or "")
     priority = _nullable_string(draft.get("priority"))
@@ -337,12 +363,24 @@ def _review_item(
         human_review = _dict_field(draft, "human_review")
         evidence_status = _normalized_evidence_status(_dict_field(draft, "evidence_coverage").get("status"))
         risk = str(draft.get("risk_tier") or "").lower()
-        if _has_conflict(conflicts, draft_id):
+        target_blocking_gaps = blocking_gaps_by_target.get(draft_id, [])
+        if target_blocking_gaps:
+            if any(_gap_requires_resolution_before_review(gap) for gap in target_blocking_gaps):
+                review_mode = "blocked"
+                reasons.append("blocking gap diagnostic must be resolved before promotion")
+            else:
+                review_mode = "individual"
+                reasons.append("blocking gap diagnostic requires individual review")
+            reasons.extend(_gap_reason_summaries(target_blocking_gaps))
+        elif _has_conflict(conflicts, draft_id):
             review_mode = "individual"
             reasons.append("draft decision has conflicts")
         elif risk in {"high", "critical"}:
             review_mode = "individual"
             reasons.append(f"risk_tier is {risk}")
+        elif priority in {"P0", "P1"}:
+            review_mode = "individual"
+            reasons.append("P0/P1 priority requires individual review")
         elif draft_id in individual_requested_ids:
             review_mode = "individual"
             reasons.append("promotion.individual_review_required_ids includes draft decision")
@@ -411,6 +449,39 @@ def _coverage_review_items(draft_projection: dict[str, Any] | None) -> list[dict
     return items
 
 
+def _gap_diagnostic_review_items(draft_projection: dict[str, Any] | None) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    for gap in _list_field(draft_projection, "gap_diagnostics"):
+        if (
+            not isinstance(gap, dict)
+            or gap.get("blocks_convergence") is not True
+            or gap.get("target_kind") == "coverage_gap"
+        ):
+            continue
+        gap_id = str(gap.get("id") or "")
+        if not gap_id:
+            continue
+        review_mode = "blocked" if _gap_requires_resolution_before_review(gap) else "individual"
+        target_id = str(gap.get("target_id") or "")
+        gap_type = str(gap.get("type") or "")
+        items.append(
+            {
+                "target_id": gap_id,
+                "target_kind": "gap_diagnostic",
+                "priority": None,
+                "layer": None,
+                "risk_tier": None,
+                "gap_type": gap_type,
+                "review_mode": review_mode,
+                "promotion_readiness": _promotion_readiness(review_mode),
+                "rank": 1,
+                "reasons": _unique([f"{gap_type} on {target_id}: {gap.get('reason') or ''}".strip()]),
+                "required_action": _required_action(review_mode),
+            }
+        )
+    return items
+
+
 def _coverage_summary_from_projection(draft_projection: dict[str, Any] | None) -> dict[str, int]:
     summary = _dict_field(draft_projection, "coverage_summary")
     return {
@@ -438,6 +509,34 @@ def _blocking_gaps_from_projection(draft_projection: dict[str, Any] | None) -> l
             }
         )
     return gaps
+
+
+def _blocking_gaps_by_target(
+    blocking_gaps: list[dict[str, Any]],
+    *,
+    draft_decision_ids: set[str],
+) -> dict[str, list[dict[str, Any]]]:
+    by_target: dict[str, list[dict[str, Any]]] = {}
+    for gap in blocking_gaps:
+        if not isinstance(gap, dict) or gap.get("target_kind") == "coverage_gap":
+            continue
+        target_id = str(gap.get("target_id") or "")
+        if target_id not in draft_decision_ids:
+            continue
+        by_target.setdefault(target_id, []).append(gap)
+    return by_target
+
+
+def _gap_requires_resolution_before_review(gap: dict[str, Any]) -> bool:
+    return str(gap.get("type") or "") in BLOCKING_GAP_TYPES_REQUIRING_RESOLUTION
+
+
+def _gap_reason_summaries(gaps: list[dict[str, Any]]) -> list[str]:
+    return [
+        f"{gap.get('type')}: {gap.get('reason')}"
+        for gap in gaps
+        if isinstance(gap, dict) and gap.get("type") and gap.get("reason")
+    ]
 
 
 def _coverage_review_gap_type(row: dict[str, Any]) -> str:
@@ -502,6 +601,7 @@ def _is_low_risk_bulk_candidate(draft: dict[str, Any], *, conflicts: list[Any]) 
     evidence_status = _normalized_evidence_status(evidence.get("status"))
     return (
         str(draft.get("risk_tier") or "").lower() == "low"
+        and str(draft.get("priority") or "") not in {"P0", "P1"}
         and human_review.get("bulk_promotable") is True
         and _non_empty_string(draft.get("recommendation"))
         and bool(_list_field(draft, "alternatives"))
@@ -537,7 +637,7 @@ def _promotion_readiness(review_mode: str) -> str:
 
 def _required_action(review_mode: str) -> str:
     return {
-        "blocked": "Resolve blocking draft fields before promotion.",
+        "blocked": "Resolve blocking diagnostics before promotion.",
         "individual": "Review individually before promotion.",
         "bulk": "Eligible for low-risk bulk materialization review; not accepted by this export.",
         "already_promoted": "No review required; already promoted.",

@@ -180,7 +180,8 @@ normal readable-export flow does not need to call `review-draft-set` separately.
 
 The review queue sorts general review targets using `target_id` and `target_kind`. Draft decisions use
 `target_kind=draft_decision` and may also include `draft_decision_id`; derived coverage blockers use
-`target_kind=coverage_gap`. The queue classifies targets as:
+`target_kind=coverage_gap`; non-coverage blocking diagnostics use `target_kind=gap_diagnostic`.
+The queue classifies targets as:
 
 - blocked
 - individual review required
@@ -189,9 +190,10 @@ The review queue sorts general review targets using `target_id` and `target_kind
 
 Required blocking coverage rows enter `blocked` when missing and `individual review required` when
 partial. High or critical risk, medium risk or above, P0/P1 priority, unknown, challenged, missing, or
-partial-with-missing evidence, conflicts, explicit individual review flags, and blocked draft fields
-must not enter the bulk candidate list. If any coverage blocker exists, `bulk_promotable=true` draft
-decisions are excluded from bulk and routed to individual review.
+partial-with-missing evidence, conflicts, explicit individual review flags, blocking gap diagnostics
+for the same draft decision, and blocked draft fields must not enter the bulk candidate list. If any
+coverage blocker exists, `bulk_promotable=true` draft decisions are excluded from bulk and routed to
+individual review.
 `bulk_promotable=true` means "eligible to place into proposal review in bulk"; it never means accepted.
 
 ## Readable Exports

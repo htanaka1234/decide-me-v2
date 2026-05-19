@@ -52,6 +52,18 @@ class DraftExportTests(unittest.TestCase):
         self.assertEqual(["DD-001"], queue["bulk_promotable"])
         self.assertEqual("bulk_materialize_candidate", queue["review_order"][0]["promotion_readiness"])
 
+    def test_p0_p1_never_enter_bulk_even_if_low_risk_and_evidence_sufficient(self) -> None:
+        queue = _queue(
+            [
+                _decision("DD-001", priority="P0", risk_tier="low", evidence_status="sufficient"),
+                _decision("DD-002", priority="P1", risk_tier="low", evidence_status="sufficient"),
+            ]
+        )
+
+        self.assertEqual([], queue["bulk_promotable"])
+        self.assertEqual(["DD-001", "DD-002"], queue["individual_review_required"])
+        self.assertTrue(all(item["review_mode"] == "individual" for item in queue["review_order"]))
+
     def test_missing_recommendation_blocks_item(self) -> None:
         queue = _queue([_decision("DD-001", recommendation="")])
 
@@ -81,6 +93,56 @@ class DraftExportTests(unittest.TestCase):
         self.assertEqual([], queue["bulk_promotable"])
         self.assertEqual(["DD-001"], queue["individual_review_required"])
         self.assertIn("partial evidence has missing items", queue["review_order"][0]["reasons"])
+
+    def test_noncoverage_blocking_gap_excludes_draft_decision_from_bulk(self) -> None:
+        projection = _projection_with_gaps(
+            [
+                {
+                    "id": "GAP-001",
+                    "type": "dangling_supporting_object",
+                    "target_id": "DD-001",
+                    "target_kind": "draft_decision",
+                    "severity": "high",
+                    "blocks_convergence": True,
+                    "reason": "supporting_object_id O-missing referenced by DD-001 does not exist.",
+                }
+            ]
+        )
+        queue = _queue([_decision("DD-001", priority="P2", risk_tier="low")], draft_projection=projection)
+        blocking_draft_ids = {
+            gap["target_id"]
+            for gap in queue["blocking_gaps"]
+            if gap["target_kind"] == "draft_decision"
+        }
+
+        self.assertEqual({"DD-001"}, blocking_draft_ids)
+        self.assertTrue(blocking_draft_ids.isdisjoint(set(queue["bulk_promotable"])))
+        self.assertEqual(["DD-001", "GAP-001"], queue["blocked"])
+        draft_item = next(item for item in queue["review_order"] if item["target_id"] == "DD-001")
+        self.assertIn("blocking gap diagnostic must be resolved before promotion", draft_item["reasons"])
+        diagnostic_item = next(item for item in queue["review_order"] if item["target_id"] == "GAP-001")
+        self.assertEqual("gap_diagnostic", diagnostic_item["target_kind"])
+        self.assertEqual("dangling_supporting_object", diagnostic_item["gap_type"])
+
+    def test_reviewable_blocking_gap_routes_draft_decision_to_individual_not_bulk(self) -> None:
+        projection = _projection_with_gaps(
+            [
+                {
+                    "id": "GAP-001",
+                    "type": "unsupported_recommendation",
+                    "target_id": "DD-001",
+                    "target_kind": "draft_decision",
+                    "severity": "high",
+                    "blocks_convergence": True,
+                    "reason": "Draft decision has incomplete supporting evidence.",
+                }
+            ]
+        )
+        queue = _queue([_decision("DD-001", priority="P2", risk_tier="low")], draft_projection=projection)
+
+        self.assertEqual([], queue["bulk_promotable"])
+        self.assertIn("DD-001", queue["individual_review_required"])
+        self.assertIn("GAP-001", queue["individual_review_required"])
 
     def test_malformed_promoted_draft_remains_blocked(self) -> None:
         queue = _queue(
@@ -289,6 +351,33 @@ def _projection(draft_set: dict) -> dict:
         current_project_head="head-1",
         generated_at="2026-05-13T03:00:00Z",
     )
+
+
+def _projection_with_gaps(gaps: list[dict]) -> dict:
+    normalized_gaps = []
+    for index, gap in enumerate(gaps, start=1):
+        payload = {
+            "id": f"GAP-{index:03d}",
+            "type": "unsupported_recommendation",
+            "target_id": "DD-001",
+            "target_kind": "draft_decision",
+            "severity": "high",
+            "blocks_convergence": True,
+            "reason": "Blocking diagnostic.",
+        }
+        payload.update(gap)
+        normalized_gaps.append(payload)
+    return {
+        "coverage_summary": {
+            "required_target_count": 0,
+            "covered_count": 0,
+            "partial_count": 0,
+            "missing_count": 0,
+            "blocking_gap_count": 0,
+        },
+        "coverage_matrix": [],
+        "gap_diagnostics": normalized_gaps,
+    }
 
 
 def _decision(

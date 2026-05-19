@@ -293,9 +293,12 @@ Every Markdown draft export must include `DRAFT / NOT ACCEPTED`, and managed gen
 must preserve the trailing `## Human Notes` section on regeneration. The review queue is a
 deterministic promotion-input queue, not promotion itself. `review-queue.json` uses
 `schema_version: 2` and represents general review targets with `target_id` and `target_kind`;
-`draft_decision_id` is only a draft-decision alias. High or critical risk items, unknown,
-challenged, missing, or partial-with-missing evidence, conflicts, explicit individual-review flags,
-coverage blockers, and blocked draft fields must not enter the bulk candidate list.
+`draft_decision_id` is only a draft-decision alias. Non-coverage blocking diagnostics are review
+targets with `target_kind=gap_diagnostic`; if a blocking diagnostic targets a draft decision, that
+draft decision must not enter the bulk candidate list. High or critical risk items, medium risk or
+above, P0/P1 priority, unknown, challenged, missing, or partial-with-missing evidence, conflicts,
+explicit individual-review flags, coverage blockers, and blocked draft fields must not enter the
+bulk candidate list.
 `promotion.promoted_decision_ids` remains sidecar metadata only and
 must not let a draft bypass blocked or individual-review classification. `review-draft-set` and
 `export-draft-set` must not emit events, create accepted decisions, create canonical proposals, or
