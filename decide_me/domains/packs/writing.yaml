@@ -1,6 +1,6 @@
-schema_version: 1
+schema_version: 2
 pack_id: writing
-version: 0.1.0
+version: 0.2.0
 label: Writing
 description: Writing decision support for audience, purpose, scope, outline, evidence, review, and publication planning.
 aliases:
@@ -9,6 +9,30 @@ aliases:
   - article planning
   - publication planning
 default_core_domain: other
+exploration_axes:
+  - id: goal_boundary
+    label: Goal boundary
+    required_layers:
+      - purpose
+      - principle
+    default_priority: P1
+    required: true
+  - id: safety_boundary
+    label: Safety boundary
+    required_layers:
+      - constraint
+      - verification
+      - review
+    default_priority: P0
+    required: true
+  - id: execution_path
+    label: Execution path
+    required_layers:
+      - strategy
+      - design
+      - execution
+    default_priority: P1
+    required: true
 decision_types:
   - id: audience_definition
     label: Audience definition

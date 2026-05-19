@@ -8,7 +8,7 @@ from typing import Any
 import yaml
 from jsonschema import Draft202012Validator
 
-from decide_me.domains import validate_domain_pack_payload
+from decide_me.domains import domain_pack_digest, validate_domain_pack_payload
 from decide_me.domains.model import DomainPack, domain_pack_from_dict
 
 
@@ -33,6 +33,16 @@ EXPECTED_ACTION_TYPES = {
     "verification",
     "monitoring",
     "decision",
+}
+EXPECTED_EXPLORATION_AXIS_IDS = {"goal_boundary", "safety_boundary", "execution_path"}
+EXPECTED_BUILTIN_DIGESTS = {
+    "generic": "DP-5a9664a0e8d7",
+    "operations": "DP-a9619f3374a0",
+    "personal_planning": "DP-a58bae6a8901",
+    "procurement": "DP-55b9c94f1ab7",
+    "research": "DP-5b3eebefef34",
+    "software": "DP-93bc6af21972",
+    "writing": "DP-6d5dd91b9122",
 }
 OPERATIONS_DECISION_TYPE_IDS = {
     "process_definition",
@@ -141,6 +151,40 @@ class DomainPackBuiltinPacksTests(unittest.TestCase):
         for pack_id, raw in _load_packs().items():
             with self.subTest(pack_id=pack_id):
                 self.assertEqual(EXPECTED_ACTION_TYPES, set(raw["action_types"]))
+
+    def test_builtin_packs_declare_exploration_axes(self) -> None:
+        for pack_id, raw in _load_packs().items():
+            with self.subTest(pack_id=pack_id):
+                axes = raw["exploration_axes"]
+                self.assertEqual(2, raw["schema_version"])
+                self.assertEqual(EXPECTED_EXPLORATION_AXIS_IDS, _ids(axes))
+                if pack_id == "generic":
+                    self.assertTrue(all(axis["default_priority"] == "P2" for axis in axes))
+                    self.assertTrue(all(axis["required"] is False for axis in axes))
+                else:
+                    self.assertEqual(
+                        {
+                            "goal_boundary": ("P1", True, ("purpose", "principle")),
+                            "safety_boundary": ("P0", True, ("constraint", "verification", "review")),
+                            "execution_path": ("P1", True, ("strategy", "design", "execution")),
+                        },
+                        {
+                            axis["id"]: (
+                                axis["default_priority"],
+                                axis["required"],
+                                tuple(axis["required_layers"]),
+                            )
+                            for axis in axes
+                        },
+                    )
+
+    def test_builtin_pack_digests_are_intentional(self) -> None:
+        digests = {
+            pack_id: domain_pack_digest(domain_pack_from_dict(raw))
+            for pack_id, raw in _load_packs().items()
+        }
+
+        self.assertEqual(EXPECTED_BUILTIN_DIGESTS, digests)
 
     def test_research_pack_matches_phase9_mvp_content(self) -> None:
         pack = _load_packs()["research"]
@@ -265,6 +309,8 @@ class DomainPackBuiltinPacksTests(unittest.TestCase):
         self.assertEqual([], pack["evidence_requirements"])
         self.assertEqual([], pack["risk_types"])
         self.assertEqual([], pack["safety_rules"])
+        self.assertTrue(all(axis["default_priority"] == "P2" for axis in pack["exploration_axes"]))
+        self.assertTrue(all(axis["required"] is False for axis in pack["exploration_axes"]))
         self.assertIn("clarify_goal", _ids(pack["decision_types"]))
         self.assertIn("choose_option", _ids(pack["decision_types"]))
         self.assertIn("resolve_constraint", _ids(pack["decision_types"]))

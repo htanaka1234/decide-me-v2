@@ -429,7 +429,7 @@
     "domain_pack_id": "generic",
     "included_object_ids": [],
     "included_session_ids": [],
-    "project_head_at_generation": "5441e0b65c8e1725e79430c4a7463fddd72b9f8e805a3afe622eb772cb71198d",
+    "project_head_at_generation": "7bd1fc7179677bbb8f5ca7897dd0406774d19d60e207fe90880080f6ca782f94",
     "project_state_ref": "project-state.json"
   },
   "status": "generated"

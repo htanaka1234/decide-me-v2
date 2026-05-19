@@ -232,7 +232,7 @@
     "partial_count": 0,
     "required_target_count": 9
   },
-  "current_project_head": "5441e0b65c8e1725e79430c4a7463fddd72b9f8e805a3afe622eb772cb71198d",
+  "current_project_head": "7bd1fc7179677bbb8f5ca7897dd0406774d19d60e207fe90880080f6ca782f94",
   "draft_set_id": "DS-20260429-001",
   "draft_summary": {
     "draft_action_count": 0,
@@ -384,7 +384,7 @@
       "status": "recommended"
     }
   ],
-  "project_head_at_generation": "5441e0b65c8e1725e79430c4a7463fddd72b9f8e805a3afe622eb772cb71198d",
+  "project_head_at_generation": "7bd1fc7179677bbb8f5ca7897dd0406774d19d60e207fe90880080f6ca782f94",
   "schema_version": 3,
   "stale": false
 }

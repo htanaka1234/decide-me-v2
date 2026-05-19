@@ -1,12 +1,33 @@
-schema_version: 1
+schema_version: 2
 pack_id: generic
-version: 0.1.0
+version: 0.2.0
 label: Generic
 description: Generic decision support for contexts without a specialized domain pack.
 aliases:
   - generic
   - general
 default_core_domain: other
+exploration_axes:
+  - id: goal_boundary
+    label: Goal boundary
+    required_layers:
+      - purpose
+    default_priority: P2
+    required: false
+  - id: safety_boundary
+    label: Safety boundary
+    required_layers:
+      - constraint
+      - verification
+    default_priority: P2
+    required: false
+  - id: execution_path
+    label: Execution path
+    required_layers:
+      - strategy
+      - execution
+    default_priority: P2
+    required: false
 decision_types:
   - id: clarify_goal
     label: Clarify goal

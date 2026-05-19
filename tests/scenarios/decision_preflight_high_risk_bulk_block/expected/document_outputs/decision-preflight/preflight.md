@@ -12,8 +12,8 @@
 ## Source Context
 - Draft set: DS-20260429-001
 - Generated at: 2026-04-29T00:00:00Z
-- Project head at generation: 056efe3202fc020a882fd0f68d5d3b7d4074802fd19654142c7894454d24f433
-- Current project head: 056efe3202fc020a882fd0f68d5d3b7d4074802fd19654142c7894454d24f433
+- Project head at generation: c9d3258ada1c381593186dd365af1c7fa4231922a0d592f94d8cb58ba33bb6d1
+- Current project head: c9d3258ada1c381593186dd365af1c7fa4231922a0d592f94d8cb58ba33bb6d1
 - Stale: no
 - Project state ref: project-state.json
 - Domain pack: generic

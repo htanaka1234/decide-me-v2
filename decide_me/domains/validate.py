@@ -16,7 +16,7 @@ from decide_me.constants import (
 from decide_me.documents.model import DOCUMENT_TYPES
 
 
-DOMAIN_PACK_SCHEMA_VERSION = 1
+DOMAIN_PACK_SCHEMA_VERSION = 2
 IDENTIFIER_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 SECTION_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_-]*$")
 DECISION_KIND_VALUES = {"choice", "constraint", "risk", "dependency"}
@@ -41,6 +41,7 @@ TOP_LEVEL_KEYS = {
     "evidence_requirements",
     "risk_types",
     "action_types",
+    "exploration_axes",
     "safety_rules",
     "risk_policy",
     "documents",
@@ -73,6 +74,7 @@ RISK_TYPE_KEYS = {
     "default_risk_tier",
     "default_approval_threshold",
 }
+EXPLORATION_AXIS_KEYS = {"id", "label", "required_layers", "default_priority", "required"}
 SAFETY_RULE_KEYS = {"id", "applies_when", "approval_threshold", "reason"}
 SAFETY_RULE_CONDITION_KEYS = {"risk_types"}
 RISK_POLICY_KEYS = {"approval", "automatic_adoption", "required_actions"}
@@ -141,6 +143,13 @@ def validate_domain_pack_payload(raw: dict[str, Any]) -> None:
         _validate_risk_type,
     )
     _require_identifier_list(payload.get("action_types"), "domain_pack.action_types")
+    exploration_axes = _validate_spec_list(
+        payload.get("exploration_axes"),
+        "domain_pack.exploration_axes",
+        _validate_exploration_axis,
+    )
+    if not exploration_axes:
+        raise DomainPackValidationError("domain_pack.exploration_axes must not be empty")
     safety_rules = _validate_spec_list(
         payload.get("safety_rules"),
         "domain_pack.safety_rules",
@@ -162,6 +171,7 @@ def validate_domain_pack_payload(raw: dict[str, Any]) -> None:
         "domain_pack.evidence_requirements",
     )
     risk_type_ids = _unique_ids(risk_types, "domain_pack.risk_types")
+    _unique_ids(exploration_axes, "domain_pack.exploration_axes")
     _unique_ids(safety_rules, "domain_pack.safety_rules")
     _validate_document_uniqueness(documents)
     _validate_references(
@@ -222,6 +232,19 @@ def _validate_risk_type(item: dict[str, Any], label: str) -> None:
         APPROVAL_THRESHOLD_VALUES,
         f"{label}.default_approval_threshold",
     )
+
+
+def _validate_exploration_axis(item: dict[str, Any], label: str) -> None:
+    _require_keys(item, EXPLORATION_AXIS_KEYS, label)
+    _reject_unknown_keys(item, EXPLORATION_AXIS_KEYS, label)
+    _require_identifier(item.get("id"), f"{label}.id")
+    _require_non_empty_string(item.get("label"), f"{label}.label")
+    _require_enum_list(item.get("required_layers"), DECISION_STACK_LAYERS, f"{label}.required_layers")
+    if not item["required_layers"]:
+        raise DomainPackValidationError(f"{label}.required_layers must not be empty")
+    _require_enum(item.get("default_priority"), PRIORITY_VALUES, f"{label}.default_priority")
+    if not isinstance(item.get("required"), bool):
+        raise DomainPackValidationError(f"{label}.required must be a boolean")
 
 
 def _validate_safety_rule(item: dict[str, Any], label: str) -> None:
