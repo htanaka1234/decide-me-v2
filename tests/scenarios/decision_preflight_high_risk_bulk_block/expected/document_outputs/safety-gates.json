@@ -1,0 +1,10 @@
+{
+  "results": [],
+  "schema_version": 1,
+  "summary": {
+    "approval_required_count": 0,
+    "blocking_count": 0,
+    "by_gate_status": {},
+    "evaluated_count": 0
+  }
+}

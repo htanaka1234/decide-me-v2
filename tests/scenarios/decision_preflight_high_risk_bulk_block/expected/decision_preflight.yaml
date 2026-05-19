@@ -1,0 +1,25 @@
+seed_draft_json: draft-seed.json
+draft_set_id: DS-20260429-001
+max_iterations: 1
+max_draft_decisions: 8
+expected_required_gap_ids:
+- core.human_review.safety
+expected_coverage_rows:
+- axis_id: core.human_review.safety
+  axis_type: human_review_safety
+  status: missing
+  required: true
+  priority: P0
+  blocks_convergence: true
+expected_gap_types:
+- unsafe_bulk_review
+expected_convergence:
+  status: blocked
+  stop_reason: risk_gate_triggered
+  blocking_gap_count: 2
+expected_review_queue:
+  blocked_count: 1
+  bulk_promotable_count: 0
+  blocking_gap_count: 2
+  individual_review_required_min_count: 1
+max_allowed_draft_decisions: 20

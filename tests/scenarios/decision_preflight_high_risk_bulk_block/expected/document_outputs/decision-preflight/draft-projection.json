@@ -1,0 +1,377 @@
+{
+  "canonical_summary": {
+    "accepted_decision_count": 0,
+    "link_count": 0,
+    "object_count": 1,
+    "open_decision_count": 0
+  },
+  "convergence": {
+    "blocking_gap_count": 2,
+    "explanation": "Detected 2 draft gap(s), including 2 blocking gap(s).",
+    "iterations": 1,
+    "max_iterations": 1,
+    "new_gap_count": 2,
+    "status": "blocked",
+    "stop_reason": "risk_gate_triggered"
+  },
+  "coverage_matrix": [
+    {
+      "axis_id": "core.layer.constraint",
+      "axis_type": "decision_stack_layer",
+      "blocks_convergence": false,
+      "covered_by": [
+        "DD-003"
+      ],
+      "observed_value": "complete",
+      "priority": "P1",
+      "remaining_gaps": [],
+      "required": true,
+      "status": "covered",
+      "value": "constraint"
+    },
+    {
+      "axis_id": "core.layer.design",
+      "axis_type": "decision_stack_layer",
+      "blocks_convergence": false,
+      "covered_by": [
+        "DD-005"
+      ],
+      "observed_value": "complete",
+      "priority": "P1",
+      "remaining_gaps": [],
+      "required": true,
+      "status": "covered",
+      "value": "design"
+    },
+    {
+      "axis_id": "core.layer.execution",
+      "axis_type": "decision_stack_layer",
+      "blocks_convergence": false,
+      "covered_by": [
+        "DD-006"
+      ],
+      "observed_value": "complete",
+      "priority": "P1",
+      "remaining_gaps": [],
+      "required": true,
+      "status": "covered",
+      "value": "execution"
+    },
+    {
+      "axis_id": "core.layer.principle",
+      "axis_type": "decision_stack_layer",
+      "blocks_convergence": false,
+      "covered_by": [
+        "DD-002"
+      ],
+      "observed_value": "complete",
+      "priority": "P1",
+      "remaining_gaps": [],
+      "required": true,
+      "status": "covered",
+      "value": "principle"
+    },
+    {
+      "axis_id": "core.layer.purpose",
+      "axis_type": "decision_stack_layer",
+      "blocks_convergence": false,
+      "covered_by": [
+        "DD-001"
+      ],
+      "observed_value": "complete",
+      "priority": "P1",
+      "remaining_gaps": [],
+      "required": true,
+      "status": "covered",
+      "value": "purpose"
+    },
+    {
+      "axis_id": "core.layer.review",
+      "axis_type": "decision_stack_layer",
+      "blocks_convergence": false,
+      "covered_by": [
+        "DD-008"
+      ],
+      "observed_value": "complete",
+      "priority": "P1",
+      "remaining_gaps": [],
+      "required": true,
+      "status": "covered",
+      "value": "review"
+    },
+    {
+      "axis_id": "core.layer.strategy",
+      "axis_type": "decision_stack_layer",
+      "blocks_convergence": false,
+      "covered_by": [
+        "DD-004"
+      ],
+      "observed_value": "complete",
+      "priority": "P1",
+      "remaining_gaps": [],
+      "required": true,
+      "status": "covered",
+      "value": "strategy"
+    },
+    {
+      "axis_id": "core.layer.verification",
+      "axis_type": "decision_stack_layer",
+      "blocks_convergence": false,
+      "covered_by": [
+        "DD-007"
+      ],
+      "observed_value": "complete",
+      "priority": "P1",
+      "remaining_gaps": [],
+      "required": true,
+      "status": "covered",
+      "value": "verification"
+    },
+    {
+      "axis_id": "core.evidence.coverage",
+      "axis_type": "evidence_coverage",
+      "blocks_convergence": false,
+      "covered_by": [
+        "DD-001",
+        "DD-002",
+        "DD-003",
+        "DD-004",
+        "DD-005",
+        "DD-006",
+        "DD-007",
+        "DD-008"
+      ],
+      "observed_value": "sufficient",
+      "priority": "P2",
+      "remaining_gaps": [],
+      "required": false,
+      "status": "covered",
+      "value": "sufficient"
+    },
+    {
+      "axis_id": "core.human_review.safety",
+      "axis_type": "human_review_safety",
+      "blocks_convergence": true,
+      "covered_by": [
+        "DD-002",
+        "DD-003",
+        "DD-004",
+        "DD-005",
+        "DD-006",
+        "DD-007",
+        "DD-008"
+      ],
+      "observed_value": "blocked",
+      "priority": "P0",
+      "remaining_gaps": [
+        "Unsafe bulk review requested for high/critical risk draft decisions: DD-001."
+      ],
+      "required": true,
+      "status": "missing",
+      "value": "individual_required"
+    },
+    {
+      "axis_id": "core.promotion.accepted_forbidden",
+      "axis_type": "promotion_safety",
+      "blocks_convergence": false,
+      "covered_by": [
+        "DD-001",
+        "DD-002",
+        "DD-003",
+        "DD-004",
+        "DD-005",
+        "DD-006",
+        "DD-007",
+        "DD-008"
+      ],
+      "observed_value": "accepted_forbidden",
+      "priority": "P2",
+      "remaining_gaps": [],
+      "required": false,
+      "status": "covered",
+      "value": "accepted_forbidden"
+    },
+    {
+      "axis_id": "core.promotion.proposal_required",
+      "axis_type": "promotion_safety",
+      "blocks_convergence": false,
+      "covered_by": [
+        "DD-001",
+        "DD-002",
+        "DD-003",
+        "DD-004",
+        "DD-005",
+        "DD-006",
+        "DD-007",
+        "DD-008"
+      ],
+      "observed_value": "proposal_required",
+      "priority": "P2",
+      "remaining_gaps": [],
+      "required": false,
+      "status": "covered",
+      "value": "proposal_required"
+    },
+    {
+      "axis_id": "core.promotion.stale_warning",
+      "axis_type": "promotion_safety",
+      "blocks_convergence": false,
+      "covered_by": [],
+      "observed_value": "fresh",
+      "priority": "P2",
+      "remaining_gaps": [],
+      "required": false,
+      "status": "covered",
+      "value": "stale_warning"
+    }
+  ],
+  "coverage_summary": {
+    "blocking_gap_count": 1,
+    "covered_count": 12,
+    "missing_count": 1,
+    "partial_count": 0,
+    "required_target_count": 9
+  },
+  "current_project_head": "056efe3202fc020a882fd0f68d5d3b7d4074802fd19654142c7894454d24f433",
+  "draft_set_id": "DS-20260429-001",
+  "draft_summary": {
+    "draft_action_count": 0,
+    "draft_assumption_count": 0,
+    "draft_decision_count": 8,
+    "draft_risk_count": 0,
+    "draft_verification_count": 0,
+    "promoted_decision_count": 0
+  },
+  "gap_diagnostics": [
+    {
+      "blocks_bulk_promotion": true,
+      "blocks_convergence": true,
+      "id": "GAP-001",
+      "reason": "Draft decision DD-001 is high risk but requests bulk review.",
+      "scope": "draft_decision",
+      "severity": "critical",
+      "suggested_draft_decision": null,
+      "suggested_resolution": "Change high/critical risk items to individual review.",
+      "target_id": "DD-001",
+      "target_kind": "draft_decision",
+      "type": "unsafe_bulk_review"
+    },
+    {
+      "blocks_bulk_promotion": true,
+      "blocks_convergence": true,
+      "id": "GAP-002",
+      "reason": "Unsafe bulk review requested for high/critical risk draft decisions: DD-001.",
+      "scope": "coverage",
+      "severity": "high",
+      "suggested_draft_decision": null,
+      "suggested_resolution": "Route unsafe or unclear review targets to individual human review.",
+      "target_id": "core.human_review.safety",
+      "target_kind": "coverage_gap",
+      "type": "unsafe_bulk_review"
+    }
+  ],
+  "links": [],
+  "nodes": [
+    {
+      "layer": null,
+      "node_id": "canonical:O-project-objective",
+      "object_id": "O-project-objective",
+      "object_type": "objective",
+      "priority": null,
+      "risk_tier": null,
+      "source": "canonical",
+      "status": "active"
+    },
+    {
+      "layer": "purpose",
+      "node_id": "draft:DD-001",
+      "object_id": "DD-001",
+      "object_type": "draft_decision",
+      "priority": "P2",
+      "promoted": false,
+      "risk_tier": "high",
+      "source": "draft",
+      "status": "recommended"
+    },
+    {
+      "layer": "principle",
+      "node_id": "draft:DD-002",
+      "object_id": "DD-002",
+      "object_type": "draft_decision",
+      "priority": "P1",
+      "promoted": false,
+      "risk_tier": "low",
+      "source": "draft",
+      "status": "recommended"
+    },
+    {
+      "layer": "constraint",
+      "node_id": "draft:DD-003",
+      "object_id": "DD-003",
+      "object_type": "draft_decision",
+      "priority": "P1",
+      "promoted": false,
+      "risk_tier": "low",
+      "source": "draft",
+      "status": "recommended"
+    },
+    {
+      "layer": "strategy",
+      "node_id": "draft:DD-004",
+      "object_id": "DD-004",
+      "object_type": "draft_decision",
+      "priority": "P1",
+      "promoted": false,
+      "risk_tier": "low",
+      "source": "draft",
+      "status": "recommended"
+    },
+    {
+      "layer": "design",
+      "node_id": "draft:DD-005",
+      "object_id": "DD-005",
+      "object_type": "draft_decision",
+      "priority": "P1",
+      "promoted": false,
+      "risk_tier": "low",
+      "source": "draft",
+      "status": "recommended"
+    },
+    {
+      "layer": "execution",
+      "node_id": "draft:DD-006",
+      "object_id": "DD-006",
+      "object_type": "draft_decision",
+      "priority": "P1",
+      "promoted": false,
+      "risk_tier": "low",
+      "source": "draft",
+      "status": "recommended"
+    },
+    {
+      "layer": "verification",
+      "node_id": "draft:DD-007",
+      "object_id": "DD-007",
+      "object_type": "draft_decision",
+      "priority": "P1",
+      "promoted": false,
+      "risk_tier": "low",
+      "source": "draft",
+      "status": "recommended"
+    },
+    {
+      "layer": "review",
+      "node_id": "draft:DD-008",
+      "object_id": "DD-008",
+      "object_type": "draft_decision",
+      "priority": "P1",
+      "promoted": false,
+      "risk_tier": "low",
+      "source": "draft",
+      "status": "recommended"
+    }
+  ],
+  "project_head_at_generation": "056efe3202fc020a882fd0f68d5d3b7d4074802fd19654142c7894454d24f433",
+  "schema_version": 2,
+  "stale": false
+}

@@ -1,0 +1,238 @@
+{
+  "blocked": [
+    "core.human_review.safety"
+  ],
+  "blocking_gaps": [
+    {
+      "id": "GAP-001",
+      "reason": "Draft decision DD-001 is high risk but requests bulk review.",
+      "severity": "critical",
+      "target_id": "DD-001",
+      "target_kind": "draft_decision",
+      "type": "unsafe_bulk_review"
+    },
+    {
+      "id": "GAP-002",
+      "reason": "Unsafe bulk review requested for high/critical risk draft decisions: DD-001.",
+      "severity": "high",
+      "target_id": "core.human_review.safety",
+      "target_kind": "coverage_gap",
+      "type": "unsafe_bulk_review"
+    }
+  ],
+  "bulk_promotable": [],
+  "coverage_summary": {
+    "blocking_gap_count": 1,
+    "covered_count": 12,
+    "missing_count": 1,
+    "partial_count": 0,
+    "required_target_count": 9
+  },
+  "current_project_head": "056efe3202fc020a882fd0f68d5d3b7d4074802fd19654142c7894454d24f433",
+  "draft_set_id": "DS-20260429-001",
+  "individual_review_required": [
+    "DD-002",
+    "DD-003",
+    "DD-004",
+    "DD-005",
+    "DD-006",
+    "DD-007",
+    "DD-008",
+    "DD-001",
+    "GAP-001"
+  ],
+  "must_not_bulk_promote": [
+    "core.human_review.safety",
+    "DD-002",
+    "DD-003",
+    "DD-004",
+    "DD-005",
+    "DD-006",
+    "DD-007",
+    "DD-008",
+    "DD-001",
+    "GAP-001"
+  ],
+  "project_head_at_generation": "056efe3202fc020a882fd0f68d5d3b7d4074802fd19654142c7894454d24f433",
+  "review_order": [
+    {
+      "gap_type": "unsafe_bulk_review",
+      "layer": null,
+      "priority": "P0",
+      "promotion_readiness": "blocked",
+      "rank": 1,
+      "reasons": [
+        "Unsafe bulk review requested for high/critical risk draft decisions: DD-001."
+      ],
+      "required_action": "Resolve blocking diagnostics before promotion.",
+      "review_mode": "blocked",
+      "risk_tier": null,
+      "target_id": "core.human_review.safety",
+      "target_kind": "coverage_gap"
+    },
+    {
+      "draft_decision_id": "DD-002",
+      "gap_type": null,
+      "layer": "principle",
+      "priority": "P1",
+      "promotion_readiness": "review_required",
+      "rank": 2,
+      "reasons": [
+        "P1 decision",
+        "P0/P1 priority requires individual review"
+      ],
+      "required_action": "Review individually before promotion.",
+      "review_mode": "individual",
+      "risk_tier": "low",
+      "target_id": "DD-002",
+      "target_kind": "draft_decision"
+    },
+    {
+      "draft_decision_id": "DD-003",
+      "gap_type": null,
+      "layer": "constraint",
+      "priority": "P1",
+      "promotion_readiness": "review_required",
+      "rank": 3,
+      "reasons": [
+        "P1 decision",
+        "P0/P1 priority requires individual review"
+      ],
+      "required_action": "Review individually before promotion.",
+      "review_mode": "individual",
+      "risk_tier": "low",
+      "target_id": "DD-003",
+      "target_kind": "draft_decision"
+    },
+    {
+      "draft_decision_id": "DD-004",
+      "gap_type": null,
+      "layer": "strategy",
+      "priority": "P1",
+      "promotion_readiness": "review_required",
+      "rank": 4,
+      "reasons": [
+        "P1 decision",
+        "P0/P1 priority requires individual review"
+      ],
+      "required_action": "Review individually before promotion.",
+      "review_mode": "individual",
+      "risk_tier": "low",
+      "target_id": "DD-004",
+      "target_kind": "draft_decision"
+    },
+    {
+      "draft_decision_id": "DD-005",
+      "gap_type": null,
+      "layer": "design",
+      "priority": "P1",
+      "promotion_readiness": "review_required",
+      "rank": 5,
+      "reasons": [
+        "P1 decision",
+        "P0/P1 priority requires individual review"
+      ],
+      "required_action": "Review individually before promotion.",
+      "review_mode": "individual",
+      "risk_tier": "low",
+      "target_id": "DD-005",
+      "target_kind": "draft_decision"
+    },
+    {
+      "draft_decision_id": "DD-006",
+      "gap_type": null,
+      "layer": "execution",
+      "priority": "P1",
+      "promotion_readiness": "review_required",
+      "rank": 6,
+      "reasons": [
+        "P1 decision",
+        "P0/P1 priority requires individual review"
+      ],
+      "required_action": "Review individually before promotion.",
+      "review_mode": "individual",
+      "risk_tier": "low",
+      "target_id": "DD-006",
+      "target_kind": "draft_decision"
+    },
+    {
+      "draft_decision_id": "DD-007",
+      "gap_type": null,
+      "layer": "verification",
+      "priority": "P1",
+      "promotion_readiness": "review_required",
+      "rank": 7,
+      "reasons": [
+        "P1 decision",
+        "P0/P1 priority requires individual review"
+      ],
+      "required_action": "Review individually before promotion.",
+      "review_mode": "individual",
+      "risk_tier": "low",
+      "target_id": "DD-007",
+      "target_kind": "draft_decision"
+    },
+    {
+      "draft_decision_id": "DD-008",
+      "gap_type": null,
+      "layer": "review",
+      "priority": "P1",
+      "promotion_readiness": "review_required",
+      "rank": 8,
+      "reasons": [
+        "P1 decision",
+        "P0/P1 priority requires individual review"
+      ],
+      "required_action": "Review individually before promotion.",
+      "review_mode": "individual",
+      "risk_tier": "low",
+      "target_id": "DD-008",
+      "target_kind": "draft_decision"
+    },
+    {
+      "draft_decision_id": "DD-001",
+      "gap_type": null,
+      "layer": "purpose",
+      "priority": "P2",
+      "promotion_readiness": "review_required",
+      "rank": 9,
+      "reasons": [
+        "blocking gap diagnostic requires individual review",
+        "unsafe_bulk_review: Draft decision DD-001 is high risk but requests bulk review."
+      ],
+      "required_action": "Review individually before promotion.",
+      "review_mode": "individual",
+      "risk_tier": "high",
+      "target_id": "DD-001",
+      "target_kind": "draft_decision"
+    },
+    {
+      "gap_type": "unsafe_bulk_review",
+      "layer": null,
+      "priority": null,
+      "promotion_readiness": "review_required",
+      "rank": 10,
+      "reasons": [
+        "unsafe_bulk_review on DD-001: Draft decision DD-001 is high risk but requests bulk review."
+      ],
+      "required_action": "Review individually before promotion.",
+      "review_mode": "individual",
+      "risk_tier": null,
+      "target_id": "GAP-001",
+      "target_kind": "gap_diagnostic"
+    }
+  ],
+  "schema_version": 2,
+  "stale": false,
+  "status": "ok",
+  "summary": {
+    "blocked_count": 1,
+    "bulk_promotable_count": 0,
+    "coverage_blocking_gap_count": 1,
+    "draft_decision_count": 8,
+    "high_risk_count": 1,
+    "individual_review_required_count": 9,
+    "missing_evidence_count": 0
+  },
+  "warnings": []
+}

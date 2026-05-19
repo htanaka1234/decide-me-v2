@@ -19,6 +19,12 @@ class EvaluationReportSchemaTests(unittest.TestCase):
     def test_accepts_valid_phase11_passed_report(self) -> None:
         self.assertEqual([], list(self.validator.iter_errors(_valid_report())))
 
+    def test_accepts_optional_decision_preflight_metric(self) -> None:
+        payload = _valid_report()
+        payload["metrics"]["decision_preflight"] = _valid_decision_preflight_metric()
+
+        self.assertEqual([], list(self.validator.iter_errors(payload)))
+
     def test_accepts_failure_payload_with_expected_and_actual_values(self) -> None:
         payload = _valid_report()
         payload["status"] = "failed"
@@ -51,6 +57,15 @@ class EvaluationReportSchemaTests(unittest.TestCase):
     def test_rejects_unknown_metric_field(self) -> None:
         payload = _valid_report()
         payload["metrics"]["question_efficiency"]["elapsed_seconds"] = 12
+
+        self.assertTrue(list(self.validator.iter_errors(payload)))
+
+    def test_rejects_invalid_decision_preflight_metric_shape(self) -> None:
+        payload = _valid_report()
+        payload["metrics"]["decision_preflight"] = {
+            "coverage_recall": {},
+            "passed": True,
+        }
 
         self.assertTrue(list(self.validator.iter_errors(payload)))
 
@@ -197,6 +212,28 @@ def _valid_report() -> dict:
             },
         },
         "failures": [],
+    }
+
+
+def _valid_decision_preflight_metric() -> dict:
+    return {
+        "coverage_recall": {
+            "required_gap_ids_found": ["core.layer.strategy"],
+            "missing_expected_gap_ids": [],
+        },
+        "safety_preservation": {
+            "canonical_events_created": False,
+            "project_state_changed": False,
+        },
+        "review_quality": {
+            "blocked_count": 1,
+            "bulk_promotable_count": 0,
+        },
+        "over_fragmentation": {
+            "draft_decision_count": 7,
+            "max_allowed": 20,
+        },
+        "passed": True,
     }
 
 

@@ -14,8 +14,10 @@ from typing import Any
 import yaml
 from jsonschema import Draft202012Validator, FormatChecker
 
+from decide_me.autopilot import run_autopilot_draft
 from decide_me.documents.compiler import compile_document
 from decide_me.domains import domain_pack_digest, load_domain_registry
+from decide_me.draft_sets import DRAFT_SET_ID_PATTERN
 from decide_me.events import build_event
 from decide_me.interview import advance_session
 from decide_me.lifecycle import close_session
@@ -182,6 +184,8 @@ def run_scenario_evaluation(
         "action_executability": _action_executability_metric(scenario, runtime, bundle, failures),
         "document_validity": _document_validity_metric(scenario, runtime, failures),
     }
+    if "decision_preflight" in scenario.expected:
+        metrics["decision_preflight"] = _decision_preflight_metric(scenario, runtime, failures)
     if validation_issues:
         metrics["action_executability"]["passed"] = False
         failures.append(
@@ -250,6 +254,9 @@ def _load_expected_payloads(scenario_root: Path) -> dict[str, Any]:
         expected[key] = _load_expected_yaml(expected_root / relative_path)
     performance_path = expected_root / "performance.yaml"
     expected["performance"] = _load_expected_yaml(performance_path) if performance_path.exists() else {}
+    decision_preflight_path = expected_root / "decision_preflight.yaml"
+    if decision_preflight_path.exists():
+        expected["decision_preflight"] = _load_expected_yaml(decision_preflight_path)
     document_outputs = expected_root / DOCUMENT_OUTPUTS_DIR
     if not document_outputs.is_dir():
         raise FileNotFoundError(f"scenario expected/document_outputs directory is required: {document_outputs}")
@@ -281,6 +288,12 @@ def _validate_expected_payloads(scenario_root: Path, expected: dict[str, Any]) -
     _validate_expected_risks(expected["risks"], scenario_root / EXPECTED_DIR_NAME / "risks.yaml")
     _validate_expected_assumptions(expected["assumptions"], scenario_root / EXPECTED_DIR_NAME / "assumptions.yaml")
     _validate_expected_action_plan(expected["action_plan"], scenario_root / EXPECTED_DIR_NAME / "action_plan.yaml")
+    if "decision_preflight" in expected:
+        _validate_expected_decision_preflight(
+            expected["decision_preflight"],
+            scenario_root / EXPECTED_DIR_NAME / "decision_preflight.yaml",
+            scenario_root,
+        )
     performance_path = scenario_root / EXPECTED_DIR_NAME / "performance.yaml"
     _validate_expected_performance(expected["performance"], performance_path)
 
@@ -450,6 +463,82 @@ def _validate_expected_action_plan(payload: dict[str, Any], path: Path) -> None:
         _require_non_negative_int(payload, "max_blocker_count", path)
     if "require_no_unresolved_conflicts" in payload:
         _require_bool(payload, "require_no_unresolved_conflicts", path)
+
+
+def _validate_expected_decision_preflight(payload: dict[str, Any], path: Path, scenario_root: Path) -> None:
+    allowed = {
+        "seed_draft_json",
+        "draft_set_id",
+        "max_iterations",
+        "max_draft_decisions",
+        "expected_required_gap_ids",
+        "expected_coverage_rows",
+        "expected_gap_types",
+        "expected_convergence",
+        "expected_review_queue",
+        "max_allowed_draft_decisions",
+    }
+    _require_keys(payload, allowed, path)
+    _reject_unknown_keys(payload, allowed, path)
+    seed_ref = _require_non_empty_string(payload, "seed_draft_json", path)
+    seed_path = _resolve_fixture_path(scenario_root, seed_ref)
+    if not seed_path.is_file() or seed_path.suffix.lower() != ".json":
+        raise ValueError(f"{path} seed_draft_json must point to an existing .json file")
+    draft_set_id = _require_non_empty_string(payload, "draft_set_id", path)
+    if DRAFT_SET_ID_PATTERN.fullmatch(draft_set_id) is None:
+        raise ValueError(f"{path} draft_set_id must match DS-YYYYMMDD-NNN")
+    _require_minimum_int(payload, "max_iterations", 1, path)
+    _require_minimum_int(payload, "max_draft_decisions", 1, path)
+    _require_string_list(payload, "expected_required_gap_ids", path)
+    _validate_expected_coverage_rows(_require_list(payload, "expected_coverage_rows", path), path)
+    _require_string_list(payload, "expected_gap_types", path)
+    _validate_expected_convergence(payload["expected_convergence"], f"{path}:expected_convergence")
+    _validate_expected_review_queue(payload["expected_review_queue"], f"{path}:expected_review_queue")
+    _require_minimum_int(payload, "max_allowed_draft_decisions", 1, path)
+
+
+def _validate_expected_coverage_rows(rows: list[Any], path: Path) -> None:
+    required = {"axis_id", "axis_type", "status", "required", "priority", "blocks_convergence"}
+    for index, row in enumerate(rows):
+        item_path = f"{path}:expected_coverage_rows[{index}]"
+        _require_mapping(row, item_path)
+        _require_keys(row, required, item_path)
+        _reject_unknown_keys(row, required, item_path)
+        _require_non_empty_string(row, "axis_id", item_path)
+        _require_enum(
+            row,
+            "axis_type",
+            {"decision_stack_layer", "evidence_coverage", "human_review_safety", "promotion_safety"},
+            item_path,
+        )
+        _require_enum(row, "status", {"covered", "partial", "missing"}, item_path)
+        _require_bool(row, "required", item_path)
+        _require_enum(row, "priority", {"P0", "P1", "P2", "P3"}, item_path)
+        _require_bool(row, "blocks_convergence", item_path)
+
+
+def _validate_expected_convergence(payload: Any, path: str) -> None:
+    _require_mapping(payload, path)
+    allowed = {"status", "stop_reason", "blocking_gap_count"}
+    _require_keys(payload, allowed, path)
+    _reject_unknown_keys(payload, allowed, path)
+    _require_enum(payload, "status", {"blocked", "converged"}, path)
+    _require_non_empty_string(payload, "stop_reason", path)
+    _require_non_negative_int(payload, "blocking_gap_count", path)
+
+
+def _validate_expected_review_queue(payload: Any, path: str) -> None:
+    _require_mapping(payload, path)
+    allowed = {
+        "blocked_count",
+        "bulk_promotable_count",
+        "blocking_gap_count",
+        "individual_review_required_min_count",
+    }
+    _require_keys(payload, allowed, path)
+    _reject_unknown_keys(payload, allowed, path)
+    for key in allowed:
+        _require_non_negative_int(payload, key, path)
 
 
 def _validate_expected_document_manifest(payload: dict[str, Any], path: Path) -> None:
@@ -1460,6 +1549,183 @@ def _document_validity_metric(
     }
 
 
+def _decision_preflight_metric(
+    scenario: EvaluationScenario,
+    runtime: ScenarioRuntime,
+    failures: list[dict[str, Any]],
+) -> dict[str, Any]:
+    expected = scenario.expected["decision_preflight"]
+    before_events = _event_hash_snapshot(runtime.ai_dir)
+    before_runtime = _canonical_runtime_snapshot(runtime.ai_dir)
+    seed_path = _resolve_fixture_path(scenario.root, expected["seed_draft_json"])
+
+    result: dict[str, Any] | None = None
+    run_error: str | None = None
+    try:
+        result = run_autopilot_draft(
+            runtime.ai_dir,
+            seed_draft_json=str(seed_path),
+            draft_set_id=expected["draft_set_id"],
+            max_iterations=expected["max_iterations"],
+            max_draft_decisions=expected["max_draft_decisions"],
+            now=scenario.evaluation["now"],
+            export=True,
+            force_export=True,
+        )
+    except Exception as exc:  # pragma: no cover - broken future fixtures exercise this branch
+        run_error = str(exc)
+
+    after_events = _event_hash_snapshot(runtime.ai_dir)
+    after_runtime = _canonical_runtime_snapshot(runtime.ai_dir)
+    canonical_events_created = before_events != after_events
+    project_state_changed = before_runtime != after_runtime
+
+    draft_set: dict[str, Any] = {}
+    projection: dict[str, Any] = {}
+    review_queue: dict[str, Any] = {}
+    if result is not None:
+        draft_set = _load_json_file(Path(result["draft_set_path"]))
+        projection = _load_json_file(Path(result["projection_path"]))
+        review_queue_path = runtime.ai_dir / "draft-sets" / expected["draft_set_id"] / "review-queue.json"
+        review_queue = _load_json_file(review_queue_path)
+
+    expected_gap_ids = sorted(expected["expected_required_gap_ids"])
+    coverage_matrix = [row for row in _list_field(projection, "coverage_matrix") if isinstance(row, dict)]
+    coverage_by_axis_id = {
+        row["axis_id"]: row
+        for row in coverage_matrix
+        if isinstance(row.get("axis_id"), str)
+    }
+    blocking_axis_ids = sorted(
+        str(row.get("axis_id"))
+        for row in coverage_matrix
+        if row.get("blocks_convergence") is True and row.get("axis_id")
+    )
+    required_gap_ids_found = [axis_id for axis_id in expected_gap_ids if axis_id in blocking_axis_ids]
+    missing_expected_gap_ids = [axis_id for axis_id in expected_gap_ids if axis_id not in blocking_axis_ids]
+    gap_diagnostics = [gap for gap in _list_field(projection, "gap_diagnostics") if isinstance(gap, dict)]
+    actual_gap_types = sorted({str(gap.get("type")) for gap in gap_diagnostics if gap.get("type")})
+    missing_expected_gap_types = [
+        gap_type
+        for gap_type in sorted(expected["expected_gap_types"])
+        if gap_type not in actual_gap_types
+    ]
+    convergence = _dict_field(projection, "convergence")
+    review_summary = _dict_field(review_queue, "summary")
+    review_blocking_gap_count = len(_list_field(review_queue, "blocking_gaps"))
+    individual_review_required_count = len(_list_field(review_queue, "individual_review_required"))
+    blocked_count = _non_negative_metric_int(_dict_field(review_queue, "summary").get("blocked_count"))
+    bulk_promotable_count = _non_negative_metric_int(review_summary.get("bulk_promotable_count"))
+    draft_decision_count = len(_list_field(draft_set, "draft_decisions"))
+    max_allowed = expected["max_allowed_draft_decisions"]
+    preflight_md = ""
+    review_queue_md = ""
+    if result is not None:
+        exports_root = runtime.ai_dir / "draft-sets" / expected["draft_set_id"] / "exports"
+        preflight_path = exports_root / "preflight.md"
+        review_queue_path = exports_root / "review-queue.md"
+        if preflight_path.is_file():
+            preflight_md = preflight_path.read_text(encoding="utf-8")
+        if review_queue_path.is_file():
+            review_queue_md = review_queue_path.read_text(encoding="utf-8")
+
+    expectation_failures: list[str] = []
+    if run_error is not None:
+        expectation_failures.append("autopilot_run_failed")
+    if missing_expected_gap_ids:
+        expectation_failures.append("coverage_recall")
+    for expected_row in expected["expected_coverage_rows"]:
+        axis_id = expected_row["axis_id"]
+        actual_row = coverage_by_axis_id.get(axis_id)
+        if actual_row is None:
+            expectation_failures.append(f"coverage_row:{axis_id}:missing")
+            continue
+        for key in ("axis_type", "status", "required", "priority", "blocks_convergence"):
+            if actual_row.get(key) != expected_row[key]:
+                expectation_failures.append(f"coverage_row:{axis_id}:{key}")
+    if missing_expected_gap_types:
+        expectation_failures.append("gap_type_recall")
+    expected_convergence = expected["expected_convergence"]
+    for key in ("status", "stop_reason", "blocking_gap_count"):
+        if convergence.get(key) != expected_convergence[key]:
+            expectation_failures.append(f"convergence:{key}:{expected_convergence[key]}")
+    if canonical_events_created:
+        expectation_failures.append("canonical_events_created")
+    if project_state_changed:
+        expectation_failures.append("project_state_changed")
+    expected_review_queue = expected["expected_review_queue"]
+    if blocked_count != expected_review_queue["blocked_count"]:
+        expectation_failures.append(f"review_queue.blocked_count:{expected_review_queue['blocked_count']}")
+    if bulk_promotable_count != expected_review_queue["bulk_promotable_count"]:
+        expectation_failures.append(
+            f"review_queue.bulk_promotable_count:{expected_review_queue['bulk_promotable_count']}"
+        )
+    if review_blocking_gap_count != expected_review_queue["blocking_gap_count"]:
+        expectation_failures.append(f"review_queue.blocking_gap_count:{expected_review_queue['blocking_gap_count']}")
+    if individual_review_required_count < expected_review_queue["individual_review_required_min_count"]:
+        expectation_failures.append(
+            "review_queue.individual_review_required_min_count:"
+            f"{expected_review_queue['individual_review_required_min_count']}"
+        )
+    if draft_decision_count > max_allowed:
+        expectation_failures.append(f"draft_decision_count_max:{max_allowed}")
+    if result is not None:
+        if any(field in draft_set for field in ("coverage_matrix", "coverage_summary", "gap_diagnostics")):
+            expectation_failures.append("source_derived_boundary:draft_set_contains_diagnostics")
+        if "coverage_matrix" not in projection or "gap_diagnostics" not in projection:
+            expectation_failures.append("source_derived_boundary:projection_missing_diagnostics")
+        if "DRAFT / NOT ACCEPTED" not in preflight_md:
+            expectation_failures.append("preflight_export:draft_banner")
+        if "Coverage" not in preflight_md:
+            expectation_failures.append("preflight_export:coverage_summary")
+        if "Blocking" not in review_queue_md:
+            expectation_failures.append("review_queue_export:blocking_gaps")
+
+    passed = not expectation_failures
+    if not passed:
+        failures.append(
+            _failure(
+                "decision_preflight",
+                "Decision Preflight scenario expectations did not match.",
+                "$.metrics.decision_preflight",
+                expected=expected,
+                actual={
+                    "run_error": run_error,
+                    "blocking_axis_ids": blocking_axis_ids,
+                    "actual_gap_types": actual_gap_types,
+                    "failed_expectations": expectation_failures,
+                    "convergence": convergence,
+                    "blocked_count": blocked_count,
+                    "bulk_promotable_count": bulk_promotable_count,
+                    "review_blocking_gap_count": review_blocking_gap_count,
+                    "individual_review_required_count": individual_review_required_count,
+                    "draft_decision_count": draft_decision_count,
+                    "event_changes": _changed_snapshot_paths(before_events, after_events),
+                    "runtime_changes": _changed_snapshot_paths(before_runtime, after_runtime),
+                },
+            )
+        )
+    return {
+        "coverage_recall": {
+            "required_gap_ids_found": required_gap_ids_found,
+            "missing_expected_gap_ids": missing_expected_gap_ids,
+        },
+        "safety_preservation": {
+            "canonical_events_created": canonical_events_created,
+            "project_state_changed": project_state_changed,
+        },
+        "review_quality": {
+            "blocked_count": blocked_count,
+            "bulk_promotable_count": bulk_promotable_count,
+        },
+        "over_fragmentation": {
+            "draft_decision_count": draft_decision_count,
+            "max_allowed": max_allowed,
+        },
+        "passed": passed,
+    }
+
+
 def _expected_document_session_ids(
     expected: dict[str, Any],
     runtime: ScenarioRuntime,
@@ -1624,6 +1890,66 @@ def _section_has_content(section: dict[str, Any]) -> bool:
         if block_type == "callout" and str(block.get("text") or "").strip():
             return True
     return False
+
+
+def _load_json_file(path: Path) -> dict[str, Any]:
+    if not path.is_file():
+        return {}
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    return payload if isinstance(payload, dict) else {}
+
+
+def _dict_field(value: Any, key: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {}
+    field = value.get(key)
+    return field if isinstance(field, dict) else {}
+
+
+def _list_field(value: Any, key: str) -> list[Any]:
+    if not isinstance(value, dict):
+        return []
+    field = value.get(key)
+    return field if isinstance(field, list) else []
+
+
+def _non_negative_metric_int(value: Any) -> int:
+    return value if isinstance(value, int) and value >= 0 else 0
+
+
+def _event_hash_snapshot(ai_dir: Path) -> dict[str, str]:
+    events_root = ai_dir / "events"
+    if not events_root.exists():
+        return {}
+    return _hash_snapshot(ai_dir, sorted(events_root.rglob("*.jsonl")))
+
+
+def _canonical_runtime_snapshot(ai_dir: Path) -> dict[str, str]:
+    paths: list[Path] = []
+    for path in (
+        ai_dir / "project-state.json",
+        ai_dir / "taxonomy-state.json",
+        ai_dir / "runtime-index.json",
+        ai_dir / "session-graph-cache.json",
+    ):
+        if path.exists():
+            paths.append(path)
+    sessions_root = ai_dir / "sessions"
+    if sessions_root.exists():
+        paths.extend(sorted(sessions_root.glob("*.json")))
+    return _hash_snapshot(ai_dir, paths)
+
+
+def _hash_snapshot(root: Path, paths: list[Path]) -> dict[str, str]:
+    return {
+        path.relative_to(root).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in paths
+        if path.is_file()
+    }
+
+
+def _changed_snapshot_paths(before: dict[str, str], after: dict[str, str]) -> list[str]:
+    return sorted(path for path in set(before) | set(after) if before.get(path) != after.get(path))
 
 
 def _failure(
