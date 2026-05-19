@@ -225,7 +225,8 @@ python3 <skill-root>/scripts/decide_me.py autopilot-draft \
 
 Goal-only mode creates a conservative skeleton. It does not infer recommendations beyond generic
 purpose, constraint, evidence, verification, and review boundaries. `review-draft-set` is optional for
-Decision Preflight because `export-draft-set` also writes `review-queue.json`.
+Decision Preflight because `export-draft-set` also derives projection diagnostics in memory and writes
+`review-queue.json`.
 
 ## Draft Generation Heuristics
 
@@ -392,6 +393,7 @@ Review summary: blocked=N, individual=N, bulk candidates=N
 Coverage summary: required=N, covered=N, partial=N, missing=N, blocking=N
 Convergence: status=blocked|budget_exhausted|converged, stop_reason=...
 Gap summary: total=N, blocking=N
+Blocking gaps: GAP-... target=...
 Exports:
 - preflight.md
 - draft-decisions.md

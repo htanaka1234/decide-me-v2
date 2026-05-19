@@ -11,6 +11,8 @@
     "current_project_head",
     "stale",
     "summary",
+    "coverage_summary",
+    "blocking_gaps",
     "review_order",
     "bulk_promotable",
     "individual_review_required",
@@ -21,7 +23,7 @@
   "additionalProperties": false,
   "properties": {
     "schema_version": {
-      "const": 1
+      "const": 2
     },
     "draft_set_id": {
       "type": "string",
@@ -61,7 +63,8 @@
         "individual_review_required_count",
         "bulk_promotable_count",
         "high_risk_count",
-        "missing_evidence_count"
+        "missing_evidence_count",
+        "coverage_blocking_gap_count"
       ],
       "properties": {
         "draft_decision_count": {
@@ -87,7 +90,20 @@
         "missing_evidence_count": {
           "type": "integer",
           "minimum": 0
+        },
+        "coverage_blocking_gap_count": {
+          "type": "integer",
+          "minimum": 0
         }
+      }
+    },
+    "coverage_summary": {
+      "$ref": "#/$defs/coverage_summary"
+    },
+    "blocking_gaps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/blocking_gap"
       }
     },
     "review_order": {
@@ -136,10 +152,12 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "draft_decision_id",
+        "target_id",
+        "target_kind",
         "priority",
         "layer",
         "risk_tier",
+        "gap_type",
         "review_mode",
         "promotion_readiness",
         "rank",
@@ -147,6 +165,18 @@
         "required_action"
       ],
       "properties": {
+        "target_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_kind": {
+          "type": "string",
+          "enum": [
+            "draft_decision",
+            "coverage_gap",
+            "gap_diagnostic"
+          ]
+        },
         "draft_decision_id": {
           "type": "string"
         },
@@ -163,6 +193,12 @@
           ]
         },
         "risk_tier": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "gap_type": {
           "type": [
             "string",
             "null"
@@ -196,6 +232,85 @@
         },
         "required_action": {
           "type": "string"
+        }
+      }
+    },
+    "coverage_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required_target_count",
+        "covered_count",
+        "partial_count",
+        "missing_count",
+        "blocking_gap_count"
+      ],
+      "properties": {
+        "required_target_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "covered_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "partial_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missing_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blocking_gap_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "blocking_gap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "target_id",
+        "target_kind",
+        "severity",
+        "reason"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^GAP-[0-9]{3}$"
+        },
+        "type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "target_kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "info",
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
         }
       }
     }

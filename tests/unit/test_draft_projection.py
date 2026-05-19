@@ -84,10 +84,14 @@ class DraftProjectionTests(unittest.TestCase):
 
         self.assertEqual("missing", purpose_row["status"])
         self.assertTrue(purpose_row["blocks_convergence"])
+        gap = _gap_by_type(projection, "missing_required_layer", target_id="core.layer.purpose")
+        self.assertEqual("coverage_gap", gap["target_kind"])
         self.assertEqual("blocked", projection["convergence"]["status"])
 
     def test_p2_p3_non_required_missing_coverage_does_not_block(self) -> None:
         draft_set = _draft_set()
+        draft_set["draft_decisions"][0]["priority"] = "P2"
+        draft_set["draft_decisions"][0]["evidence_coverage"]["status"] = "sufficient"
         draft_set["exploration_contract"]["coverage_targets"] = [
             {
                 "axis_id": "core.layer.strategy.optional",
@@ -204,6 +208,16 @@ class DraftProjectionTests(unittest.TestCase):
         self.assertEqual("missing", row["status"])
         self.assertTrue(row["blocks_convergence"])
 
+    def test_projection_detects_stale_draft_set(self) -> None:
+        draft_set = _draft_set()
+        draft_set["source_context"]["project_head_at_generation"] = "old-head"
+
+        projection = _project(draft_set)
+
+        gap = _gap_by_type(projection, "stale_draft_set")
+        self.assertEqual("coverage_gap", gap["target_kind"])
+        self.assertTrue(gap["blocks_convergence"])
+
     def test_projection_detects_missing_recommendation_for_p0(self) -> None:
         draft_set = _draft_set()
         draft_set["draft_decisions"][0]["priority"] = "P0"
@@ -211,7 +225,18 @@ class DraftProjectionTests(unittest.TestCase):
 
         projection = _project(draft_set)
 
-        gap = _gap_by_type(projection, "missing_recommendation")
+        gap = _gap_by_type(projection, "missing_p0_recommendation")
+        self.assertEqual("high", gap["severity"])
+        self.assertTrue(gap["blocks_convergence"])
+
+    def test_projection_detects_missing_recommendation_for_p1(self) -> None:
+        draft_set = _draft_set()
+        draft_set["draft_decisions"][0]["priority"] = "P1"
+        draft_set["draft_decisions"][0]["recommendation"] = ""
+
+        projection = _project(draft_set)
+
+        gap = _gap_by_type(projection, "missing_p1_recommendation")
         self.assertEqual("high", gap["severity"])
         self.assertTrue(gap["blocks_convergence"])
 
@@ -229,7 +254,7 @@ class DraftProjectionTests(unittest.TestCase):
 
         projection = _project(draft_set)
 
-        gap = _gap_by_type(projection, "insufficient_evidence")
+        gap = _gap_by_type(projection, "challenged_evidence", target_id="DD-001")
         self.assertEqual("high", gap["severity"])
 
     def test_projection_detects_unknown_evidence(self) -> None:
@@ -238,8 +263,21 @@ class DraftProjectionTests(unittest.TestCase):
 
         projection = _project(draft_set)
 
-        gap = _gap_by_type(projection, "insufficient_evidence")
+        gap = _gap_by_type(projection, "insufficient_evidence", target_id="DD-001")
         self.assertEqual("DD-001", gap["target_id"])
+        self.assertTrue(gap["blocks_convergence"])
+
+    def test_projection_detects_unsupported_recommendation_for_partial_evidence(self) -> None:
+        draft_set = _draft_set()
+        draft_set["draft_decisions"][0]["evidence_coverage"]["status"] = "partial"
+        draft_set["draft_decisions"][0]["evidence_coverage"]["supporting_object_ids"] = []
+        draft_set["draft_decisions"][0]["evidence_coverage"]["source_unit_ids"] = []
+        draft_set["draft_decisions"][0]["evidence_coverage"]["missing"] = ["Need source review"]
+
+        projection = _project(draft_set)
+
+        gap = _gap_by_type(projection, "unsupported_recommendation", target_id="DD-001")
+        self.assertEqual("high", gap["severity"])
         self.assertTrue(gap["blocks_convergence"])
 
     def test_projection_detects_dangling_supporting_object(self) -> None:
@@ -274,7 +312,7 @@ class DraftProjectionTests(unittest.TestCase):
 
         projection = _project(draft_set)
 
-        self.assertIn("action_without_verification", _gap_types(projection))
+        self.assertIn("verification_without_observable_command", _gap_types(projection))
 
     def test_projection_detects_dangling_draft_reference(self) -> None:
         draft_set = _draft_set()
@@ -300,7 +338,7 @@ class DraftProjectionTests(unittest.TestCase):
 
         projection = _project(draft_set, project_state=project_state)
 
-        gap = _gap_by_type(projection, "accepted_conflict")
+        gap = _gap_by_type(projection, "accepted_decision_conflict_possible")
         self.assertEqual("critical", gap["severity"])
         self.assertEqual("conflict_blocked", projection["convergence"]["stop_reason"])
 
@@ -410,11 +448,12 @@ def _gap_types(projection: dict) -> list[str]:
     return [gap["type"] for gap in projection["gap_diagnostics"]]
 
 
-def _gap_by_type(projection: dict, gap_type: str) -> dict:
+def _gap_by_type(projection: dict, gap_type: str, *, target_id: str | None = None) -> dict:
     for gap in projection["gap_diagnostics"]:
-        if gap["type"] == gap_type:
+        if gap["type"] == gap_type and (target_id is None or gap.get("target_id") == target_id):
             return gap
-    raise AssertionError(f"missing gap type: {gap_type}")
+    suffix = f" target_id={target_id}" if target_id is not None else ""
+    raise AssertionError(f"missing gap type: {gap_type}{suffix}")
 
 
 def _coverage_row(projection: dict, axis_id: str) -> dict:

@@ -22,13 +22,14 @@ STOP_REASON_STATUS = {
     "user_review_required": "blocked",
 }
 AUTO_REMEDIABLE_GAP_TYPES = {
-    "action_without_verification",
+    "verification_without_observable_command",
     "missing_purpose_layer",
     "missing_constraint_layer",
     "missing_verification_layer",
     "missing_review_plan",
+    "missing_required_layer",
     "no_draft_decisions",
-    "p0_p1_partial_evidence",
+    "unsupported_recommendation",
 }
 VALID_RISK_THRESHOLDS = {"low", "medium", "high", "critical"}
 LAYER_COVERAGE_SPECS = {
@@ -333,6 +334,13 @@ def synthesize_gap_resolutions(
             if decision["id"] not in existing_ids:
                 additions["draft_decisions"].append(decision)
                 existing_ids.add(decision["id"])
+        elif gap_type == "missing_required_layer" and len(additions["draft_decisions"]) < max_new_decisions:
+            layer = _layer_from_coverage_gap(gap)
+            if layer in LAYER_COVERAGE_SPECS:
+                decision = _coverage_decision(LAYER_COVERAGE_SPECS[layer])
+                if decision["id"] not in existing_ids:
+                    additions["draft_decisions"].append(decision)
+                    existing_ids.add(decision["id"])
         elif gap_type == "no_draft_decisions":
             for spec in LAYER_COVERAGE_SPECS.values():
                 if len(additions["draft_decisions"]) >= max_new_decisions:
@@ -341,14 +349,14 @@ def synthesize_gap_resolutions(
                 if decision["id"] not in existing_ids:
                     additions["draft_decisions"].append(decision)
                     existing_ids.add(decision["id"])
-        elif gap_type == "action_without_verification":
+        elif gap_type == "verification_without_observable_command":
             action_id = gap.get("target_id")
             if isinstance(action_id, str) and action_id:
                 verification = _verification_for_action(action_id)
                 if verification["id"] not in existing_ids:
                     additions["draft_verifications"].append(verification)
                     existing_ids.add(verification["id"])
-        elif gap_type == "p0_p1_partial_evidence":
+        elif gap_type == "unsupported_recommendation":
             draft_id = gap.get("target_id")
             if isinstance(draft_id, str) and draft_id:
                 action = _evidence_action_for_decision(draft_id)
@@ -506,12 +514,23 @@ def _classify_stop_reason(
     risk_threshold: str,
 ) -> str:
     gap_types = {str(gap.get("type")) for gap in gaps}
-    if "accepted_conflict" in gap_types:
+    if "accepted_decision_conflict_possible" in gap_types:
         return "conflict_blocked"
+    if any(
+        gap.get("type") in {"unsafe_bulk_review", "bulk_promotion_blocked"}
+        and gap.get("target_kind") == "draft_decision"
+        and gap.get("blocks_convergence") is True
+        for gap in gaps
+    ):
+        return "risk_gate_triggered"
+    if any(
+        gap.get("type") in {"insufficient_evidence", "challenged_evidence"}
+        and gap.get("blocks_convergence") is True
+        for gap in gaps
+    ):
+        return "evidence_gap_blocked"
     if "unsafe_bulk_review" in gap_types or "bulk_promotion_blocked" in gap_types:
         return "risk_gate_triggered"
-    if any(gap.get("type") == "insufficient_evidence" and gap.get("blocks_convergence") is True for gap in gaps):
-        return "evidence_gap_blocked"
     auto_coverage = [row for row in coverage_matrix if _is_auto_remediable_coverage_row(row)]
     if len(_items(draft_set, "draft_decisions")) >= max_draft_decisions and (
         any(gap.get("type") in AUTO_REMEDIABLE_GAP_TYPES for gap in gaps) or auto_coverage
@@ -546,6 +565,16 @@ def _is_auto_remediable_coverage_row(row: Any) -> bool:
         and row.get("status") in {"missing", "partial"}
         and str(row.get("value") or "") in LAYER_COVERAGE_SPECS
     )
+
+
+def _layer_from_coverage_gap(gap: dict[str, Any]) -> str:
+    target_id = str(gap.get("target_id") or "")
+    if target_id.startswith("core.layer."):
+        return target_id.rsplit(".", 1)[-1]
+    suggested = gap.get("suggested_draft_decision")
+    if isinstance(suggested, dict):
+        return str(suggested.get("layer") or "")
+    return ""
 
 
 def _final_projection_explanation(stop_reason: str, projection: dict[str, Any]) -> str:

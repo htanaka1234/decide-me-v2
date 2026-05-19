@@ -145,6 +145,10 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
         self.assertIn("`coverage_targets[].axis_id` values must be unique", normalized_ref)
         self.assertIn("cannot shadow a core diagnostic with a different meaning or weaker blocking policy", normalized_ref)
         self.assertIn("P2/P3 non-required rows do not", normalized_ref)
+        self.assertIn("`review-queue.json` with `schema_version: 2`", normalized_ref)
+        self.assertIn("`target_id` and `target_kind`", normalized_ref)
+        self.assertIn("coverage blockers use `target_kind=coverage_gap`", normalized_ref)
+        self.assertIn("If any coverage blocker exists, `bulk_promotable=true` draft decisions are excluded from bulk", normalized_ref)
 
     def test_related_references_document_pr4_boundaries(self) -> None:
         output_contract = (REPO_ROOT / "references" / "output-contract.md").read_text(encoding="utf-8")
@@ -216,6 +220,11 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
         self.assertIn("`observed_value` is the projection-derived value", normalized_output_contract)
         self.assertIn("must render `Coverage Summary` and `Coverage Matrix`", normalized_output_contract)
         self.assertIn("derive the current draft projection in memory", normalized_output_contract)
+        self.assertIn("`review-queue.json` uses `schema_version: 2`", normalized_output_contract)
+        self.assertIn("general review targets with `target_id` and `target_kind`", normalized_output_contract)
+        self.assertIn("coverage blockers, and blocked draft fields must not enter the bulk candidate list", normalized_output_contract)
+        self.assertIn("`missing_required_layer`", normalized_output_contract)
+        self.assertIn("`verification_without_observable_command`", normalized_output_contract)
         self.assertIn("must not render empty convergence from missing diagnostics", normalized_output_contract)
 
     def test_root_cli_help_exposes_autopilot_draft_command_after_pr5(self) -> None:
