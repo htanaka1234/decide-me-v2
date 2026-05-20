@@ -433,8 +433,10 @@ def _default_seed_domain_pack(
         source_context = {}
         payload["source_context"] = source_context
 
-    existing_pack_id = source_context.get("domain_pack_id")
-    if isinstance(existing_pack_id, str) and existing_pack_id.strip():
+    if "domain_pack_id" in source_context:
+        existing_pack_id = source_context["domain_pack_id"]
+        if not isinstance(existing_pack_id, str) or not existing_pack_id.strip():
+            raise AutopilotDraftError("source_context.domain_pack_id must be a non-empty string")
         pack_id = existing_pack_id.strip()
         try:
             registry.get(pack_id)

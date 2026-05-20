@@ -189,7 +189,7 @@ def default_exploration_contract(
     source_context = draft_set.get("source_context") if isinstance(draft_set.get("source_context"), dict) else {}
     objective = goal.get("desired_outcome") or goal.get("title") or "Review draft decision set"
     project_state_ref = source_context.get("project_state_ref") or "project-state.json"
-    domain_pack_id = str(source_context.get("domain_pack_id") or GENERIC_PACK_ID)
+    domain_pack_id = _source_context_domain_pack_id(source_context)
     pack = domain_pack or _load_domain_pack(ai_dir, domain_pack_id)
     coverage_targets = _core_layer_coverage_targets() + _domain_pack_coverage_targets(pack)
     return {
@@ -255,7 +255,6 @@ def _normalize_draft_set(
     source_context.setdefault("project_state_ref", "project-state.json")
     source_context.setdefault("included_session_ids", [])
     source_context.setdefault("included_object_ids", [])
-    source_context.setdefault("domain_pack_id", GENERIC_PACK_ID)
     domain_pack = _source_context_domain_pack(ai_dir, source_context)
     normalized.setdefault(
         "exploration_contract",
@@ -334,14 +333,20 @@ def _validate_unique_coverage_target_axis_ids(payload: dict[str, Any]) -> None:
 
 
 def _source_context_domain_pack(ai_dir: str | Path | None, source_context: dict[str, Any]) -> DomainPack:
-    pack_id = source_context.get("domain_pack_id") or GENERIC_PACK_ID
+    pack_id = _source_context_domain_pack_id(source_context)
+    source_context["domain_pack_id"] = pack_id
+    return _load_domain_pack(ai_dir, pack_id)
+
+
+def _source_context_domain_pack_id(source_context: dict[str, Any]) -> str:
+    if "domain_pack_id" not in source_context:
+        return GENERIC_PACK_ID
+    pack_id = source_context["domain_pack_id"]
     if not isinstance(pack_id, str) or not pack_id.strip():
         raise DraftSetValidationError(
             "draft-set validation failed: source_context.domain_pack_id must be a non-empty string"
         )
-    normalized_pack_id = pack_id.strip()
-    source_context["domain_pack_id"] = normalized_pack_id
-    return _load_domain_pack(ai_dir, normalized_pack_id)
+    return pack_id.strip()
 
 
 def _load_domain_pack(ai_dir: str | Path | None, pack_id: str) -> DomainPack:

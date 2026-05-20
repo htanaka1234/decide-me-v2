@@ -211,6 +211,17 @@ class DraftSetTests(unittest.TestCase):
             with self.assertRaisesRegex(DraftSetError, "unknown domain pack: missing_pack"):
                 create_draft_set(ai_dir, payload, draft_set_id="DS-20260513-001")
 
+    def test_create_rejects_explicit_invalid_domain_pack_id(self) -> None:
+        for value in ("", None, 0):
+            with self.subTest(value=value):
+                with TemporaryDirectory() as tmp:
+                    ai_dir = _bootstrap(Path(tmp))
+                    payload = _draft_input()
+                    payload["source_context"] = {"domain_pack_id": value}
+
+                    with self.assertRaisesRegex(DraftSetError, "source_context.domain_pack_id must be a non-empty string"):
+                        create_draft_set(ai_dir, payload, draft_set_id="DS-20260513-001")
+
     def test_default_contract_expands_pack_axes_directly(self) -> None:
         payload = minimal_valid_draft_set()
         payload["source_context"]["domain_pack_id"] = "software"
@@ -220,6 +231,15 @@ class DraftSetTests(unittest.TestCase):
         self.assertEqual("purpose", targets["domain_pack.software.goal_boundary.purpose"]["value"])
         self.assertEqual("P0", targets["domain_pack.software.safety_boundary.review"]["priority"])
         self.assertTrue(targets["domain_pack.software.execution_path.design"]["required"])
+
+    def test_default_contract_rejects_explicit_invalid_domain_pack_id(self) -> None:
+        for value in ("", None, 0):
+            with self.subTest(value=value):
+                payload = minimal_valid_draft_set()
+                payload["source_context"]["domain_pack_id"] = value
+
+                with self.assertRaisesRegex(DraftSetError, "source_context.domain_pack_id must be a non-empty string"):
+                    default_exploration_contract(payload)
 
     def test_create_rejects_project_head_mismatch(self) -> None:
         with TemporaryDirectory() as tmp:

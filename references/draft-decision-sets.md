@@ -76,6 +76,9 @@ stop/pause conditions that preserve fail-closed review. `create-draft-set` uses 
 `max_draft_decisions=20` and `max_iterations=0`; `autopilot-draft` records the actual CLI budget
 values. Partial or malformed explicit contracts fail schema validation rather than being merged.
 Explicit `exploration_contract` payloads are source input and are not augmented with missing pack axes.
+Pack-derived targets can share the same `value` layer as core targets; coverage diagnostics keep them
+as separate `axis_id` rows so domain-specific policy gaps remain visible instead of collapsing into
+generic layer coverage.
 
 Coverage target `value` is schema-constrained by `axis_type`: Decision Stack layers must use one of
 the eight layer names; evidence coverage must use `none`, `partial`, `sufficient`, `challenged`, or

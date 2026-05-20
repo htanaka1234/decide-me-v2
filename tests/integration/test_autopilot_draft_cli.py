@@ -434,6 +434,28 @@ class AutopilotDraftCliTests(unittest.TestCase):
             self.assertEqual(1, result.returncode)
             self.assertIn("schema_version", result.stderr)
 
+    def test_autopilot_draft_cli_rejects_invalid_seed_domain_pack_id(self) -> None:
+        for value in ("", None, 0):
+            with self.subTest(value=value):
+                with TemporaryDirectory() as tmp:
+                    ai_dir = _bootstrap(Path(tmp))
+                    seed = _seed_payload()
+                    seed["source_context"] = {"domain_pack_id": value}
+                    seed_path = _write_seed(Path(tmp), seed)
+
+                    result = run_cli(
+                        "autopilot-draft",
+                        "--ai-dir",
+                        str(ai_dir),
+                        "--seed-draft-json",
+                        str(seed_path),
+                        "--no-export",
+                        check=False,
+                    )
+
+                    self.assertEqual(1, result.returncode)
+                    self.assertIn("source_context.domain_pack_id must be a non-empty string", result.stderr)
+
     def test_autopilot_draft_cli_rejects_duplicate_coverage_target_axis_ids(self) -> None:
         with TemporaryDirectory() as tmp:
             ai_dir = _bootstrap(Path(tmp))
