@@ -3,9 +3,9 @@
 Domain packs add declarative domain vocabulary and policy overlays without changing the domain-neutral object/link core.
 
 They are YAML or JSON data, not executable plugins. A pack declares domain-specific decision
-types, criteria, evidence requirements, risks, safety rules, document profiles, aliases, and
-interview hints. Packs also declare `action_types`, the action taxonomy used when an action is
-treated as the executable WorkUnit equivalent. The core runtime still stores
+types, criteria, evidence requirements, risks, safety rules, exploration axes, document profiles,
+aliases, and interview hints. Packs also declare `action_types`, the action taxonomy used when an
+action is treated as the executable WorkUnit equivalent. The core runtime still stores
 domain-neutral objects and links; pack semantics are attached through metadata such as
 `domain_pack_id`, `domain_pack_version`, `domain_pack_digest`, and `domain_decision_type`.
 
@@ -33,8 +33,10 @@ User-defined packs may be placed under `.ai/decide-me/domain-packs/` as `.yaml`,
 `.json`. YAML loading uses the runtime dependency declared in `requirements.txt` (`PyYAML>=6.0`).
 They must pass the same strict contract as built-ins. Duplicate pack IDs are rejected.
 
-Existing user-defined packs created before the Action-as-WorkUnit contract update must
-add `action_types`. A minimal compatible value is:
+Existing user-defined packs created before the Domain Pack v2 contract must update
+`schema_version: 2`, add `action_types`, and add at least one `exploration_axes` item. Built-in
+packs use `version: 0.2.0` for this contract change; runtime consistency is checked with both
+`domain_pack_version` and `domain_pack_digest`. A minimal compatible `action_types` value is:
 
 ```yaml
 action_types:
@@ -48,6 +50,36 @@ action_types:
   - monitoring
   - decision
 ```
+
+`exploration_axes` is declarative policy only in this release. It does not add a core runtime object
+type and is not yet consumed by Decision Preflight. Specialized packs should use strong required
+axes such as:
+
+```yaml
+exploration_axes:
+  - id: goal_boundary
+    label: Goal boundary
+    required_layers: [purpose, principle]
+    default_priority: P1
+    required: true
+  - id: safety_boundary
+    label: Safety boundary
+    required_layers: [constraint, verification, review]
+    default_priority: P0
+    required: true
+  - id: execution_path
+    label: Execution path
+    required_layers: [strategy, design, execution]
+    default_priority: P1
+    required: true
+```
+
+The `generic` pack remains a weak fallback: its exploration axes are non-required P2 hints.
+
+When a future Decision Preflight implementation consumes pack axes, each `exploration_axes` item
+must expand into one coverage target per `required_layers` entry. The reserved target id shape is
+`domain_pack.<pack_id>.<axis_id>.<layer>`, with `priority` copied from
+`exploration_axes[].default_priority` and `required` copied from `exploration_axes[].required`.
 
 ## CLI surface
 
@@ -83,16 +115,20 @@ fallback, not a strong inference candidate.
 
 ## Contract and validation
 
-`schemas/domain-pack.schema.json` is the external contract. Runtime loading uses the Python
+`schemas/domain-pack.schema.json` is the external contract. Domain Pack v2 requires
+`exploration_axes`. Runtime loading uses the Python
 validator and model boundary in `decide_me.domains`; JSON Schema validation remains a development
 and test-time contract check rather than a runtime dependency.
 
 Pack validation rejects unknown fields, invalid enum values, duplicate semantic IDs, duplicate
 document profiles, multiple defaults for the same document type, unresolved internal references,
-and non-declarative payload shapes. `decision_types[].object_type` is restricted to `decision`;
-domain-specific evidence, risk, action, and artifact classifications live in their own pack fields
-or object metadata. `action_types` is declarative taxonomy only; it does not add a new runtime
-object type. Built-in packs share the standard taxonomy (`research`, `analysis`, `writing`,
+and non-declarative payload shapes. `exploration_axes[].id` values must be unique;
+the top-level `exploration_axes` array must not be empty; `required_layers` must be a non-empty
+unique list of Decision Stack layers; `default_priority` uses the pack priority enum; and
+`required` is boolean. `decision_types[].object_type` is
+restricted to `decision`; domain-specific evidence, risk, action, and artifact classifications live
+in their own pack fields or object metadata. `action_types` and `exploration_axes` are declarative
+taxonomy/policy only; they do not add new runtime object types. Built-in packs share the standard taxonomy (`research`, `analysis`, `writing`,
 `communication`, `execution`, `review`, `verification`, `monitoring`, `decision`), and user packs
 may add identifier-shaped action types when they need domain-specific execution categories. The
 taxonomy is advisory at the core runtime boundary: object and plan validation require
@@ -136,7 +172,8 @@ safety rules are visible in exported documents.
 
 ## MVP limits
 
-Phase 9 does not include a pack editor, marketplace, pack history store, or rich per-domain
-document sections. If a stored digest no longer matches the current pack, update or migrate the
-runtime metadata explicitly before continuing. Do not rely on the runtime to silently reinterpret
-old sessions with a changed pack.
+Phase 9/Phase 6 Domain Pack work does not include a pack editor, marketplace, pack history store,
+Decision Preflight consumption of `exploration_axes`, or rich per-domain document sections. If a
+stored digest no longer matches the current pack, update or migrate the runtime metadata explicitly
+before continuing. Do not rely on the runtime to silently reinterpret old sessions with a changed
+pack.

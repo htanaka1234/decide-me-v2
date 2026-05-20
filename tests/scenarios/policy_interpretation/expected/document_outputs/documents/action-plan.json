@@ -4,9 +4,9 @@
   "document_type": "action-plan",
   "metadata": {
     "document_profile_id": "generic_action_plan",
-    "domain_pack_digest": "DP-93bf8d37f00b",
+    "domain_pack_digest": "DP-5a9664a0e8d7",
     "domain_pack_id": "generic",
-    "domain_pack_version": "0.1.0",
+    "domain_pack_version": "0.2.0",
     "readiness": "conditional"
   },
   "schema_version": 1,

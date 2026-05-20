@@ -458,9 +458,9 @@
           "risk_awareness"
         ],
         "domain_decision_type": "resolve_constraint",
-        "domain_pack_digest": "DP-93bf8d37f00b",
+        "domain_pack_digest": "DP-5a9664a0e8d7",
         "domain_pack_id": "generic",
-        "domain_pack_version": "0.1.0",
+        "domain_pack_version": "0.2.0",
         "frontier": "now",
         "priority": "P0",
         "resolvable_by": "human",
@@ -484,9 +484,9 @@
           "relevance"
         ],
         "domain_decision_type": "clarify_goal",
-        "domain_pack_digest": "DP-93bf8d37f00b",
+        "domain_pack_digest": "DP-5a9664a0e8d7",
         "domain_pack_id": "generic",
-        "domain_pack_version": "0.1.0",
+        "domain_pack_version": "0.2.0",
         "frontier": "now",
         "priority": "P0",
         "resolvable_by": "human",
@@ -506,9 +506,9 @@
       "id": "EVID-pi-policy",
       "metadata": {
         "confidence": "high",
-        "domain_pack_digest": "DP-93bf8d37f00b",
+        "domain_pack_digest": "DP-5a9664a0e8d7",
         "domain_pack_id": "generic",
-        "domain_pack_version": "0.1.0",
+        "domain_pack_version": "0.2.0",
         "freshness": "current",
         "observed_at": "2026-04-29T00:19:00Z",
         "source": "docs",
@@ -660,9 +660,9 @@
       "id": "RISK-pi-precedent",
       "metadata": {
         "approval_threshold": "explicit_acceptance",
-        "domain_pack_digest": "DP-93bf8d37f00b",
+        "domain_pack_digest": "DP-5a9664a0e8d7",
         "domain_pack_id": "generic",
-        "domain_pack_version": "0.1.0",
+        "domain_pack_version": "0.2.0",
         "likelihood": "medium",
         "mitigation_object_ids": [
           "ACT-pi-review"

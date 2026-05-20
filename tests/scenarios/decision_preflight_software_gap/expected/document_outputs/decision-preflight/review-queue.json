@@ -29,7 +29,7 @@
     "partial_count": 0,
     "required_target_count": 8
   },
-  "current_project_head": "fa27c681766e44a132f300dd6fc345f8385aa456f04b5a37d00c236a98899078",
+  "current_project_head": "941da554a7b8e63badb032c6fede520a637b23ee8abe097e00f972af8ca6c32d",
   "draft_set_id": "DS-20260429-001",
   "individual_review_required": [
     "DD-001",
@@ -49,7 +49,7 @@
     "DD-005",
     "DD-006"
   ],
-  "project_head_at_generation": "fa27c681766e44a132f300dd6fc345f8385aa456f04b5a37d00c236a98899078",
+  "project_head_at_generation": "941da554a7b8e63badb032c6fede520a637b23ee8abe097e00f972af8ca6c32d",
   "review_order": [
     {
       "gap_type": "missing_required_layer",

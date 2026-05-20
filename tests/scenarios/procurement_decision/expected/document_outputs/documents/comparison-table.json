@@ -4,9 +4,9 @@
   "document_type": "comparison-table",
   "metadata": {
     "document_profile_id": "procurement_comparison",
-    "domain_pack_digest": "DP-5625e865f82e",
+    "domain_pack_digest": "DP-55b9c94f1ab7",
     "domain_pack_id": "procurement",
-    "domain_pack_version": "0.1.0"
+    "domain_pack_version": "0.2.0"
   },
   "schema_version": 1,
   "sections": [

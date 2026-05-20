@@ -400,7 +400,8 @@ debugging. Use `python3 scripts/decide_me.py --help` for the full subcommand
 reference. Common maintainer operations include:
 
 - `list-sessions`, `show-session`, and `resume-session`
-- `list-domain-packs` and `show-domain-pack` to inspect available declarative domain packs
+- `list-domain-packs` and `show-domain-pack` to inspect available declarative domain packs,
+  including v2 `exploration_axes` policy
 - `create-session --domain-pack research|procurement|software|operations|personal_planning|writing|generic`
   to explicitly select a pack;
   omitted packs are inferred from context and unresolved contexts fall back to `generic`

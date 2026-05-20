@@ -4,9 +4,9 @@
   "document_type": "decision-brief",
   "metadata": {
     "document_profile_id": "writing_decision_brief",
-    "domain_pack_digest": "DP-ea12fbc7343e",
+    "domain_pack_digest": "DP-6d5dd91b9122",
     "domain_pack_id": "writing",
-    "domain_pack_version": "0.1.0"
+    "domain_pack_version": "0.2.0"
   },
   "schema_version": 1,
   "sections": [
@@ -32,7 +32,7 @@
             ],
             [
               "Project Head",
-              "64356a97897f99422e9500d6943c0f3125f45212c8b1d4dd8272ceed398b212f"
+              "08f5f6fd3fa01d3c3f3585b186b4cb60133ee03e0a452a80c29f6d43c638ea17"
             ]
           ],
           "type": "table"

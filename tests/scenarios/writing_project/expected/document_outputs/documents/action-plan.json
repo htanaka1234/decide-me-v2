@@ -4,9 +4,9 @@
   "document_type": "action-plan",
   "metadata": {
     "document_profile_id": "writing_action_plan",
-    "domain_pack_digest": "DP-ea12fbc7343e",
+    "domain_pack_digest": "DP-6d5dd91b9122",
     "domain_pack_id": "writing",
-    "domain_pack_version": "0.1.0",
+    "domain_pack_version": "0.2.0",
     "readiness": "conditional"
   },
   "schema_version": 1,

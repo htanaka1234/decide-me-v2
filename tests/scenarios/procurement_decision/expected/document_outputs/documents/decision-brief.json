@@ -4,9 +4,9 @@
   "document_type": "decision-brief",
   "metadata": {
     "document_profile_id": "procurement_recommendation",
-    "domain_pack_digest": "DP-5625e865f82e",
+    "domain_pack_digest": "DP-55b9c94f1ab7",
     "domain_pack_id": "procurement",
-    "domain_pack_version": "0.1.0"
+    "domain_pack_version": "0.2.0"
   },
   "schema_version": 1,
   "sections": [
@@ -32,7 +32,7 @@
             ],
             [
               "Project Head",
-              "f58433999e16653d645cd72795935be4f7a0ad95bab2d1e6447f3be27b300801"
+              "2590acaea274631a136ab03b9a18c6677252c2845629166ddf3bcfe2e4a75541"
             ]
           ],
           "type": "table"

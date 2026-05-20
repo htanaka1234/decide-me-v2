@@ -79,7 +79,7 @@ Read only the reference file needed for the turn:
 Bundled assets:
 
 - deterministic CLI: `python3 <skill-root>/scripts/decide_me.py ...`
-- JSON contracts: `schemas/*.json`
+- JSON contracts: `schemas/*.json`; Domain Pack v2 includes declarative `exploration_axes`
 - export templates: `templates/`
 - runtime requirements: `requirements.txt` (`PyYAML` is required for declarative Domain Pack YAML)
 
