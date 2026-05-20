@@ -102,6 +102,11 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
         )
         self.assertIn("Diagnostics and coverage are never written back into `draft-set.json`", normalized_ref)
         self.assertIn("DraftProjection uses `schema_version: 4`", normalized_ref)
+        self.assertIn(
+            "Frontier is therefore persisted only as derived projection state in `draft-projection.json`",
+            normalized_ref,
+        )
+        self.assertIn("never persisted in the source sidecar `draft-set.json`", normalized_ref)
         self.assertIn("`review-queue.json` is a derived promotion handoff queue", normalized_ref)
         self.assertIn(
             "The canonical event log, `project-state.json`, `taxonomy-state.json`, and `sessions/*.json` "
@@ -129,6 +134,7 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
         self.assertIn("Low-risk P2/P3 non-required rows do not block convergence", normalized_ref)
         self.assertIn("derives `frontier_queue` from blocking coverage gap diagnostics", normalized_ref)
         self.assertIn("must not upgrade evidence coverage", normalized_ref)
+        self.assertIn("It may be written only as part of the derived `draft-projection.json` sidecar", normalized_ref)
         self.assertIn("ordered by priority rank, axis type rank, Decision Stack layer order, then `axis_id`", normalized_ref)
         self.assertIn("Coverage summary: required=N, covered=N, partial=N, missing=N, blocking=N", ref)
 

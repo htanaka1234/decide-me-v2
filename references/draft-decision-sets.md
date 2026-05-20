@@ -167,7 +167,9 @@ Layer frontier items can drive deterministic supplemental draft decisions; evide
 only list `evidence_needed` and must not mark evidence as sufficient. Frontier order is explicit:
 priority rank, axis type rank, Decision Stack layer order, then `axis_id`. In summary counts,
 `coverage_summary.blocking_gap_count` counts blocking coverage rows, while
-`convergence.blocking_gap_count` counts blocking gap diagnostics.
+`convergence.blocking_gap_count` counts blocking gap diagnostics. Frontier is never persisted in the
+source sidecar `draft-set.json`; when persisted, it is persisted only as derived state inside
+`draft-projection.json`.
 
 Because `project-draft-set` is a standalone diagnostic command, it may return
 `stop_reason=stopped` when the projection has non-blocking diagnostics but no autopilot iteration was

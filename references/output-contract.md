@@ -284,8 +284,10 @@ diagnostics include `type`, `severity`, `target_id`, `blocks_convergence`, `bloc
 `verification_without_observable_command`.
 `frontier_queue` items include `id`, `source_gap_id`, `topic`, `priority`, `status`,
 `evidence_needed`, and `suggested_expansion`. Frontier items are derived from blocking required P0/P1
-coverage gaps and must not be written into `draft-set.json`. Frontier ordering is deterministic:
-priority rank, axis type rank, Decision Stack layer order, then `axis_id`.
+coverage gaps and must not be written into `draft-set.json`. Persisted frontier data belongs only to
+the derived `draft-projection.json` sidecar; review/export commands may also render it from an
+in-memory projection without writing that sidecar. Frontier ordering is deterministic: priority rank,
+axis type rank, Decision Stack layer order, then `axis_id`.
 `coverage_summary.blocking_gap_count` counts coverage matrix rows where `blocks_convergence=true`.
 `convergence.blocking_gap_count` counts gap diagnostics where `blocks_convergence=true`.
 
