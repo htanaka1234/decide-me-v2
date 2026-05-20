@@ -51,9 +51,9 @@ action_types:
   - decision
 ```
 
-`exploration_axes` is declarative policy only in this release. It does not add a core runtime object
-type and is not yet consumed by Decision Preflight. Specialized packs should use strong required
-axes such as:
+`exploration_axes` is declarative policy. It does not add a core runtime object type. Decision
+Preflight consumes it only when generating a default `exploration_contract`; explicit contracts remain
+source input and are not auto-augmented. Specialized packs should use strong required axes such as:
 
 ```yaml
 exploration_axes:
@@ -76,10 +76,10 @@ exploration_axes:
 
 The `generic` pack remains a weak fallback: its exploration axes are non-required P2 hints.
 
-When a future Decision Preflight implementation consumes pack axes, each `exploration_axes` item
-must expand into one coverage target per `required_layers` entry. The reserved target id shape is
-`domain_pack.<pack_id>.<axis_id>.<layer>`, with `priority` copied from
-`exploration_axes[].default_priority` and `required` copied from `exploration_axes[].required`.
+Decision Preflight expands each `exploration_axes` item into one coverage target per
+`required_layers` entry. The reserved target id shape is `domain_pack.<pack_id>.<axis_id>.<layer>`,
+with `priority` copied from `exploration_axes[].default_priority` and `required` copied from
+`exploration_axes[].required`.
 
 ## CLI surface
 
@@ -172,8 +172,7 @@ safety rules are visible in exported documents.
 
 ## MVP limits
 
-Phase 9/Phase 6 Domain Pack work does not include a pack editor, marketplace, pack history store,
-Decision Preflight consumption of `exploration_axes`, or rich per-domain document sections. If a
-stored digest no longer matches the current pack, update or migrate the runtime metadata explicitly
-before continuing. Do not rely on the runtime to silently reinterpret old sessions with a changed
-pack.
+Phase 9/Phase 6 Domain Pack work does not include a pack editor, marketplace, pack history store, or
+rich per-domain document sections. If a stored digest no longer matches the current pack, update or
+migrate the runtime metadata explicitly before continuing. Do not rely on the runtime to silently
+reinterpret old sessions with a changed pack.

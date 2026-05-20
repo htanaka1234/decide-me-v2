@@ -10,6 +10,8 @@ from typing import Any
 from jsonschema import Draft202012Validator, FormatChecker, ValidationError
 
 from decide_me.constants import DECISION_STACK_LAYER_ORDER
+from decide_me.domains import DomainPack, DomainPackLoadError, load_domain_registry
+from decide_me.domains.registry import GENERIC_PACK_ID
 from decide_me.events import utc_now
 from decide_me.store import _atomic_write_json, _write_lock, load_json, load_runtime, runtime_paths
 
@@ -180,25 +182,21 @@ def default_exploration_contract(
     *,
     max_draft_decisions: int = 20,
     max_iterations: int = 0,
+    ai_dir: str | Path | None = None,
+    domain_pack: DomainPack | None = None,
 ) -> dict[str, Any]:
     goal = draft_set.get("goal") if isinstance(draft_set.get("goal"), dict) else {}
     source_context = draft_set.get("source_context") if isinstance(draft_set.get("source_context"), dict) else {}
     objective = goal.get("desired_outcome") or goal.get("title") or "Review draft decision set"
     project_state_ref = source_context.get("project_state_ref") or "project-state.json"
+    domain_pack_id = str(source_context.get("domain_pack_id") or GENERIC_PACK_ID)
+    pack = domain_pack or _load_domain_pack(ai_dir, domain_pack_id)
+    coverage_targets = _core_layer_coverage_targets() + _domain_pack_coverage_targets(pack)
     return {
         "objective": str(objective),
         "non_goals": [],
         "read_first_sources": [str(project_state_ref)],
-        "coverage_targets": [
-            {
-                "axis_id": f"core.layer.{layer}",
-                "axis_type": "decision_stack_layer",
-                "value": layer,
-                "priority": "P1",
-                "required": True,
-            }
-            for layer in DECISION_STACK_LAYER_ORDER
-        ],
+        "coverage_targets": coverage_targets,
         "budgets": {
             "max_draft_decisions": max_draft_decisions,
             "max_iterations": max_iterations,
@@ -257,13 +255,16 @@ def _normalize_draft_set(
     source_context.setdefault("project_state_ref", "project-state.json")
     source_context.setdefault("included_session_ids", [])
     source_context.setdefault("included_object_ids", [])
-    source_context.setdefault("domain_pack_id", "generic")
+    source_context.setdefault("domain_pack_id", GENERIC_PACK_ID)
+    domain_pack = _source_context_domain_pack(ai_dir, source_context)
     normalized.setdefault(
         "exploration_contract",
         default_exploration_contract(
             normalized,
             max_draft_decisions=20,
             max_iterations=0,
+            ai_dir=ai_dir,
+            domain_pack=domain_pack,
         ),
     )
     return normalized
@@ -330,6 +331,55 @@ def _validate_unique_coverage_target_axis_ids(payload: dict[str, Any]) -> None:
                 f"exploration_contract.coverage_targets[{index}].axis_id duplicates {axis_id}"
             )
         seen.add(axis_id)
+
+
+def _source_context_domain_pack(ai_dir: str | Path | None, source_context: dict[str, Any]) -> DomainPack:
+    pack_id = source_context.get("domain_pack_id") or GENERIC_PACK_ID
+    if not isinstance(pack_id, str) or not pack_id.strip():
+        raise DraftSetValidationError(
+            "draft-set validation failed: source_context.domain_pack_id must be a non-empty string"
+        )
+    normalized_pack_id = pack_id.strip()
+    source_context["domain_pack_id"] = normalized_pack_id
+    return _load_domain_pack(ai_dir, normalized_pack_id)
+
+
+def _load_domain_pack(ai_dir: str | Path | None, pack_id: str) -> DomainPack:
+    try:
+        return load_domain_registry(ai_dir).get(pack_id)
+    except KeyError as exc:
+        raise DraftSetValidationError(f"draft-set validation failed: unknown domain pack: {pack_id}") from exc
+    except DomainPackLoadError as exc:
+        raise DraftSetValidationError(f"draft-set validation failed: cannot load domain packs: {exc}") from exc
+
+
+def _core_layer_coverage_targets() -> list[dict[str, Any]]:
+    return [
+        {
+            "axis_id": f"core.layer.{layer}",
+            "axis_type": "decision_stack_layer",
+            "value": layer,
+            "priority": "P1",
+            "required": True,
+        }
+        for layer in DECISION_STACK_LAYER_ORDER
+    ]
+
+
+def _domain_pack_coverage_targets(pack: DomainPack) -> list[dict[str, Any]]:
+    targets: list[dict[str, Any]] = []
+    for axis in pack.exploration_axes:
+        for layer in axis.required_layers:
+            targets.append(
+                {
+                    "axis_id": f"domain_pack.{pack.pack_id}.{axis.id}.{layer}",
+                    "axis_type": "decision_stack_layer",
+                    "value": layer,
+                    "priority": axis.default_priority,
+                    "required": axis.required,
+                }
+            )
+    return targets
 
 
 def _counts(draft_set: dict[str, Any]) -> dict[str, int]:

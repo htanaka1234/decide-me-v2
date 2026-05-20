@@ -118,6 +118,8 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
         self.assertIn("`exploration_contract` is defaulted as source input", normalized_ref)
         self.assertIn("`core.layer.strategy`", normalized_ref)
         self.assertIn("`autopilot-draft` records the actual CLI budgets", normalized_ref)
+        self.assertIn("the selected Domain Pack's `exploration_axes` are also expanded", normalized_ref)
+        self.assertIn("`domain_pack.<pack_id>.<axis_id>.<layer>`", normalized_ref)
         self.assertIn("`project-draft-set` builds `coverage_matrix`", normalized_ref)
         self.assertIn("Required P0/P1 rows with `status=partial` or `status=missing`", normalized_ref)
         self.assertIn("Low-risk P2/P3 non-required rows do not block convergence", normalized_ref)
@@ -141,6 +143,7 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
         self.assertIn("`schema_version: 2`", normalized_ref)
         self.assertIn("require top-level `exploration_contract`", normalized_ref)
         self.assertIn("Partial or malformed explicit contracts fail schema validation", normalized_ref)
+        self.assertIn("not augmented with missing pack axes", normalized_ref)
         self.assertIn("convergence, frontier queues, and review queues remain derived artifacts", normalized_ref)
         self.assertIn("DraftProjection uses `schema_version: 3`", normalized_ref)
         self.assertIn("`coverage_summary`, `coverage_matrix`, `gap_diagnostics`, `frontier_queue`, and `convergence`", normalized_ref)
@@ -210,6 +213,7 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
         self.assertIn("not produced by the generic Document Compiler", document_compiler)
         self.assertIn("`schema_version: 2`", normalized_output_contract)
         self.assertIn("`exploration_contract`, and `draft_decisions`", normalized_output_contract)
+        self.assertIn("plus the selected Domain Pack's `exploration_axes`", normalized_output_contract)
         self.assertIn(
             "Derived coverage summaries, matrices, gap diagnostics, convergence, frontier queues, and review queues",
             normalized_output_contract,
@@ -291,6 +295,7 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
         self.assertIn("list-draft-sets", readme)
         self.assertIn("`schema_version: 2`", readme)
         self.assertIn("`exploration_contract`", readme)
+        self.assertIn("selected Domain Pack's `exploration_axes`", readme)
         self.assertIn("Derived coverage matrices", readme)
         self.assertIn("`frontier_queue`; required P0/P1 missing or partial coverage blocks convergence", readme)
 

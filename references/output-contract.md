@@ -226,8 +226,9 @@ Persisted `draft-set.json` must match `schemas/draft-decision-set.schema.json` w
 `schema_version: 2`. Its required source-input fields include `goal`, `source_context`,
 `exploration_contract`, and `draft_decisions`. `exploration_contract` records objective, non-goals,
 read-first sources, coverage targets, budgets, stop conditions, and pause conditions. If omitted from
-new create/autopilot inputs, it is defaulted before persistence; malformed explicit contracts fail
-validation. Coverage target `axis_id` values are unique, and built-in `core.*` axis IDs have fixed
+new create/autopilot inputs, it is defaulted before persistence from the eight core Decision Stack
+targets plus the selected Domain Pack's `exploration_axes`; malformed explicit contracts fail
+validation and are not augmented with pack axes. Coverage target `axis_id` values are unique, and built-in `core.*` axis IDs have fixed
 type, value, priority, and required semantics; invalid duplicate or downgraded core targets fail
 validation. Derived coverage summaries, matrices, gap diagnostics, convergence, frontier queues, and
 review queues must not be written into `draft-set.json` or inferred from missing diagnostics.

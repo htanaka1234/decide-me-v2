@@ -71,9 +71,11 @@ sidecar annotations. They are not strict canonical object contracts and must not
 When `exploration_contract` is omitted from a create or autopilot seed input, the runtime writes a
 safe default contract: objective from `goal.desired_outcome` falling back to `goal.title`,
 `read_first_sources=["project-state.json"]`, the eight required `core.layer.*` Decision Stack coverage
-targets, and stop/pause conditions that preserve fail-closed review. `create-draft-set` uses budgets
+targets, Domain Pack `exploration_axes` expanded as `domain_pack.<pack_id>.<axis_id>.<layer>`, and
+stop/pause conditions that preserve fail-closed review. `create-draft-set` uses budgets
 `max_draft_decisions=20` and `max_iterations=0`; `autopilot-draft` records the actual CLI budget
 values. Partial or malformed explicit contracts fail schema validation rather than being merged.
+Explicit `exploration_contract` payloads are source input and are not augmented with missing pack axes.
 
 Coverage target `value` is schema-constrained by `axis_type`: Decision Stack layers must use one of
 the eight layer names; evidence coverage must use `none`, `partial`, `sufficient`, `challenged`, or
