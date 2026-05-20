@@ -89,6 +89,9 @@ exports only; it does not create accepted decisions or canonical events. Gap dia
 missing recommendations, insufficient evidence, unsafe bulk review, dangling references, and conflicts
 with accepted canonical decisions, but resolving those gaps still requires normal human review or the
 existing promotion commands.
+Derived frontier queues follow the same boundary: `frontier_queue` is never source state and must not
+be written into `draft-set.json` or canonical projections. It may be persisted only inside
+`draft-projection.json`, or rendered from an in-memory draft projection.
 
 Promotion is the only draft operation that writes canonical events, and it must use existing event
 types. The sidecar `.ai/decide-me/draft-sets/DS-.../promotion-log.jsonl` is an audit file, not an

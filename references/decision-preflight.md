@@ -53,7 +53,9 @@ sidecars are not implicitly migrated.
 `coverage_matrix`, `coverage_summary`, the Phase 5 derived `frontier_queue`, existing
 `gap_diagnostics`, and current `convergence`. Diagnostics and coverage are never written back into
 `draft-set.json`. DraftProjection uses `schema_version: 3` once the derived `frontier_queue` is
-required alongside coverage diagnostics.
+required alongside coverage diagnostics. Frontier is therefore persisted only as derived projection
+state in `draft-projection.json`; it is never persisted in the source sidecar `draft-set.json` or in
+canonical runtime state.
 
 `review-queue.json` is a derived promotion handoff queue. It is built from the draft set plus current
 projection diagnostics and is used only to organize blocked, individual-review, and bulk-eligible
@@ -387,7 +389,9 @@ source `GAP-...`, use `F-GAP-...` IDs, stay `status=open`, and describe the next
 Decision Stack layer frontier items can drive `autopilot-draft` supplemental draft decisions; evidence
 frontier items list `evidence_needed` from remaining gaps but must not upgrade evidence coverage.
 Frontier items are ordered by priority rank, axis type rank, Decision Stack layer order, then
-`axis_id`, so budget-limited auto-expansion is deterministic.
+`axis_id`, so budget-limited auto-expansion is deterministic. Frontier is not source state: it must
+not be written into `draft-set.json`. It may be written only as part of the derived
+`draft-projection.json` sidecar, or rendered from an in-memory projection by review/export commands.
 
 ## Review/export Contract
 
