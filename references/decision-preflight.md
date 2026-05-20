@@ -337,6 +337,11 @@ scope before projection diagnostics run. The default contract requires the eight
 coverage targets `core.layer.purpose`, `core.layer.principle`, `core.layer.constraint`,
 `core.layer.strategy`, `core.layer.design`, `core.layer.execution`, `core.layer.verification`, and
 `core.layer.review`, all with `axis_type=decision_stack_layer`, `priority=P1`, and `required=true`.
+When the input omits `exploration_contract`, the selected Domain Pack's `exploration_axes` are also
+expanded into source coverage targets with IDs shaped as `domain_pack.<pack_id>.<axis_id>.<layer>`.
+Pack-derived targets may reference the same Decision Stack layer as a `core.layer.*` target; the
+projection keeps them as separate rows because each `axis_id` represents a distinct exploration
+policy axis, so required and blocking counts can increase for specialized packs.
 Coverage target `axis_id` values must be unique. Built-in `core.*` axis IDs are reserved with fixed
 type, value, priority, and required semantics so a seed cannot downgrade required core coverage or
 hide a stricter duplicate target.

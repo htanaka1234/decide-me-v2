@@ -9,6 +9,8 @@ from typing import Any
 from decide_me.draft_export import export_draft_set
 from decide_me.draft_projection import build_draft_projection, project_draft_set
 from decide_me.draft_sets import DRAFT_SET_SCHEMA_VERSION, create_draft_set, default_exploration_contract
+from decide_me.domains import DomainPackLoadError, DomainRegistry, load_domain_registry
+from decide_me.domains.registry import GENERIC_PACK_ID
 from decide_me.events import utc_now
 from decide_me.store import load_runtime, runtime_paths
 
@@ -159,6 +161,7 @@ def run_autopilot_draft(
         goal_text=goal_text,
         now=timestamp,
         current_project_head=current_project_head,
+        ai_dir=paths.ai_dir,
     )
     final_draft_set, iteration_projection = iterate_draft_set(
         project_state=project_state,
@@ -168,6 +171,7 @@ def run_autopilot_draft(
         max_draft_decisions=max_draft_decisions,
         risk_threshold=risk_threshold,
         now=timestamp,
+        ai_dir=paths.ai_dir,
     )
     if final_draft_set.get("id") == "DS-19700101-000":
         final_draft_set.pop("id", None)
@@ -225,6 +229,7 @@ def iterate_draft_set(
     max_draft_decisions: int,
     risk_threshold: str,
     now: str,
+    ai_dir: str | Path | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Return final draft-set payload and final projection without writing files."""
     _validate_iteration_limits(max_iterations=max_iterations, max_draft_decisions=max_draft_decisions)
@@ -237,6 +242,7 @@ def iterate_draft_set(
         current_project_head=current_project_head,
         max_draft_decisions=max_draft_decisions,
         max_iterations=max_iterations,
+        ai_dir=ai_dir,
     )
     trace: list[dict[str, Any]] = []
     stop_reason = "budget_exhausted"
@@ -384,7 +390,9 @@ def _initial_draft_payload(
     goal_text: str | None,
     now: str,
     current_project_head: str | None,
+    ai_dir: str | Path | None,
 ) -> dict[str, Any]:
+    registry = _load_domain_registry(ai_dir)
     if seed_draft_json:
         payload = _read_seed_json(seed_draft_json)
         if not isinstance(payload, dict):
@@ -392,13 +400,79 @@ def _initial_draft_payload(
         payload = deepcopy(payload)
         if "goal" not in payload or not isinstance(payload.get("goal"), dict):
             payload["goal"] = _goal_from_text(goal_text or "Review draft decision set", now=now)
+        _default_seed_domain_pack(payload, registry=registry, goal_text=goal_text)
         return payload
     if goal_text is None or not goal_text.strip():
         raise AutopilotDraftError("autopilot-draft requires --seed-draft-json, --goal, or --goal-file")
-    return _goal_only_skeleton(goal_text, now=now, current_project_head=current_project_head)
+    domain_pack_id = registry.infer_from_context(goal_text)
+    return _goal_only_skeleton(
+        goal_text,
+        now=now,
+        current_project_head=current_project_head,
+        domain_pack_id=domain_pack_id,
+    )
 
 
-def _goal_only_skeleton(goal_text: str, *, now: str, current_project_head: str | None) -> dict[str, Any]:
+def _load_domain_registry(ai_dir: str | Path | None) -> DomainRegistry:
+    try:
+        return load_domain_registry(ai_dir)
+    except DomainPackLoadError as exc:
+        raise AutopilotDraftError(f"cannot load domain packs: {exc}") from exc
+
+
+def _default_seed_domain_pack(
+    payload: dict[str, Any],
+    *,
+    registry: DomainRegistry,
+    goal_text: str | None,
+) -> None:
+    source_context = payload.get("source_context")
+    if source_context is not None and not isinstance(source_context, dict):
+        return
+    if source_context is None:
+        source_context = {}
+        payload["source_context"] = source_context
+
+    if "domain_pack_id" in source_context:
+        existing_pack_id = source_context["domain_pack_id"]
+        if not isinstance(existing_pack_id, str) or not existing_pack_id.strip():
+            raise AutopilotDraftError("source_context.domain_pack_id must be a non-empty string")
+        pack_id = existing_pack_id.strip()
+        try:
+            registry.get(pack_id)
+        except KeyError as exc:
+            raise AutopilotDraftError(f"unknown domain pack: {pack_id}") from exc
+        source_context["domain_pack_id"] = pack_id
+        return
+
+    source_context["domain_pack_id"] = registry.infer_from_context(
+        _domain_pack_inference_text(payload, goal_text=goal_text)
+    )
+
+
+def _domain_pack_inference_text(payload: dict[str, Any], *, goal_text: str | None) -> str:
+    parts: list[str] = []
+    if goal_text:
+        parts.append(goal_text)
+    goal = payload.get("goal")
+    if isinstance(goal, dict):
+        for key in ("title", "desired_outcome"):
+            value = goal.get(key)
+            if isinstance(value, str):
+                parts.append(value)
+        constraints = goal.get("constraints")
+        if isinstance(constraints, list):
+            parts.extend(item for item in constraints if isinstance(item, str))
+    return " ".join(parts)
+
+
+def _goal_only_skeleton(
+    goal_text: str,
+    *,
+    now: str,
+    current_project_head: str | None,
+    domain_pack_id: str = GENERIC_PACK_ID,
+) -> dict[str, Any]:
     goal = _goal_from_text(goal_text, now=now)
     decisions = [
         _skeleton_decision(
@@ -447,7 +521,7 @@ def _goal_only_skeleton(goal_text: str, *, now: str, current_project_head: str |
             "project_state_ref": "project-state.json",
             "included_session_ids": [],
             "included_object_ids": [],
-            "domain_pack_id": "generic",
+            "domain_pack_id": domain_pack_id,
         },
         "draft_decisions": decisions,
         "draft_assumptions": [],
@@ -470,6 +544,7 @@ def _normalize_working_draft_set(
     current_project_head: str | None,
     max_draft_decisions: int,
     max_iterations: int,
+    ai_dir: str | Path | None = None,
 ) -> dict[str, Any]:
     current = deepcopy(draft_set)
     current.setdefault("schema_version", DRAFT_SET_SCHEMA_VERSION)
@@ -485,12 +560,13 @@ def _normalize_working_draft_set(
         source_context.setdefault("project_state_ref", "project-state.json")
         source_context.setdefault("included_session_ids", [])
         source_context.setdefault("included_object_ids", [])
-        source_context.setdefault("domain_pack_id", "generic")
+        source_context.setdefault("domain_pack_id", GENERIC_PACK_ID)
     if "exploration_contract" not in current:
         current["exploration_contract"] = default_exploration_contract(
             current,
             max_draft_decisions=max_draft_decisions,
             max_iterations=max_iterations,
+            ai_dir=ai_dir,
         )
     else:
         exploration_contract = current.get("exploration_contract")

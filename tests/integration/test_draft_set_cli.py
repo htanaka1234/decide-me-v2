@@ -46,6 +46,13 @@ class DraftSetCliTests(unittest.TestCase):
                 {"max_draft_decisions": 20, "max_iterations": 0},
                 shown["draft_set"]["exploration_contract"]["budgets"],
             )
+            self.assertIn(
+                "domain_pack.generic.goal_boundary.purpose",
+                [
+                    target["axis_id"]
+                    for target in shown["draft_set"]["exploration_contract"]["coverage_targets"]
+                ],
+            )
             self.assertFalse(shown["runtime_status"]["is_stale"])
             self.assertEqual(1, listed["count"])
             self.assertEqual("DS-20260513-001", listed["draft_sets"][0]["id"])

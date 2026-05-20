@@ -6,6 +6,7 @@ from copy import deepcopy
 from jsonschema import Draft202012Validator, FormatChecker
 
 from decide_me.draft_projection import DraftProjectionValidationError, project_draft_set
+from decide_me.draft_sets import default_exploration_contract
 from decide_me.projections import default_project_state
 from tests.helpers.schema_validation import load_schema
 from tests.unit.test_draft_set_schema import minimal_valid_draft_set
@@ -115,6 +116,28 @@ class DraftProjectionTests(unittest.TestCase):
             "Add one complete purpose-layer draft decision before review.",
             frontier["suggested_expansion"],
         )
+
+    def test_pack_derived_required_layer_gap_blocks_and_creates_frontier(self) -> None:
+        draft_set = _draft_set()
+        draft_set["source_context"]["domain_pack_id"] = "software"
+        draft_set["exploration_contract"] = default_exploration_contract(draft_set)
+
+        projection = _project(draft_set)
+        row = _coverage_row(projection, "domain_pack.software.safety_boundary.verification")
+        gap = _gap_by_type(
+            projection,
+            "missing_required_layer",
+            target_id="domain_pack.software.safety_boundary.verification",
+        )
+        frontier = _frontier_by_source_gap(projection, gap["id"])
+
+        self.assertEqual("verification", row["value"])
+        self.assertEqual("P0", row["priority"])
+        self.assertTrue(row["required"])
+        self.assertEqual("missing", row["status"])
+        self.assertTrue(row["blocks_convergence"])
+        self.assertEqual("blocked", projection["convergence"]["status"])
+        self.assertEqual(f"F-{gap['id']}", frontier["id"])
 
     def test_frontier_queue_uses_priority_axis_layer_and_axis_order(self) -> None:
         draft_set = _draft_set()

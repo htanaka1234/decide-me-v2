@@ -159,7 +159,7 @@ class AutopilotDraftCliTests(unittest.TestCase):
                 "--ai-dir",
                 str(ai_dir),
                 "--goal",
-                "Create a reviewable draft set.",
+                "Clarify uncategorized objective qqqq.",
                 "--max-iterations",
                 "1",
                 "--no-export",
@@ -204,7 +204,7 @@ class AutopilotDraftCliTests(unittest.TestCase):
                 "--ai-dir",
                 str(ai_dir),
                 "--goal",
-                "Create a reviewable draft set.",
+                "Clarify uncategorized objective qqqq.",
                 "--max-iterations",
                 "2",
                 "--max-draft-decisions",
@@ -216,7 +216,7 @@ class AutopilotDraftCliTests(unittest.TestCase):
             self.assertEqual(2, draft_set["schema_version"])
             self.assertNotIn("convergence", draft_set)
             self.assertNotIn("review_queue", draft_set)
-            self.assertEqual("Create a reviewable draft set.", draft_set["goal"]["title"])
+            self.assertEqual("Clarify uncategorized objective qqqq.", draft_set["goal"]["title"])
             self.assertEqual(
                 {"max_draft_decisions": 12, "max_iterations": 2},
                 draft_set["exploration_contract"]["budgets"],
@@ -232,8 +232,46 @@ class AutopilotDraftCliTests(unittest.TestCase):
                     "core.layer.verification",
                     "core.layer.review",
                 ],
-                [target["axis_id"] for target in draft_set["exploration_contract"]["coverage_targets"]],
+                [target["axis_id"] for target in draft_set["exploration_contract"]["coverage_targets"][:8]],
             )
+            self.assertIn(
+                "domain_pack.generic.execution_path.strategy",
+                [
+                    target["axis_id"]
+                    for target in draft_set["exploration_contract"]["coverage_targets"][8:]
+                ],
+            )
+
+    def test_autopilot_draft_cli_goal_only_infers_software_pack_axes(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = _bootstrap(Path(tmp))
+
+            result = run_json_cli(
+                "autopilot-draft",
+                "--ai-dir",
+                str(ai_dir),
+                "--goal",
+                "Plan software architecture and verification for a codebase change.",
+                "--max-iterations",
+                "1",
+                "--max-draft-decisions",
+                "12",
+                "--no-export",
+            )
+            draft_set = json.loads(Path(result["draft_set_path"]).read_text(encoding="utf-8"))
+            targets = {
+                target["axis_id"]: target
+                for target in draft_set["exploration_contract"]["coverage_targets"]
+            }
+
+            self.assertEqual("software", draft_set["source_context"]["domain_pack_id"])
+            self.assertEqual(
+                {"max_draft_decisions": 12, "max_iterations": 1},
+                draft_set["exploration_contract"]["budgets"],
+            )
+            self.assertEqual("P0", targets["domain_pack.software.safety_boundary.verification"]["priority"])
+            self.assertTrue(targets["domain_pack.software.safety_boundary.verification"]["required"])
+            self.assertEqual("design", targets["domain_pack.software.execution_path.design"]["value"])
 
     def test_autopilot_draft_cli_uses_frontier_for_missing_layer_expansion(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -396,6 +434,28 @@ class AutopilotDraftCliTests(unittest.TestCase):
             self.assertEqual(1, result.returncode)
             self.assertIn("schema_version", result.stderr)
 
+    def test_autopilot_draft_cli_rejects_invalid_seed_domain_pack_id(self) -> None:
+        for value in ("", None, 0):
+            with self.subTest(value=value):
+                with TemporaryDirectory() as tmp:
+                    ai_dir = _bootstrap(Path(tmp))
+                    seed = _seed_payload()
+                    seed["source_context"] = {"domain_pack_id": value}
+                    seed_path = _write_seed(Path(tmp), seed)
+
+                    result = run_cli(
+                        "autopilot-draft",
+                        "--ai-dir",
+                        str(ai_dir),
+                        "--seed-draft-json",
+                        str(seed_path),
+                        "--no-export",
+                        check=False,
+                    )
+
+                    self.assertEqual(1, result.returncode)
+                    self.assertIn("source_context.domain_pack_id must be a non-empty string", result.stderr)
+
     def test_autopilot_draft_cli_rejects_duplicate_coverage_target_axis_ids(self) -> None:
         with TemporaryDirectory() as tmp:
             ai_dir = _bootstrap(Path(tmp))
@@ -462,6 +522,12 @@ class AutopilotDraftCliTests(unittest.TestCase):
             self.assertEqual(
                 {"max_draft_decisions": 8, "max_iterations": 2},
                 draft_set["exploration_contract"]["budgets"],
+            )
+            self.assertFalse(
+                any(
+                    target["axis_id"].startswith("domain_pack.")
+                    for target in draft_set["exploration_contract"]["coverage_targets"]
+                )
             )
 
     def test_cli_help_includes_autopilot_draft_after_pr5(self) -> None:

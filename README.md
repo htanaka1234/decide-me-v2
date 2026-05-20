@@ -110,8 +110,9 @@ explicit handoff to a normal proposal flow.
 
 Persisted DraftDecisionSet sidecars use `schema_version: 2` and include `exploration_contract` as
 source input for the objective, non-goals, read-first sources, required coverage targets, budgets, stop
-conditions, and pause conditions. Derived coverage matrices, gap diagnostics, convergence, frontier
-queues, and review queues stay out of `draft-set.json`. `draft-projection.json` uses
+conditions, and pause conditions. When omitted, the default contract includes the eight core Decision
+Stack targets plus the selected Domain Pack's `exploration_axes`. Derived coverage matrices, gap
+diagnostics, convergence, frontier queues, and review queues stay out of `draft-set.json`. `draft-projection.json` uses
 `schema_version: 3` and owns `coverage_summary`, `coverage_matrix`, and the derived
 `frontier_queue`; required P0/P1 missing or partial coverage blocks convergence and creates open
 frontier items for the next expansion target.
@@ -401,7 +402,7 @@ reference. Common maintainer operations include:
 
 - `list-sessions`, `show-session`, and `resume-session`
 - `list-domain-packs` and `show-domain-pack` to inspect available declarative domain packs,
-  including v2 `exploration_axes` policy
+  including v2 `exploration_axes` policy used by default Decision Preflight coverage targets
 - `create-session --domain-pack research|procurement|software|operations|personal_planning|writing|generic`
   to explicitly select a pack;
   omitted packs are inferred from context and unresolved contexts fall back to `generic`

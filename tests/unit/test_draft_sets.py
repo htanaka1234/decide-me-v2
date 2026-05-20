@@ -10,6 +10,7 @@ from decide_me.draft_sets import (
     DraftSetError,
     DraftSetHeadMismatchError,
     create_draft_set,
+    default_exploration_contract,
     list_draft_sets,
     load_draft_set,
     show_draft_set,
@@ -92,8 +93,55 @@ class DraftSetTests(unittest.TestCase):
                     "core.layer.verification",
                     "core.layer.review",
                 ],
-                [target["axis_id"] for target in contract["coverage_targets"]],
+                [target["axis_id"] for target in contract["coverage_targets"][:8]],
             )
+            self.assertEqual(
+                [
+                    "domain_pack.generic.goal_boundary.purpose",
+                    "domain_pack.generic.safety_boundary.constraint",
+                    "domain_pack.generic.safety_boundary.verification",
+                    "domain_pack.generic.execution_path.strategy",
+                    "domain_pack.generic.execution_path.execution",
+                ],
+                [target["axis_id"] for target in contract["coverage_targets"][8:]],
+            )
+            self.assertTrue(
+                all(
+                    target["priority"] == "P2" and target["required"] is False
+                    for target in contract["coverage_targets"][8:]
+                )
+            )
+
+    def test_create_expands_software_domain_pack_axes_when_contract_missing(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = _bootstrap(Path(tmp))
+            payload = _draft_input()
+            payload["source_context"] = {"domain_pack_id": "software"}
+
+            create_draft_set(ai_dir, payload, draft_set_id="DS-20260513-001")
+
+            persisted = load_draft_set(ai_dir, "DS-20260513-001")
+            targets = persisted["exploration_contract"]["coverage_targets"]
+            by_axis_id = {target["axis_id"]: target for target in targets}
+            self.assertEqual("software", persisted["source_context"]["domain_pack_id"])
+            self.assertEqual(
+                [
+                    "core.layer.purpose",
+                    "core.layer.principle",
+                    "core.layer.constraint",
+                    "core.layer.strategy",
+                    "core.layer.design",
+                    "core.layer.execution",
+                    "core.layer.verification",
+                    "core.layer.review",
+                ],
+                [target["axis_id"] for target in targets[:8]],
+            )
+            self.assertEqual("P1", by_axis_id["domain_pack.software.goal_boundary.purpose"]["priority"])
+            self.assertTrue(by_axis_id["domain_pack.software.goal_boundary.purpose"]["required"])
+            self.assertEqual("P0", by_axis_id["domain_pack.software.safety_boundary.verification"]["priority"])
+            self.assertTrue(by_axis_id["domain_pack.software.safety_boundary.verification"]["required"])
+            self.assertEqual("execution", by_axis_id["domain_pack.software.execution_path.execution"]["value"])
 
     def test_create_preserves_explicit_exploration_contract(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -111,6 +159,12 @@ class DraftSetTests(unittest.TestCase):
             persisted = load_draft_set(ai_dir, "DS-20260513-001")
             self.assertEqual("Explicit exploration objective", persisted["exploration_contract"]["objective"])
             self.assertEqual({"max_draft_decisions": 7, "max_iterations": 2}, persisted["exploration_contract"]["budgets"])
+            self.assertFalse(
+                any(
+                    target["axis_id"].startswith("domain_pack.")
+                    for target in persisted["exploration_contract"]["coverage_targets"]
+                )
+            )
 
     def test_create_rejects_partial_exploration_contract(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -147,6 +201,45 @@ class DraftSetTests(unittest.TestCase):
 
             with self.assertRaisesRegex(DraftSetError, "coverage_targets\\[9\\]\\.axis_id duplicates custom\\.layer\\.strategy"):
                 create_draft_set(ai_dir, payload, draft_set_id="DS-20260513-001")
+
+    def test_create_rejects_unknown_domain_pack(self) -> None:
+        with TemporaryDirectory() as tmp:
+            ai_dir = _bootstrap(Path(tmp))
+            payload = _draft_input()
+            payload["source_context"] = {"domain_pack_id": "missing_pack"}
+
+            with self.assertRaisesRegex(DraftSetError, "unknown domain pack: missing_pack"):
+                create_draft_set(ai_dir, payload, draft_set_id="DS-20260513-001")
+
+    def test_create_rejects_explicit_invalid_domain_pack_id(self) -> None:
+        for value in ("", None, 0):
+            with self.subTest(value=value):
+                with TemporaryDirectory() as tmp:
+                    ai_dir = _bootstrap(Path(tmp))
+                    payload = _draft_input()
+                    payload["source_context"] = {"domain_pack_id": value}
+
+                    with self.assertRaisesRegex(DraftSetError, "source_context.domain_pack_id must be a non-empty string"):
+                        create_draft_set(ai_dir, payload, draft_set_id="DS-20260513-001")
+
+    def test_default_contract_expands_pack_axes_directly(self) -> None:
+        payload = minimal_valid_draft_set()
+        payload["source_context"]["domain_pack_id"] = "software"
+        contract = default_exploration_contract(payload)
+        targets = {target["axis_id"]: target for target in contract["coverage_targets"]}
+
+        self.assertEqual("purpose", targets["domain_pack.software.goal_boundary.purpose"]["value"])
+        self.assertEqual("P0", targets["domain_pack.software.safety_boundary.review"]["priority"])
+        self.assertTrue(targets["domain_pack.software.execution_path.design"]["required"])
+
+    def test_default_contract_rejects_explicit_invalid_domain_pack_id(self) -> None:
+        for value in ("", None, 0):
+            with self.subTest(value=value):
+                payload = minimal_valid_draft_set()
+                payload["source_context"]["domain_pack_id"] = value
+
+                with self.assertRaisesRegex(DraftSetError, "source_context.domain_pack_id must be a non-empty string"):
+                    default_exploration_contract(payload)
 
     def test_create_rejects_project_head_mismatch(self) -> None:
         with TemporaryDirectory() as tmp:

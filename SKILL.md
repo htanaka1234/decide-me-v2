@@ -195,7 +195,9 @@ Runtime invariants:
 - `.ai/decide-me/draft-sets/DS-.../draft-set.json` is a draft sidecar, not canonical event-log
   state. Persisted draft sets use `schema_version: 2` and require `exploration_contract` as source
   input for the objective, non-goals, read-first sources, coverage targets, budgets, stop conditions,
-  and pause conditions. Coverage matrices, coverage summaries, convergence, frontier queues, gap
+  and pause conditions. When omitted, the default contract includes the eight core Decision Stack
+  coverage targets plus the selected Domain Pack's `exploration_axes`; explicit contracts are not
+  auto-augmented with pack axes. Coverage matrices, coverage summaries, convergence, frontier queues, gap
   diagnostics, and review queues are derived diagnostics and must not be written back into
   `draft-set.json`. `draft-projection.json` uses `schema_version: 3`; required P0/P1 partial or
   missing coverage rows block convergence and generate derived `frontier_queue` items.
