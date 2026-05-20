@@ -1,0 +1,5 @@
+required_domain_decision_types: []
+required_status_counts:
+- status: accepted
+  mode: exact
+  count: 0

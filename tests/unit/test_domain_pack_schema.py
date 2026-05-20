@@ -11,6 +11,7 @@ from decide_me.domains import DomainPackValidationError, validate_domain_pack_pa
 from decide_me.domains.model import (
     DecisionTypeSpec,
     DomainPack,
+    ExplorationAxisSpec,
     domain_pack_from_dict,
 )
 
@@ -23,6 +24,30 @@ class DomainPackSchemaTests(unittest.TestCase):
 
     def test_accepts_research_like_pack_payload(self) -> None:
         self.assertEqual([], list(self.validator.iter_errors(_valid_pack())))
+
+    def test_rejects_v1_otherwise_valid_pack_payload(self) -> None:
+        payload = _valid_pack()
+        payload["schema_version"] = 1
+
+        self.assertTrue(list(self.validator.iter_errors(payload)))
+        with self.assertRaisesRegex(DomainPackValidationError, "schema_version must be 2"):
+            validate_domain_pack_payload(payload)
+
+    def test_rejects_missing_exploration_axes(self) -> None:
+        payload = _valid_pack()
+        del payload["exploration_axes"]
+
+        self.assertTrue(list(self.validator.iter_errors(payload)))
+        with self.assertRaisesRegex(DomainPackValidationError, "missing required keys: exploration_axes"):
+            validate_domain_pack_payload(payload)
+
+    def test_rejects_empty_exploration_axes(self) -> None:
+        payload = _valid_pack()
+        payload["exploration_axes"] = []
+
+        self.assertTrue(list(self.validator.iter_errors(payload)))
+        with self.assertRaisesRegex(DomainPackValidationError, "exploration_axes must not be empty"):
+            validate_domain_pack_payload(payload)
 
     def test_accepts_optional_risk_policy_override(self) -> None:
         payload = _valid_pack()
@@ -42,6 +67,17 @@ class DomainPackSchemaTests(unittest.TestCase):
         self.assertEqual([], list(self.validator.iter_errors(payload)))
         self.assertEqual("critical", pack.risk_policy[0].risk_tier)
         self.assertEqual("external_review_or_block", pack.risk_policy[0].approval)
+
+    def test_accepts_exploration_axes(self) -> None:
+        payload = _valid_pack()
+        pack = domain_pack_from_dict(payload)
+
+        self.assertEqual([], list(self.validator.iter_errors(payload)))
+        self.assertIsInstance(pack.exploration_axes[0], ExplorationAxisSpec)
+        self.assertEqual("goal_boundary", pack.exploration_axes[0].id)
+        self.assertEqual(("purpose", "principle"), pack.exploration_axes[0].required_layers)
+        self.assertEqual("P1", pack.exploration_axes[0].default_priority)
+        self.assertTrue(pack.exploration_axes[0].required)
 
     def test_domain_pack_risk_policy_cannot_allow_critical_automatic_adoption(self) -> None:
         cases = (
@@ -74,6 +110,7 @@ class DomainPackSchemaTests(unittest.TestCase):
     def test_rejects_unknown_nested_fields(self) -> None:
         cases = (
             (["decision_types", 0], "prompt"),
+            (["exploration_axes", 0], "python_hook"),
             (["documents", 0], "builder"),
             (["interview"], "classifier"),
         )
@@ -94,6 +131,8 @@ class DomainPackSchemaTests(unittest.TestCase):
             (["evidence_requirements", 0, "evidence_source"], "database"),
             (["risk_types", 0, "default_risk_tier"], "severe"),
             (["risk_types", 0, "default_approval_threshold"], "automatic"),
+            (["exploration_axes", 0, "required_layers", 0], "domain"),
+            (["exploration_axes", 0, "default_priority"], "P9"),
             (["risk_policy", "critical", "approval"], "committee"),
             (["risk_policy", "critical", "automatic_adoption"], "automatic"),
             (["risk_policy", "critical", "required_actions", 0], "unknown_action"),
@@ -123,6 +162,8 @@ class DomainPackSchemaTests(unittest.TestCase):
             (["evidence_requirements", 0, "freshness_required"], {"value": "current"}),
             (["risk_types", 0, "default_risk_tier"], ["high"]),
             (["risk_types", 0, "default_approval_threshold"], {"value": "external_review"}),
+            (["exploration_axes", 0, "required_layers"], ["purpose", "domain"]),
+            (["exploration_axes", 0, "default_priority"], {"value": "P1"}),
             (["safety_rules", 0, "approval_threshold"], ["external_review"]),
             (["risk_policy", "critical", "approval"], ["external_review_or_block"]),
             (["risk_policy", "critical", "automatic_adoption"], {"value": "blocked"}),
@@ -144,6 +185,7 @@ class DomainPackSchemaTests(unittest.TestCase):
             ("criteria", "label", "Scientific validity duplicate"),
             ("evidence_requirements", "label", "Protocol duplicate"),
             ("risk_types", "label", "Human subjects duplicate"),
+            ("exploration_axes", "label", "Goal duplicate"),
             ("safety_rules", "reason", "Duplicate rule."),
         )
         for collection, field, value in cases:
@@ -154,6 +196,20 @@ class DomainPackSchemaTests(unittest.TestCase):
                 payload[collection].append(duplicate)
 
                 with self.assertRaisesRegex(DomainPackValidationError, "duplicate ids"):
+                    validate_domain_pack_payload(payload)
+
+    def test_semantic_validator_rejects_invalid_exploration_axes(self) -> None:
+        cases = (
+            (["exploration_axes", 0, "required_layers"], [], "required_layers must not be empty"),
+            (["exploration_axes", 0, "required"], "yes", "required must be a boolean"),
+        )
+        for path, value, message in cases:
+            with self.subTest(path=path):
+                payload = _valid_pack()
+                _set_path(payload, path, value)
+
+                self.assertTrue(list(self.validator.iter_errors(payload)))
+                with self.assertRaisesRegex(DomainPackValidationError, message):
                     validate_domain_pack_payload(payload)
 
     def test_semantic_validator_rejects_duplicate_document_profiles(self) -> None:
@@ -199,6 +255,7 @@ class DomainPackSchemaTests(unittest.TestCase):
         cases = (
             ([], "python_hook", "decide_me.plugins.research"),
             (["decision_types", 0], "prompt", "not allowed"),
+            (["exploration_axes", 0], "python_hook", "not allowed"),
             (["documents", 0], "builder", "not allowed"),
             (["interview"], "classifier", "not allowed"),
         )
@@ -231,7 +288,7 @@ class DomainPackSchemaTests(unittest.TestCase):
 
 def _valid_pack() -> dict:
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "pack_id": "research",
         "version": "0.1.0",
         "label": "Research",
@@ -291,6 +348,29 @@ def _valid_pack() -> dict:
             "verification",
             "monitoring",
             "decision",
+        ],
+        "exploration_axes": [
+            {
+                "id": "goal_boundary",
+                "label": "Goal boundary",
+                "required_layers": ["purpose", "principle"],
+                "default_priority": "P1",
+                "required": True,
+            },
+            {
+                "id": "safety_boundary",
+                "label": "Safety boundary",
+                "required_layers": ["constraint", "verification", "review"],
+                "default_priority": "P0",
+                "required": True,
+            },
+            {
+                "id": "execution_path",
+                "label": "Execution path",
+                "required_layers": ["strategy", "design", "execution"],
+                "default_priority": "P1",
+                "required": True,
+            },
         ],
         "safety_rules": [
             {

@@ -1,6 +1,6 @@
-schema_version: 1
+schema_version: 2
 pack_id: personal_planning
-version: 0.1.0
+version: 0.2.0
 label: Personal Planning
 description: Personal planning decision support for career, household, learning, and personal execution planning.
 aliases:
@@ -9,6 +9,30 @@ aliases:
   - household planning
   - learning plan
 default_core_domain: other
+exploration_axes:
+  - id: goal_boundary
+    label: Goal boundary
+    required_layers:
+      - purpose
+      - principle
+    default_priority: P1
+    required: true
+  - id: safety_boundary
+    label: Safety boundary
+    required_layers:
+      - constraint
+      - verification
+      - review
+    default_priority: P0
+    required: true
+  - id: execution_path
+    label: Execution path
+    required_layers:
+      - strategy
+      - design
+      - execution
+    default_priority: P1
+    required: true
 decision_types:
   - id: goal_definition
     label: Goal definition

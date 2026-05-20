@@ -112,8 +112,9 @@ Persisted DraftDecisionSet sidecars use `schema_version: 2` and include `explora
 source input for the objective, non-goals, read-first sources, required coverage targets, budgets, stop
 conditions, and pause conditions. Derived coverage matrices, gap diagnostics, convergence, frontier
 queues, and review queues stay out of `draft-set.json`. `draft-projection.json` uses
-`schema_version: 2` and owns `coverage_summary` plus `coverage_matrix`; required P0/P1 missing or
-partial coverage blocks convergence.
+`schema_version: 3` and owns `coverage_summary`, `coverage_matrix`, and the derived
+`frontier_queue`; required P0/P1 missing or partial coverage blocks convergence and creates open
+frontier items for the next expansion target.
 
 ```text
 Create decision preflight from goal:
@@ -399,7 +400,8 @@ debugging. Use `python3 scripts/decide_me.py --help` for the full subcommand
 reference. Common maintainer operations include:
 
 - `list-sessions`, `show-session`, and `resume-session`
-- `list-domain-packs` and `show-domain-pack` to inspect available declarative domain packs
+- `list-domain-packs` and `show-domain-pack` to inspect available declarative domain packs,
+  including v2 `exploration_axes` policy
 - `create-session --domain-pack research|procurement|software|operations|personal_planning|writing|generic`
   to explicitly select a pack;
   omitted packs are inferred from context and unresolved contexts fall back to `generic`

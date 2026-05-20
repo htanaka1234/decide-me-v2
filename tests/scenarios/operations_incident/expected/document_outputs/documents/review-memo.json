@@ -4,9 +4,9 @@
   "document_type": "review-memo",
   "metadata": {
     "document_profile_id": "operations_review_memo",
-    "domain_pack_digest": "DP-77761e415897",
+    "domain_pack_digest": "DP-a9619f3374a0",
     "domain_pack_id": "operations",
-    "domain_pack_version": "0.1.0"
+    "domain_pack_version": "0.2.0"
   },
   "schema_version": 1,
   "sections": [

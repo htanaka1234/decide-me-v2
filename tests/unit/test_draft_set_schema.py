@@ -254,6 +254,7 @@ class DraftSetSchemaTests(unittest.TestCase):
             ("review_queue", []),
             ("coverage_matrix", []),
             ("coverage_summary", {"required_target_count": 0}),
+            ("frontier_queue", []),
             (
                 "convergence",
                 {

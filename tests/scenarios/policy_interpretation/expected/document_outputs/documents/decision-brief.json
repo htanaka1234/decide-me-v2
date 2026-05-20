@@ -4,9 +4,9 @@
   "document_type": "decision-brief",
   "metadata": {
     "document_profile_id": "generic_decision_brief",
-    "domain_pack_digest": "DP-93bf8d37f00b",
+    "domain_pack_digest": "DP-5a9664a0e8d7",
     "domain_pack_id": "generic",
-    "domain_pack_version": "0.1.0"
+    "domain_pack_version": "0.2.0"
   },
   "schema_version": 1,
   "sections": [
@@ -32,7 +32,7 @@
             ],
             [
               "Project Head",
-              "2befcf1b92ff641510d7955418e778e840d317d04ede1b5de289062e598cfb2c"
+              "ef4053fa55df4fc6594856db0bd4db72b2cf0ae5ead4d523eff6727ecf2f0f82"
             ]
           ],
           "type": "table"

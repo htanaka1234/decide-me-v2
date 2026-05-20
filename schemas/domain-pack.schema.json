@@ -16,6 +16,7 @@
     "evidence_requirements",
     "risk_types",
     "action_types",
+    "exploration_axes",
     "safety_rules",
     "documents",
     "interview"
@@ -23,7 +24,7 @@
   "properties": {
     "schema_version": {
       "type": "integer",
-      "const": 1
+      "const": 2
     },
     "pack_id": {
       "$ref": "#/$defs/identifier"
@@ -73,6 +74,14 @@
     },
     "action_types": {
       "$ref": "#/$defs/identifier_array"
+    },
+    "exploration_axes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/exploration_axis"
+      },
+      "uniqueItems": true
     },
     "safety_rules": {
       "type": "array",
@@ -377,6 +386,39 @@
         },
         "default_approval_threshold": {
           "$ref": "#/$defs/approval_threshold"
+        }
+      },
+      "additionalProperties": false
+    },
+    "exploration_axis": {
+      "type": "object",
+      "required": [
+        "id",
+        "label",
+        "required_layers",
+        "default_priority",
+        "required"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "label": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "required_layers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/decision_stack_layer"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "default_priority": {
+          "$ref": "#/$defs/priority"
+        },
+        "required": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false

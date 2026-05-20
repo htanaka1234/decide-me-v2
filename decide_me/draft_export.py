@@ -703,6 +703,9 @@ def _render_preflight(
         "## Gap Diagnostics",
         _render_gap_diagnostics(draft_projection),
         "",
+        "## Frontier Queue",
+        _render_frontier_queue(draft_projection),
+        "",
         "## Blocking Gaps",
         _render_blocking_gaps(review_queue),
         "",
@@ -817,6 +820,32 @@ def _render_gap_diagnostics(draft_projection: dict[str, Any] | None) -> str:
         ),
     ]
     return "\n".join(lines)
+
+
+def _render_frontier_queue(draft_projection: dict[str, Any] | None) -> str:
+    if not isinstance(draft_projection, dict):
+        return "- frontier diagnostics unavailable"
+    items = _list_field(draft_projection, "frontier_queue")
+    if not items:
+        convergence = _dict_field(draft_projection, "convergence")
+        if convergence.get("status") == "converged":
+            return "- No open frontier."
+        return "- No auto-expandable frontier; review blocking diagnostics."
+    return _table(
+        ["ID", "Source Gap", "Priority", "Status", "Topic", "Evidence Needed", "Suggested Expansion"],
+        [
+            [
+                item.get("id"),
+                item.get("source_gap_id"),
+                item.get("priority"),
+                item.get("status"),
+                item.get("topic"),
+                item.get("evidence_needed"),
+                item.get("suggested_expansion"),
+            ]
+            for item in items
+        ],
+    )
 
 
 def _render_draft_decisions(draft_set: dict[str, Any], review_queue: dict[str, Any]) -> str:

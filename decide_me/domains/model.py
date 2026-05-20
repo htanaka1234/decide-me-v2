@@ -6,7 +6,7 @@ from typing import Any
 from decide_me.domains.validate import validate_domain_pack_payload
 
 
-DOMAIN_PACK_SCHEMA_VERSION = 1
+DOMAIN_PACK_SCHEMA_VERSION = 2
 
 
 @dataclass(frozen=True)
@@ -116,6 +116,34 @@ class RiskTypeSpec:
             "label": self.label,
             "default_risk_tier": self.default_risk_tier,
             "default_approval_threshold": self.default_approval_threshold,
+        }
+
+
+@dataclass(frozen=True)
+class ExplorationAxisSpec:
+    id: str
+    label: str
+    required_layers: tuple[str, ...]
+    default_priority: str
+    required: bool
+
+    @classmethod
+    def from_dict(cls, raw: dict[str, Any]) -> ExplorationAxisSpec:
+        return cls(
+            id=raw["id"],
+            label=raw["label"],
+            required_layers=_tuple(raw["required_layers"]),
+            default_priority=raw["default_priority"],
+            required=raw["required"],
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "label": self.label,
+            "required_layers": list(self.required_layers),
+            "default_priority": self.default_priority,
+            "required": self.required,
         }
 
 
@@ -238,6 +266,7 @@ class DomainPack:
     evidence_requirements: tuple[EvidenceRequirementSpec, ...]
     risk_types: tuple[RiskTypeSpec, ...]
     action_types: tuple[str, ...]
+    exploration_axes: tuple[ExplorationAxisSpec, ...]
     safety_rules: tuple[SafetyRuleSpec, ...]
     risk_policy: tuple[RiskPolicySpec, ...]
     documents: tuple[DocumentSpec, ...]
@@ -257,6 +286,7 @@ class DomainPack:
             "evidence_requirements": [item.to_dict() for item in self.evidence_requirements],
             "risk_types": [item.to_dict() for item in self.risk_types],
             "action_types": list(self.action_types),
+            "exploration_axes": [item.to_dict() for item in self.exploration_axes],
             "safety_rules": [item.to_dict() for item in self.safety_rules],
             "documents": [item.to_dict() for item in self.documents],
             "interview": self.interview.to_dict(),
@@ -283,6 +313,7 @@ def domain_pack_from_dict(raw: dict[str, Any]) -> DomainPack:
         ),
         risk_types=tuple(RiskTypeSpec.from_dict(item) for item in raw["risk_types"]),
         action_types=_tuple(raw["action_types"]),
+        exploration_axes=tuple(ExplorationAxisSpec.from_dict(item) for item in raw["exploration_axes"]),
         safety_rules=tuple(SafetyRuleSpec.from_dict(item) for item in raw["safety_rules"]),
         risk_policy=tuple(
             RiskPolicySpec.from_dict(risk_tier, item)

@@ -4,9 +4,9 @@
   "document_type": "action-plan",
   "metadata": {
     "document_profile_id": "personal_planning_action_plan",
-    "domain_pack_digest": "DP-4eef05c61bf7",
+    "domain_pack_digest": "DP-a58bae6a8901",
     "domain_pack_id": "personal_planning",
-    "domain_pack_version": "0.1.0",
+    "domain_pack_version": "0.2.0",
     "readiness": "ready"
   },
   "schema_version": 1,

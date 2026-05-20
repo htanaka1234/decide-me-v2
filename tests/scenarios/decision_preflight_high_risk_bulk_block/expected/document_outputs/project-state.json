@@ -1,0 +1,81 @@
+{
+  "counts": {
+    "by_relation": {},
+    "by_status": {
+      "active": 1
+    },
+    "by_type": {
+      "objective": 1
+    },
+    "link_total": 0,
+    "object_total": 1
+  },
+  "graph": {
+    "edges": [],
+    "inferred_candidates": [],
+    "nodes": [
+      {
+        "is_frontier": false,
+        "is_invalidated": false,
+        "layer": "purpose",
+        "object_id": "O-project-objective",
+        "object_type": "objective",
+        "status": "active",
+        "title": "Review safety regression"
+      }
+    ],
+    "resolved_conflicts": []
+  },
+  "links": [],
+  "objects": [
+    {
+      "body": "Evaluate unsafe bulk-review diagnostics for high-risk drafts.",
+      "created_at": "2026-04-29T00:00:00Z",
+      "id": "O-project-objective",
+      "metadata": {
+        "project_name": "Decision Preflight high-risk bulk block",
+        "stop_rule": "All relevant P0 decisions with frontier=now are resolved, accepted, or explicitly deferred."
+      },
+      "source_event_ids": [
+        "E-eval-decision_preflight_high_risk_bulk_block-project"
+      ],
+      "status": "active",
+      "title": "Review safety regression",
+      "type": "objective",
+      "updated_at": null
+    }
+  ],
+  "project": {
+    "current_milestone": "Review safety regression",
+    "name": "Decision Preflight high-risk bulk block",
+    "objective": "Evaluate unsafe bulk-review diagnostics for high-risk drafts.",
+    "stop_rule": "All relevant P0 decisions with frontier=now are resolved, accepted, or explicitly deferred."
+  },
+  "protocol": {
+    "close_policy": "generate-close-summary-on-close",
+    "plain_ok_scope": "same-session-active-proposal-only",
+    "proposal_expiry_rules": [
+      "project-head-changed",
+      "session-boundary",
+      "superseded-proposal",
+      "decision-invalidated",
+      "session-closed"
+    ]
+  },
+  "schema_version": 12,
+  "sessions_index": {
+    "S-decision-preflight": {
+      "bound_context_hint": "Evaluate unsafe bulk-review diagnostics for high-risk drafts.",
+      "closed_at": null,
+      "id": "S-decision-preflight",
+      "last_seen_at": "2026-04-29T00:00:01Z",
+      "related_object_ids": [],
+      "started_at": "2026-04-29T00:00:01Z",
+      "status": "active"
+    }
+  },
+  "state": {
+    "event_count": 2,
+    "updated_at": "2026-04-29T00:00:01Z"
+  }
+}

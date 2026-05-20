@@ -41,6 +41,11 @@ class DomainPackCliTests(unittest.TestCase):
         self.assertEqual("ok", shown["status"])
         self.assertEqual(domain_pack_digest(research_pack), shown["digest"])
         self.assertEqual("research", shown["pack"]["pack_id"])
+        self.assertIn("exploration_axes", shown["pack"])
+        self.assertEqual(
+            {"goal_boundary", "safety_boundary", "execution_path"},
+            {axis["id"] for axis in shown["pack"]["exploration_axes"]},
+        )
 
     def test_create_session_persists_explicit_and_inferred_domain_pack_metadata(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -74,7 +79,7 @@ class DomainPackCliTests(unittest.TestCase):
         research_pack = load_builtin_packs()["research"]
         explicit_classification = explicit["classification"]
         self.assertEqual("research", explicit_classification["domain_pack_id"])
-        self.assertEqual("0.1.0", explicit_classification["domain_pack_version"])
+        self.assertEqual(research_pack.version, explicit_classification["domain_pack_version"])
         self.assertEqual(domain_pack_digest(research_pack), explicit_classification["domain_pack_digest"])
         self.assertEqual("data", explicit_classification["domain"])
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import difflib
+import json
 from pathlib import Path
 from typing import Any
 
@@ -61,6 +62,8 @@ def collect_evaluation_snapshots(
             snapshots[f"documents/{document_type}.csv"] = normalize_csv_snapshot(
                 render_csv_document(document)
             )
+    if "decision_preflight" in scenario.expected:
+        snapshots.update(_decision_preflight_snapshots(scenario, runtime))
     return dict(sorted(snapshots.items()))
 
 
@@ -163,6 +166,29 @@ def _remove_empty_snapshot_dirs(root: Path) -> None:
             path.rmdir()
         except OSError:
             pass
+
+
+def _decision_preflight_snapshots(
+    scenario: EvaluationScenario,
+    runtime: ScenarioRuntime,
+) -> dict[str, str]:
+    expected = scenario.expected["decision_preflight"]
+    draft_root = runtime.ai_dir / "draft-sets" / expected["draft_set_id"]
+    snapshots: dict[str, str] = {}
+    for filename in ("draft-set.json", "draft-projection.json", "review-queue.json"):
+        path = draft_root / filename
+        if path.is_file():
+            snapshots[f"decision-preflight/{filename}"] = stable_json(
+                json.loads(path.read_text(encoding="utf-8"))
+            )
+    exports_root = draft_root / "exports"
+    for filename in ("preflight.md", "review-queue.md"):
+        path = exports_root / filename
+        if path.is_file():
+            snapshots[f"decision-preflight/{filename}"] = normalize_markdown_snapshot(
+                path.read_text(encoding="utf-8")
+            )
+    return snapshots
 
 
 def _snapshot_diff(key: str, expected: str, actual: str) -> str:

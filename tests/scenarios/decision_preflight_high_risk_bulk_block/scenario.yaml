@@ -1,0 +1,15 @@
+schema_version: 2
+scenario_id: decision_preflight_high_risk_bulk_block
+label: Decision Preflight high-risk bulk block
+domain_pack: software
+project:
+  name: Decision Preflight high-risk bulk block
+  objective: Evaluate unsafe bulk-review diagnostics for high-risk drafts.
+  current_milestone: Review safety regression
+sessions:
+- session_id: S-decision-preflight
+  context: Evaluate unsafe bulk-review diagnostics for high-risk drafts.
+  seed_events: events.jsonl
+  close: false
+evaluation:
+  now: '2026-04-29T00:00:00Z'

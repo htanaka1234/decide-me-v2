@@ -138,6 +138,25 @@ class DomainPackRegistryTests(unittest.TestCase):
         self.assertRegex(first, r"^DP-[0-9a-f]{12}$")
         self.assertNotEqual(first, changed)
 
+    def test_stale_valid_pack_digest_metadata_fails_fast(self) -> None:
+        registry = load_domain_registry()
+        research = registry.get("research")
+        stale_raw = deepcopy(research.to_dict())
+        stale_raw["description"] = "Previous research pack description."
+        stale_digest = domain_pack_digest(domain_pack_from_dict(stale_raw))
+
+        self.assertNotEqual(domain_pack_digest(research), stale_digest)
+        with self.assertRaisesRegex(ValueError, "domain_pack_digest mismatch"):
+            build_interview_policy_from_metadata(
+                registry,
+                {
+                    "domain_pack_id": "research",
+                    "domain_pack_version": research.version,
+                    "domain_pack_digest": stale_digest,
+                },
+                label="session S-001.classification",
+            )
+
     def test_registry_get_list_and_decision_type(self) -> None:
         registry = load_domain_registry()
 
@@ -353,7 +372,7 @@ def _write_json_pack(path: Path, payload: dict[str, Any]) -> None:
 
 def _pack_payload(pack_id: str) -> dict[str, Any]:
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "pack_id": pack_id,
         "version": "0.1.0",
         "label": pack_id.replace("_", " ").title(),
@@ -383,6 +402,29 @@ def _pack_payload(pack_id: str) -> dict[str, Any]:
         "evidence_requirements": [],
         "risk_types": [],
         "action_types": ["execution"],
+        "exploration_axes": [
+            {
+                "id": "goal_boundary",
+                "label": "Goal boundary",
+                "required_layers": ["purpose", "principle"],
+                "default_priority": "P1",
+                "required": True,
+            },
+            {
+                "id": "safety_boundary",
+                "label": "Safety boundary",
+                "required_layers": ["constraint", "verification", "review"],
+                "default_priority": "P0",
+                "required": True,
+            },
+            {
+                "id": "execution_path",
+                "label": "Execution path",
+                "required_layers": ["strategy", "design", "execution"],
+                "default_priority": "P1",
+                "required": True,
+            },
+        ],
         "safety_rules": [],
         "documents": [
             {

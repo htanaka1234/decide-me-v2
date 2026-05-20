@@ -1,0 +1,15 @@
+schema_version: 2
+scenario_id: decision_preflight_evidence_gap
+label: Decision Preflight evidence gap
+domain_pack: software
+project:
+  name: Decision Preflight evidence gap
+  objective: Evaluate missing evidence diagnostics for a complete layer draft.
+  current_milestone: Evidence safety regression
+sessions:
+- session_id: S-decision-preflight
+  context: Evaluate missing evidence diagnostics for a complete layer draft.
+  seed_events: events.jsonl
+  close: false
+evaluation:
+  now: '2026-04-29T00:00:00Z'

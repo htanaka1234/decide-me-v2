@@ -1,0 +1,434 @@
+{
+  "conflicts": [],
+  "created_at": "2026-04-29T00:00:00Z",
+  "draft_actions": [],
+  "draft_assumptions": [],
+  "draft_decisions": [
+    {
+      "alternatives": [
+        {
+          "option": "Skip the purpose decision",
+          "reason_not_recommended": "Skipping required layer coverage leaves a preflight gap."
+        }
+      ],
+      "evidence_coverage": {
+        "missing": [],
+        "source_unit_ids": [],
+        "status": "sufficient",
+        "supporting_object_ids": []
+      },
+      "frontier": "now",
+      "human_review": {
+        "bulk_promotable": true,
+        "mode": "bulk",
+        "reason": "Fixture requests unsafe bulk review for high-risk draft.",
+        "required": false
+      },
+      "id": "DD-001",
+      "kind": "choice",
+      "layer": "purpose",
+      "priority": "P2",
+      "promotion_recipe": {
+        "acceptance_mode_allowed": [
+          "explicit"
+        ],
+        "blocked_for_bulk_acceptance": false,
+        "canonical_initial_status": "unresolved",
+        "canonical_object_type": "decision",
+        "proposal_required": true
+      },
+      "question": "What purpose decision should be reviewed?",
+      "rationale": "The scenario needs a complete purpose draft decision.",
+      "recommendation": "Use the scenario purpose recommendation.",
+      "reversibility": "reversible",
+      "risk_tier": "high",
+      "status": "recommended"
+    },
+    {
+      "alternatives": [
+        {
+          "option": "Skip the principle decision",
+          "reason_not_recommended": "Skipping required layer coverage leaves a preflight gap."
+        }
+      ],
+      "evidence_coverage": {
+        "missing": [],
+        "source_unit_ids": [],
+        "status": "sufficient",
+        "supporting_object_ids": []
+      },
+      "frontier": "now",
+      "human_review": {
+        "bulk_promotable": false,
+        "mode": "individual",
+        "reason": "P1 draft decision requires individual review.",
+        "required": true
+      },
+      "id": "DD-002",
+      "kind": "choice",
+      "layer": "principle",
+      "priority": "P1",
+      "promotion_recipe": {
+        "acceptance_mode_allowed": [
+          "explicit"
+        ],
+        "blocked_for_bulk_acceptance": true,
+        "canonical_initial_status": "unresolved",
+        "canonical_object_type": "decision",
+        "proposal_required": true
+      },
+      "question": "What principle decision should be reviewed?",
+      "rationale": "The scenario needs a complete principle draft decision.",
+      "recommendation": "Use the scenario principle recommendation.",
+      "reversibility": "reversible",
+      "risk_tier": "low",
+      "status": "recommended"
+    },
+    {
+      "alternatives": [
+        {
+          "option": "Skip the constraint decision",
+          "reason_not_recommended": "Skipping required layer coverage leaves a preflight gap."
+        }
+      ],
+      "evidence_coverage": {
+        "missing": [],
+        "source_unit_ids": [],
+        "status": "sufficient",
+        "supporting_object_ids": []
+      },
+      "frontier": "now",
+      "human_review": {
+        "bulk_promotable": false,
+        "mode": "individual",
+        "reason": "P1 draft decision requires individual review.",
+        "required": true
+      },
+      "id": "DD-003",
+      "kind": "choice",
+      "layer": "constraint",
+      "priority": "P1",
+      "promotion_recipe": {
+        "acceptance_mode_allowed": [
+          "explicit"
+        ],
+        "blocked_for_bulk_acceptance": true,
+        "canonical_initial_status": "unresolved",
+        "canonical_object_type": "decision",
+        "proposal_required": true
+      },
+      "question": "What constraint decision should be reviewed?",
+      "rationale": "The scenario needs a complete constraint draft decision.",
+      "recommendation": "Use the scenario constraint recommendation.",
+      "reversibility": "reversible",
+      "risk_tier": "low",
+      "status": "recommended"
+    },
+    {
+      "alternatives": [
+        {
+          "option": "Skip the strategy decision",
+          "reason_not_recommended": "Skipping required layer coverage leaves a preflight gap."
+        }
+      ],
+      "evidence_coverage": {
+        "missing": [],
+        "source_unit_ids": [],
+        "status": "sufficient",
+        "supporting_object_ids": []
+      },
+      "frontier": "now",
+      "human_review": {
+        "bulk_promotable": false,
+        "mode": "individual",
+        "reason": "P1 draft decision requires individual review.",
+        "required": true
+      },
+      "id": "DD-004",
+      "kind": "choice",
+      "layer": "strategy",
+      "priority": "P1",
+      "promotion_recipe": {
+        "acceptance_mode_allowed": [
+          "explicit"
+        ],
+        "blocked_for_bulk_acceptance": true,
+        "canonical_initial_status": "unresolved",
+        "canonical_object_type": "decision",
+        "proposal_required": true
+      },
+      "question": "What strategy decision should be reviewed?",
+      "rationale": "The scenario needs a complete strategy draft decision.",
+      "recommendation": "Use the scenario strategy recommendation.",
+      "reversibility": "reversible",
+      "risk_tier": "low",
+      "status": "recommended"
+    },
+    {
+      "alternatives": [
+        {
+          "option": "Skip the design decision",
+          "reason_not_recommended": "Skipping required layer coverage leaves a preflight gap."
+        }
+      ],
+      "evidence_coverage": {
+        "missing": [],
+        "source_unit_ids": [],
+        "status": "sufficient",
+        "supporting_object_ids": []
+      },
+      "frontier": "now",
+      "human_review": {
+        "bulk_promotable": false,
+        "mode": "individual",
+        "reason": "P1 draft decision requires individual review.",
+        "required": true
+      },
+      "id": "DD-005",
+      "kind": "choice",
+      "layer": "design",
+      "priority": "P1",
+      "promotion_recipe": {
+        "acceptance_mode_allowed": [
+          "explicit"
+        ],
+        "blocked_for_bulk_acceptance": true,
+        "canonical_initial_status": "unresolved",
+        "canonical_object_type": "decision",
+        "proposal_required": true
+      },
+      "question": "What design decision should be reviewed?",
+      "rationale": "The scenario needs a complete design draft decision.",
+      "recommendation": "Use the scenario design recommendation.",
+      "reversibility": "reversible",
+      "risk_tier": "low",
+      "status": "recommended"
+    },
+    {
+      "alternatives": [
+        {
+          "option": "Skip the execution decision",
+          "reason_not_recommended": "Skipping required layer coverage leaves a preflight gap."
+        }
+      ],
+      "evidence_coverage": {
+        "missing": [],
+        "source_unit_ids": [],
+        "status": "sufficient",
+        "supporting_object_ids": []
+      },
+      "frontier": "now",
+      "human_review": {
+        "bulk_promotable": false,
+        "mode": "individual",
+        "reason": "P1 draft decision requires individual review.",
+        "required": true
+      },
+      "id": "DD-006",
+      "kind": "choice",
+      "layer": "execution",
+      "priority": "P1",
+      "promotion_recipe": {
+        "acceptance_mode_allowed": [
+          "explicit"
+        ],
+        "blocked_for_bulk_acceptance": true,
+        "canonical_initial_status": "unresolved",
+        "canonical_object_type": "decision",
+        "proposal_required": true
+      },
+      "question": "What execution decision should be reviewed?",
+      "rationale": "The scenario needs a complete execution draft decision.",
+      "recommendation": "Use the scenario execution recommendation.",
+      "reversibility": "reversible",
+      "risk_tier": "low",
+      "status": "recommended"
+    },
+    {
+      "alternatives": [
+        {
+          "option": "Skip the verification decision",
+          "reason_not_recommended": "Skipping required layer coverage leaves a preflight gap."
+        }
+      ],
+      "evidence_coverage": {
+        "missing": [],
+        "source_unit_ids": [],
+        "status": "sufficient",
+        "supporting_object_ids": []
+      },
+      "frontier": "now",
+      "human_review": {
+        "bulk_promotable": false,
+        "mode": "individual",
+        "reason": "P1 draft decision requires individual review.",
+        "required": true
+      },
+      "id": "DD-007",
+      "kind": "choice",
+      "layer": "verification",
+      "priority": "P1",
+      "promotion_recipe": {
+        "acceptance_mode_allowed": [
+          "explicit"
+        ],
+        "blocked_for_bulk_acceptance": true,
+        "canonical_initial_status": "unresolved",
+        "canonical_object_type": "decision",
+        "proposal_required": true
+      },
+      "question": "What verification decision should be reviewed?",
+      "rationale": "The scenario needs a complete verification draft decision.",
+      "recommendation": "Use the scenario verification recommendation.",
+      "reversibility": "reversible",
+      "risk_tier": "low",
+      "status": "recommended"
+    },
+    {
+      "alternatives": [
+        {
+          "option": "Skip the review decision",
+          "reason_not_recommended": "Skipping required layer coverage leaves a preflight gap."
+        }
+      ],
+      "evidence_coverage": {
+        "missing": [],
+        "source_unit_ids": [],
+        "status": "sufficient",
+        "supporting_object_ids": []
+      },
+      "frontier": "now",
+      "human_review": {
+        "bulk_promotable": false,
+        "mode": "individual",
+        "reason": "P1 draft decision requires individual review.",
+        "required": true
+      },
+      "id": "DD-008",
+      "kind": "choice",
+      "layer": "review",
+      "priority": "P1",
+      "promotion_recipe": {
+        "acceptance_mode_allowed": [
+          "explicit"
+        ],
+        "blocked_for_bulk_acceptance": true,
+        "canonical_initial_status": "unresolved",
+        "canonical_object_type": "decision",
+        "proposal_required": true
+      },
+      "question": "What review decision should be reviewed?",
+      "rationale": "The scenario needs a complete review draft decision.",
+      "recommendation": "Use the scenario review recommendation.",
+      "reversibility": "reversible",
+      "risk_tier": "low",
+      "status": "recommended"
+    }
+  ],
+  "draft_risks": [],
+  "draft_verifications": [],
+  "exploration_contract": {
+    "budgets": {
+      "max_draft_decisions": 8,
+      "max_iterations": 1
+    },
+    "coverage_targets": [
+      {
+        "axis_id": "core.layer.purpose",
+        "axis_type": "decision_stack_layer",
+        "priority": "P1",
+        "required": true,
+        "value": "purpose"
+      },
+      {
+        "axis_id": "core.layer.principle",
+        "axis_type": "decision_stack_layer",
+        "priority": "P1",
+        "required": true,
+        "value": "principle"
+      },
+      {
+        "axis_id": "core.layer.constraint",
+        "axis_type": "decision_stack_layer",
+        "priority": "P1",
+        "required": true,
+        "value": "constraint"
+      },
+      {
+        "axis_id": "core.layer.strategy",
+        "axis_type": "decision_stack_layer",
+        "priority": "P1",
+        "required": true,
+        "value": "strategy"
+      },
+      {
+        "axis_id": "core.layer.design",
+        "axis_type": "decision_stack_layer",
+        "priority": "P1",
+        "required": true,
+        "value": "design"
+      },
+      {
+        "axis_id": "core.layer.execution",
+        "axis_type": "decision_stack_layer",
+        "priority": "P1",
+        "required": true,
+        "value": "execution"
+      },
+      {
+        "axis_id": "core.layer.verification",
+        "axis_type": "decision_stack_layer",
+        "priority": "P1",
+        "required": true,
+        "value": "verification"
+      },
+      {
+        "axis_id": "core.layer.review",
+        "axis_type": "decision_stack_layer",
+        "priority": "P1",
+        "required": true,
+        "value": "review"
+      }
+    ],
+    "non_goals": [],
+    "objective": "Store draft sets safely.",
+    "pause_conditions": [
+      "missing_or_challenged_evidence",
+      "high_or_critical_risk",
+      "stale_or_unclassifiable_diagnostics"
+    ],
+    "read_first_sources": [
+      "project-state.json"
+    ],
+    "stop_conditions": [
+      "required_coverage_targets_satisfied",
+      "budget_exhausted",
+      "blocking_gap_requires_review"
+    ]
+  },
+  "generated_by": "test",
+  "goal": {
+    "constraints": [
+      "Do not mutate canonical runtime"
+    ],
+    "desired_outcome": "Store draft sets safely.",
+    "id": "G-20260513-001",
+    "title": "Add draft decision sets"
+  },
+  "id": "DS-20260429-001",
+  "mode": "autopilot-draft",
+  "promotion": {
+    "bulk_promotable_ids": [],
+    "individual_review_required_ids": [],
+    "promoted_decision_ids": []
+  },
+  "schema_version": 2,
+  "source_context": {
+    "domain_pack_id": "generic",
+    "included_object_ids": [],
+    "included_session_ids": [],
+    "project_head_at_generation": "c9d3258ada1c381593186dd365af1c7fa4231922a0d592f94d8cb58ba33bb6d1",
+    "project_state_ref": "project-state.json"
+  },
+  "status": "generated"
+}

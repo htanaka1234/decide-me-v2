@@ -15,6 +15,9 @@ from tests.helpers.evaluation_scenarios import (
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCENARIOS_DIR = REPO_ROOT / "tests" / "scenarios"
 EXPECTED_SCENARIOS = {
+    "decision_preflight_evidence_gap",
+    "decision_preflight_high_risk_bulk_block",
+    "decision_preflight_software_gap",
     "operations_incident",
     "personal_planning",
     "policy_interpretation",
@@ -27,6 +30,9 @@ EXPECTED_SCENARIOS = {
 # Adding exploratory scenarios under tests/scenarios intentionally requires updating
 # both EXPECTED_SCENARIOS and EXPECTED_SCENARIO_PACKS.
 EXPECTED_SCENARIO_PACKS = {
+    "decision_preflight_evidence_gap": "software",
+    "decision_preflight_high_risk_bulk_block": "software",
+    "decision_preflight_software_gap": "software",
     "operations_incident": "operations",
     "personal_planning": "personal_planning",
     "policy_interpretation": "generic",
