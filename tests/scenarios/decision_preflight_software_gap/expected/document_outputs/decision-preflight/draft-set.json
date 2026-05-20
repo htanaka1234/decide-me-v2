@@ -243,71 +243,147 @@
       "reversibility": "reversible",
       "risk_tier": "low",
       "status": "recommended"
+    },
+    {
+      "alternatives": [
+        {
+          "option": "Skip the review decision",
+          "reason_not_recommended": "Skipping required layer coverage leaves a preflight gap."
+        }
+      ],
+      "evidence_coverage": {
+        "missing": [],
+        "source_unit_ids": [],
+        "status": "sufficient",
+        "supporting_object_ids": []
+      },
+      "frontier": "now",
+      "human_review": {
+        "bulk_promotable": false,
+        "mode": "individual",
+        "reason": "P1 draft decision requires individual review.",
+        "required": true
+      },
+      "id": "DD-007",
+      "kind": "choice",
+      "layer": "verification",
+      "priority": "P1",
+      "promotion_recipe": {
+        "acceptance_mode_allowed": [
+          "explicit"
+        ],
+        "blocked_for_bulk_acceptance": true,
+        "canonical_initial_status": "unresolved",
+        "canonical_object_type": "decision",
+        "proposal_required": true
+      },
+      "question": "What generic verification decision should be reviewed?",
+      "rationale": "The scenario needs a complete generic verification draft decision that is not bound to the software safety boundary.",
+      "recommendation": "Use the scenario generic verification recommendation.",
+      "reversibility": "reversible",
+      "risk_tier": "low",
+      "status": "recommended"
     }
   ],
   "draft_risks": [],
   "draft_verifications": [],
   "exploration_contract": {
     "budgets": {
-      "max_draft_decisions": 6,
+      "max_draft_decisions": 8,
       "max_iterations": 1
     },
     "coverage_targets": [
       {
         "axis_id": "core.layer.purpose",
         "axis_type": "decision_stack_layer",
+        "label": "Purpose",
+        "match_policy": "layer_complete",
         "priority": "P1",
         "required": true,
+        "source": "core",
         "value": "purpose"
       },
       {
         "axis_id": "core.layer.principle",
         "axis_type": "decision_stack_layer",
+        "label": "Principle",
+        "match_policy": "layer_complete",
         "priority": "P1",
         "required": true,
+        "source": "core",
         "value": "principle"
       },
       {
         "axis_id": "core.layer.constraint",
         "axis_type": "decision_stack_layer",
+        "label": "Constraint",
+        "match_policy": "layer_complete",
         "priority": "P1",
         "required": true,
+        "source": "core",
         "value": "constraint"
       },
       {
         "axis_id": "core.layer.strategy",
         "axis_type": "decision_stack_layer",
+        "label": "Strategy",
+        "match_policy": "layer_complete",
         "priority": "P1",
         "required": true,
+        "source": "core",
         "value": "strategy"
       },
       {
         "axis_id": "core.layer.design",
         "axis_type": "decision_stack_layer",
+        "label": "Design",
+        "match_policy": "layer_complete",
         "priority": "P1",
         "required": true,
+        "source": "core",
         "value": "design"
       },
       {
         "axis_id": "core.layer.execution",
         "axis_type": "decision_stack_layer",
+        "label": "Execution",
+        "match_policy": "layer_complete",
         "priority": "P1",
         "required": true,
+        "source": "core",
         "value": "execution"
       },
       {
         "axis_id": "core.layer.verification",
         "axis_type": "decision_stack_layer",
+        "label": "Verification",
+        "match_policy": "layer_complete",
         "priority": "P1",
         "required": true,
+        "source": "core",
         "value": "verification"
       },
       {
         "axis_id": "core.layer.review",
         "axis_type": "decision_stack_layer",
+        "label": "Review",
+        "match_policy": "layer_complete",
         "priority": "P1",
         "required": true,
+        "source": "core",
         "value": "review"
+      },
+      {
+        "axis_id": "domain_pack.software.safety_boundary.verification",
+        "axis_type": "decision_stack_layer",
+        "domain_axis_id": "safety_boundary",
+        "domain_pack_id": "software",
+        "label": "Safety boundary",
+        "match_policy": "explicit_target_or_domain_axis",
+        "priority": "P0",
+        "required": true,
+        "source": "domain_pack",
+        "value": "verification"
       }
     ],
     "non_goals": [],
@@ -342,9 +418,9 @@
     "individual_review_required_ids": [],
     "promoted_decision_ids": []
   },
-  "schema_version": 2,
+  "schema_version": 3,
   "source_context": {
-    "domain_pack_id": "generic",
+    "domain_pack_id": "software",
     "included_object_ids": [],
     "included_session_ids": [],
     "project_head_at_generation": "941da554a7b8e63badb032c6fede520a637b23ee8abe097e00f972af8ca6c32d",

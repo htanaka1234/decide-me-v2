@@ -19,7 +19,7 @@ class DraftProjectionTests(unittest.TestCase):
         Draft202012Validator(load_schema("draft-projection.schema.json"), format_checker=FormatChecker()).validate(
             projection
         )
-        self.assertEqual(3, projection["schema_version"])
+        self.assertEqual(4, projection["schema_version"])
         self.assertEqual("DS-20260513-001", projection["draft_set_id"])
 
     def test_projection_schema_requires_coverage_and_frontier_fields(self) -> None:
@@ -50,7 +50,7 @@ class DraftProjectionTests(unittest.TestCase):
         self.assertTrue(any(list(error.path)[-1:] == ["status"] for error in errors))
 
         projection = _project(_draft_set())
-        projection["coverage_matrix"][0].pop("observed_value")
+        projection["coverage_matrix"][0].pop("source")
         errors = list(
             Draft202012Validator(load_schema("draft-projection.schema.json"), format_checker=FormatChecker()).iter_errors(
                 projection
@@ -139,44 +139,115 @@ class DraftProjectionTests(unittest.TestCase):
         self.assertEqual("blocked", projection["convergence"]["status"])
         self.assertEqual(f"F-{gap['id']}", frontier["id"])
 
+    def test_domain_axis_is_not_covered_by_generic_same_layer_decision(self) -> None:
+        draft_set = _draft_set()
+        draft_set["source_context"]["domain_pack_id"] = "software"
+        draft_set["exploration_contract"] = default_exploration_contract(draft_set)
+        verification = deepcopy(draft_set["draft_decisions"][0])
+        verification["id"] = "DD-VERIFY-GENERIC"
+        verification["layer"] = "verification"
+        verification["question"] = "How should verification be handled?"
+        verification["recommendation"] = "Run a generic verification check."
+        verification["rationale"] = "Generic verification covers the core layer."
+        draft_set["draft_decisions"].append(verification)
+
+        projection = _project(draft_set)
+        core_row = _coverage_row(projection, "core.layer.verification")
+        domain_row = _coverage_row(projection, "domain_pack.software.safety_boundary.verification")
+
+        self.assertEqual("covered", core_row["status"])
+        self.assertEqual("partial", domain_row["status"])
+        self.assertEqual("domain_pack", domain_row["source"])
+        self.assertEqual("software", domain_row["domain_pack_id"])
+        self.assertEqual("safety_boundary", domain_row["domain_axis_id"])
+        self.assertEqual("explicit_target_or_domain_axis", domain_row["match_policy"])
+        self.assertTrue(domain_row["blocks_convergence"])
+
+    def test_domain_axis_is_covered_by_explicit_coverage_target_binding(self) -> None:
+        draft_set = _draft_set()
+        draft_set["source_context"]["domain_pack_id"] = "software"
+        draft_set["exploration_contract"] = default_exploration_contract(draft_set)
+        verification = deepcopy(draft_set["draft_decisions"][0])
+        verification["id"] = "DD-VERIFY-SAFETY"
+        verification["layer"] = "verification"
+        verification["question"] = "How should the software safety boundary be verified?"
+        verification["recommendation"] = "Require observable safety-boundary verification before promotion."
+        verification["rationale"] = "The safety boundary needs domain-specific proof."
+        verification["coverage_target_ids"] = ["domain_pack.software.safety_boundary.verification"]
+        draft_set["draft_decisions"].append(verification)
+
+        projection = _project(draft_set)
+        domain_row = _coverage_row(projection, "domain_pack.software.safety_boundary.verification")
+
+        self.assertEqual("covered", domain_row["status"])
+        self.assertEqual(["DD-VERIFY-SAFETY"], domain_row["covered_by"])
+        self.assertFalse(domain_row["blocks_convergence"])
+
+    def test_explicit_target_without_match_policy_fails_closed(self) -> None:
+        draft_set = _draft_set()
+        verification = deepcopy(draft_set["draft_decisions"][0])
+        verification["id"] = "DD-VERIFY-GENERIC"
+        verification["layer"] = "verification"
+        verification["question"] = "How should verification be handled?"
+        verification["recommendation"] = "Run a generic verification check."
+        verification["rationale"] = "Generic verification covers the core layer."
+        draft_set["draft_decisions"].append(verification)
+        draft_set["exploration_contract"]["coverage_targets"] = [
+            {
+                "axis_id": "custom.verification.semantic",
+                "axis_type": "decision_stack_layer",
+                "value": "verification",
+                "priority": "P1",
+                "required": True,
+            }
+        ]
+
+        projection = _project(draft_set)
+        row = _coverage_row(projection, "custom.verification.semantic")
+
+        self.assertEqual("explicit", row["source"])
+        self.assertEqual("missing_fail_closed", row["match_policy"])
+        self.assertEqual("partial", row["status"])
+        self.assertTrue(row["blocks_convergence"])
+
     def test_frontier_queue_uses_priority_axis_layer_and_axis_order(self) -> None:
         draft_set = _draft_set()
         draft_set["exploration_contract"]["coverage_targets"] = [
-            {
+            _target({
                 "axis_id": "z.layer.review",
                 "axis_type": "decision_stack_layer",
                 "value": "review",
                 "priority": "P1",
                 "required": True,
-            },
-            {
+            }),
+            _target({
                 "axis_id": "z.layer.strategy",
                 "axis_type": "decision_stack_layer",
                 "value": "strategy",
                 "priority": "P1",
                 "required": True,
-            },
-            {
+            }),
+            _target({
                 "axis_id": "m.layer.purpose",
                 "axis_type": "decision_stack_layer",
                 "value": "purpose",
                 "priority": "P1",
                 "required": True,
-            },
-            {
+            }),
+            _target({
                 "axis_id": "a.layer.strategy",
                 "axis_type": "decision_stack_layer",
                 "value": "strategy",
                 "priority": "P1",
                 "required": True,
-            },
-            {
+            }),
+            _target({
                 "axis_id": "b.evidence",
                 "axis_type": "evidence_coverage",
                 "value": "sufficient",
                 "priority": "P0",
                 "required": True,
-            },
+            }),
         ]
 
         projection = _project(draft_set)
@@ -200,13 +271,13 @@ class DraftProjectionTests(unittest.TestCase):
         draft_set["draft_decisions"][0]["priority"] = "P2"
         draft_set["draft_decisions"][0]["evidence_coverage"]["status"] = "sufficient"
         draft_set["exploration_contract"]["coverage_targets"] = [
-            {
+            _target({
                 "axis_id": "core.layer.strategy.optional",
                 "axis_type": "decision_stack_layer",
                 "value": "strategy",
                 "priority": "P3",
                 "required": False,
-            }
+            })
         ]
 
         projection = _project(draft_set)
@@ -243,13 +314,13 @@ class DraftProjectionTests(unittest.TestCase):
     def test_required_evidence_target_uses_target_value_not_observed_value(self) -> None:
         draft_set = _draft_set()
         draft_set["exploration_contract"]["coverage_targets"] = [
-            {
+            _target({
                 "axis_id": "target.evidence.sufficient",
                 "axis_type": "evidence_coverage",
                 "value": "sufficient",
                 "priority": "P1",
                 "required": True,
-            }
+            })
         ]
 
         projection = _project(draft_set)
@@ -263,13 +334,13 @@ class DraftProjectionTests(unittest.TestCase):
     def test_required_evidence_target_creates_frontier_without_upgrading_evidence(self) -> None:
         draft_set = _draft_set()
         draft_set["exploration_contract"]["coverage_targets"] = [
-            {
+            _target({
                 "axis_id": "target.evidence.sufficient",
                 "axis_type": "evidence_coverage",
                 "value": "sufficient",
                 "priority": "P1",
                 "required": True,
-            }
+            })
         ]
 
         projection = _project(draft_set)
@@ -294,13 +365,13 @@ class DraftProjectionTests(unittest.TestCase):
             "reason": "Low-risk bulk candidate.",
         }
         draft_set["exploration_contract"]["coverage_targets"] = [
-            {
+            _target({
                 "axis_id": "target.review.individual",
                 "axis_type": "human_review_safety",
                 "value": "individual_required",
                 "priority": "P1",
                 "required": True,
-            }
+            })
         ]
 
         projection = _project(draft_set)
@@ -314,13 +385,13 @@ class DraftProjectionTests(unittest.TestCase):
     def test_promotion_safety_target_value_observed_value_and_status(self) -> None:
         draft_set = _draft_set()
         draft_set["exploration_contract"]["coverage_targets"] = [
-            {
+            _target({
                 "axis_id": "target.promotion.proposal",
                 "axis_type": "promotion_safety",
                 "value": "proposal_required",
                 "priority": "P1",
                 "required": True,
-            }
+            })
         ]
 
         projection = _project(draft_set)
@@ -573,6 +644,14 @@ def _draft_set() -> dict:
     draft["evidence_coverage"]["status"] = "partial"
     draft["evidence_coverage"]["missing"] = []
     return payload
+
+
+def _target(payload: dict) -> dict:
+    normalized = dict(payload)
+    normalized.setdefault("source", "explicit")
+    normalized.setdefault("label", normalized["axis_id"])
+    normalized.setdefault("match_policy", "layer_complete")
+    return normalized
 
 
 def _gap_types(projection: dict) -> list[str]:

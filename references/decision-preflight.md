@@ -46,16 +46,16 @@ failure contract for the draft flow and must remain stable as exploration covera
 `goal`, `source_context`, `draft_decisions`, and the Phase 1 `exploration_contract`. It must not store
 derived diagnostic state such as coverage matrices, gap classifiers, convergence, frontier queues, or
 review queues.
-DraftDecisionSet uses `schema_version: 2` once `exploration_contract` is required. Older v1 draft
-sidecars are not implicitly migrated.
+DraftDecisionSet uses `schema_version: 3` once coverage target provenance and draft decision
+`coverage_target_ids` bindings are required. Older v1/v2 draft sidecars are not implicitly migrated.
 
 `draft-projection.json` is a derived sidecar. It owns projection-time diagnostics such as the Phase 2
 `coverage_matrix`, `coverage_summary`, the Phase 5 derived `frontier_queue`, existing
 `gap_diagnostics`, and current `convergence`. Diagnostics and coverage are never written back into
-`draft-set.json`. DraftProjection uses `schema_version: 3` once the derived `frontier_queue` is
-required alongside coverage diagnostics. Frontier is therefore persisted only as derived projection
-state in `draft-projection.json`; it is never persisted in the source sidecar `draft-set.json` or in
-canonical runtime state.
+`draft-set.json`. DraftProjection uses `schema_version: 4` once coverage rows include normalized
+provenance fields and semantic match policies. Frontier is therefore persisted only as derived
+projection state in `draft-projection.json`; it is never persisted in the source sidecar
+`draft-set.json` or in canonical runtime state.
 
 `review-queue.json` is a derived promotion handoff queue. It is built from the draft set plus current
 projection diagnostics and is used only to organize blocked, individual-review, and bulk-eligible
@@ -336,15 +336,27 @@ alternative in Skill-generated payloads. Promotion-oriented decisions should use
 scope before projection diagnostics run. The default contract requires the eight Decision Stack layer
 coverage targets `core.layer.purpose`, `core.layer.principle`, `core.layer.constraint`,
 `core.layer.strategy`, `core.layer.design`, `core.layer.execution`, `core.layer.verification`, and
-`core.layer.review`, all with `axis_type=decision_stack_layer`, `priority=P1`, and `required=true`.
+`core.layer.review`, all with `axis_type=decision_stack_layer`, `priority=P1`, `required=true`,
+`source=core`, and `match_policy=layer_complete`.
 When the input omits `exploration_contract`, the selected Domain Pack's `exploration_axes` are also
 expanded into source coverage targets with IDs shaped as `domain_pack.<pack_id>.<axis_id>.<layer>`.
 Pack-derived targets may reference the same Decision Stack layer as a `core.layer.*` target; the
 projection keeps them as separate rows because each `axis_id` represents a distinct exploration
 policy axis, so required and blocking counts can increase for specialized packs.
+Domain Pack-derived targets are semantic coverage targets, not generic layer aliases. They record
+`source=domain_pack`, `domain_pack_id`, `domain_axis_id`, `label`, and
+`match_policy=explicit_target_or_domain_axis`. A draft decision covers such a row only when it is a
+complete same-layer draft decision and its `coverage_target_ids` explicitly includes that target
+`axis_id`. A generic same-layer draft decision can cover the `core.layer.*` row but leaves the
+Domain Pack row partial or missing.
 Coverage target `axis_id` values must be unique. Built-in `core.*` axis IDs are reserved with fixed
 type, value, priority, and required semantics so a seed cannot downgrade required core coverage or
 hide a stricter duplicate target.
+`coverage_target_ids` must reference `exploration_contract.coverage_targets[].axis_id`; unknown target
+IDs fail validation instead of silently remaining uncovered. For Decision Stack targets, the draft
+decision layer must match the target `value`. Domain Pack target provenance is also validated: a
+`source=domain_pack` target id must match
+`domain_pack.<domain_pack_id>.<domain_axis_id>.<value>`.
 `create-draft-set` records default budgets of `max_draft_decisions=20` and `max_iterations=0`.
 `autopilot-draft` records the actual CLI budgets in the persisted contract.
 
@@ -386,7 +398,9 @@ and promotion safety. Required P0/P1 rows with `status=partial` or `status=missi
 not block convergence. `autopilot-draft` may synthesize missing required Decision Stack layer draft
 decisions from these rows, but it must not mark evidence `sufficient` to resolve a coverage blocker.
 Each coverage row keeps `value` as the requested target and reports the projection-derived
-`observed_value` separately.
+`observed_value` separately. Rows also expose normalized `source`, `domain_pack_id`,
+`domain_axis_id`, `label`, and `match_policy`; explicit/custom coverage targets without a match
+policy fail closed and must not be treated as covered from missing semantics.
 
 Frontier is also projection-derived. `project-draft-set` derives `frontier_queue` from blocking
 coverage gap diagnostics whose coverage rows are required P0/P1 targets. Frontier items identify the

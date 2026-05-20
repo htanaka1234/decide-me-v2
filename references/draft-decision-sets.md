@@ -39,7 +39,7 @@ canonical event whitelist.
 ## Schema Summary
 
 Draft sets must match `schemas/draft-decision-set.schema.json`. Persisted draft sets use
-`schema_version: 2` and require top-level `exploration_contract`. `create-draft-set` normalizes the
+`schema_version: 3` and require top-level `exploration_contract`. `create-draft-set` normalizes the
 top-level `schema_version`, `id`, `status`, `mode`, `created_at`, `generated_by`, `source_context`,
 `exploration_contract`, optional annotation arrays, and `promotion` defaults when omitted.
 
@@ -65,6 +65,12 @@ derived artifacts outside `draft-set.json`. Each draft decision requires:
 - `human_review`
 - `promotion_recipe`
 
+Draft decisions may also include `coverage_target_ids` to explicitly bind the decision to semantic
+coverage targets. This binding is the only way a generic same-layer draft decision can satisfy a
+Domain Pack-derived axis row. Each id must reference an existing
+`exploration_contract.coverage_targets[].axis_id`; for Decision Stack targets, the draft decision
+layer must match the target `value`.
+
 `draft_assumptions`, `draft_risks`, `draft_actions`, and `draft_verifications` are intentionally loose
 sidecar annotations. They are not strict canonical object contracts and must not be promoted directly.
 
@@ -79,6 +85,11 @@ Explicit `exploration_contract` payloads are source input and are not augmented 
 Pack-derived targets can share the same `value` layer as core targets; coverage diagnostics keep them
 as separate `axis_id` rows so domain-specific policy gaps remain visible instead of collapsing into
 generic layer coverage.
+Default core targets carry `source=core` and `match_policy=layer_complete`. Default Domain Pack
+targets carry `source=domain_pack`, `domain_pack_id`, `domain_axis_id`, `label`, and
+`match_policy=explicit_target_or_domain_axis`. They are semantic coverage targets, not generic layer
+aliases: a complete draft decision with the same Decision Stack layer covers the core row, but it
+does not cover the Domain Pack row unless `coverage_target_ids` names that row.
 
 Coverage target `value` is schema-constrained by `axis_type`: Decision Stack layers must use one of
 the eight layer names; evidence coverage must use `none`, `partial`, `sufficient`, `challenged`, or
@@ -89,6 +100,8 @@ explicit contracts cannot shadow a core diagnostic with a different meaning or w
 policy. `coverage_targets[].axis_id` values must be unique; duplicate axis IDs fail validation
 instead of using first-wins projection behavior. Use custom axis IDs for stricter project-specific
 coverage targets.
+For `source=domain_pack` targets, the target id must match the recorded provenance:
+`domain_pack.<domain_pack_id>.<domain_axis_id>.<value>`.
 
 ## Create / Show / List
 
@@ -137,9 +150,10 @@ python3 <skill-root>/scripts/decide_me.py project-draft-set \
 ```
 
 The projection combines committed runtime state and the sidecar draft set without changing either.
-DraftProjection uses `schema_version: 3` and includes `coverage_summary`, `coverage_matrix`,
+DraftProjection uses `schema_version: 4` and includes `coverage_summary`, `coverage_matrix`,
 `gap_diagnostics`, `frontier_queue`, and `convergence`. Coverage rows preserve `value` as the target value and report
-the projection-derived `observed_value` separately. Rows come from
+the projection-derived `observed_value` separately. Rows also expose normalized `source`,
+`domain_pack_id`, `domain_axis_id`, `label`, and `match_policy`. Rows come from
 `exploration_contract.coverage_targets` plus derived safety rows for evidence coverage, human review
 safety, and promotion safety. Required P0/P1 rows with `status=partial` or `status=missing` block
 convergence; P2/P3 non-required rows do not. Gap diagnostics still report issues such as missing

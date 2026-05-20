@@ -1,7 +1,6 @@
 {
   "blocked": [
-    "core.layer.strategy",
-    "core.layer.verification"
+    "core.layer.strategy"
   ],
   "blocking_gaps": [
     {
@@ -14,9 +13,9 @@
     },
     {
       "id": "GAP-002",
-      "reason": "No verification-layer draft decision exists.",
+      "reason": "No complete verification-layer draft decision explicitly binds domain_pack.software.safety_boundary.verification.",
       "severity": "high",
-      "target_id": "core.layer.verification",
+      "target_id": "domain_pack.software.safety_boundary.verification",
       "target_kind": "coverage_gap",
       "type": "missing_required_layer"
     }
@@ -24,29 +23,32 @@
   "bulk_promotable": [],
   "coverage_summary": {
     "blocking_gap_count": 2,
-    "covered_count": 11,
-    "missing_count": 2,
-    "partial_count": 0,
-    "required_target_count": 8
+    "covered_count": 12,
+    "missing_count": 1,
+    "partial_count": 1,
+    "required_target_count": 9
   },
   "current_project_head": "941da554a7b8e63badb032c6fede520a637b23ee8abe097e00f972af8ca6c32d",
   "draft_set_id": "DS-20260429-001",
   "individual_review_required": [
+    "domain_pack.software.safety_boundary.verification",
     "DD-001",
     "DD-002",
     "DD-003",
     "DD-004",
     "DD-005",
+    "DD-007",
     "DD-006"
   ],
   "must_not_bulk_promote": [
     "core.layer.strategy",
-    "core.layer.verification",
+    "domain_pack.software.safety_boundary.verification",
     "DD-001",
     "DD-002",
     "DD-003",
     "DD-004",
     "DD-005",
+    "DD-007",
     "DD-006"
   ],
   "project_head_at_generation": "941da554a7b8e63badb032c6fede520a637b23ee8abe097e00f972af8ca6c32d",
@@ -69,16 +71,16 @@
     {
       "gap_type": "missing_required_layer",
       "layer": "verification",
-      "priority": "P1",
-      "promotion_readiness": "blocked",
+      "priority": "P0",
+      "promotion_readiness": "review_required",
       "rank": 2,
       "reasons": [
-        "No verification-layer draft decision exists."
+        "No complete verification-layer draft decision explicitly binds domain_pack.software.safety_boundary.verification."
       ],
-      "required_action": "Resolve blocking diagnostics before promotion.",
-      "review_mode": "blocked",
+      "required_action": "Review individually before promotion.",
+      "review_mode": "individual",
       "risk_tier": null,
-      "target_id": "core.layer.verification",
+      "target_id": "domain_pack.software.safety_boundary.verification",
       "target_kind": "coverage_gap"
     },
     {
@@ -167,12 +169,29 @@
       "target_kind": "draft_decision"
     },
     {
+      "draft_decision_id": "DD-007",
+      "gap_type": null,
+      "layer": "verification",
+      "priority": "P1",
+      "promotion_readiness": "review_required",
+      "rank": 8,
+      "reasons": [
+        "P1 decision",
+        "P0/P1 priority requires individual review"
+      ],
+      "required_action": "Review individually before promotion.",
+      "review_mode": "individual",
+      "risk_tier": "low",
+      "target_id": "DD-007",
+      "target_kind": "draft_decision"
+    },
+    {
       "draft_decision_id": "DD-006",
       "gap_type": null,
       "layer": "review",
       "priority": "P1",
       "promotion_readiness": "review_required",
-      "rank": 8,
+      "rank": 9,
       "reasons": [
         "P1 decision",
         "P0/P1 priority requires individual review"
@@ -188,12 +207,12 @@
   "stale": false,
   "status": "ok",
   "summary": {
-    "blocked_count": 2,
+    "blocked_count": 1,
     "bulk_promotable_count": 0,
     "coverage_blocking_gap_count": 2,
-    "draft_decision_count": 6,
+    "draft_decision_count": 7,
     "high_risk_count": 0,
-    "individual_review_required_count": 6,
+    "individual_review_required_count": 8,
     "missing_evidence_count": 0
   },
   "warnings": []

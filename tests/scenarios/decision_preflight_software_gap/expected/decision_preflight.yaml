@@ -1,10 +1,10 @@
 seed_draft_json: draft-seed.json
 draft_set_id: DS-20260429-001
 max_iterations: 1
-max_draft_decisions: 6
+max_draft_decisions: 8
 expected_required_gap_ids:
 - core.layer.strategy
-- core.layer.verification
+- domain_pack.software.safety_boundary.verification
 expected_coverage_rows:
 - axis_id: core.layer.strategy
   axis_type: decision_stack_layer
@@ -12,11 +12,11 @@ expected_coverage_rows:
   required: true
   priority: P1
   blocks_convergence: true
-- axis_id: core.layer.verification
+- axis_id: domain_pack.software.safety_boundary.verification
   axis_type: decision_stack_layer
-  status: missing
+  status: partial
   required: true
-  priority: P1
+  priority: P0
   blocks_convergence: true
 expected_gap_types:
 - missing_required_layer
@@ -25,7 +25,7 @@ expected_convergence:
   stop_reason: user_review_required
   blocking_gap_count: 2
 expected_review_queue:
-  blocked_count: 2
+  blocked_count: 1
   bulk_promotable_count: 0
   blocking_gap_count: 2
   individual_review_required_min_count: 1

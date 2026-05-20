@@ -320,6 +320,7 @@ def synthesize_gap_resolutions(
         "draft_verifications": [],
     }
     existing_ids = _draft_object_ids(draft_set)
+    coverage_matrix = [row for row in projection.get("coverage_matrix", []) if isinstance(row, dict)]
     for frontier in projection.get("frontier_queue", []):
         if len(additions["draft_decisions"]) >= max_new_decisions:
             break
@@ -353,7 +354,7 @@ def synthesize_gap_resolutions(
                 additions["draft_decisions"].append(decision)
                 existing_ids.add(decision["id"])
         elif gap_type == "missing_required_layer" and len(additions["draft_decisions"]) < max_new_decisions:
-            layer = _layer_from_coverage_gap(gap)
+            layer = _auto_remediable_layer_from_coverage_gap(gap, coverage_matrix)
             if layer in LAYER_COVERAGE_SPECS:
                 decision = _coverage_decision(LAYER_COVERAGE_SPECS[layer])
                 if decision["id"] not in existing_ids:
@@ -620,15 +621,17 @@ def _classify_stop_reason(
     if "unsafe_bulk_review" in gap_types or "bulk_promotion_blocked" in gap_types:
         return "risk_gate_triggered"
     auto_coverage = [row for row in coverage_matrix if _is_auto_remediable_coverage_row(row)]
+    auto_remediable = [gap for gap in gaps if _is_auto_remediable_gap(gap, coverage_matrix)]
     if len(_items(draft_set, "draft_decisions")) >= max_draft_decisions and (
-        any(gap.get("type") in AUTO_REMEDIABLE_GAP_TYPES for gap in gaps) or auto_coverage
+        auto_remediable or auto_coverage
     ):
         return "budget_exhausted"
-    auto_remediable = [gap for gap in gaps if gap.get("type") in AUTO_REMEDIABLE_GAP_TYPES]
     non_auto_blocking = [
         gap
         for gap in gaps
-        if gap.get("blocks_convergence") is True and gap.get("type") not in AUTO_REMEDIABLE_GAP_TYPES
+        if gap.get("blocks_convergence") is True
+        and gap.get("target_kind") != "coverage_gap"
+        and not _is_auto_remediable_gap(gap, coverage_matrix)
     ]
     non_auto_coverage_blocking = [
         row
@@ -648,6 +651,8 @@ def _classify_stop_reason(
 def _is_auto_remediable_coverage_row(row: Any) -> bool:
     return (
         isinstance(row, dict)
+        and row.get("source") != "domain_pack"
+        and row.get("match_policy") == "layer_complete"
         and row.get("blocks_convergence") is True
         and row.get("axis_type") == "decision_stack_layer"
         and row.get("status") in {"missing", "partial"}
@@ -655,13 +660,28 @@ def _is_auto_remediable_coverage_row(row: Any) -> bool:
     )
 
 
-def _layer_from_coverage_gap(gap: dict[str, Any]) -> str:
+def _is_auto_remediable_gap(gap: dict[str, Any], coverage_matrix: list[dict[str, Any]]) -> bool:
+    gap_type = gap.get("type")
+    if gap_type == "missing_required_layer":
+        return bool(_auto_remediable_layer_from_coverage_gap(gap, coverage_matrix))
+    return gap_type in AUTO_REMEDIABLE_GAP_TYPES
+
+
+def _auto_remediable_layer_from_coverage_gap(
+    gap: dict[str, Any],
+    coverage_matrix: list[dict[str, Any]],
+) -> str:
+    if gap.get("target_kind") != "coverage_gap":
+        return ""
     target_id = str(gap.get("target_id") or "")
-    if target_id.startswith("core.layer."):
-        return target_id.rsplit(".", 1)[-1]
-    suggested = gap.get("suggested_draft_decision")
-    if isinstance(suggested, dict):
-        return str(suggested.get("layer") or "")
+    rows_by_axis_id = {
+        str(row.get("axis_id")): row
+        for row in coverage_matrix
+        if isinstance(row, dict) and isinstance(row.get("axis_id"), str)
+    }
+    row = rows_by_axis_id.get(target_id)
+    if row is not None and _is_auto_remediable_coverage_row(row):
+        return str(row.get("value") or "")
     return ""
 
 
@@ -686,11 +706,7 @@ def _layer_from_frontier(frontier: Any, projection: dict[str, Any]) -> str:
         if isinstance(row, dict) and isinstance(row.get("axis_id"), str)
     }
     row = rows_by_axis_id.get(str(target_id or ""))
-    if (
-        isinstance(row, dict)
-        and row.get("axis_type") == "decision_stack_layer"
-        and row.get("status") in {"missing", "partial"}
-    ):
+    if row is not None and _is_auto_remediable_coverage_row(row):
         return str(row.get("value") or "")
     return ""
 

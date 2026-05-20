@@ -22,10 +22,15 @@
       "covered_by": [
         "DD-003"
       ],
+      "domain_axis_id": null,
+      "domain_pack_id": null,
+      "label": "Constraint",
+      "match_policy": "layer_complete",
       "observed_value": "complete",
       "priority": "P1",
       "remaining_gaps": [],
       "required": true,
+      "source": "core",
       "status": "covered",
       "value": "constraint"
     },
@@ -36,10 +41,15 @@
       "covered_by": [
         "DD-005"
       ],
+      "domain_axis_id": null,
+      "domain_pack_id": null,
+      "label": "Design",
+      "match_policy": "layer_complete",
       "observed_value": "complete",
       "priority": "P1",
       "remaining_gaps": [],
       "required": true,
+      "source": "core",
       "status": "covered",
       "value": "design"
     },
@@ -50,10 +60,15 @@
       "covered_by": [
         "DD-006"
       ],
+      "domain_axis_id": null,
+      "domain_pack_id": null,
+      "label": "Execution",
+      "match_policy": "layer_complete",
       "observed_value": "complete",
       "priority": "P1",
       "remaining_gaps": [],
       "required": true,
+      "source": "core",
       "status": "covered",
       "value": "execution"
     },
@@ -64,10 +79,15 @@
       "covered_by": [
         "DD-002"
       ],
+      "domain_axis_id": null,
+      "domain_pack_id": null,
+      "label": "Principle",
+      "match_policy": "layer_complete",
       "observed_value": "complete",
       "priority": "P1",
       "remaining_gaps": [],
       "required": true,
+      "source": "core",
       "status": "covered",
       "value": "principle"
     },
@@ -78,10 +98,15 @@
       "covered_by": [
         "DD-001"
       ],
+      "domain_axis_id": null,
+      "domain_pack_id": null,
+      "label": "Purpose",
+      "match_policy": "layer_complete",
       "observed_value": "complete",
       "priority": "P1",
       "remaining_gaps": [],
       "required": true,
+      "source": "core",
       "status": "covered",
       "value": "purpose"
     },
@@ -92,10 +117,15 @@
       "covered_by": [
         "DD-008"
       ],
+      "domain_axis_id": null,
+      "domain_pack_id": null,
+      "label": "Review",
+      "match_policy": "layer_complete",
       "observed_value": "complete",
       "priority": "P1",
       "remaining_gaps": [],
       "required": true,
+      "source": "core",
       "status": "covered",
       "value": "review"
     },
@@ -106,10 +136,15 @@
       "covered_by": [
         "DD-004"
       ],
+      "domain_axis_id": null,
+      "domain_pack_id": null,
+      "label": "Strategy",
+      "match_policy": "layer_complete",
       "observed_value": "complete",
       "priority": "P1",
       "remaining_gaps": [],
       "required": true,
+      "source": "core",
       "status": "covered",
       "value": "strategy"
     },
@@ -120,10 +155,15 @@
       "covered_by": [
         "DD-007"
       ],
+      "domain_axis_id": null,
+      "domain_pack_id": null,
+      "label": "Verification",
+      "match_policy": "layer_complete",
       "observed_value": "complete",
       "priority": "P1",
       "remaining_gaps": [],
       "required": true,
+      "source": "core",
       "status": "covered",
       "value": "verification"
     },
@@ -140,12 +180,17 @@
         "DD-007",
         "DD-008"
       ],
+      "domain_axis_id": null,
+      "domain_pack_id": null,
+      "label": "Evidence coverage",
+      "match_policy": "layer_complete",
       "observed_value": "unknown",
       "priority": "P1",
       "remaining_gaps": [
         "Missing, challenged, or unknown evidence coverage: DD-001."
       ],
       "required": true,
+      "source": "core",
       "status": "missing",
       "value": "sufficient"
     },
@@ -163,10 +208,15 @@
         "DD-007",
         "DD-008"
       ],
+      "domain_axis_id": null,
+      "domain_pack_id": null,
+      "label": "Human review safety",
+      "match_policy": "layer_complete",
       "observed_value": "individual_required",
       "priority": "P2",
       "remaining_gaps": [],
       "required": false,
+      "source": "core",
       "status": "covered",
       "value": "individual_required"
     },
@@ -184,10 +234,15 @@
         "DD-007",
         "DD-008"
       ],
+      "domain_axis_id": null,
+      "domain_pack_id": null,
+      "label": "Accepted decisions forbidden",
+      "match_policy": "layer_complete",
       "observed_value": "accepted_forbidden",
       "priority": "P2",
       "remaining_gaps": [],
       "required": false,
+      "source": "core",
       "status": "covered",
       "value": "accepted_forbidden"
     },
@@ -205,10 +260,15 @@
         "DD-007",
         "DD-008"
       ],
+      "domain_axis_id": null,
+      "domain_pack_id": null,
+      "label": "Promotion proposal required",
+      "match_policy": "layer_complete",
       "observed_value": "proposal_required",
       "priority": "P2",
       "remaining_gaps": [],
       "required": false,
+      "source": "core",
       "status": "covered",
       "value": "proposal_required"
     },
@@ -217,10 +277,15 @@
       "axis_type": "promotion_safety",
       "blocks_convergence": false,
       "covered_by": [],
+      "domain_axis_id": null,
+      "domain_pack_id": null,
+      "label": "Stale draft warning",
+      "match_policy": "layer_complete",
       "observed_value": "fresh",
       "priority": "P2",
       "remaining_gaps": [],
       "required": false,
+      "source": "core",
       "status": "covered",
       "value": "stale_warning"
     }
@@ -385,6 +450,6 @@
     }
   ],
   "project_head_at_generation": "7bd1fc7179677bbb8f5ca7897dd0406774d19d60e207fe90880080f6ca782f94",
-  "schema_version": 3,
+  "schema_version": 4,
   "stale": false
 }

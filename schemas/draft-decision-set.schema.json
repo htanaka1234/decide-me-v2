@@ -18,7 +18,7 @@
   "properties": {
     "schema_version": {
       "type": "integer",
-      "const": 2
+      "const": 3
     },
     "id": {
       "type": "string",
@@ -570,6 +570,58 @@
           }
         },
         {
+          "if": {
+            "properties": {
+              "axis_id": {
+                "pattern": "^core\\."
+              }
+            },
+            "required": [
+              "axis_id"
+            ]
+          },
+          "then": {
+            "required": [
+              "source",
+              "label",
+              "match_policy"
+            ],
+            "properties": {
+              "source": {
+                "const": "core"
+              },
+              "match_policy": {
+                "const": "layer_complete"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source": {
+                "const": "domain_pack"
+              }
+            },
+            "required": [
+              "source"
+            ]
+          },
+          "then": {
+            "required": [
+              "domain_pack_id",
+              "domain_axis_id",
+              "label",
+              "match_policy"
+            ],
+            "properties": {
+              "match_policy": {
+                "const": "explicit_target_or_domain_axis"
+              }
+            }
+          }
+        },
+        {
           "$ref": "#/$defs/reserved_coverage_axis"
         }
       ],
@@ -603,6 +655,33 @@
         },
         "required": {
           "type": "boolean"
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "core",
+            "domain_pack",
+            "explicit"
+          ]
+        },
+        "domain_pack_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "domain_axis_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "match_policy": {
+          "type": "string",
+          "enum": [
+            "layer_complete",
+            "explicit_target_or_domain_axis"
+          ]
         }
       },
       "additionalProperties": false
@@ -840,6 +919,15 @@
         },
         "promotion_recipe": {
           "$ref": "#/$defs/promotion_recipe"
+        },
+        "coverage_target_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "default": []
         }
       },
       "additionalProperties": false

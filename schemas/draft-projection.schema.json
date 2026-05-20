@@ -23,7 +23,7 @@
   "properties": {
     "schema_version": {
       "type": "integer",
-      "const": 3
+      "const": 4
     },
     "draft_set_id": {
       "type": "string",
@@ -361,6 +361,11 @@
         "observed_value",
         "priority",
         "required",
+        "source",
+        "domain_pack_id",
+        "domain_axis_id",
+        "label",
+        "match_policy",
         "status",
         "covered_by",
         "remaining_gaps",
@@ -399,6 +404,40 @@
         },
         "required": {
           "type": "boolean"
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "core",
+            "domain_pack",
+            "explicit"
+          ]
+        },
+        "domain_pack_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "domain_axis_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "label": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "match_policy": {
+          "type": "string",
+          "enum": [
+            "layer_complete",
+            "explicit_target_or_domain_axis",
+            "missing_fail_closed"
+          ]
         },
         "status": {
           "type": "string",

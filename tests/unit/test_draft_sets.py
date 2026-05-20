@@ -38,7 +38,7 @@ class DraftSetTests(unittest.TestCase):
             persisted = json.loads(path.read_text(encoding="utf-8"))
             self.assertEqual("created", result["status"])
             self.assertEqual("DS-20260513-001", persisted["id"])
-            self.assertEqual(2, persisted["schema_version"])
+            self.assertEqual(3, persisted["schema_version"])
             self.assertEqual("test", persisted["generated_by"])
             self.assertNotIn("convergence", persisted)
             self.assertNotIn("review_queue", persisted)
@@ -111,6 +111,20 @@ class DraftSetTests(unittest.TestCase):
                     for target in contract["coverage_targets"][8:]
                 )
             )
+            self.assertTrue(
+                all(
+                    target["source"] == "core" and target["match_policy"] == "layer_complete"
+                    for target in contract["coverage_targets"][:8]
+                )
+            )
+            self.assertTrue(
+                all(
+                    target["source"] == "domain_pack"
+                    and target["domain_pack_id"] == "generic"
+                    and target["match_policy"] == "explicit_target_or_domain_axis"
+                    for target in contract["coverage_targets"][8:]
+                )
+            )
 
     def test_create_expands_software_domain_pack_axes_when_contract_missing(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -141,6 +155,22 @@ class DraftSetTests(unittest.TestCase):
             self.assertTrue(by_axis_id["domain_pack.software.goal_boundary.purpose"]["required"])
             self.assertEqual("P0", by_axis_id["domain_pack.software.safety_boundary.verification"]["priority"])
             self.assertTrue(by_axis_id["domain_pack.software.safety_boundary.verification"]["required"])
+            self.assertEqual(
+                "domain_pack",
+                by_axis_id["domain_pack.software.safety_boundary.verification"]["source"],
+            )
+            self.assertEqual(
+                "safety_boundary",
+                by_axis_id["domain_pack.software.safety_boundary.verification"]["domain_axis_id"],
+            )
+            self.assertEqual(
+                "Safety boundary",
+                by_axis_id["domain_pack.software.safety_boundary.verification"]["label"],
+            )
+            self.assertEqual(
+                "explicit_target_or_domain_axis",
+                by_axis_id["domain_pack.software.safety_boundary.verification"]["match_policy"],
+            )
             self.assertEqual("execution", by_axis_id["domain_pack.software.execution_path.execution"]["value"])
 
     def test_create_preserves_explicit_exploration_contract(self) -> None:
@@ -231,6 +261,14 @@ class DraftSetTests(unittest.TestCase):
         self.assertEqual("purpose", targets["domain_pack.software.goal_boundary.purpose"]["value"])
         self.assertEqual("P0", targets["domain_pack.software.safety_boundary.review"]["priority"])
         self.assertTrue(targets["domain_pack.software.execution_path.design"]["required"])
+        self.assertEqual("domain_pack", targets["domain_pack.software.safety_boundary.review"]["source"])
+        self.assertEqual("software", targets["domain_pack.software.safety_boundary.review"]["domain_pack_id"])
+        self.assertEqual("safety_boundary", targets["domain_pack.software.safety_boundary.review"]["domain_axis_id"])
+        self.assertEqual("Safety boundary", targets["domain_pack.software.safety_boundary.review"]["label"])
+        self.assertEqual(
+            "explicit_target_or_domain_axis",
+            targets["domain_pack.software.safety_boundary.review"]["match_policy"],
+        )
 
     def test_default_contract_rejects_explicit_invalid_domain_pack_id(self) -> None:
         for value in ("", None, 0):
@@ -340,6 +378,41 @@ class DraftSetTests(unittest.TestCase):
             ValueError,
             "draft_decisions\\[0\\].status must be one of: draft, recommended",
         ):
+            validate_draft_set(payload)
+
+    def test_validate_rejects_unknown_coverage_target_id_reference(self) -> None:
+        payload = minimal_valid_draft_set()
+        payload["draft_decisions"][0]["coverage_target_ids"] = ["domain_pack.software.missing.verification"]
+
+        with self.assertRaisesRegex(ValueError, "references unknown coverage target"):
+            validate_draft_set(payload)
+
+    def test_validate_rejects_coverage_target_id_layer_mismatch(self) -> None:
+        payload = minimal_valid_draft_set()
+        payload["draft_decisions"][0]["layer"] = "constraint"
+        payload["draft_decisions"][0]["coverage_target_ids"] = ["core.layer.verification"]
+
+        with self.assertRaisesRegex(ValueError, "but draft layer is constraint"):
+            validate_draft_set(payload)
+
+    def test_validate_rejects_inconsistent_domain_pack_target_provenance(self) -> None:
+        payload = minimal_valid_draft_set()
+        payload["exploration_contract"]["coverage_targets"].append(
+            {
+                "axis_id": "domain_pack.software.safety_boundary.verification",
+                "axis_type": "decision_stack_layer",
+                "value": "verification",
+                "priority": "P0",
+                "required": True,
+                "source": "domain_pack",
+                "domain_pack_id": "research",
+                "domain_axis_id": "ethics_review",
+                "label": "Safety boundary",
+                "match_policy": "explicit_target_or_domain_axis",
+            }
+        )
+
+        with self.assertRaisesRegex(ValueError, "must match provenance id"):
             validate_draft_set(payload)
 
 
