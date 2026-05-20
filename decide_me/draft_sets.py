@@ -16,7 +16,7 @@ from decide_me.events import utc_now
 from decide_me.store import _atomic_write_json, _write_lock, load_json, load_runtime, runtime_paths
 
 
-DRAFT_SET_SCHEMA_VERSION = 2
+DRAFT_SET_SCHEMA_VERSION = 3
 DRAFT_SET_ID_PATTERN = re.compile(r"^DS-[0-9]{8}-[0-9]{3}$")
 DRAFT_SET_SCHEMA_PATH = Path(__file__).resolve().parents[1] / "schemas" / "draft-decision-set.schema.json"
 DRAFT_SET_COUNTS = (
@@ -161,7 +161,9 @@ def validate_draft_set(payload: dict[str, Any]) -> None:
     errors = sorted(_schema_validator().iter_errors(payload), key=lambda error: list(error.path))
     if errors:
         raise DraftSetValidationError(f"draft-set validation failed: {_format_validation_error(errors[0])}")
-    _validate_unique_coverage_target_axis_ids(payload)
+    targets_by_axis_id = _coverage_targets_by_axis_id(payload)
+    _validate_domain_pack_coverage_target_provenance(targets_by_axis_id.values())
+    _validate_coverage_target_references(payload, targets_by_axis_id)
 
 
 def draft_set_staleness(ai_dir: str | Path, draft_set: dict[str, Any]) -> dict[str, Any]:
@@ -309,27 +311,79 @@ def _validate_draft_set_id(draft_set_id: str) -> None:
         raise DraftSetError(f"invalid draft set id: {draft_set_id}")
 
 
-def _validate_unique_coverage_target_axis_ids(payload: dict[str, Any]) -> None:
+def _coverage_targets_by_axis_id(payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
     contract = payload.get("exploration_contract")
     if not isinstance(contract, dict):
-        return
+        return {}
     coverage_targets = contract.get("coverage_targets")
     if not isinstance(coverage_targets, list):
-        return
+        return {}
 
-    seen: set[str] = set()
+    targets_by_axis_id: dict[str, dict[str, Any]] = {}
     for index, target in enumerate(coverage_targets):
         if not isinstance(target, dict):
             continue
         axis_id = target.get("axis_id")
         if not isinstance(axis_id, str) or not axis_id:
             continue
-        if axis_id in seen:
+        if axis_id in targets_by_axis_id:
             raise DraftSetValidationError(
                 "draft-set validation failed: "
                 f"exploration_contract.coverage_targets[{index}].axis_id duplicates {axis_id}"
             )
-        seen.add(axis_id)
+        targets_by_axis_id[axis_id] = target
+    return targets_by_axis_id
+
+
+def _validate_domain_pack_coverage_target_provenance(coverage_targets: Any) -> None:
+    for target in coverage_targets:
+        if not isinstance(target, dict) or target.get("source") != "domain_pack":
+            continue
+        axis_id = str(target.get("axis_id") or "")
+        pack_id = str(target.get("domain_pack_id") or "")
+        axis = str(target.get("domain_axis_id") or "")
+        layer = str(target.get("value") or "")
+        expected_axis_id = f"domain_pack.{pack_id}.{axis}.{layer}"
+        if axis_id != expected_axis_id:
+            raise DraftSetValidationError(
+                "draft-set validation failed: "
+                f"domain_pack coverage target {axis_id} must match provenance id {expected_axis_id}"
+            )
+
+
+def _validate_coverage_target_references(
+    payload: dict[str, Any],
+    targets_by_axis_id: dict[str, dict[str, Any]],
+) -> None:
+    draft_decisions = payload.get("draft_decisions")
+    if not isinstance(draft_decisions, list):
+        return
+    for draft_index, draft in enumerate(draft_decisions):
+        if not isinstance(draft, dict):
+            continue
+        draft_layer = draft.get("layer")
+        coverage_target_ids = draft.get("coverage_target_ids")
+        if coverage_target_ids is None:
+            continue
+        if not isinstance(coverage_target_ids, list):
+            continue
+        for target_index, target_id in enumerate(coverage_target_ids):
+            if not isinstance(target_id, str):
+                continue
+            target = targets_by_axis_id.get(target_id)
+            if target is None:
+                raise DraftSetValidationError(
+                    "draft-set validation failed: "
+                    f"draft_decisions[{draft_index}].coverage_target_ids[{target_index}] "
+                    f"references unknown coverage target {target_id}"
+                )
+            if target.get("axis_type") == "decision_stack_layer" and draft_layer != target.get("value"):
+                raise DraftSetValidationError(
+                    "draft-set validation failed: "
+                    f"draft_decisions[{draft_index}].coverage_target_ids[{target_index}] "
+                    f"references {target_id} with layer {target.get('value')}, "
+                    f"but draft layer is {draft_layer}"
+                )
 
 
 def _source_context_domain_pack(ai_dir: str | Path | None, source_context: dict[str, Any]) -> DomainPack:
@@ -366,6 +420,9 @@ def _core_layer_coverage_targets() -> list[dict[str, Any]]:
             "value": layer,
             "priority": "P1",
             "required": True,
+            "source": "core",
+            "label": layer.replace("_", " ").title(),
+            "match_policy": "layer_complete",
         }
         for layer in DECISION_STACK_LAYER_ORDER
     ]
@@ -382,6 +439,11 @@ def _domain_pack_coverage_targets(pack: DomainPack) -> list[dict[str, Any]]:
                     "value": layer,
                     "priority": axis.default_priority,
                     "required": axis.required,
+                    "source": "domain_pack",
+                    "domain_pack_id": pack.pack_id,
+                    "domain_axis_id": axis.id,
+                    "label": axis.label,
+                    "match_policy": "explicit_target_or_domain_axis",
                 }
             )
     return targets

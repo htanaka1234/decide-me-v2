@@ -38,7 +38,7 @@ class DraftSetCliTests(unittest.TestCase):
             self.assertEqual("created", created["status"])
             self.assertEqual("DS-20260513-001", created["draft_set_id"])
             self.assertEqual("DS-20260513-001", shown["draft_set"]["id"])
-            self.assertEqual(2, shown["draft_set"]["schema_version"])
+            self.assertEqual(3, shown["draft_set"]["schema_version"])
             self.assertIn("exploration_contract", shown["draft_set"])
             self.assertNotIn("convergence", shown["draft_set"])
             self.assertNotIn("review_queue", shown["draft_set"])
@@ -52,6 +52,17 @@ class DraftSetCliTests(unittest.TestCase):
                     target["axis_id"]
                     for target in shown["draft_set"]["exploration_contract"]["coverage_targets"]
                 ],
+            )
+            targets = {
+                target["axis_id"]: target
+                for target in shown["draft_set"]["exploration_contract"]["coverage_targets"]
+            }
+            self.assertEqual("core", targets["core.layer.purpose"]["source"])
+            self.assertEqual("layer_complete", targets["core.layer.purpose"]["match_policy"])
+            self.assertEqual("domain_pack", targets["domain_pack.generic.goal_boundary.purpose"]["source"])
+            self.assertEqual(
+                "explicit_target_or_domain_axis",
+                targets["domain_pack.generic.goal_boundary.purpose"]["match_policy"],
             )
             self.assertFalse(shown["runtime_status"]["is_stale"])
             self.assertEqual(1, listed["count"])

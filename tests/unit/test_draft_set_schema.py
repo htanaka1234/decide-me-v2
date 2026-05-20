@@ -37,9 +37,9 @@ class DraftSetSchemaTests(unittest.TestCase):
             self.assertTrue(errors, field)
             self.assertTrue(any(error.validator == "required" for error in errors), field)
 
-    def test_schema_requires_version_2(self) -> None:
+    def test_schema_requires_version_3(self) -> None:
         payload = minimal_valid_draft_set()
-        payload["schema_version"] = 1
+        payload["schema_version"] = 2
 
         errors = list(self.validator.iter_errors(payload))
 
@@ -111,6 +111,39 @@ class DraftSetSchemaTests(unittest.TestCase):
 
         self.assertTrue(errors)
         self.assertTrue(any(error.validator == "additionalProperties" for error in errors))
+
+    def test_schema_accepts_coverage_target_ids_on_draft_decisions(self) -> None:
+        payload = minimal_valid_draft_set()
+        payload["draft_decisions"][0]["coverage_target_ids"] = ["core.layer.constraint"]
+
+        self.validator.validate(payload)
+
+    def test_schema_rejects_invalid_coverage_target_ids_on_draft_decisions(self) -> None:
+        for value in ([""], ["core.layer.constraint", "core.layer.constraint"]):
+            with self.subTest(value=value):
+                payload = minimal_valid_draft_set()
+                payload["draft_decisions"][0]["coverage_target_ids"] = value
+
+                errors = list(self.validator.iter_errors(payload))
+
+                self.assertTrue(errors)
+
+    def test_schema_requires_domain_pack_target_provenance(self) -> None:
+        payload = minimal_valid_draft_set()
+        payload["exploration_contract"]["coverage_targets"][0] = {
+            "axis_id": "domain_pack.software.safety_boundary.verification",
+            "axis_type": "decision_stack_layer",
+            "value": "verification",
+            "priority": "P0",
+            "required": True,
+            "source": "domain_pack",
+            "match_policy": "explicit_target_or_domain_axis",
+        }
+
+        errors = list(self.validator.iter_errors(payload))
+
+        self.assertTrue(errors)
+        self.assertTrue(any(error.validator == "required" for error in errors))
 
     def test_schema_rejects_invalid_coverage_target_values_by_axis_type(self) -> None:
         cases = (
@@ -340,7 +373,7 @@ class DraftSetSchemaTests(unittest.TestCase):
 def minimal_valid_draft_set() -> dict:
     return deepcopy(
         {
-            "schema_version": 2,
+            "schema_version": 3,
             "id": "DS-20260513-001",
             "status": "generated",
             "mode": "autopilot-draft",
@@ -370,6 +403,9 @@ def minimal_valid_draft_set() -> dict:
                         "value": layer,
                         "priority": "P1",
                         "required": True,
+                        "source": "core",
+                        "label": layer.replace("_", " ").title(),
+                        "match_policy": "layer_complete",
                     }
                     for layer in (
                         "purpose",

@@ -46,16 +46,16 @@
         "missing_expected_gap_ids": [],
         "required_gap_ids_found": [
           "core.layer.strategy",
-          "core.layer.verification"
+          "domain_pack.software.safety_boundary.verification"
         ]
       },
       "over_fragmentation": {
-        "draft_decision_count": 6,
+        "draft_decision_count": 7,
         "max_allowed": 20
       },
       "passed": true,
       "review_quality": {
-        "blocked_count": 2,
+        "blocked_count": 1,
         "bulk_promotable_count": 0
       },
       "safety_preservation": {

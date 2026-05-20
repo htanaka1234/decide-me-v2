@@ -336,57 +336,81 @@
       {
         "axis_id": "core.layer.purpose",
         "axis_type": "decision_stack_layer",
+        "label": "Purpose",
+        "match_policy": "layer_complete",
         "priority": "P1",
         "required": true,
+        "source": "core",
         "value": "purpose"
       },
       {
         "axis_id": "core.layer.principle",
         "axis_type": "decision_stack_layer",
+        "label": "Principle",
+        "match_policy": "layer_complete",
         "priority": "P1",
         "required": true,
+        "source": "core",
         "value": "principle"
       },
       {
         "axis_id": "core.layer.constraint",
         "axis_type": "decision_stack_layer",
+        "label": "Constraint",
+        "match_policy": "layer_complete",
         "priority": "P1",
         "required": true,
+        "source": "core",
         "value": "constraint"
       },
       {
         "axis_id": "core.layer.strategy",
         "axis_type": "decision_stack_layer",
+        "label": "Strategy",
+        "match_policy": "layer_complete",
         "priority": "P1",
         "required": true,
+        "source": "core",
         "value": "strategy"
       },
       {
         "axis_id": "core.layer.design",
         "axis_type": "decision_stack_layer",
+        "label": "Design",
+        "match_policy": "layer_complete",
         "priority": "P1",
         "required": true,
+        "source": "core",
         "value": "design"
       },
       {
         "axis_id": "core.layer.execution",
         "axis_type": "decision_stack_layer",
+        "label": "Execution",
+        "match_policy": "layer_complete",
         "priority": "P1",
         "required": true,
+        "source": "core",
         "value": "execution"
       },
       {
         "axis_id": "core.layer.verification",
         "axis_type": "decision_stack_layer",
+        "label": "Verification",
+        "match_policy": "layer_complete",
         "priority": "P1",
         "required": true,
+        "source": "core",
         "value": "verification"
       },
       {
         "axis_id": "core.layer.review",
         "axis_type": "decision_stack_layer",
+        "label": "Review",
+        "match_policy": "layer_complete",
         "priority": "P1",
         "required": true,
+        "source": "core",
         "value": "review"
       }
     ],
@@ -422,7 +446,7 @@
     "individual_review_required_ids": [],
     "promoted_decision_ids": []
   },
-  "schema_version": 2,
+  "schema_version": 3,
   "source_context": {
     "domain_pack_id": "generic",
     "included_object_ids": [],

@@ -108,12 +108,15 @@ DraftDecisionSet seed, can pass it through
 `DRAFT / NOT ACCEPTED` Markdown files. This does not create accepted decisions. Promotion is a separate
 explicit handoff to a normal proposal flow.
 
-Persisted DraftDecisionSet sidecars use `schema_version: 2` and include `exploration_contract` as
+Persisted DraftDecisionSet sidecars use `schema_version: 3` and include `exploration_contract` as
 source input for the objective, non-goals, read-first sources, required coverage targets, budgets, stop
 conditions, and pause conditions. When omitted, the default contract includes the eight core Decision
-Stack targets plus the selected Domain Pack's `exploration_axes`. Derived coverage matrices, gap
+Stack targets plus the selected Domain Pack's `exploration_axes`. Domain Pack-derived targets are
+semantic coverage targets and require explicit draft `coverage_target_ids` binding; a generic
+same-layer draft decision covers only the core layer row. Coverage bindings must reference existing
+targets and match the draft layer. Derived coverage matrices, gap
 diagnostics, convergence, frontier queues, and review queues stay out of `draft-set.json`. `draft-projection.json` uses
-`schema_version: 3` and owns `coverage_summary`, `coverage_matrix`, and the derived
+`schema_version: 4` and owns `coverage_summary`, `coverage_matrix`, and the derived
 `frontier_queue`; required P0/P1 missing or partial coverage blocks convergence and creates open
 frontier items for the next expansion target.
 

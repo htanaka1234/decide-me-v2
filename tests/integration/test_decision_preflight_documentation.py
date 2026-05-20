@@ -47,8 +47,9 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
         self.assertIn("Interpreting this as Decision Preflight", startup_checklist_section)
         self.assertIn("Decision Preflight", skill)
         self.assertIn("decide-me:preflight", skill)
-        self.assertIn("schema_version: 2", skill)
+        self.assertIn("schema_version: 3", skill)
         self.assertIn("exploration_contract", skill)
+        self.assertIn("coverage_target_ids", skill)
         self.assertIn("Coverage matrices, coverage summaries, convergence, frontier queues", skill)
         self.assertIn("Create decision preflight from goal", user_facing_commands_section)
         self.assertIn("Run decision preflight", user_facing_commands_section)
@@ -100,7 +101,7 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
             normalized_ref,
         )
         self.assertIn("Diagnostics and coverage are never written back into `draft-set.json`", normalized_ref)
-        self.assertIn("DraftProjection uses `schema_version: 3`", normalized_ref)
+        self.assertIn("DraftProjection uses `schema_version: 4`", normalized_ref)
         self.assertIn("`review-queue.json` is a derived promotion handoff queue", normalized_ref)
         self.assertIn(
             "The canonical event log, `project-state.json`, `taxonomy-state.json`, and `sessions/*.json` "
@@ -114,13 +115,15 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
             "must not infer convergence, sufficient evidence, or bulk promotability from missing diagnostics",
             normalized_ref,
         )
-        self.assertIn("DraftDecisionSet uses `schema_version: 2`", normalized_ref)
+        self.assertIn("DraftDecisionSet uses `schema_version: 3`", normalized_ref)
         self.assertIn("`exploration_contract` is defaulted as source input", normalized_ref)
         self.assertIn("`core.layer.strategy`", normalized_ref)
         self.assertIn("`autopilot-draft` records the actual CLI budgets", normalized_ref)
         self.assertIn("the selected Domain Pack's `exploration_axes` are also expanded", normalized_ref)
         self.assertIn("`domain_pack.<pack_id>.<axis_id>.<layer>`", normalized_ref)
         self.assertIn("each `axis_id` represents a distinct exploration policy axis", normalized_ref)
+        self.assertIn("Domain Pack-derived targets are semantic coverage targets", normalized_ref)
+        self.assertIn("`coverage_target_ids` explicitly includes that target", normalized_ref)
         self.assertIn("`project-draft-set` builds `coverage_matrix`", normalized_ref)
         self.assertIn("Required P0/P1 rows with `status=partial` or `status=missing`", normalized_ref)
         self.assertIn("Low-risk P2/P3 non-required rows do not block convergence", normalized_ref)
@@ -141,13 +144,15 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
         self.assertIn("DRAFT / NOT ACCEPTED", ref)
         self.assertIn("reconcile-draft-promotions", ref)
         self.assertIn("Projection convergence is fail-closed", ref)
-        self.assertIn("`schema_version: 2`", normalized_ref)
+        self.assertIn("`schema_version: 3`", normalized_ref)
         self.assertIn("require top-level `exploration_contract`", normalized_ref)
         self.assertIn("Partial or malformed explicit contracts fail schema validation", normalized_ref)
         self.assertIn("not augmented with missing pack axes", normalized_ref)
         self.assertIn("coverage diagnostics keep them as separate `axis_id` rows", normalized_ref)
+        self.assertIn("semantic coverage targets, not generic layer aliases", normalized_ref)
+        self.assertIn("unless `coverage_target_ids` names that row", normalized_ref)
         self.assertIn("convergence, frontier queues, and review queues remain derived artifacts", normalized_ref)
-        self.assertIn("DraftProjection uses `schema_version: 3`", normalized_ref)
+        self.assertIn("DraftProjection uses `schema_version: 4`", normalized_ref)
         self.assertIn("`coverage_summary`, `coverage_matrix`, `gap_diagnostics`, `frontier_queue`, and `convergence`", normalized_ref)
         self.assertIn("`frontier_queue` is derived from blocking required P0/P1 coverage gaps", normalized_ref)
         self.assertIn("Frontier order is explicit", normalized_ref)
@@ -213,9 +218,11 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
         self.assertIn("draft projection", event_model)
         self.assertIn("promotion-log.jsonl", event_model)
         self.assertIn("not produced by the generic Document Compiler", document_compiler)
-        self.assertIn("`schema_version: 2`", normalized_output_contract)
+        self.assertIn("`schema_version: 3`", normalized_output_contract)
         self.assertIn("`exploration_contract`, and `draft_decisions`", normalized_output_contract)
         self.assertIn("plus the selected Domain Pack's `exploration_axes`", normalized_output_contract)
+        self.assertIn("Default Domain Pack targets use `source=domain_pack`", normalized_output_contract)
+        self.assertIn("`coverage_target_ids` includes the target `axis_id`", normalized_output_contract)
         self.assertIn(
             "Derived coverage summaries, matrices, gap diagnostics, convergence, frontier queues, and review queues",
             normalized_output_contract,
@@ -229,11 +236,12 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
         self.assertIn("`persisted=false` and `projection_path` is the would-be sidecar path", normalized_output_contract)
         self.assertIn("P2/P3 non-required coverage gaps must not block convergence", normalized_output_contract)
         self.assertIn(
-            "Coverage rows include `axis_id`, `axis_type`, `value`, `observed_value`, `priority`, `required`",
+            "Coverage rows include `axis_id`, `axis_type`, `value`, `observed_value`, `priority`, `required`, `source`",
             normalized_output_contract,
         )
         self.assertIn("`value` is the requested target value", normalized_output_contract)
         self.assertIn("`observed_value` is the projection-derived value", normalized_output_contract)
+        self.assertIn("`match_policy=missing_fail_closed`", normalized_output_contract)
         self.assertIn("must render `Coverage Summary`, `Coverage Matrix`, and `Frontier Queue`", normalized_output_contract)
         self.assertIn("Frontier items are derived from blocking required P0/P1 coverage gaps", normalized_output_contract)
         self.assertIn(
@@ -295,9 +303,10 @@ class DecisionPreflightDocumentationTests(unittest.TestCase):
         self.assertIn("create-draft-set", readme)
         self.assertIn("show-draft-set", readme)
         self.assertIn("list-draft-sets", readme)
-        self.assertIn("`schema_version: 2`", readme)
+        self.assertIn("`schema_version: 3`", readme)
         self.assertIn("`exploration_contract`", readme)
         self.assertIn("selected Domain Pack's `exploration_axes`", readme)
+        self.assertIn("semantic coverage targets", readme)
         self.assertIn("Derived coverage matrices", readme)
         self.assertIn("`frontier_queue`; required P0/P1 missing or partial coverage blocks convergence", readme)
 

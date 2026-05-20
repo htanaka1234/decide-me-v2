@@ -79,7 +79,17 @@ The `generic` pack remains a weak fallback: its exploration axes are non-require
 Decision Preflight expands each `exploration_axes` item into one coverage target per
 `required_layers` entry. The reserved target id shape is `domain_pack.<pack_id>.<axis_id>.<layer>`,
 with `priority` copied from `exploration_axes[].default_priority` and `required` copied from
-`exploration_axes[].required`.
+`exploration_axes[].required`. Expanded targets also carry `source=domain_pack`, the pack id,
+the axis id, the axis label, and `match_policy=explicit_target_or_domain_axis`.
+
+Domain Pack axes are semantic coverage targets, not aliases for generic Decision Stack layer rows.
+A complete draft decision with the same layer can satisfy `core.layer.<layer>`, but it satisfies a
+Domain Pack-derived target only when the draft decision includes that target id in
+`coverage_target_ids`. This prevents a generic verification or review draft from hiding a
+domain-specific safety, execution, or publication gap.
+The generated target id is part of the source contract: it must match
+`domain_pack.<domain_pack_id>.<domain_axis_id>.<layer>`, and draft `coverage_target_ids` must reference
+that exact id with a matching draft layer.
 
 ## CLI surface
 

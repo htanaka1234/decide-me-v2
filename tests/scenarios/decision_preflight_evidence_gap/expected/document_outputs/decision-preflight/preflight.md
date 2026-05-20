@@ -45,21 +45,21 @@
 | Blocking coverage gaps | 1 |
 
 ## Coverage Matrix
-| Axis | Type | Target | Observed | Priority | Required | Status | Blocks | Covered By | Remaining Gaps |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| core.layer.constraint | decision_stack_layer | constraint | complete | P1 | True | covered | False | DD-003 |  |
-| core.layer.design | decision_stack_layer | design | complete | P1 | True | covered | False | DD-005 |  |
-| core.layer.execution | decision_stack_layer | execution | complete | P1 | True | covered | False | DD-006 |  |
-| core.layer.principle | decision_stack_layer | principle | complete | P1 | True | covered | False | DD-002 |  |
-| core.layer.purpose | decision_stack_layer | purpose | complete | P1 | True | covered | False | DD-001 |  |
-| core.layer.review | decision_stack_layer | review | complete | P1 | True | covered | False | DD-008 |  |
-| core.layer.strategy | decision_stack_layer | strategy | complete | P1 | True | covered | False | DD-004 |  |
-| core.layer.verification | decision_stack_layer | verification | complete | P1 | True | covered | False | DD-007 |  |
-| core.evidence.coverage | evidence_coverage | sufficient | unknown | P1 | True | missing | True | DD-002, DD-003, DD-004, DD-005, DD-006, DD-007, DD-008 | Missing, challenged, or unknown evidence coverage: DD-001. |
-| core.human_review.safety | human_review_safety | individual_required | individual_required | P2 | False | covered | False | DD-001, DD-002, DD-003, DD-004, DD-005, DD-006, DD-007, DD-008 |  |
-| core.promotion.accepted_forbidden | promotion_safety | accepted_forbidden | accepted_forbidden | P2 | False | covered | False | DD-001, DD-002, DD-003, DD-004, DD-005, DD-006, DD-007, DD-008 |  |
-| core.promotion.proposal_required | promotion_safety | proposal_required | proposal_required | P2 | False | covered | False | DD-001, DD-002, DD-003, DD-004, DD-005, DD-006, DD-007, DD-008 |  |
-| core.promotion.stale_warning | promotion_safety | stale_warning | fresh | P2 | False | covered | False |  |  |
+| Axis | Type | Source | Label | Target | Match Policy | Observed | Priority | Required | Status | Blocks | Covered By | Remaining Gaps |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| core.layer.constraint | decision_stack_layer | core | Constraint | constraint | layer_complete | complete | P1 | True | covered | False | DD-003 |  |
+| core.layer.design | decision_stack_layer | core | Design | design | layer_complete | complete | P1 | True | covered | False | DD-005 |  |
+| core.layer.execution | decision_stack_layer | core | Execution | execution | layer_complete | complete | P1 | True | covered | False | DD-006 |  |
+| core.layer.principle | decision_stack_layer | core | Principle | principle | layer_complete | complete | P1 | True | covered | False | DD-002 |  |
+| core.layer.purpose | decision_stack_layer | core | Purpose | purpose | layer_complete | complete | P1 | True | covered | False | DD-001 |  |
+| core.layer.review | decision_stack_layer | core | Review | review | layer_complete | complete | P1 | True | covered | False | DD-008 |  |
+| core.layer.strategy | decision_stack_layer | core | Strategy | strategy | layer_complete | complete | P1 | True | covered | False | DD-004 |  |
+| core.layer.verification | decision_stack_layer | core | Verification | verification | layer_complete | complete | P1 | True | covered | False | DD-007 |  |
+| core.evidence.coverage | evidence_coverage | core | Evidence coverage | sufficient | layer_complete | unknown | P1 | True | missing | True | DD-002, DD-003, DD-004, DD-005, DD-006, DD-007, DD-008 | Missing, challenged, or unknown evidence coverage: DD-001. |
+| core.human_review.safety | human_review_safety | core | Human review safety | individual_required | layer_complete | individual_required | P2 | False | covered | False | DD-001, DD-002, DD-003, DD-004, DD-005, DD-006, DD-007, DD-008 |  |
+| core.promotion.accepted_forbidden | promotion_safety | core | Accepted decisions forbidden | accepted_forbidden | layer_complete | accepted_forbidden | P2 | False | covered | False | DD-001, DD-002, DD-003, DD-004, DD-005, DD-006, DD-007, DD-008 |  |
+| core.promotion.proposal_required | promotion_safety | core | Promotion proposal required | proposal_required | layer_complete | proposal_required | P2 | False | covered | False | DD-001, DD-002, DD-003, DD-004, DD-005, DD-006, DD-007, DD-008 |  |
+| core.promotion.stale_warning | promotion_safety | core | Stale draft warning | stale_warning | layer_complete | fresh | P2 | False | covered | False |  |  |
 
 ## Gap Diagnostics
 | Metric | Value |

@@ -223,7 +223,7 @@ must report:
 `list-draft-sets` returns `status`, `count`, and `draft_sets[]`.
 
 Persisted `draft-set.json` must match `schemas/draft-decision-set.schema.json` with
-`schema_version: 2`. Its required source-input fields include `goal`, `source_context`,
+`schema_version: 3`. Its required source-input fields include `goal`, `source_context`,
 `exploration_contract`, and `draft_decisions`. `exploration_contract` records objective, non-goals,
 read-first sources, coverage targets, budgets, stop conditions, and pause conditions. If omitted from
 new create/autopilot inputs, it is defaulted before persistence from the eight core Decision Stack
@@ -232,6 +232,13 @@ validation and are not augmented with pack axes. Coverage target `axis_id` value
 type, value, priority, and required semantics; invalid duplicate or downgraded core targets fail
 validation. Derived coverage summaries, matrices, gap diagnostics, convergence, frontier queues, and
 review queues must not be written into `draft-set.json` or inferred from missing diagnostics.
+Default core targets use `source=core` and `match_policy=layer_complete`. Default Domain Pack targets
+use `source=domain_pack`, `domain_pack_id`, `domain_axis_id`, `label`, and
+`match_policy=explicit_target_or_domain_axis`. Draft decisions may include `coverage_target_ids`;
+Domain Pack-derived coverage is covered only by a complete same-layer draft decision whose
+`coverage_target_ids` includes the target `axis_id`. Those ids must reference existing coverage
+targets, Decision Stack references must match the draft layer, and Domain Pack target ids must match
+their provenance fields.
 
 `project-draft-set` returns `status`, `draft_set_id`, `projection_path`, `persisted`, `stale`,
 `gap_count`, `blocking_gap_count`, `stop_reason`, and `coverage_summary`. With persistence enabled, it
@@ -261,11 +268,14 @@ non-required coverage gaps must not block convergence.
 fields are `schema_version`, `draft_set_id`, `generated_at`, `project_head_at_generation`,
 `current_project_head`, `stale`, `canonical_summary`, `draft_summary`, `nodes`, `links`,
 `coverage_summary`, `coverage_matrix`, `gap_diagnostics`, `frontier_queue`, and `convergence`.
-`schema_version` is `3`.
+`schema_version` is `4`.
 Coverage rows include `axis_id`, `axis_type`, `value`, `observed_value`, `priority`, `required`,
-`status`, `covered_by`, `remaining_gaps`, and `blocks_convergence`; `value` is the requested target
+`source`, `domain_pack_id`, `domain_axis_id`, `label`, `match_policy`, `status`, `covered_by`,
+`remaining_gaps`, and `blocks_convergence`; `value` is the requested target
 value from the coverage target, and `observed_value` is the projection-derived value observed from
-draft content and safety diagnostics. `status` is one of `covered`, `partial`, or `missing`. Gap
+draft content and safety diagnostics. Explicit/custom targets without a `match_policy` fail closed
+with `match_policy=missing_fail_closed` in the coverage row. `status` is one of `covered`, `partial`,
+or `missing`. Gap
 diagnostics include `type`, `severity`, `target_id`, `blocks_convergence`, `blocks_bulk_promotion`,
 `reason`, and `suggested_resolution`. Phase 3 gap types include `missing_required_layer`,
 `missing_p0_recommendation`, `missing_p1_recommendation`, `insufficient_evidence`,

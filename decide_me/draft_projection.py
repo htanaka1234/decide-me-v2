@@ -135,7 +135,7 @@ def project_draft_set(
         convergence_override=convergence_override,
     )
     projection = {
-        "schema_version": 3,
+        "schema_version": 4,
         "draft_set_id": _draft_set_id(draft_set_copy),
         "generated_at": generated_at,
         "project_head_at_generation": project_head_at_generation,
@@ -859,6 +859,9 @@ def build_coverage_matrix(
             continue
         seen_axis_ids.add(axis_id)
         axis_type = str(target.get("axis_type") or "")
+        if _target_match_policy(target) == "missing_fail_closed":
+            rows.append(_missing_match_policy_coverage_row(draft_set, target))
+            continue
         if axis_type == "decision_stack_layer":
             rows.append(_decision_stack_layer_coverage_row(draft_set, target))
         elif axis_type == "evidence_coverage":
@@ -894,6 +897,31 @@ def _coverage_targets(draft_set: dict[str, Any]) -> list[dict[str, Any]]:
     return [target for target in _items(contract, "coverage_targets") if isinstance(target, dict)]
 
 
+def _missing_match_policy_coverage_row(draft_set: dict[str, Any], target: dict[str, Any]) -> dict[str, Any]:
+    axis_type = str(target.get("axis_type") or "")
+    axis_id = str(target.get("axis_id") or "")
+    layer = str(target.get("value") or "")
+    covered_by: list[str] = []
+    status = "missing"
+    if axis_type == "decision_stack_layer":
+        matching = [
+            draft
+            for draft in _items(draft_set, "draft_decisions")
+            if isinstance(draft, dict) and str(draft.get("layer") or "") == layer
+        ]
+        complete = [draft for draft in matching if _draft_decision_covers_layer(draft)]
+        covered_by = _draft_ids(complete or matching)
+        if covered_by:
+            status = "partial"
+    return _coverage_row(
+        target,
+        observed_value="missing_match_policy",
+        status=status,
+        covered_by=covered_by,
+        remaining_gaps=[f"Coverage target {axis_id} has no match_policy, so coverage cannot be inferred."],
+    )
+
+
 def _reject_duplicate_coverage_target_axis_ids(targets: list[dict[str, Any]]) -> None:
     seen: set[str] = set()
     for target in targets:
@@ -907,6 +935,8 @@ def _reject_duplicate_coverage_target_axis_ids(targets: list[dict[str, Any]]) ->
 
 def _decision_stack_layer_coverage_row(draft_set: dict[str, Any], target: dict[str, Any]) -> dict[str, Any]:
     layer = str(target.get("value") or "")
+    axis_id = str(target.get("axis_id") or "")
+    match_policy = _target_match_policy(target)
     matching = [
         draft
         for draft in _items(draft_set, "draft_decisions")
@@ -915,8 +945,38 @@ def _decision_stack_layer_coverage_row(draft_set: dict[str, Any], target: dict[s
     complete = [draft for draft in matching if _draft_decision_covers_layer(draft)]
     matching_ids = _draft_ids(matching)
     complete_ids = _draft_ids(complete)
-    if complete_ids:
+    if match_policy == "layer_complete" and complete_ids:
         return _coverage_row(target, observed_value="complete", status="covered", covered_by=complete_ids)
+    if match_policy == "explicit_target_or_domain_axis":
+        bound_complete = [
+            draft
+            for draft in complete
+            if axis_id in _string_items(draft.get("coverage_target_ids"))
+        ]
+        bound_complete_ids = _draft_ids(bound_complete)
+        if bound_complete_ids:
+            return _coverage_row(
+                target,
+                observed_value="explicit_target_bound",
+                status="covered",
+                covered_by=bound_complete_ids,
+            )
+        if complete_ids or matching_ids:
+            return _coverage_row(
+                target,
+                observed_value="unbound_domain_axis",
+                status="partial",
+                covered_by=complete_ids or matching_ids,
+                remaining_gaps=[f"No complete {layer}-layer draft decision explicitly binds {axis_id}."],
+            )
+    if match_policy == "missing_fail_closed" and complete_ids:
+        return _coverage_row(
+            target,
+            observed_value="missing_match_policy",
+            status="partial",
+            covered_by=complete_ids,
+            remaining_gaps=[f"Coverage target {axis_id} has no match_policy, so same-layer coverage is not inferred."],
+        )
     if matching_ids:
         return _coverage_row(
             target,
@@ -951,6 +1011,9 @@ def _derived_safety_rows(draft_set: dict[str, Any], *, current_project_head: str
                 "value": "sufficient",
                 "priority": "P2",
                 "required": False,
+                "source": "core",
+                "label": "Evidence coverage",
+                "match_policy": "layer_complete",
             },
         ),
         _human_review_safety_row(
@@ -961,6 +1024,9 @@ def _derived_safety_rows(draft_set: dict[str, Any], *, current_project_head: str
                 "value": "individual_required",
                 "priority": "P2",
                 "required": False,
+                "source": "core",
+                "label": "Human review safety",
+                "match_policy": "layer_complete",
             },
         ),
         _promotion_safety_row(
@@ -972,6 +1038,9 @@ def _derived_safety_rows(draft_set: dict[str, Any], *, current_project_head: str
                 "value": "proposal_required",
                 "priority": "P2",
                 "required": False,
+                "source": "core",
+                "label": "Promotion proposal required",
+                "match_policy": "layer_complete",
             },
         ),
         _promotion_safety_row(
@@ -983,6 +1052,9 @@ def _derived_safety_rows(draft_set: dict[str, Any], *, current_project_head: str
                 "value": "accepted_forbidden",
                 "priority": "P2",
                 "required": False,
+                "source": "core",
+                "label": "Accepted decisions forbidden",
+                "match_policy": "layer_complete",
             },
         ),
         _promotion_safety_row(
@@ -994,6 +1066,9 @@ def _derived_safety_rows(draft_set: dict[str, Any], *, current_project_head: str
                 "value": "stale_warning",
                 "priority": "P2",
                 "required": False,
+                "source": "core",
+                "label": "Stale draft warning",
+                "match_policy": "layer_complete",
             },
         ),
     ]
@@ -1200,6 +1275,11 @@ def _coverage_row(
         "observed_value": observed_value,
         "priority": priority,
         "required": required,
+        "source": _target_source(target),
+        "domain_pack_id": _nullable_string(target.get("domain_pack_id")),
+        "domain_axis_id": _nullable_string(target.get("domain_axis_id")),
+        "label": _nullable_string(target.get("label")),
+        "match_policy": _target_match_policy(target),
         "status": status,
         "covered_by": _unique(covered_by or []),
         "remaining_gaps": _unique(remaining_gaps or []),
@@ -1265,6 +1345,22 @@ def _priority(draft: dict[str, Any]) -> str:
 def _target_priority(target: dict[str, Any]) -> str:
     value = target.get("priority")
     return value if isinstance(value, str) and value in PRIORITY_RANK else "P3"
+
+
+def _target_source(target: dict[str, Any]) -> str:
+    value = target.get("source")
+    return value if isinstance(value, str) and value in {"core", "domain_pack", "explicit"} else "explicit"
+
+
+def _target_match_policy(target: dict[str, Any]) -> str:
+    value = target.get("match_policy")
+    if value in {"layer_complete", "explicit_target_or_domain_axis"}:
+        return str(value)
+    return "missing_fail_closed"
+
+
+def _nullable_string(value: Any) -> str | None:
+    return value.strip() if isinstance(value, str) and value.strip() else None
 
 
 def _highest_priority(priorities: list[str]) -> str:

@@ -762,7 +762,10 @@ def _render_coverage_matrix(draft_projection: dict[str, Any] | None) -> str:
         [
             "Axis",
             "Type",
+            "Source",
+            "Label",
             "Target",
+            "Match Policy",
             "Observed",
             "Priority",
             "Required",
@@ -775,7 +778,10 @@ def _render_coverage_matrix(draft_projection: dict[str, Any] | None) -> str:
             [
                 row.get("axis_id"),
                 row.get("axis_type"),
+                row.get("source"),
+                row.get("label"),
                 row.get("value"),
+                row.get("match_policy"),
                 row.get("observed_value"),
                 row.get("priority"),
                 row.get("required"),
