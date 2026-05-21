@@ -5,6 +5,14 @@
   "blocking_gaps": [
     {
       "id": "GAP-001",
+      "reason": "Partial evidence does not satisfy required evidence target: DD-GAP-SOFTWARE-SAFETY-BOUNDARY-VERIFICATION.",
+      "severity": "high",
+      "target_id": "core.evidence.coverage",
+      "target_kind": "coverage_gap",
+      "type": "insufficient_evidence"
+    },
+    {
+      "id": "GAP-002",
       "reason": "No strategy-layer draft decision exists.",
       "severity": "high",
       "target_id": "core.layer.strategy",
@@ -12,12 +20,12 @@
       "type": "missing_required_layer"
     },
     {
-      "id": "GAP-002",
-      "reason": "No complete verification-layer draft decision explicitly binds domain_pack.software.safety_boundary.verification.",
+      "id": "GAP-003",
+      "reason": "Draft decision DD-GAP-SOFTWARE-SAFETY-BOUNDARY-VERIFICATION has a recommendation with partial or incomplete supporting evidence.",
       "severity": "high",
-      "target_id": "domain_pack.software.safety_boundary.verification",
-      "target_kind": "coverage_gap",
-      "type": "missing_required_layer"
+      "target_id": "DD-GAP-SOFTWARE-SAFETY-BOUNDARY-VERIFICATION",
+      "target_kind": "draft_decision",
+      "type": "unsupported_recommendation"
     }
   ],
   "bulk_promotable": [],
@@ -26,30 +34,34 @@
     "covered_count": 12,
     "missing_count": 1,
     "partial_count": 1,
-    "required_target_count": 9
+    "required_target_count": 10
   },
   "current_project_head": "941da554a7b8e63badb032c6fede520a637b23ee8abe097e00f972af8ca6c32d",
   "draft_set_id": "DS-20260429-001",
   "individual_review_required": [
-    "domain_pack.software.safety_boundary.verification",
+    "DD-GAP-SOFTWARE-SAFETY-BOUNDARY-VERIFICATION",
+    "core.evidence.coverage",
     "DD-001",
     "DD-002",
     "DD-003",
     "DD-004",
     "DD-005",
     "DD-007",
-    "DD-006"
+    "DD-006",
+    "GAP-003"
   ],
   "must_not_bulk_promote": [
     "core.layer.strategy",
-    "domain_pack.software.safety_boundary.verification",
+    "DD-GAP-SOFTWARE-SAFETY-BOUNDARY-VERIFICATION",
+    "core.evidence.coverage",
     "DD-001",
     "DD-002",
     "DD-003",
     "DD-004",
     "DD-005",
     "DD-007",
-    "DD-006"
+    "DD-006",
+    "GAP-003"
   ],
   "project_head_at_generation": "941da554a7b8e63badb032c6fede520a637b23ee8abe097e00f972af8ca6c32d",
   "review_order": [
@@ -69,18 +81,36 @@
       "target_kind": "coverage_gap"
     },
     {
-      "gap_type": "missing_required_layer",
+      "draft_decision_id": "DD-GAP-SOFTWARE-SAFETY-BOUNDARY-VERIFICATION",
+      "gap_type": null,
       "layer": "verification",
       "priority": "P0",
       "promotion_readiness": "review_required",
       "rank": 2,
       "reasons": [
-        "No complete verification-layer draft decision explicitly binds domain_pack.software.safety_boundary.verification."
+        "P0 decision",
+        "blocking gap diagnostic requires individual review",
+        "unsupported_recommendation: Draft decision DD-GAP-SOFTWARE-SAFETY-BOUNDARY-VERIFICATION has a recommendation with partial or incomplete supporting evidence."
+      ],
+      "required_action": "Review individually before promotion.",
+      "review_mode": "individual",
+      "risk_tier": "medium",
+      "target_id": "DD-GAP-SOFTWARE-SAFETY-BOUNDARY-VERIFICATION",
+      "target_kind": "draft_decision"
+    },
+    {
+      "gap_type": "insufficient_evidence",
+      "layer": null,
+      "priority": "P0",
+      "promotion_readiness": "review_required",
+      "rank": 3,
+      "reasons": [
+        "Partial evidence does not satisfy required evidence target: DD-GAP-SOFTWARE-SAFETY-BOUNDARY-VERIFICATION."
       ],
       "required_action": "Review individually before promotion.",
       "review_mode": "individual",
       "risk_tier": null,
-      "target_id": "domain_pack.software.safety_boundary.verification",
+      "target_id": "core.evidence.coverage",
       "target_kind": "coverage_gap"
     },
     {
@@ -89,7 +119,7 @@
       "layer": "purpose",
       "priority": "P1",
       "promotion_readiness": "review_required",
-      "rank": 3,
+      "rank": 4,
       "reasons": [
         "P1 decision",
         "P0/P1 priority requires individual review"
@@ -106,7 +136,7 @@
       "layer": "principle",
       "priority": "P1",
       "promotion_readiness": "review_required",
-      "rank": 4,
+      "rank": 5,
       "reasons": [
         "P1 decision",
         "P0/P1 priority requires individual review"
@@ -123,7 +153,7 @@
       "layer": "constraint",
       "priority": "P1",
       "promotion_readiness": "review_required",
-      "rank": 5,
+      "rank": 6,
       "reasons": [
         "P1 decision",
         "P0/P1 priority requires individual review"
@@ -140,7 +170,7 @@
       "layer": "design",
       "priority": "P1",
       "promotion_readiness": "review_required",
-      "rank": 6,
+      "rank": 7,
       "reasons": [
         "P1 decision",
         "P0/P1 priority requires individual review"
@@ -157,7 +187,7 @@
       "layer": "execution",
       "priority": "P1",
       "promotion_readiness": "review_required",
-      "rank": 7,
+      "rank": 8,
       "reasons": [
         "P1 decision",
         "P0/P1 priority requires individual review"
@@ -174,7 +204,7 @@
       "layer": "verification",
       "priority": "P1",
       "promotion_readiness": "review_required",
-      "rank": 8,
+      "rank": 9,
       "reasons": [
         "P1 decision",
         "P0/P1 priority requires individual review"
@@ -191,7 +221,7 @@
       "layer": "review",
       "priority": "P1",
       "promotion_readiness": "review_required",
-      "rank": 9,
+      "rank": 10,
       "reasons": [
         "P1 decision",
         "P0/P1 priority requires individual review"
@@ -201,6 +231,21 @@
       "risk_tier": "low",
       "target_id": "DD-006",
       "target_kind": "draft_decision"
+    },
+    {
+      "gap_type": "unsupported_recommendation",
+      "layer": null,
+      "priority": null,
+      "promotion_readiness": "review_required",
+      "rank": 11,
+      "reasons": [
+        "unsupported_recommendation on DD-GAP-SOFTWARE-SAFETY-BOUNDARY-VERIFICATION: Draft decision DD-GAP-SOFTWARE-SAFETY-BOUNDARY-VERIFICATION has a recommendation with partial or incomplete supporting evidence."
+      ],
+      "required_action": "Review individually before promotion.",
+      "review_mode": "individual",
+      "risk_tier": null,
+      "target_id": "GAP-003",
+      "target_kind": "gap_diagnostic"
     }
   ],
   "schema_version": 2,
@@ -210,10 +255,10 @@
     "blocked_count": 1,
     "bulk_promotable_count": 0,
     "coverage_blocking_gap_count": 2,
-    "draft_decision_count": 7,
+    "draft_decision_count": 8,
     "high_risk_count": 0,
-    "individual_review_required_count": 8,
-    "missing_evidence_count": 0
+    "individual_review_required_count": 10,
+    "missing_evidence_count": 1
   },
   "warnings": []
 }

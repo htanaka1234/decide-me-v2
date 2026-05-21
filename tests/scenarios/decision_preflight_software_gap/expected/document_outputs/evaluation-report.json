@@ -45,12 +45,12 @@
       "coverage_recall": {
         "missing_expected_gap_ids": [],
         "required_gap_ids_found": [
-          "core.layer.strategy",
-          "domain_pack.software.safety_boundary.verification"
+          "core.evidence.coverage",
+          "core.layer.strategy"
         ]
       },
       "over_fragmentation": {
-        "draft_decision_count": 7,
+        "draft_decision_count": 8,
         "max_allowed": 20
       },
       "passed": true,

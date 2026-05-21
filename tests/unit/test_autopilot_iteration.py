@@ -143,66 +143,63 @@ class AutopilotIterationTests(unittest.TestCase):
 
         self.assertEqual(first["draft_verifications"], second["draft_verifications"])
 
-    def test_autopilot_does_not_generic_remediate_domain_axis_gap(self) -> None:
+    def test_autopilot_adds_domain_bound_decision_for_domain_axis_gap(self) -> None:
         draft_set = _complete_draft_set()
         draft_set["source_context"]["domain_pack_id"] = "software"
-        draft_set["exploration_contract"]["coverage_targets"].append(
-            {
-                "axis_id": "domain_pack.software.safety_boundary.verification",
-                "axis_type": "decision_stack_layer",
-                "value": "verification",
-                "priority": "P0",
-                "required": True,
-                "source": "domain_pack",
-                "domain_pack_id": "software",
-                "domain_axis_id": "safety_boundary",
-                "label": "Safety boundary",
-                "match_policy": "explicit_target_or_domain_axis",
-            }
-        )
+        draft_set["exploration_contract"]["coverage_targets"].append(_software_safety_verification_target())
 
         final, projection = _iterate(draft_set, max_iterations=2)
 
-        self.assertNotIn("DD-GAP-VERIFICATION", {draft["id"] for draft in final["draft_decisions"]})
-        self.assertEqual("user_review_required", projection["convergence"]["stop_reason"])
+        decisions = {draft["id"]: draft for draft in final["draft_decisions"]}
+        self.assertNotIn("DD-GAP-VERIFICATION", decisions)
+        generated = decisions["DD-GAP-SOFTWARE-SAFETY-BOUNDARY-VERIFICATION"]
+        self.assertEqual(["domain_pack.software.safety_boundary.verification"], generated["coverage_target_ids"])
+        self.assertEqual("partial", generated["evidence_coverage"]["status"])
+        self.assertNotEqual("sufficient", generated["evidence_coverage"]["status"])
+        self.assertTrue(generated["human_review"]["required"])
+        self.assertEqual("individual", generated["human_review"]["mode"])
+        self.assertFalse(generated["human_review"]["bulk_promotable"])
         domain_row = next(
             row
             for row in projection["coverage_matrix"]
             if row["axis_id"] == "domain_pack.software.safety_boundary.verification"
         )
-        self.assertEqual("partial", domain_row["status"])
-        self.assertTrue(domain_row["blocks_convergence"])
+        self.assertEqual("covered", domain_row["status"])
+        self.assertFalse(domain_row["blocks_convergence"])
 
-    def test_autopilot_stops_when_core_gap_and_domain_axis_blocker_coexist(self) -> None:
+    def test_autopilot_adds_core_and_domain_decisions_for_same_layer_gaps(self) -> None:
         draft_set = _complete_draft_set()
         draft_set["source_context"]["domain_pack_id"] = "software"
         draft_set["draft_decisions"] = [
-            draft for draft in draft_set["draft_decisions"] if draft["layer"] != "strategy"
+            draft for draft in draft_set["draft_decisions"] if draft["layer"] != "verification"
         ]
-        draft_set["exploration_contract"]["coverage_targets"].append(
-            {
-                "axis_id": "domain_pack.software.safety_boundary.verification",
-                "axis_type": "decision_stack_layer",
-                "value": "verification",
-                "priority": "P0",
-                "required": True,
-                "source": "domain_pack",
-                "domain_pack_id": "software",
-                "domain_axis_id": "safety_boundary",
-                "label": "Safety boundary",
-                "match_policy": "explicit_target_or_domain_axis",
-            }
-        )
+        draft_set["exploration_contract"]["coverage_targets"].append(_software_safety_verification_target())
 
         final, projection = _iterate(draft_set, max_iterations=2)
 
-        self.assertNotIn("DD-GAP-STRATEGY", {draft["id"] for draft in final["draft_decisions"]})
-        self.assertEqual("user_review_required", projection["convergence"]["stop_reason"])
-        blocking_axis_ids = {
-            row["axis_id"] for row in projection["coverage_matrix"] if row["blocks_convergence"]
-        }
-        self.assertIn("core.layer.strategy", blocking_axis_ids)
-        self.assertIn("domain_pack.software.safety_boundary.verification", blocking_axis_ids)
+        decision_ids = {draft["id"] for draft in final["draft_decisions"]}
+        self.assertIn("DD-GAP-SOFTWARE-SAFETY-BOUNDARY-VERIFICATION", decision_ids)
+        self.assertIn("DD-GAP-VERIFICATION", decision_ids)
+        self.assertEqual("covered", _coverage_row(projection, "core.layer.verification")["status"])
+        self.assertEqual(
+            "covered",
+            _coverage_row(projection, "domain_pack.software.safety_boundary.verification")["status"],
+        )
+
+    def test_autopilot_respects_budget_for_domain_frontier_order(self) -> None:
+        draft_set = _complete_draft_set()
+        draft_set["source_context"]["domain_pack_id"] = "software"
+        draft_set["draft_decisions"] = [
+            draft for draft in draft_set["draft_decisions"] if draft["layer"] != "verification"
+        ]
+        draft_set["exploration_contract"]["coverage_targets"].append(_software_safety_verification_target())
+
+        final, _projection = _iterate(draft_set, max_iterations=2, max_draft_decisions=8)
+
+        decision_ids = [draft["id"] for draft in final["draft_decisions"]]
+        self.assertIn("DD-GAP-SOFTWARE-SAFETY-BOUNDARY-VERIFICATION", decision_ids)
+        self.assertNotIn("DD-GAP-VERIFICATION", decision_ids)
+        self.assertLessEqual(len(decision_ids), 8)
 
 
 def _iterate(
@@ -229,6 +226,28 @@ def _project_state(*, objects: list[dict] | None = None) -> dict:
     project_state["objects"] = objects or []
     project_state["links"] = []
     return project_state
+
+
+def _coverage_row(projection: dict, axis_id: str) -> dict:
+    for row in projection["coverage_matrix"]:
+        if row["axis_id"] == axis_id:
+            return row
+    raise AssertionError(f"missing coverage row: {axis_id}")
+
+
+def _software_safety_verification_target() -> dict:
+    return {
+        "axis_id": "domain_pack.software.safety_boundary.verification",
+        "axis_type": "decision_stack_layer",
+        "value": "verification",
+        "priority": "P0",
+        "required": True,
+        "source": "domain_pack",
+        "domain_pack_id": "software",
+        "domain_axis_id": "safety_boundary",
+        "label": "Safety boundary",
+        "match_policy": "explicit_target_or_domain_axis",
+    }
 
 
 def _complete_draft_set() -> dict:

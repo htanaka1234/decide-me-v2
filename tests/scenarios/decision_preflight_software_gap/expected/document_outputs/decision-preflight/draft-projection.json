@@ -6,34 +6,32 @@
     "open_decision_count": 0
   },
   "convergence": {
-    "blocking_gap_count": 2,
-    "explanation": "Detected 2 draft gap(s), including 2 blocking gap(s).",
-    "iterations": 1,
-    "max_iterations": 1,
-    "new_gap_count": 2,
+    "blocking_gap_count": 3,
+    "explanation": "Detected 3 draft gap(s), including 3 blocking gap(s).",
+    "iterations": 2,
+    "max_iterations": 2,
+    "new_gap_count": 3,
     "status": "blocked",
-    "stop_reason": "user_review_required"
+    "stop_reason": "evidence_gap_blocked"
   },
   "coverage_matrix": [
     {
       "axis_id": "domain_pack.software.safety_boundary.verification",
       "axis_type": "decision_stack_layer",
-      "blocks_convergence": true,
+      "blocks_convergence": false,
       "covered_by": [
-        "DD-007"
+        "DD-GAP-SOFTWARE-SAFETY-BOUNDARY-VERIFICATION"
       ],
       "domain_axis_id": "safety_boundary",
       "domain_pack_id": "software",
       "label": "Safety boundary",
       "match_policy": "explicit_target_or_domain_axis",
-      "observed_value": "unbound_domain_axis",
+      "observed_value": "explicit_target_bound",
       "priority": "P0",
-      "remaining_gaps": [
-        "No complete verification-layer draft decision explicitly binds domain_pack.software.safety_boundary.verification."
-      ],
+      "remaining_gaps": [],
       "required": true,
       "source": "domain_pack",
-      "status": "partial",
+      "status": "covered",
       "value": "verification"
     },
     {
@@ -174,7 +172,8 @@
       "axis_type": "decision_stack_layer",
       "blocks_convergence": false,
       "covered_by": [
-        "DD-007"
+        "DD-007",
+        "DD-GAP-SOFTWARE-SAFETY-BOUNDARY-VERIFICATION"
       ],
       "domain_axis_id": null,
       "domain_pack_id": null,
@@ -191,7 +190,7 @@
     {
       "axis_id": "core.evidence.coverage",
       "axis_type": "evidence_coverage",
-      "blocks_convergence": false,
+      "blocks_convergence": true,
       "covered_by": [
         "DD-001",
         "DD-002",
@@ -199,18 +198,21 @@
         "DD-004",
         "DD-005",
         "DD-006",
-        "DD-007"
+        "DD-007",
+        "DD-GAP-SOFTWARE-SAFETY-BOUNDARY-VERIFICATION"
       ],
       "domain_axis_id": null,
       "domain_pack_id": null,
       "label": "Evidence coverage",
       "match_policy": "layer_complete",
-      "observed_value": "sufficient",
-      "priority": "P2",
-      "remaining_gaps": [],
-      "required": false,
+      "observed_value": "partial",
+      "priority": "P0",
+      "remaining_gaps": [
+        "Partial evidence does not satisfy required evidence target: DD-GAP-SOFTWARE-SAFETY-BOUNDARY-VERIFICATION."
+      ],
+      "required": true,
       "source": "core",
-      "status": "covered",
+      "status": "partial",
       "value": "sufficient"
     },
     {
@@ -224,7 +226,8 @@
         "DD-004",
         "DD-005",
         "DD-006",
-        "DD-007"
+        "DD-007",
+        "DD-GAP-SOFTWARE-SAFETY-BOUNDARY-VERIFICATION"
       ],
       "domain_axis_id": null,
       "domain_pack_id": null,
@@ -249,7 +252,8 @@
         "DD-004",
         "DD-005",
         "DD-006",
-        "DD-007"
+        "DD-007",
+        "DD-GAP-SOFTWARE-SAFETY-BOUNDARY-VERIFICATION"
       ],
       "domain_axis_id": null,
       "domain_pack_id": null,
@@ -274,7 +278,8 @@
         "DD-004",
         "DD-005",
         "DD-006",
-        "DD-007"
+        "DD-007",
+        "DD-GAP-SOFTWARE-SAFETY-BOUNDARY-VERIFICATION"
       ],
       "domain_axis_id": null,
       "domain_pack_id": null,
@@ -311,33 +316,35 @@
     "covered_count": 12,
     "missing_count": 1,
     "partial_count": 1,
-    "required_target_count": 9
+    "required_target_count": 10
   },
   "current_project_head": "941da554a7b8e63badb032c6fede520a637b23ee8abe097e00f972af8ca6c32d",
   "draft_set_id": "DS-20260429-001",
   "draft_summary": {
     "draft_action_count": 0,
     "draft_assumption_count": 0,
-    "draft_decision_count": 7,
+    "draft_decision_count": 8,
     "draft_risk_count": 0,
     "draft_verification_count": 0,
     "promoted_decision_count": 0
   },
   "frontier_queue": [
     {
-      "evidence_needed": [],
-      "id": "F-GAP-002",
+      "evidence_needed": [
+        "Partial evidence does not satisfy required evidence target: DD-GAP-SOFTWARE-SAFETY-BOUNDARY-VERIFICATION."
+      ],
+      "id": "F-GAP-001",
       "priority": "P0",
-      "source_gap_id": "GAP-002",
+      "source_gap_id": "GAP-001",
       "status": "open",
-      "suggested_expansion": "Add one complete verification-layer draft decision before review.",
-      "topic": "verification layer is partial"
+      "suggested_expansion": "Collect or review evidence for the coverage target before promotion review.",
+      "topic": "evidence coverage is partial"
     },
     {
       "evidence_needed": [],
-      "id": "F-GAP-001",
+      "id": "F-GAP-002",
       "priority": "P1",
-      "source_gap_id": "GAP-001",
+      "source_gap_id": "GAP-002",
       "status": "open",
       "suggested_expansion": "Add one complete strategy-layer draft decision before review.",
       "topic": "strategy layer is missing"
@@ -348,6 +355,19 @@
       "blocks_bulk_promotion": true,
       "blocks_convergence": true,
       "id": "GAP-001",
+      "reason": "Partial evidence does not satisfy required evidence target: DD-GAP-SOFTWARE-SAFETY-BOUNDARY-VERIFICATION.",
+      "scope": "coverage",
+      "severity": "high",
+      "suggested_draft_decision": null,
+      "suggested_resolution": "Collect or review supporting evidence before bulk promotion.",
+      "target_id": "core.evidence.coverage",
+      "target_kind": "coverage_gap",
+      "type": "insufficient_evidence"
+    },
+    {
+      "blocks_bulk_promotion": true,
+      "blocks_convergence": true,
+      "id": "GAP-002",
       "reason": "No strategy-layer draft decision exists.",
       "scope": "coverage",
       "severity": "high",
@@ -360,15 +380,15 @@
     {
       "blocks_bulk_promotion": true,
       "blocks_convergence": true,
-      "id": "GAP-002",
-      "reason": "No complete verification-layer draft decision explicitly binds domain_pack.software.safety_boundary.verification.",
-      "scope": "coverage",
+      "id": "GAP-003",
+      "reason": "Draft decision DD-GAP-SOFTWARE-SAFETY-BOUNDARY-VERIFICATION has a recommendation with partial or incomplete supporting evidence.",
+      "scope": "draft_decision",
       "severity": "high",
       "suggested_draft_decision": null,
-      "suggested_resolution": "Add one complete verification-layer draft decision before review.",
-      "target_id": "domain_pack.software.safety_boundary.verification",
-      "target_kind": "coverage_gap",
-      "type": "missing_required_layer"
+      "suggested_resolution": "Add an evidence collection action or review the missing evidence explicitly.",
+      "target_id": "DD-GAP-SOFTWARE-SAFETY-BOUNDARY-VERIFICATION",
+      "target_kind": "draft_decision",
+      "type": "unsupported_recommendation"
     }
   ],
   "links": [],
@@ -457,6 +477,17 @@
       "priority": "P1",
       "promoted": false,
       "risk_tier": "low",
+      "source": "draft",
+      "status": "recommended"
+    },
+    {
+      "layer": "verification",
+      "node_id": "draft:DD-GAP-SOFTWARE-SAFETY-BOUNDARY-VERIFICATION",
+      "object_id": "DD-GAP-SOFTWARE-SAFETY-BOUNDARY-VERIFICATION",
+      "object_type": "draft_decision",
+      "priority": "P0",
+      "promoted": false,
+      "risk_tier": "medium",
       "source": "draft",
       "status": "recommended"
     }

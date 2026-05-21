@@ -324,11 +324,17 @@ def synthesize_gap_resolutions(
     for frontier in projection.get("frontier_queue", []):
         if len(additions["draft_decisions"]) >= max_new_decisions:
             break
-        layer = _layer_from_frontier(frontier, projection)
-        spec = LAYER_COVERAGE_SPECS.get(layer)
-        if spec is None:
+        row = _coverage_row_from_frontier(frontier, projection)
+        if row is None:
             continue
-        decision = _coverage_decision(spec)
+        if _is_domain_auto_remediable_coverage_row(row):
+            decision = _domain_coverage_decision(row)
+        else:
+            layer = _layer_from_coverage_row(row)
+            spec = LAYER_COVERAGE_SPECS.get(layer)
+            if spec is None:
+                continue
+            decision = _coverage_decision(spec)
         if decision["id"] not in existing_ids:
             additions["draft_decisions"].append(decision)
             existing_ids.add(decision["id"])
@@ -354,9 +360,13 @@ def synthesize_gap_resolutions(
                 additions["draft_decisions"].append(decision)
                 existing_ids.add(decision["id"])
         elif gap_type == "missing_required_layer" and len(additions["draft_decisions"]) < max_new_decisions:
-            layer = _auto_remediable_layer_from_coverage_gap(gap, coverage_matrix)
-            if layer in LAYER_COVERAGE_SPECS:
-                decision = _coverage_decision(LAYER_COVERAGE_SPECS[layer])
+            row = _auto_expandable_coverage_row_from_gap(gap, coverage_matrix)
+            if row is not None:
+                if _is_domain_auto_remediable_coverage_row(row):
+                    decision = _domain_coverage_decision(row)
+                else:
+                    layer = _layer_from_coverage_row(row)
+                    decision = _coverage_decision(LAYER_COVERAGE_SPECS[layer])
                 if decision["id"] not in existing_ids:
                     additions["draft_decisions"].append(decision)
                     existing_ids.add(decision["id"])
@@ -612,15 +622,7 @@ def _classify_stop_reason(
         for gap in gaps
     ):
         return "risk_gate_triggered"
-    if any(
-        gap.get("type") in {"insufficient_evidence", "challenged_evidence"}
-        and gap.get("blocks_convergence") is True
-        for gap in gaps
-    ):
-        return "evidence_gap_blocked"
-    if "unsafe_bulk_review" in gap_types or "bulk_promotion_blocked" in gap_types:
-        return "risk_gate_triggered"
-    auto_coverage = [row for row in coverage_matrix if _is_auto_remediable_coverage_row(row)]
+    auto_coverage = [row for row in coverage_matrix if _is_auto_expandable_coverage_row(row)]
     auto_remediable = [gap for gap in gaps if _is_auto_remediable_gap(gap, coverage_matrix)]
     if len(_items(draft_set, "draft_decisions")) >= max_draft_decisions and (
         auto_remediable or auto_coverage
@@ -636,10 +638,27 @@ def _classify_stop_reason(
     non_auto_coverage_blocking = [
         row
         for row in coverage_matrix
-        if row.get("blocks_convergence") is True and not _is_auto_remediable_coverage_row(row)
+        if row.get("blocks_convergence") is True and not _is_auto_expandable_coverage_row(row)
     ]
-    if (auto_remediable or auto_coverage) and not non_auto_blocking and not non_auto_coverage_blocking:
+    non_auto_structural_coverage_blocking = [
+        row
+        for row in non_auto_coverage_blocking
+        if row.get("axis_type") == "decision_stack_layer"
+    ]
+    if (
+        (auto_remediable or auto_coverage)
+        and not non_auto_blocking
+        and not non_auto_structural_coverage_blocking
+    ):
         return "continue"
+    if any(
+        gap.get("type") in {"insufficient_evidence", "challenged_evidence"}
+        and gap.get("blocks_convergence") is True
+        for gap in gaps
+    ):
+        return "evidence_gap_blocked"
+    if "unsafe_bulk_review" in gap_types or "bulk_promotion_blocked" in gap_types:
+        return "risk_gate_triggered"
     if non_auto_blocking or non_auto_coverage_blocking:
         return "user_review_required"
     unresolved = [gap for gap in gaps if _severity_at_or_above(str(gap.get("severity")), risk_threshold)]
@@ -660,19 +679,39 @@ def _is_auto_remediable_coverage_row(row: Any) -> bool:
     )
 
 
+def _is_domain_auto_remediable_coverage_row(row: Any) -> bool:
+    return (
+        isinstance(row, dict)
+        and row.get("source") == "domain_pack"
+        and row.get("match_policy") == "explicit_target_or_domain_axis"
+        and row.get("blocks_convergence") is True
+        and row.get("axis_type") == "decision_stack_layer"
+        and row.get("status") in {"missing", "partial"}
+        and row.get("required") is True
+        and row.get("priority") in {"P0", "P1"}
+        and isinstance(row.get("axis_id"), str)
+        and bool(str(row.get("axis_id") or "").strip())
+        and str(row.get("value") or "") in LAYER_COVERAGE_SPECS
+    )
+
+
+def _is_auto_expandable_coverage_row(row: Any) -> bool:
+    return _is_auto_remediable_coverage_row(row) or _is_domain_auto_remediable_coverage_row(row)
+
+
 def _is_auto_remediable_gap(gap: dict[str, Any], coverage_matrix: list[dict[str, Any]]) -> bool:
     gap_type = gap.get("type")
     if gap_type == "missing_required_layer":
-        return bool(_auto_remediable_layer_from_coverage_gap(gap, coverage_matrix))
+        return bool(_auto_expandable_coverage_row_from_gap(gap, coverage_matrix))
     return gap_type in AUTO_REMEDIABLE_GAP_TYPES
 
 
-def _auto_remediable_layer_from_coverage_gap(
+def _auto_expandable_coverage_row_from_gap(
     gap: dict[str, Any],
     coverage_matrix: list[dict[str, Any]],
-) -> str:
+) -> dict[str, Any] | None:
     if gap.get("target_kind") != "coverage_gap":
-        return ""
+        return None
     target_id = str(gap.get("target_id") or "")
     rows_by_axis_id = {
         str(row.get("axis_id")): row
@@ -680,17 +719,17 @@ def _auto_remediable_layer_from_coverage_gap(
         if isinstance(row, dict) and isinstance(row.get("axis_id"), str)
     }
     row = rows_by_axis_id.get(target_id)
-    if row is not None and _is_auto_remediable_coverage_row(row):
-        return str(row.get("value") or "")
-    return ""
+    if row is not None and _is_auto_expandable_coverage_row(row):
+        return row
+    return None
 
 
-def _layer_from_frontier(frontier: Any, projection: dict[str, Any]) -> str:
+def _coverage_row_from_frontier(frontier: Any, projection: dict[str, Any]) -> dict[str, Any] | None:
     if not isinstance(frontier, dict):
-        return ""
+        return None
     source_gap_id = frontier.get("source_gap_id")
     if not isinstance(source_gap_id, str):
-        return ""
+        return None
     gaps_by_id = {
         str(gap.get("id")): gap
         for gap in projection.get("gap_diagnostics", [])
@@ -698,7 +737,7 @@ def _layer_from_frontier(frontier: Any, projection: dict[str, Any]) -> str:
     }
     gap = gaps_by_id.get(source_gap_id)
     if gap is None or gap.get("target_kind") != "coverage_gap":
-        return ""
+        return None
     target_id = gap.get("target_id")
     rows_by_axis_id = {
         str(row.get("axis_id")): row
@@ -706,9 +745,14 @@ def _layer_from_frontier(frontier: Any, projection: dict[str, Any]) -> str:
         if isinstance(row, dict) and isinstance(row.get("axis_id"), str)
     }
     row = rows_by_axis_id.get(str(target_id or ""))
-    if row is not None and _is_auto_remediable_coverage_row(row):
-        return str(row.get("value") or "")
-    return ""
+    if row is not None and _is_auto_expandable_coverage_row(row):
+        return row
+    return None
+
+
+def _layer_from_coverage_row(row: dict[str, Any]) -> str:
+    layer = str(row.get("value") or "")
+    return layer if layer in LAYER_COVERAGE_SPECS else ""
 
 
 def _final_projection_explanation(stop_reason: str, projection: dict[str, Any]) -> str:
@@ -782,6 +826,48 @@ def _coverage_decision(spec: dict[str, str]) -> dict[str, Any]:
             "blocked_for_bulk_acceptance": True,
         },
     }
+
+
+def _domain_coverage_decision(row: dict[str, Any]) -> dict[str, Any]:
+    axis_id = str(row.get("axis_id") or "")
+    layer = str(row.get("value") or "")
+    pack_id = str(row.get("domain_pack_id") or "domain")
+    axis = str(row.get("domain_axis_id") or "axis")
+    label = str(row.get("label") or axis.replace("_", " ")).strip() or axis
+    draft_id = f"DD-GAP-{_safe_id_suffix(f'{pack_id}-{axis}-{layer}')}"
+    label_text = label[:1].lower() + label[1:] if label else axis
+    decision = _coverage_decision(
+        {
+            "id": draft_id,
+            "layer": layer,
+            "priority": str(row.get("priority") or "P1"),
+            "question": (
+                f"What {layer} decision should address the {pack_id} "
+                f"{label_text} coverage target before promotion?"
+            ),
+            "recommendation": (
+                f"Add a {layer}-layer draft decision explicitly bound to {axis_id} "
+                "before promotion."
+            ),
+            "rationale": (
+                f"Domain Pack axis {axis} requires explicit coverage; generic "
+                f"{layer}-layer draft decisions do not satisfy {axis_id}."
+            ),
+            "alternative": f"Treat generic {layer} coverage as sufficient",
+            "reason_not_recommended": (
+                f"{axis_id} requires coverage_target_ids binding to prevent false "
+                "domain-axis coverage."
+            ),
+        }
+    )
+    decision["coverage_target_ids"] = [axis_id]
+    decision["evidence_coverage"]["missing"] = [
+        f"human review of domain-specific evidence for {axis_id}"
+    ]
+    decision["human_review"]["reason"] = (
+        "Domain-specific supplemental draft decisions require individual review."
+    )
+    return decision
 
 
 def _skeleton_decision(
