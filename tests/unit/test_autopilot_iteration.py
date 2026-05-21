@@ -154,6 +154,11 @@ class AutopilotIterationTests(unittest.TestCase):
         self.assertNotIn("DD-GAP-VERIFICATION", decisions)
         generated = decisions["DD-GAP-SOFTWARE-SAFETY-BOUNDARY-VERIFICATION"]
         self.assertEqual(["domain_pack.software.safety_boundary.verification"], generated["coverage_target_ids"])
+        self.assertFalse(generated["recommendation"].startswith("Add a "))
+        self.assertEqual(
+            "Require an observable verification step for safety boundary assumptions before promotion.",
+            generated["recommendation"],
+        )
         self.assertEqual("partial", generated["evidence_coverage"]["status"])
         self.assertNotEqual("sufficient", generated["evidence_coverage"]["status"])
         self.assertTrue(generated["human_review"]["required"])
@@ -201,6 +206,105 @@ class AutopilotIterationTests(unittest.TestCase):
         self.assertNotIn("DD-GAP-VERIFICATION", decision_ids)
         self.assertLessEqual(len(decision_ids), 8)
 
+    def test_autopilot_does_not_auto_expand_past_human_review_safety_blocker(self) -> None:
+        draft_set = _complete_draft_set()
+        draft_set["source_context"]["domain_pack_id"] = "software"
+        draft_set["exploration_contract"]["coverage_targets"].append(_software_safety_verification_target())
+        draft_set["draft_decisions"][0]["priority"] = "P0"
+        draft_set["draft_decisions"][0]["risk_tier"] = "low"
+        draft_set["draft_decisions"][0]["human_review"] = {
+            "required": False,
+            "mode": "bulk",
+            "bulk_promotable": True,
+            "reason": "Priority requires individual review.",
+        }
+
+        final, projection = _iterate(draft_set, max_iterations=2)
+
+        self.assertFalse(
+            any(
+                gap["type"] == "unsafe_bulk_review" and gap["target_kind"] == "draft_decision"
+                for gap in projection["gap_diagnostics"]
+            )
+        )
+        self.assertTrue(
+            any(
+                gap["type"] == "unsafe_bulk_review"
+                and gap["target_kind"] == "coverage_gap"
+                and gap["target_id"] == "core.human_review.safety"
+                for gap in projection["gap_diagnostics"]
+            )
+        )
+        self.assertNotIn(
+            "DD-GAP-SOFTWARE-SAFETY-BOUNDARY-VERIFICATION",
+            {draft["id"] for draft in final["draft_decisions"]},
+        )
+        self.assertEqual("risk_gate_triggered", projection["convergence"]["stop_reason"])
+        self.assertEqual(
+            "partial",
+            _coverage_row(projection, "domain_pack.software.safety_boundary.verification")["status"],
+        )
+
+    def test_autopilot_does_not_auto_expand_past_promotion_safety_blocker(self) -> None:
+        draft_set = _complete_draft_set()
+        draft_set["source_context"]["domain_pack_id"] = "software"
+        draft_set["exploration_contract"]["coverage_targets"].append(_software_safety_verification_target())
+        draft_set["draft_decisions"][0]["promotion_recipe"]["proposal_required"] = False
+
+        final, projection = _iterate(draft_set, max_iterations=2)
+
+        self.assertNotIn(
+            "DD-GAP-SOFTWARE-SAFETY-BOUNDARY-VERIFICATION",
+            {draft["id"] for draft in final["draft_decisions"]},
+        )
+        self.assertEqual("user_review_required", projection["convergence"]["stop_reason"])
+        self.assertEqual(
+            "partial",
+            _coverage_row(projection, "domain_pack.software.safety_boundary.verification")["status"],
+        )
+
+    def test_autopilot_disambiguates_colliding_domain_draft_ids(self) -> None:
+        draft_set = _complete_draft_set()
+        draft_set["source_context"]["domain_pack_id"] = "software"
+        draft_set["exploration_contract"]["coverage_targets"].extend(
+            [
+                _software_safety_verification_target(),
+                _software_safety_verification_target(
+                    axis_id="domain_pack.software.safety-boundary.verification",
+                    domain_axis_id="safety-boundary",
+                    label="Safety-boundary",
+                ),
+            ]
+        )
+
+        final, projection = _iterate(draft_set, max_iterations=2)
+
+        generated = [
+            draft
+            for draft in final["draft_decisions"]
+            if draft.get("coverage_target_ids", [""])[0].startswith("domain_pack.software.safety")
+        ]
+        self.assertEqual(2, len(generated))
+        self.assertEqual(2, len({draft["id"] for draft in generated}))
+        self.assertEqual(
+            {
+                "domain_pack.software.safety_boundary.verification",
+                "domain_pack.software.safety-boundary.verification",
+            },
+            {draft["coverage_target_ids"][0] for draft in generated},
+        )
+        self.assertTrue(
+            any(draft["id"].startswith("DD-GAP-SOFTWARE-SAFETY-BOUNDARY-VERIFICATION-") for draft in generated)
+        )
+        self.assertEqual(
+            "covered",
+            _coverage_row(projection, "domain_pack.software.safety_boundary.verification")["status"],
+        )
+        self.assertEqual(
+            "covered",
+            _coverage_row(projection, "domain_pack.software.safety-boundary.verification")["status"],
+        )
+
 
 def _iterate(
     draft_set: dict,
@@ -235,17 +339,22 @@ def _coverage_row(projection: dict, axis_id: str) -> dict:
     raise AssertionError(f"missing coverage row: {axis_id}")
 
 
-def _software_safety_verification_target() -> dict:
+def _software_safety_verification_target(
+    *,
+    axis_id: str = "domain_pack.software.safety_boundary.verification",
+    domain_axis_id: str = "safety_boundary",
+    label: str = "Safety boundary",
+) -> dict:
     return {
-        "axis_id": "domain_pack.software.safety_boundary.verification",
+        "axis_id": axis_id,
         "axis_type": "decision_stack_layer",
         "value": "verification",
         "priority": "P0",
         "required": True,
         "source": "domain_pack",
         "domain_pack_id": "software",
-        "domain_axis_id": "safety_boundary",
-        "label": "Safety boundary",
+        "domain_axis_id": domain_axis_id,
+        "label": label,
         "match_policy": "explicit_target_or_domain_axis",
     }
 

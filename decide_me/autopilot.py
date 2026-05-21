@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from copy import deepcopy
@@ -34,6 +35,9 @@ AUTO_REMEDIABLE_GAP_TYPES = {
     "unsupported_recommendation",
 }
 VALID_RISK_THRESHOLDS = {"low", "medium", "high", "critical"}
+HARD_STOP_RISK_GAP_TYPES = {"unsafe_bulk_review", "bulk_promotion_blocked"}
+HARD_STOP_REVIEW_GAP_TYPES = {"stale_draft_set"}
+HARD_STOP_SAFETY_AXIS_TYPES = {"human_review_safety", "promotion_safety"}
 LAYER_COVERAGE_SPECS = {
     "purpose": {
         "id": "DD-GAP-PURPOSE",
@@ -320,6 +324,7 @@ def synthesize_gap_resolutions(
         "draft_verifications": [],
     }
     existing_ids = _draft_object_ids(draft_set)
+    existing_coverage_target_ids = _draft_coverage_target_ids(draft_set)
     coverage_matrix = [row for row in projection.get("coverage_matrix", []) if isinstance(row, dict)]
     for frontier in projection.get("frontier_queue", []):
         if len(additions["draft_decisions"]) >= max_new_decisions:
@@ -328,7 +333,10 @@ def synthesize_gap_resolutions(
         if row is None:
             continue
         if _is_domain_auto_remediable_coverage_row(row):
-            decision = _domain_coverage_decision(row)
+            axis_id = str(row.get("axis_id") or "")
+            if axis_id in existing_coverage_target_ids:
+                continue
+            decision = _domain_coverage_decision(row, existing_ids=existing_ids)
         else:
             layer = _layer_from_coverage_row(row)
             spec = LAYER_COVERAGE_SPECS.get(layer)
@@ -338,6 +346,7 @@ def synthesize_gap_resolutions(
         if decision["id"] not in existing_ids:
             additions["draft_decisions"].append(decision)
             existing_ids.add(decision["id"])
+            existing_coverage_target_ids.update(_string_items(decision.get("coverage_target_ids")))
 
     for row in projection.get("coverage_matrix", []):
         if len(additions["draft_decisions"]) >= max_new_decisions:
@@ -363,13 +372,17 @@ def synthesize_gap_resolutions(
             row = _auto_expandable_coverage_row_from_gap(gap, coverage_matrix)
             if row is not None:
                 if _is_domain_auto_remediable_coverage_row(row):
-                    decision = _domain_coverage_decision(row)
+                    axis_id = str(row.get("axis_id") or "")
+                    if axis_id in existing_coverage_target_ids:
+                        continue
+                    decision = _domain_coverage_decision(row, existing_ids=existing_ids)
                 else:
                     layer = _layer_from_coverage_row(row)
                     decision = _coverage_decision(LAYER_COVERAGE_SPECS[layer])
                 if decision["id"] not in existing_ids:
                     additions["draft_decisions"].append(decision)
                     existing_ids.add(decision["id"])
+                    existing_coverage_target_ids.update(_string_items(decision.get("coverage_target_ids")))
         elif gap_type == "no_draft_decisions":
             for spec in LAYER_COVERAGE_SPECS.values():
                 if len(additions["draft_decisions"]) >= max_new_decisions:
@@ -612,11 +625,15 @@ def _classify_stop_reason(
     max_draft_decisions: int,
     risk_threshold: str,
 ) -> str:
-    gap_types = {str(gap.get("type")) for gap in gaps}
-    if "accepted_decision_conflict_possible" in gap_types:
+    blocking_gap_types = {
+        str(gap.get("type"))
+        for gap in gaps
+        if gap.get("blocks_convergence") is True
+    }
+    if "accepted_decision_conflict_possible" in blocking_gap_types:
         return "conflict_blocked"
     if any(
-        gap.get("type") in {"unsafe_bulk_review", "bulk_promotion_blocked"}
+        gap.get("type") in HARD_STOP_RISK_GAP_TYPES
         and gap.get("target_kind") == "draft_decision"
         and gap.get("blocks_convergence") is True
         for gap in gaps
@@ -645,10 +662,13 @@ def _classify_stop_reason(
         for row in non_auto_coverage_blocking
         if row.get("axis_type") == "decision_stack_layer"
     ]
+    hard_stop_safety_coverage = _has_blocking_safety_coverage(coverage_matrix)
     if (
         (auto_remediable or auto_coverage)
         and not non_auto_blocking
         and not non_auto_structural_coverage_blocking
+        and not hard_stop_safety_coverage
+        and not (blocking_gap_types & HARD_STOP_REVIEW_GAP_TYPES)
     ):
         return "continue"
     if any(
@@ -657,8 +677,10 @@ def _classify_stop_reason(
         for gap in gaps
     ):
         return "evidence_gap_blocked"
-    if "unsafe_bulk_review" in gap_types or "bulk_promotion_blocked" in gap_types:
+    if blocking_gap_types & HARD_STOP_RISK_GAP_TYPES:
         return "risk_gate_triggered"
+    if blocking_gap_types & HARD_STOP_REVIEW_GAP_TYPES:
+        return "user_review_required"
     if non_auto_blocking or non_auto_coverage_blocking:
         return "user_review_required"
     unresolved = [gap for gap in gaps if _severity_at_or_above(str(gap.get("severity")), risk_threshold)]
@@ -697,6 +719,15 @@ def _is_domain_auto_remediable_coverage_row(row: Any) -> bool:
 
 def _is_auto_expandable_coverage_row(row: Any) -> bool:
     return _is_auto_remediable_coverage_row(row) or _is_domain_auto_remediable_coverage_row(row)
+
+
+def _has_blocking_safety_coverage(coverage_matrix: list[dict[str, Any]]) -> bool:
+    return any(
+        isinstance(row, dict)
+        and row.get("blocks_convergence") is True
+        and row.get("axis_type") in HARD_STOP_SAFETY_AXIS_TYPES
+        for row in coverage_matrix
+    )
 
 
 def _is_auto_remediable_gap(gap: dict[str, Any], coverage_matrix: list[dict[str, Any]]) -> bool:
@@ -828,13 +859,19 @@ def _coverage_decision(spec: dict[str, str]) -> dict[str, Any]:
     }
 
 
-def _domain_coverage_decision(row: dict[str, Any]) -> dict[str, Any]:
+def _domain_coverage_decision(row: dict[str, Any], *, existing_ids: set[str] | None = None) -> dict[str, Any]:
     axis_id = str(row.get("axis_id") or "")
     layer = str(row.get("value") or "")
     pack_id = str(row.get("domain_pack_id") or "domain")
     axis = str(row.get("domain_axis_id") or "axis")
     label = str(row.get("label") or axis.replace("_", " ")).strip() or axis
-    draft_id = f"DD-GAP-{_safe_id_suffix(f'{pack_id}-{axis}-{layer}')}"
+    draft_id = _domain_coverage_decision_id(
+        pack_id=pack_id,
+        axis=axis,
+        layer=layer,
+        axis_id=axis_id,
+        existing_ids=existing_ids or set(),
+    )
     label_text = label[:1].lower() + label[1:] if label else axis
     decision = _coverage_decision(
         {
@@ -845,10 +882,7 @@ def _domain_coverage_decision(row: dict[str, Any]) -> dict[str, Any]:
                 f"What {layer} decision should address the {pack_id} "
                 f"{label_text} coverage target before promotion?"
             ),
-            "recommendation": (
-                f"Add a {layer}-layer draft decision explicitly bound to {axis_id} "
-                "before promotion."
-            ),
+            "recommendation": _domain_coverage_recommendation(layer, label_text),
             "rationale": (
                 f"Domain Pack axis {axis} requires explicit coverage; generic "
                 f"{layer}-layer draft decisions do not satisfy {axis_id}."
@@ -868,6 +902,39 @@ def _domain_coverage_decision(row: dict[str, Any]) -> dict[str, Any]:
         "Domain-specific supplemental draft decisions require individual review."
     )
     return decision
+
+
+def _domain_coverage_decision_id(
+    *,
+    pack_id: str,
+    axis: str,
+    layer: str,
+    axis_id: str,
+    existing_ids: set[str],
+) -> str:
+    base_id = f"DD-GAP-{_safe_id_suffix(f'{pack_id}-{axis}-{layer}')}"
+    if base_id not in existing_ids:
+        return base_id
+    digest = hashlib.sha256(axis_id.encode("utf-8")).hexdigest()[:8].upper()
+    candidate = f"{base_id}-{digest}"
+    counter = 2
+    while candidate in existing_ids:
+        candidate = f"{base_id}-{digest}-{counter}"
+        counter += 1
+    return candidate
+
+
+def _domain_coverage_recommendation(layer: str, label_text: str) -> str:
+    if layer == "verification":
+        return f"Require an observable verification step for {label_text} assumptions before promotion."
+    if layer == "design":
+        return f"Define the design boundary and review criteria for {label_text} before promotion."
+    if layer == "execution":
+        return (
+            "Specify the minimum execution path and rollback consideration for "
+            f"{label_text} before promotion."
+        )
+    return f"Record a {layer}-layer decision for {label_text} before promotion."
 
 
 def _skeleton_decision(
@@ -996,6 +1063,18 @@ def _draft_object_ids(draft_set: dict[str, Any]) -> set[str]:
             if isinstance(item, dict) and isinstance(item.get("id"), str):
                 ids.add(item["id"])
     return ids
+
+
+def _draft_coverage_target_ids(draft_set: dict[str, Any]) -> set[str]:
+    ids: set[str] = set()
+    for draft in _items(draft_set, "draft_decisions"):
+        if isinstance(draft, dict):
+            ids.update(_string_items(draft.get("coverage_target_ids")))
+    return ids
+
+
+def _string_items(value: Any) -> list[str]:
+    return [item for item in value if isinstance(item, str)] if isinstance(value, list) else []
 
 
 def _items(value: dict[str, Any], key: str) -> list[Any]:

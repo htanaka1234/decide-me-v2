@@ -324,7 +324,7 @@
       },
       "question": "What verification decision should address the software safety boundary coverage target before promotion?",
       "rationale": "Domain Pack axis safety_boundary requires explicit coverage; generic verification-layer draft decisions do not satisfy domain_pack.software.safety_boundary.verification.",
-      "recommendation": "Add a verification-layer draft decision explicitly bound to domain_pack.software.safety_boundary.verification before promotion.",
+      "recommendation": "Require an observable verification step for safety boundary assumptions before promotion.",
       "reversibility": "reversible",
       "risk_tier": "medium",
       "status": "recommended"
