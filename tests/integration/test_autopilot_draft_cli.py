@@ -208,7 +208,7 @@ class AutopilotDraftCliTests(unittest.TestCase):
                 "--max-iterations",
                 "2",
                 "--max-draft-decisions",
-                "12",
+                "30",
                 "--no-export",
             )
             draft_set = json.loads(Path(result["draft_set_path"]).read_text(encoding="utf-8"))
@@ -218,7 +218,7 @@ class AutopilotDraftCliTests(unittest.TestCase):
             self.assertNotIn("review_queue", draft_set)
             self.assertEqual("Clarify uncategorized objective qqqq.", draft_set["goal"]["title"])
             self.assertEqual(
-                {"max_draft_decisions": 12, "max_iterations": 2},
+                {"max_draft_decisions": 30, "max_iterations": 2},
                 draft_set["exploration_contract"]["budgets"],
             )
             self.assertEqual(
@@ -278,11 +278,21 @@ class AutopilotDraftCliTests(unittest.TestCase):
                 targets["domain_pack.software.safety_boundary.verification"]["match_policy"],
             )
             self.assertEqual("design", targets["domain_pack.software.execution_path.design"]["value"])
+            generated = {
+                draft["id"]: draft
+                for draft in draft_set["draft_decisions"]
+                if draft["id"].startswith("DD-GAP-SOFTWARE-")
+            }
+            self.assertIn("DD-GAP-SOFTWARE-SAFETY-BOUNDARY-VERIFICATION", generated)
+            self.assertEqual(
+                ["domain_pack.software.safety_boundary.verification"],
+                generated["DD-GAP-SOFTWARE-SAFETY-BOUNDARY-VERIFICATION"]["coverage_target_ids"],
+            )
             domain_row = _coverage_row(projection, "domain_pack.software.safety_boundary.verification")
-            self.assertEqual("partial", domain_row["status"])
-            self.assertTrue(domain_row["blocks_convergence"])
+            self.assertEqual("covered", domain_row["status"])
+            self.assertFalse(domain_row["blocks_convergence"])
 
-    def test_autopilot_draft_cli_does_not_generic_remediate_domain_axis_gap(self) -> None:
+    def test_autopilot_draft_cli_adds_domain_bound_decision_for_domain_axis_gap(self) -> None:
         with TemporaryDirectory() as tmp:
             ai_dir = _bootstrap(Path(tmp))
             seed = _seed_payload()
@@ -317,13 +327,21 @@ class AutopilotDraftCliTests(unittest.TestCase):
             draft_set = json.loads(Path(result["draft_set_path"]).read_text(encoding="utf-8"))
             projection = json.loads(Path(result["projection_path"]).read_text(encoding="utf-8"))
 
-            self.assertFalse(
-                any(draft["id"].startswith("DD-GAP-") for draft in draft_set["draft_decisions"])
+            decisions = {draft["id"]: draft for draft in draft_set["draft_decisions"]}
+            self.assertNotIn("DD-GAP-VERIFICATION", decisions)
+            generated = decisions["DD-GAP-SOFTWARE-SAFETY-BOUNDARY-VERIFICATION"]
+            self.assertEqual(
+                ["domain_pack.software.safety_boundary.verification"],
+                generated["coverage_target_ids"],
             )
-            self.assertEqual("user_review_required", projection["convergence"]["stop_reason"])
+            self.assertEqual("partial", generated["evidence_coverage"]["status"])
+            self.assertNotEqual("sufficient", generated["evidence_coverage"]["status"])
+            self.assertTrue(generated["human_review"]["required"])
+            self.assertEqual("individual", generated["human_review"]["mode"])
+            self.assertFalse(generated["human_review"]["bulk_promotable"])
             domain_row = _coverage_row(projection, "domain_pack.software.safety_boundary.verification")
-            self.assertEqual("partial", domain_row["status"])
-            self.assertTrue(domain_row["blocks_convergence"])
+            self.assertEqual("covered", domain_row["status"])
+            self.assertFalse(domain_row["blocks_convergence"])
 
     def test_autopilot_draft_cli_uses_frontier_for_missing_layer_expansion(self) -> None:
         with TemporaryDirectory() as tmp:

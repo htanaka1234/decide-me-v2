@@ -90,6 +90,9 @@ domain-specific safety, execution, or publication gap.
 The generated target id is part of the source contract: it must match
 `domain_pack.<domain_pack_id>.<domain_axis_id>.<layer>`, and draft `coverage_target_ids` must reference
 that exact id with a matching draft layer.
+When autopilot expands a Domain Pack frontier, it creates a deterministic domain-specific draft
+decision bound to that target id. It does not mark evidence as sufficient; source evidence remains a
+separate review requirement.
 
 ## CLI surface
 

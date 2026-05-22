@@ -1,11 +1,17 @@
 seed_draft_json: draft-seed.json
 draft_set_id: DS-20260429-001
-max_iterations: 1
+max_iterations: 2
 max_draft_decisions: 8
 expected_required_gap_ids:
+- core.evidence.coverage
 - core.layer.strategy
-- domain_pack.software.safety_boundary.verification
 expected_coverage_rows:
+- axis_id: core.evidence.coverage
+  axis_type: evidence_coverage
+  status: partial
+  required: true
+  priority: P0
+  blocks_convergence: true
 - axis_id: core.layer.strategy
   axis_type: decision_stack_layer
   status: missing
@@ -14,19 +20,21 @@ expected_coverage_rows:
   blocks_convergence: true
 - axis_id: domain_pack.software.safety_boundary.verification
   axis_type: decision_stack_layer
-  status: partial
+  status: covered
   required: true
   priority: P0
-  blocks_convergence: true
+  blocks_convergence: false
 expected_gap_types:
+- insufficient_evidence
 - missing_required_layer
+- unsupported_recommendation
 expected_convergence:
   status: blocked
-  stop_reason: user_review_required
-  blocking_gap_count: 2
+  stop_reason: evidence_gap_blocked
+  blocking_gap_count: 3
 expected_review_queue:
   blocked_count: 1
   bulk_promotable_count: 0
-  blocking_gap_count: 2
+  blocking_gap_count: 3
   individual_review_required_min_count: 1
 max_allowed_draft_decisions: 20

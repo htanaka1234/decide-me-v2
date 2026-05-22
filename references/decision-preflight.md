@@ -405,8 +405,11 @@ policy fail closed and must not be treated as covered from missing semantics.
 Frontier is also projection-derived. `project-draft-set` derives `frontier_queue` from blocking
 coverage gap diagnostics whose coverage rows are required P0/P1 targets. Frontier items identify the
 source `GAP-...`, use `F-GAP-...` IDs, stay `status=open`, and describe the next expansion target.
-Decision Stack layer frontier items can drive `autopilot-draft` supplemental draft decisions; evidence
-frontier items list `evidence_needed` from remaining gaps but must not upgrade evidence coverage.
+Decision Stack layer frontier items can drive `autopilot-draft` supplemental draft decisions. Core
+layer frontiers generate generic `DD-GAP-<LAYER>` drafts. Domain Pack frontiers generate
+domain-specific drafts with `coverage_target_ids` bound to the frontier's `axis_id`; they do not use
+generic layer drafts to satisfy semantic domain coverage. Evidence frontier items list
+`evidence_needed` from remaining gaps but must not upgrade evidence coverage.
 Frontier items are ordered by priority rank, axis type rank, Decision Stack layer order, then
 `axis_id`, so budget-limited auto-expansion is deterministic. Frontier is not source state: it must
 not be written into `draft-set.json`. It may be written only as part of the derived

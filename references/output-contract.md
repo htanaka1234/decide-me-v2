@@ -288,6 +288,10 @@ coverage gaps and must not be written into `draft-set.json`. Persisted frontier 
 the derived `draft-projection.json` sidecar; review/export commands may also render it from an
 in-memory projection without writing that sidecar. Frontier ordering is deterministic: priority rank,
 axis type rank, Decision Stack layer order, then `axis_id`.
+Autopilot may consume Decision Stack frontier items: core layer rows generate generic supplemental
+drafts, while Domain Pack rows generate domain-specific supplemental drafts that include
+`coverage_target_ids` for the row `axis_id`. Evidence frontier items never cause evidence status to
+be set to `sufficient`.
 `coverage_summary.blocking_gap_count` counts coverage matrix rows where `blocks_convergence=true`.
 `convergence.blocking_gap_count` counts gap diagnostics where `blocks_convergence=true`.
 

@@ -138,6 +138,12 @@ class DraftProjectionTests(unittest.TestCase):
         self.assertTrue(row["blocks_convergence"])
         self.assertEqual("blocked", projection["convergence"]["status"])
         self.assertEqual(f"F-{gap['id']}", frontier["id"])
+        self.assertEqual("Safety boundary verification layer is missing", frontier["topic"])
+        self.assertEqual(
+            "Add one complete verification-layer draft decision explicitly bound to "
+            "domain_pack.software.safety_boundary.verification before review.",
+            frontier["suggested_expansion"],
+        )
 
     def test_domain_axis_is_not_covered_by_generic_same_layer_decision(self) -> None:
         draft_set = _draft_set()

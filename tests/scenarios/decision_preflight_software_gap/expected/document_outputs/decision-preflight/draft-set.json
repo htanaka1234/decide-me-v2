@@ -283,6 +283,51 @@
       "reversibility": "reversible",
       "risk_tier": "low",
       "status": "recommended"
+    },
+    {
+      "alternatives": [
+        {
+          "option": "Treat generic verification coverage as sufficient",
+          "reason_not_recommended": "domain_pack.software.safety_boundary.verification requires coverage_target_ids binding to prevent false domain-axis coverage."
+        }
+      ],
+      "coverage_target_ids": [
+        "domain_pack.software.safety_boundary.verification"
+      ],
+      "evidence_coverage": {
+        "missing": [
+          "human review of domain-specific evidence for domain_pack.software.safety_boundary.verification"
+        ],
+        "source_unit_ids": [],
+        "status": "partial",
+        "supporting_object_ids": []
+      },
+      "frontier": "now",
+      "human_review": {
+        "bulk_promotable": false,
+        "mode": "individual",
+        "reason": "Domain-specific supplemental draft decisions require individual review.",
+        "required": true
+      },
+      "id": "DD-GAP-SOFTWARE-SAFETY-BOUNDARY-VERIFICATION",
+      "kind": "choice",
+      "layer": "verification",
+      "priority": "P0",
+      "promotion_recipe": {
+        "acceptance_mode_allowed": [
+          "explicit"
+        ],
+        "blocked_for_bulk_acceptance": true,
+        "canonical_initial_status": "unresolved",
+        "canonical_object_type": "decision",
+        "proposal_required": true
+      },
+      "question": "What verification decision should address the software safety boundary coverage target before promotion?",
+      "rationale": "Domain Pack axis safety_boundary requires explicit coverage; generic verification-layer draft decisions do not satisfy domain_pack.software.safety_boundary.verification.",
+      "recommendation": "Require an observable verification step for safety boundary assumptions before promotion.",
+      "reversibility": "reversible",
+      "risk_tier": "medium",
+      "status": "recommended"
     }
   ],
   "draft_risks": [],
@@ -290,7 +335,7 @@
   "exploration_contract": {
     "budgets": {
       "max_draft_decisions": 8,
-      "max_iterations": 1
+      "max_iterations": 2
     },
     "coverage_targets": [
       {

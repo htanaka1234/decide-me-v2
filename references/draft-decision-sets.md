@@ -163,8 +163,10 @@ possible conflicts with accepted decisions.
 
 `frontier_queue` is derived from blocking required P0/P1 coverage gaps. Each open frontier item points
 to the source gap via `source_gap_id`, uses an `F-GAP-...` ID, and names the next expansion target.
-Layer frontier items can drive deterministic supplemental draft decisions; evidence frontier items
-only list `evidence_needed` and must not mark evidence as sufficient. Frontier order is explicit:
+Layer frontier items can drive deterministic supplemental draft decisions. Core layer frontiers
+generate generic `DD-GAP-<LAYER>` drafts; Domain Pack frontiers generate domain-specific drafts whose
+`coverage_target_ids` explicitly binds the target `axis_id`. Evidence frontier items only list
+`evidence_needed` and must not mark evidence as sufficient. Frontier order is explicit:
 priority rank, axis type rank, Decision Stack layer order, then `axis_id`. In summary counts,
 `coverage_summary.blocking_gap_count` counts blocking coverage rows, while
 `convergence.blocking_gap_count` counts blocking gap diagnostics. Frontier is never persisted in the

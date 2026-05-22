@@ -492,6 +492,9 @@ def _frontier_topic(row: dict[str, Any]) -> str:
     axis_type = str(row.get("axis_type") or "")
     value = str(row.get("value") or "")
     status = str(row.get("status") or "")
+    if row.get("source") == "domain_pack" and axis_type == "decision_stack_layer":
+        label = str(row.get("label") or row.get("domain_axis_id") or row.get("axis_id") or "")
+        return f"{label} {value} layer is {status}"
     if axis_type == "decision_stack_layer":
         return f"{value} layer is {status}"
     if axis_type == "evidence_coverage":
@@ -512,6 +515,9 @@ def _frontier_evidence_needed(row: dict[str, Any]) -> list[str]:
 def _frontier_suggested_expansion(row: dict[str, Any], gap: dict[str, Any]) -> str:
     axis_type = str(row.get("axis_type") or "")
     value = str(row.get("value") or "")
+    if row.get("source") == "domain_pack" and axis_type == "decision_stack_layer":
+        axis_id = str(row.get("axis_id") or gap.get("target_id") or "")
+        return f"Add one complete {value}-layer draft decision explicitly bound to {axis_id} before review."
     if axis_type == "decision_stack_layer":
         return f"Add one complete {value}-layer draft decision before review."
     if axis_type == "evidence_coverage":

@@ -118,7 +118,9 @@ targets and match the draft layer. Derived coverage matrices, gap
 diagnostics, convergence, frontier queues, and review queues stay out of `draft-set.json`. `draft-projection.json` uses
 `schema_version: 4` and owns `coverage_summary`, `coverage_matrix`, and the derived
 `frontier_queue`; required P0/P1 missing or partial coverage blocks convergence and creates open
-frontier items for the next expansion target.
+frontier items for the next expansion target. Autopilot may turn Domain Pack frontier items into
+domain-specific supplemental drafts with `coverage_target_ids`, but it does not mark evidence as
+`sufficient`.
 
 ```text
 Create decision preflight from goal:
