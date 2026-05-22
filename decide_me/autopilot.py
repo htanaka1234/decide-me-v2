@@ -925,16 +925,26 @@ def _domain_coverage_decision_id(
 
 
 def _domain_coverage_recommendation(layer: str, label_text: str) -> str:
-    if layer == "verification":
-        return f"Require an observable verification step for {label_text} assumptions before promotion."
-    if layer == "design":
-        return f"Define the design boundary and review criteria for {label_text} before promotion."
-    if layer == "execution":
-        return (
+    recommendations = {
+        "purpose": f"Define the intended outcome and success signal for {label_text} before promotion.",
+        "principle": f"Set the guiding principle and tradeoff rule for {label_text} before promotion.",
+        "constraint": f"State the constraints, prohibitions, and non-goals for {label_text} before promotion.",
+        "strategy": (
+            "Choose the strategy, prioritization rule, and sequencing approach for "
+            f"{label_text} before promotion."
+        ),
+        "design": f"Define the design boundary and review criteria for {label_text} before promotion.",
+        "execution": (
             "Specify the minimum execution path and rollback consideration for "
             f"{label_text} before promotion."
-        )
-    return f"Record a {layer}-layer decision for {label_text} before promotion."
+        ),
+        "verification": f"Require an observable verification step for {label_text} assumptions before promotion.",
+        "review": f"Define the approval criteria and individual review conditions for {label_text} before promotion.",
+    }
+    return recommendations.get(
+        layer,
+        f"Clarify the {layer}-layer policy, acceptance criteria, and review trigger for {label_text} before promotion.",
+    )
 
 
 def _skeleton_decision(

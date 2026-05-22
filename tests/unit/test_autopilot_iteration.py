@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 from copy import deepcopy
 
-from decide_me.autopilot import iterate_draft_set
+from decide_me.autopilot import _domain_coverage_recommendation, iterate_draft_set
 from decide_me.projections import default_project_state
 from tests.unit.test_draft_set_schema import minimal_valid_draft_set
 
@@ -171,6 +171,33 @@ class AutopilotIterationTests(unittest.TestCase):
         )
         self.assertEqual("covered", domain_row["status"])
         self.assertFalse(domain_row["blocks_convergence"])
+
+    def test_domain_coverage_recommendations_are_substantive_for_builtin_layers(self) -> None:
+        expected = {
+            "purpose": "Define the intended outcome and success signal for safety boundary before promotion.",
+            "principle": "Set the guiding principle and tradeoff rule for safety boundary before promotion.",
+            "constraint": "State the constraints, prohibitions, and non-goals for safety boundary before promotion.",
+            "strategy": (
+                "Choose the strategy, prioritization rule, and sequencing approach for "
+                "safety boundary before promotion."
+            ),
+            "design": "Define the design boundary and review criteria for safety boundary before promotion.",
+            "execution": (
+                "Specify the minimum execution path and rollback consideration for "
+                "safety boundary before promotion."
+            ),
+            "verification": "Require an observable verification step for safety boundary assumptions before promotion.",
+            "review": (
+                "Define the approval criteria and individual review conditions for "
+                "safety boundary before promotion."
+            ),
+        }
+        for layer, recommendation in expected.items():
+            with self.subTest(layer=layer):
+                generated = _domain_coverage_recommendation(layer, "safety boundary")
+                self.assertEqual(recommendation, generated)
+                self.assertFalse(generated.startswith(("Add a ", "Record a ")))
+                self.assertIn("safety boundary", generated)
 
     def test_autopilot_adds_core_and_domain_decisions_for_same_layer_gaps(self) -> None:
         draft_set = _complete_draft_set()
